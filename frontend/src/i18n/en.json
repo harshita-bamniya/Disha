@@ -1,0 +1,37 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "retry": "Try again",
+    "next": "Next",
+    "back": "Back",
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "save": "Save",
+    "continue": "Continue"
+  },
+  "auth": {
+    "login": "Log in",
+    "register": "Create account",
+    "phone": "Phone number",
+    "email": "Email address",
+    "password": "Password",
+    "otp": "Enter OTP",
+    "sendOtp": "Send OTP",
+    "verifyOtp": "Verify OTP",
+    "forgotPassword": "Forgot password?",
+    "noAccount": "Don't have an account?",
+    "haveAccount": "Already have an account?"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "skills": "My Skills",
+    "careers": "Careers",
+    "learn": "Learn",
+    "resume": "Resume",
+    "interview": "Interview Prep",
+    "counsellor": "DISHA AI",
+    "profile": "Profile",
+    "logout": "Log out"
+  }
+}

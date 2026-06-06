@@ -1,0 +1,37 @@
+{
+  "common": {
+    "loading": "लोड हो रहा है...",
+    "error": "कुछ गलत हुआ",
+    "retry": "पुनः प्रयास करें",
+    "next": "आगे",
+    "back": "पीछे",
+    "submit": "जमा करें",
+    "cancel": "रद्द करें",
+    "save": "सहेजें",
+    "continue": "जारी रखें"
+  },
+  "auth": {
+    "login": "लॉग इन करें",
+    "register": "खाता बनाएं",
+    "phone": "फ़ोन नंबर",
+    "email": "ईमेल पता",
+    "password": "पासवर्ड",
+    "otp": "OTP दर्ज करें",
+    "sendOtp": "OTP भेजें",
+    "verifyOtp": "OTP सत्यापित करें",
+    "forgotPassword": "पासवर्ड भूल गए?",
+    "noAccount": "खाता नहीं है?",
+    "haveAccount": "पहले से खाता है?"
+  },
+  "nav": {
+    "dashboard": "डैशबोर्ड",
+    "skills": "मेरे कौशल",
+    "careers": "करियर",
+    "learn": "सीखें",
+    "resume": "रेज़्यूमे",
+    "interview": "इंटरव्यू तैयारी",
+    "counsellor": "DISHA AI",
+    "profile": "प्रोफ़ाइल",
+    "logout": "लॉग आउट"
+  }
+}
