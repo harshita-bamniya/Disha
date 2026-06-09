@@ -5,6 +5,7 @@ import { MapPin, BookOpen, ExternalLink, X, CheckCircle2, TrendingUp, Zap, Targe
 import type { LiveJob } from '@/api/krs'
 import { formatSalary } from '@/api/jobs'
 import AppSidebar from '@/components/layout/AppSidebar'
+import { resumeApi } from '@/api/resume'
 
 function greeting() {
   const h = new Date().getHours()
@@ -245,8 +246,8 @@ function JobRow({ job, index, onOpen, onApply, onPrepare, isPreparing }: {
 }
 
 // ── Job detail modal ──────────────────────────────────────────────────────────
-function JobModal({ job, onClose, onApply, onPrepare, isPreparing }: {
-  job: LiveJob; onClose: () => void; onApply: () => void; onPrepare: () => void; isPreparing?: boolean
+function JobModal({ job, onClose, onApply, onPrepare, onGenerateResume, isPreparing }: {
+  job: LiveJob; onClose: () => void; onApply: () => void; onPrepare: () => void; onGenerateResume: () => void; isPreparing?: boolean
 }) {
   const [c1, c2] = sectorColor(job.sector)
   return (
@@ -297,13 +298,19 @@ function JobModal({ job, onClose, onApply, onPrepare, isPreparing }: {
             {job.expires_at && <span style={{ color: new Date(job.expires_at) < new Date() ? '#DC2626' : '#94A3B8' }}>{new Date(job.expires_at) < new Date() ? '⚠ Expired' : `Closes ${new Date(job.expires_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`}</span>}
           </div>
         </div>
-        <div style={{ padding: '0 24px 24px', display: 'flex', gap: 10 }}>
-          <button onClick={onPrepare} disabled={isPreparing} style={{ flex: 1, height: 46, borderRadius: 13, border: '1.5px solid #E2E8F0', background: job.is_prepared ? `${c1}08` : 'white', color: job.is_prepared ? c1 : '#374151', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'all 0.2s' }}>
-            {isPreparing ? <div style={{ width: 14, height: 14, border: `2px solid ${c1}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /> : <><BookOpen size={14} />{job.is_prepared ? '✓ In Prep List' : 'Add to Prep List'}</>}
+        <div style={{ padding: '0 24px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* Generate Resume CTA */}
+          <button onClick={onGenerateResume} style={{ width: '100%', height: 46, borderRadius: 13, background: 'linear-gradient(135deg, #4F46E5, #7C3AED)', color: 'white', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, boxShadow: '0 4px 18px rgba(79,70,229,0.35)', transition: 'all 0.2s' }}>
+            ✨ Generate Resume for This Job
           </button>
-          <button onClick={onApply} style={{ flex: 1, height: 46, borderRadius: 13, background: `linear-gradient(135deg, ${c1}, ${c2})`, color: 'white', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, boxShadow: `0 4px 18px ${c1}45`, transition: 'all 0.2s' }}>
-            <ExternalLink size={14} /> Apply Now
-          </button>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={onPrepare} disabled={isPreparing} style={{ flex: 1, height: 42, borderRadius: 13, border: '1.5px solid #E2E8F0', background: job.is_prepared ? `${c1}08` : 'white', color: job.is_prepared ? c1 : '#374151', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'all 0.2s' }}>
+              {isPreparing ? <div style={{ width: 14, height: 14, border: `2px solid ${c1}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /> : <><BookOpen size={13} />{job.is_prepared ? '✓ In Prep List' : 'Add to Prep List'}</>}
+            </button>
+            <button onClick={onApply} style={{ flex: 1, height: 42, borderRadius: 13, background: `linear-gradient(135deg, ${c1}, ${c2})`, color: 'white', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, boxShadow: `0 4px 18px ${c1}45`, transition: 'all 0.2s' }}>
+              <ExternalLink size={13} /> Apply Now
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -357,6 +364,22 @@ export default function DashboardPage() {
       if (job.is_prepared) await unprepareJob.mutateAsync(job.id)
       else { await prepareJob.mutateAsync(job.id); navigate('/app/careers/explore') }
     } finally { setPreparingJobId(null) }
+  }
+
+  const handleGenerateResume = async (job: LiveJob) => {
+    setSelectedJob(null)
+    try {
+      const newResume = await resumeApi.createResume({ title: `${job.title} — ${job.company_name}` })
+      await resumeApi.aiGenerateResume(newResume.id, {
+        job_title: job.title,
+        company_name: job.company_name,
+        required_skills: job.required_skills,
+        job_description: job.description,
+      })
+      navigate(`/app/resume/${newResume.id}`)
+    } catch {
+      alert('Could not generate resume. Please try again.')
+    }
   }
 
   const gapFreq: Record<string, number> = {}
@@ -719,6 +742,7 @@ export default function DashboardPage() {
         <JobModal job={selectedJob} onClose={() => setSelectedJob(null)}
           onApply={() => { setSelectedJob(null); setApplyJob(selectedJob) }}
           onPrepare={() => { setSelectedJob(null); handlePrepare(selectedJob).catch(() => {}) }}
+          onGenerateResume={() => handleGenerateResume(selectedJob)}
           isPreparing={preparingJobId === selectedJob?.id}
         />
       )}

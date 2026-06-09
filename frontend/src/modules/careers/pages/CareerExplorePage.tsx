@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Briefcase, BookOpen, Building2, MapPin, Target,
-  TrendingUp, CheckCircle2, X, ExternalLink, Sparkles,
+  TrendingUp, CheckCircle2, X, ExternalLink, Sparkles, Play,
 } from 'lucide-react'
 import { usePreparedJobs, useUnprepareJob, useKrsDashboard } from '@/modules/dashboard/hooks/useKrs'
+import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 import { cn } from '@/lib/utils'
 import type { LiveJob } from '@/api/krs'
 import { formatSalary, EMPLOYMENT_TYPE_LABELS } from '@/api/jobs'
@@ -408,7 +409,12 @@ function JobAnalysisDrawer({
 }
 
 // ── Prepared job card ─────────────────────────────────────────────────────────
-function PreparedJobCard({ job, onAnalyse }: { job: LiveJob; onAnalyse: () => void }) {
+function PreparedJobCard({ job, onAnalyse, onStartPrep, isActivePrep }: {
+  job: LiveJob
+  onAnalyse: () => void
+  onStartPrep: () => void
+  isActivePrep: boolean
+}) {
   const haveCount = job.skills_you_have.length
   const gapCount  = job.skills_to_develop.length
   const total     = job.required_skills.length
@@ -457,13 +463,28 @@ function PreparedJobCard({ job, onAnalyse }: { job: LiveJob; onAnalyse: () => vo
         </div>
       )}
 
-      <button
-        onClick={onAnalyse}
-        className="w-full flex items-center justify-center gap-2 h-10 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
-      >
-        <BookOpen className="w-4 h-4" />
-        View Skill Gap Analysis & Prep Plan
-      </button>
+      {/* Two buttons: Skill Gap + Start Prep */}
+      <div className="flex gap-2">
+        <button
+          onClick={onAnalyse}
+          className="flex-1 flex items-center justify-center gap-2 h-10 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/90 transition-colors"
+        >
+          <BookOpen className="w-3.5 h-3.5" />
+          View Skill Gap
+        </button>
+        <button
+          onClick={onStartPrep}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-semibold transition-colors',
+            isActivePrep
+              ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+              : 'bg-emerald-500 hover:bg-emerald-600 text-white',
+          )}
+        >
+          <Play className="w-3.5 h-3.5 fill-white" />
+          {isActivePrep ? 'Active ✓' : 'Start Prep'}
+        </button>
+      </div>
     </div>
   )
 }
@@ -474,6 +495,7 @@ export default function CareerExplorePage() {
   const { data: preparedJobs, isLoading } = usePreparedJobs()
   const { data: dashboard } = useKrsDashboard()
   const unprepareJob = useUnprepareJob()
+  const { activePrep, startPrep } = useActivePrepJob()
 
   const [selectedJob, setSelectedJob] = useState<LiveJob | null>(null)
   const [applyJob, setApplyJob] = useState<LiveJob | null>(null)
@@ -573,6 +595,10 @@ export default function CareerExplorePage() {
                     key={job.id}
                     job={job}
                     onAnalyse={() => setSelectedJob(job)}
+                    onStartPrep={() => startPrep(job.id, {
+                      onSuccess: () => navigate('/app/learn'),
+                    })}
+                    isActivePrep={activePrep?.job_id === job.id}
                   />
                 ))}
               </div>

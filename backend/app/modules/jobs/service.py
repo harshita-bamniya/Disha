@@ -1,16 +1,13 @@
 import logging
-import threading
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import AuthException, BadRequestException
-from app.database import SessionLocal
 from app.models.user import EmployerProfile, JobPosting, User
 from app.modules.jobs.schemas import (
     EmployerDashboardResponse, JobPostingRequest,
     JobPostingResponse,
 )
-from app.modules.recommendations import embedder
 
 logger = logging.getLogger(__name__)
 
@@ -70,30 +67,10 @@ def get_dashboard(user: User, db: Session) -> EmployerDashboardResponse:
     )
 
 
-def _embed_job_bg(job_id: str) -> None:
-    """Background worker — opens its own DB session so the main request is not blocked."""
-    db = SessionLocal()
-    try:
-        job = db.query(JobPosting).filter(JobPosting.id == job_id).first()
-        if not job:
-            return
-        text = embedder.build_job_text(job)
-        vec = embedder.embed(text)
-        if vec:
-            job.description_embedding = vec
-            db.commit()
-            logger.info(f"[EMBEDDER] Background embedding stored for job={job_id}")
-    except Exception as exc:
-        logger.warning(f"[EMBEDDER] Background embedding failed for job={job_id}: {exc}")
-    finally:
-        db.close()
-
-
 def _embed_job(job: JobPosting) -> None:
-    """Fire-and-forget: spawn a daemon thread so the employer's request returns immediately."""
-    job_id = str(job.id)
-    thread = threading.Thread(target=_embed_job_bg, args=(job_id,), daemon=True)
-    thread.start()
+    """Dispatch embedding to Celery — retried automatically on failure."""
+    from app.tasks.worker import embed_job
+    embed_job.delay(str(job.id))
 
 
 def create_job(user: User, data: JobPostingRequest, db: Session) -> JobPostingResponse:

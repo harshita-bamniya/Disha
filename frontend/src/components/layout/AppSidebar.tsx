@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { LayoutDashboard, BookOpen, UserCircle, Compass, LogOut, BarChart2 } from 'lucide-react'
+import { LayoutDashboard, BookOpen, UserCircle, Compass, LogOut, BarChart2, FileText, MessageSquare, GraduationCap, Brain, Briefcase } from 'lucide-react'
 import { useKrsDashboard } from '@/modules/dashboard/hooks/useKrs'
 import { useLogout } from '@/modules/auth/hooks/useAuth'
 
@@ -29,14 +29,31 @@ function KrsRing({ value, size = 90, stroke = 7 }: {
   )
 }
 
-type NavPath = '/app/dashboard' | '/app/careers/explore' | '/app/profile' | '/app/careers' | '/app/skills/report'
+type NavPath =
+  | '/app/dashboard'
+  | '/app/careers/explore'
+  | '/app/profile'
+  | '/app/careers'
+  | '/app/skills/report'
+  | '/app/learn'
+  | '/app/resume'
+  | '/app/interview'
+  | '/app/counsellor'
+  | '/app/jobs'
+  | '/app/jobs/applications'
 
-const NAV_ITEMS: { icon: React.ReactNode; label: string; path: NavPath }[] = [
+const NAV_ITEMS: { icon: React.ReactNode; label: string; path: NavPath; section?: string }[] = [
   { icon: <LayoutDashboard size={16} />, label: 'Dashboard',    path: '/app/dashboard'       },
   { icon: <BarChart2 size={16} />,       label: 'Skill Report', path: '/app/skills/report'   },
-  { icon: <BookOpen size={16} />,        label: 'My Prep List', path: '/app/careers/explore'  },
   { icon: <Compass size={16} />,         label: 'Career Paths', path: '/app/careers'          },
   { icon: <UserCircle size={16} />,      label: 'Profile',      path: '/app/profile'          },
+  // MVP2 items
+  { icon: <GraduationCap size={16} />,   label: 'Learning',     path: '/app/learn',           section: 'mvp2' },
+  { icon: <FileText size={16} />,        label: 'Resume',       path: '/app/resume',          section: 'mvp2' },
+  { icon: <MessageSquare size={16} />,   label: 'Mock Interview', path: '/app/interview',     section: 'mvp2' },
+  { icon: <Brain size={16} />,           label: 'AI Counsellor', path: '/app/counsellor',     section: 'mvp2' },
+  // Phase 3 items
+  { icon: <Briefcase size={16} />,       label: 'Jobs',         path: '/app/jobs',            section: 'phase3' },
 ]
 
 export default function AppSidebar({ activePath }: { activePath: NavPath }) {
@@ -95,7 +112,7 @@ export default function AppSidebar({ activePath }: { activePath: NavPath }) {
       {/* Navigation */}
       <nav style={{ padding: '12px 12px', flex: 1 }}>
         <p style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.8px', padding: '0 8px', marginBottom: 6 }}>Navigation</p>
-        {NAV_ITEMS.map(item => {
+        {NAV_ITEMS.filter(i => !i.section).map(item => {
           const isActive = activePath === item.path ||
             (activePath === '/app/careers' && item.path === '/app/careers')
           return (
@@ -109,6 +126,29 @@ export default function AppSidebar({ activePath }: { activePath: NavPath }) {
               boxShadow: isActive ? '0 4px 12px rgba(59,130,246,0.22)' : 'none',
             }}
               onMouseOver={e => { if (!isActive) e.currentTarget.style.background = 'rgba(59,130,246,0.06)' }}
+              onMouseOut={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
+            >
+              {item.icon}
+              {item.label}
+            </button>
+          )
+        })}
+
+        {/* MVP2 tools section */}
+        <p style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.8px', padding: '0 8px', margin: '14px 0 6px' }}>Tools</p>
+        {NAV_ITEMS.filter(i => i.section === 'mvp2').map(item => {
+          const isActive = activePath === item.path || (activePath as string).startsWith(item.path + '/')
+          return (
+            <button key={item.path} onClick={() => navigate(item.path)} style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 12px', borderRadius: 12, marginBottom: 2,
+              background: isActive ? 'linear-gradient(135deg, #2D6A4F, #40916C)' : 'transparent',
+              color: isActive ? 'white' : '#6B7280',
+              border: 'none', cursor: 'pointer', textAlign: 'left',
+              fontSize: 14, fontWeight: 600, transition: 'all 0.2s',
+              boxShadow: isActive ? '0 4px 12px rgba(45,106,79,0.22)' : 'none',
+            }}
+              onMouseOver={e => { if (!isActive) e.currentTarget.style.background = 'rgba(45,106,79,0.06)' }}
               onMouseOut={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
             >
               {item.icon}

@@ -16,6 +16,7 @@ from app.core.security import (
     create_access_token, create_refresh_token,
     decode_refresh_token,
 )
+from app.core.sms import send_otp_sms
 from app.models.user import AuditLog, EmployerProfile, OtpVerification, RefreshToken, Role, User
 from app.modules.auth.schemas import (
     EmployerProfileResponse, EmployerRegisterResponse,
@@ -37,7 +38,7 @@ def _issue_token_pair(user: User, db: Session, request: Request | None = None) -
     access_token = create_access_token(payload)
 
     raw_refresh = generate_raw_refresh_token()
-    refresh_jwt = create_refresh_token({"sub": str(user.id)})
+    create_refresh_token({"sub": str(user.id)})  # JWT form — not stored, raw token is
 
     db_token = RefreshToken(
         user_id=user.id,
@@ -79,7 +80,9 @@ def _audit(db: Session, action: str, user_id=None, resource: str | None = None,
 
 # ── Public service functions ──────────────────────────────────────────────────
 
-def register_user(phone: str, password: str, preferred_language: str, db: Session, request: Request | None = None) -> str:
+async def register_user(
+    phone: str, password: str, preferred_language: str, db: Session, request: Request | None = None
+) -> str:
     """Creates a new aspirant account and sends phone OTP. Returns dev_otp in local env."""
     existing = db.query(User).filter(User.phone == phone, User.deleted_at == None).first()
     if existing:
@@ -108,16 +111,13 @@ def register_user(phone: str, password: str, preferred_language: str, db: Sessio
            resource_id=user.id, request=request)
     db.commit()
 
-    logger.info(f"[REGISTER] New user phone={phone}, OTP sent (dev_otp={otp if settings.environment == 'local' else '***'})")
-
-    # In production this triggers MSG91 SMS. In local, we return the OTP.
-    if settings.environment != "local":
-        _send_sms_otp(phone, otp)
+    await send_otp_sms(phone, otp)
+    logger.info("[REGISTER] New user phone=%s", phone)
 
     return otp if settings.environment == "local" else ""
 
 
-def verify_phone(phone: str, otp: str, db: Session, request: "Request | None" = None) -> "TokenResponse":
+def verify_phone(phone: str, otp: str, db: Session, request: Request | None = None) -> TokenResponse:
     """Verifies the OTP, marks phone as verified, and returns a token pair (auto-login)."""
     user = db.query(User).filter(User.phone == phone, User.deleted_at == None).first()
     if not user:
@@ -148,11 +148,11 @@ def verify_phone(phone: str, otp: str, db: Session, request: "Request | None" = 
            resource_id=user.id, request=request)
 
     tokens = _issue_token_pair(user, db, request)
-    logger.info(f"[VERIFY] Phone verified + auto-login for user_id={user.id}")
+    logger.info("[VERIFY] Phone verified + auto-login for user_id=%s", user.id)
     return tokens
 
 
-def send_otp(phone: str, purpose: str, db: Session) -> str:
+async def send_otp(phone: str, purpose: str, db: Session) -> str:
     """Generates and sends a new OTP. Returns it only in local env."""
     user = db.query(User).filter(User.phone == phone, User.deleted_at == None).first()
     if not user:
@@ -169,22 +169,18 @@ def send_otp(phone: str, purpose: str, db: Session) -> str:
     db.add(otp_record)
     db.commit()
 
-    if settings.environment != "local":
-        _send_sms_otp(phone, otp)
-
+    await send_otp_sms(phone, otp)
     return otp if settings.environment == "local" else ""
 
 
 def login_user(phone: str, password: str, db: Session, request: Request | None = None) -> TokenResponse:
     """Authenticates user and returns a JWT token pair."""
-    # First check without is_active filter to give specific error for pending employers
     any_user = db.query(User).filter(
         User.phone == phone,
         User.deleted_at == None,
     ).first()
 
     if any_user and not any_user.is_active and verify_password(password, any_user.password_hash):
-        # Credentials are correct but account is inactive — give a helpful message
         raise AuthException(
             "Your employer account is pending admin approval. "
             "You'll receive an SMS once your account is activated."
@@ -203,7 +199,7 @@ def login_user(phone: str, password: str, db: Session, request: Request | None =
     _audit(db, "user_login", user_id=user.id, resource="auth", request=request)
 
     tokens = _issue_token_pair(user, db, request)
-    logger.info(f"[LOGIN] user_id={user.id} phone={phone}")
+    logger.info("[LOGIN] user_id=%s", user.id)
     return tokens
 
 
@@ -216,7 +212,6 @@ def refresh_tokens(raw_refresh_token: str, db: Session, request: Request | None 
         raise AuthException("Invalid refresh token.")
 
     if not db_token.is_valid:
-        # Token reuse detected — revoke all tokens for this user (theft mitigation)
         db.query(RefreshToken).filter(RefreshToken.user_id == db_token.user_id).delete()
         db.commit()
         raise AuthException("Refresh token reuse detected. Please log in again.")
@@ -229,7 +224,6 @@ def refresh_tokens(raw_refresh_token: str, db: Session, request: Request | None 
     if not user:
         raise AuthException("User not found.")
 
-    # Revoke old token
     db_token.revoked_at = datetime.now(timezone.utc)
     db.flush()
 
@@ -252,7 +246,7 @@ def _get_employer_role(db: Session) -> Role:
     return role
 
 
-def register_employer(
+async def register_employer(
     phone: str,
     password: str,
     company_name: str,
@@ -278,7 +272,7 @@ def register_employer(
         password_hash=hash_password(password),
         preferred_language="en",
         role_id=role.id,
-        is_active=False,  # Inactive until admin approves
+        is_active=False,
     )
     db.add(user)
     db.flush()
@@ -311,10 +305,8 @@ def register_employer(
     db.commit()
     db.refresh(profile)
 
-    logger.info(f"[EMPLOYER-REGISTER] company={company_name} phone={phone}")
-
-    if settings.environment != "local":
-        _send_sms_otp(phone, otp)
+    await send_otp_sms(phone, otp)
+    logger.info("[EMPLOYER-REGISTER] company=%s phone=%s", company_name, phone)
 
     return EmployerRegisterResponse(
         message="Company account created. Please verify your phone, then await admin approval before logging in.",
@@ -362,11 +354,11 @@ def verify_employer_phone(phone: str, otp: str, db: Session, request: Request | 
     _audit(db, "employer_phone_verified", user_id=user.id, resource="user",
            resource_id=user.id, request=request)
     db.commit()
-    logger.info(f"[EMPLOYER-VERIFY] phone verified for user_id={user.id}, pending admin approval")
+    logger.info("[EMPLOYER-VERIFY] phone verified for user_id=%s, pending admin approval", user.id)
     return MessageResponse(message="Phone verified. Your account is pending admin approval. We'll notify you once approved.")
 
 
-def request_password_reset(phone: str, db: Session) -> str:
+async def request_password_reset(phone: str, db: Session) -> str:
     """Sends a reset OTP to the phone. Returns dev_otp in local env."""
     user = db.query(User).filter(User.phone == phone, User.deleted_at == None, User.is_active == True).first()
     if not user:
@@ -383,10 +375,8 @@ def request_password_reset(phone: str, db: Session) -> str:
     db.add(otp_record)
     db.commit()
 
-    if settings.environment != "local":
-        _send_sms_otp(phone, otp)
-
-    logger.info(f"[RESET] Password reset OTP sent for phone={phone}")
+    await send_otp_sms(phone, otp)
+    logger.info("[RESET] Password reset OTP sent for phone=%s", phone)
     return otp if settings.environment == "local" else ""
 
 
@@ -416,13 +406,6 @@ def reset_password(phone: str, otp: str, new_password: str, db: Session) -> None
 
     otp_record.used_at = datetime.now(timezone.utc)
     user.password_hash = hash_password(new_password)
-    # Revoke all refresh tokens on password reset
     db.query(RefreshToken).filter(RefreshToken.user_id == user.id).update({"revoked_at": datetime.now(timezone.utc)})
     db.commit()
-    logger.info(f"[RESET] Password reset successfully for user_id={user.id}")
-
-
-def _send_sms_otp(phone: str, otp: str) -> None:
-    """Production SMS dispatch via MSG91. Placeholder for Phase 1."""
-    # TODO: integrate MSG91 SDK
-    logger.warning(f"[SMS] SMS sending not yet integrated. OTP for {phone}: {otp}")
+    logger.info("[RESET] Password reset successfully for user_id=%s", user.id)

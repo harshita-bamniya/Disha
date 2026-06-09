@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from app.core.rbac import get_current_user
@@ -14,11 +16,13 @@ from app.modules.auth.schemas import (
 )
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.post("/register", response_model=MessageResponse, status_code=201)
-def register(body: RegisterRequest, request: Request, db: Session = Depends(get_db)):
-    dev_otp = service.register_user(
+@limiter.limit("5/minute;10/hour")
+async def register(body: RegisterRequest, request: Request, db: Session = Depends(get_db)):
+    dev_otp = await service.register_user(
         phone=body.phone,
         password=body.password,
         preferred_language=body.preferred_language,
@@ -32,13 +36,15 @@ def register(body: RegisterRequest, request: Request, db: Session = Depends(get_
 
 
 @router.post("/verify-phone", response_model=TokenResponse)
+@limiter.limit("5/minute")
 def verify_phone(body: VerifyPhoneRequest, request: Request, db: Session = Depends(get_db)):
     return service.verify_phone(phone=body.phone, otp=body.otp, db=db, request=request)
 
 
 @router.post("/send-otp", response_model=MessageResponse)
-def send_otp(body: SendOtpRequest, db: Session = Depends(get_db)):
-    dev_otp = service.send_otp(phone=body.phone, purpose=body.purpose, db=db)
+@limiter.limit("3/minute;5/hour")
+async def send_otp(body: SendOtpRequest, request: Request, db: Session = Depends(get_db)):
+    dev_otp = await service.send_otp(phone=body.phone, purpose=body.purpose, db=db)
     return MessageResponse(
         message="OTP sent successfully.",
         dev_otp=dev_otp or None,
@@ -46,11 +52,13 @@ def send_otp(body: SendOtpRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit("10/minute;30/hour")
 def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
     return service.login_user(phone=body.phone, password=body.password, db=db, request=request)
 
 
 @router.post("/refresh", response_model=TokenResponse)
+@limiter.limit("20/minute")
 def refresh(body: RefreshRequest, request: Request, db: Session = Depends(get_db)):
     return service.refresh_tokens(
         raw_refresh_token=body.refresh_token, db=db, request=request
@@ -69,8 +77,9 @@ def me(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/forgot-password", response_model=MessageResponse)
-def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    dev_otp = service.request_password_reset(phone=body.phone, db=db)
+@limiter.limit("3/minute;5/hour")
+async def forgot_password(body: ForgotPasswordRequest, request: Request, db: Session = Depends(get_db)):
+    dev_otp = await service.request_password_reset(phone=body.phone, db=db)
     return MessageResponse(
         message="OTP sent to your phone. Use it to reset your password.",
         dev_otp=dev_otp or None,
@@ -78,14 +87,16 @@ def forgot_password(body: ForgotPasswordRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/reset-password", response_model=MessageResponse)
-def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def reset_password(body: ResetPasswordRequest, request: Request, db: Session = Depends(get_db)):
     service.reset_password(phone=body.phone, otp=body.otp, new_password=body.new_password, db=db)
     return MessageResponse(message="Password reset successfully. You can now log in.")
 
 
 @router.post("/register/employer", response_model=EmployerRegisterResponse, status_code=201)
-def register_employer(body: EmployerRegisterRequest, request: Request, db: Session = Depends(get_db)):
-    return service.register_employer(
+@limiter.limit("5/minute;10/hour")
+async def register_employer(body: EmployerRegisterRequest, request: Request, db: Session = Depends(get_db)):
+    return await service.register_employer(
         phone=body.phone,
         password=body.password,
         company_name=body.company_name,
@@ -103,5 +114,6 @@ def register_employer(body: EmployerRegisterRequest, request: Request, db: Sessi
 
 
 @router.post("/verify-phone/employer", response_model=MessageResponse)
+@limiter.limit("5/minute")
 def verify_employer_phone(body: VerifyPhoneRequest, request: Request, db: Session = Depends(get_db)):
     return service.verify_employer_phone(phone=body.phone, otp=body.otp, db=db, request=request)

@@ -71,3 +71,20 @@ class PrepareJobResponse(BaseModel):
     job_id: str
     is_prepared: bool
     message: str
+
+
+class ActivePrepJobContext(BaseModel):
+    """Full context returned when a user has an active prep job set."""
+    job_id: str
+    job_title: str
+    company_name: str
+    sector: str
+    location: str | None
+    required_skills: list[str]
+    skills_you_have: list[str]
+    skills_to_develop: list[str]
+    skill_gap_pct: int          # % of required skills still missing
+    matched_track_id: str | None
+    matched_track_title: str | None
+    matched_track_slug: str | None
+    match_score: int

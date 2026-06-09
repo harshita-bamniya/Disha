@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Clock,
   CheckCircle2, LogOut, LayoutDashboard, Building2,
-  TrendingUp, PauseCircle, X,
+  TrendingUp, PauseCircle, X, Users,
 } from 'lucide-react'
 import { useEmployerDashboard, useCreateJob, useUpdateJob, useToggleJob, useDeleteJob } from '../hooks/useJobs'
 import { useLogout } from '@/modules/auth/hooks/useAuth'
@@ -305,6 +306,20 @@ function JobCard({
           <Trash2 size={13} />
         </button>
       </div>
+      {/* Phase 3: Candidate pipeline link */}
+      <Link
+        to={`/app/employer/pipeline/${job.id}`}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          height: 34, borderRadius: 10, fontSize: 12, fontWeight: 700,
+          background: 'rgba(5,150,105,0.07)', border: '1px solid rgba(5,150,105,0.2)',
+          color: '#059669', textDecoration: 'none', transition: 'all 0.2s',
+        }}
+        onMouseOver={e => (e.currentTarget.style.background = 'rgba(5,150,105,0.12)')}
+        onMouseOut={e => (e.currentTarget.style.background = 'rgba(5,150,105,0.07)')}
+      >
+        <Users size={12} /> View Candidates
+      </Link>
     </div>
   )
 }

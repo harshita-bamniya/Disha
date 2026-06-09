@@ -60,6 +60,23 @@ import ForgotPasswordPage from '@/modules/auth/pages/ForgotPasswordPage'
 const AdminDashboardPage = lazy(() => import('@/modules/admin/pages/AdminDashboardPage'))
 const SkillsReportPage   = lazy(() => import('@/modules/skills/pages/SkillsReportPage'))
 
+// Phase 3 lazy pages — employer matching
+const JobsPage              = lazy(() => import('@/modules/jobs/pages/JobsPage'))
+const JobDetailPage         = lazy(() => import('@/modules/jobs/pages/JobDetailPage'))
+const MyApplicationsPage    = lazy(() => import('@/modules/jobs/pages/MyApplicationsPage'))
+const CandidatePipelinePage = lazy(() => import('@/modules/employer/pages/CandidatePipelinePage'))
+
+// MVP2 lazy pages
+const LearningDashboardPage = lazy(() => import('@/modules/learning/pages/LearningDashboardPage'))
+const PathDetailPage        = lazy(() => import('@/modules/learning/pages/PathDetailPage'))
+const LessonViewerPage      = lazy(() => import('@/modules/learning/pages/LessonViewerPage'))
+const ResumeListPage        = lazy(() => import('@/modules/resume/pages/ResumeListPage'))
+const ResumeEditorPage      = lazy(() => import('@/modules/resume/pages/ResumeEditorPage'))
+const InterviewHomePage     = lazy(() => import('@/modules/interview/pages/InterviewHomePage'))
+const InterviewRoomPage     = lazy(() => import('@/modules/interview/pages/InterviewRoomPage'))
+const FeedbackPage          = lazy(() => import('@/modules/interview/pages/FeedbackPage'))
+const CounsellorPage        = lazy(() => import('@/modules/counsellor/pages/CounsellorPage'))
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: { retry: 1, staleTime: 5 * 60 * 1000 },
@@ -193,6 +210,32 @@ function App() {
               </OnboardingGate>
             }
           />
+
+          {/* MVP2: Learning */}
+          <Route path="/app/learn" element={<OnboardingGate><Suspense fallback={null}><LearningDashboardPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/learn/:pathId" element={<OnboardingGate><Suspense fallback={null}><PathDetailPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/learn/:pathId/lessons/:lessonId" element={<OnboardingGate><Suspense fallback={null}><LessonViewerPage /></Suspense></OnboardingGate>} />
+
+          {/* MVP2: Resume Builder */}
+          <Route path="/app/resume" element={<OnboardingGate><Suspense fallback={null}><ResumeListPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/resume/:resumeId" element={<OnboardingGate><Suspense fallback={null}><ResumeEditorPage /></Suspense></OnboardingGate>} />
+
+          {/* MVP2: Mock Interview */}
+          <Route path="/app/interview" element={<OnboardingGate><Suspense fallback={null}><InterviewHomePage /></Suspense></OnboardingGate>} />
+          <Route path="/app/interview/sessions/:sessionId" element={<OnboardingGate><Suspense fallback={null}><InterviewRoomPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/interview/sessions/:sessionId/feedback" element={<OnboardingGate><Suspense fallback={null}><FeedbackPage /></Suspense></OnboardingGate>} />
+
+          {/* Phase 3: Job marketplace (aspirant) */}
+          <Route path="/app/jobs" element={<OnboardingGate><Suspense fallback={null}><JobsPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/jobs/applications" element={<OnboardingGate><Suspense fallback={null}><MyApplicationsPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/jobs/:jobId" element={<OnboardingGate><Suspense fallback={null}><JobDetailPage /></Suspense></OnboardingGate>} />
+
+          {/* Phase 3: Employer candidate pipeline */}
+          <Route path="/app/employer/pipeline/:jobId" element={<ProtectedRoute><Suspense fallback={null}><CandidatePipelinePage /></Suspense></ProtectedRoute>} />
+
+          {/* MVP2: AI Counsellor */}
+          <Route path="/app/counsellor" element={<OnboardingGate><Suspense fallback={null}><CounsellorPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/counsellor/:convId" element={<OnboardingGate><Suspense fallback={null}><CounsellorPage /></Suspense></OnboardingGate>} />
 
           {/* Admin dashboard */}
           <Route path="/admin" element={

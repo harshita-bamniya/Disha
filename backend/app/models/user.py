@@ -201,10 +201,20 @@ class AspirantProfile(Base):
     current_step = Column(Integer, nullable=False, default=1)
     is_completed = Column(Boolean, nullable=False, default=False, index=True)
 
+    # ── Active Prep Job (MVP2) ────────────────────────────────────────────────
+    # The single job the user is currently focusing all tools toward.
+    active_prep_job_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("job_postings.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="aspirant_profile")
+    active_prep_job = relationship("JobPosting", foreign_keys=[active_prep_job_id])
 
 
 class PsychologicalAssessment(Base):
@@ -364,6 +374,7 @@ class JobPosting(Base):
 
     employer = relationship("EmployerProfile", back_populates="job_postings")
     preparations = relationship("UserJobPreparation", back_populates="job", cascade="all, delete-orphan")
+    applications = relationship("Application", back_populates="job", cascade="all, delete-orphan")
 
 
 # ── Module 04: Career Mapping ─────────────────────────────────────────────────

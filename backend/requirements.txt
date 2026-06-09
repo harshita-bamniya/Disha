@@ -14,6 +14,12 @@ passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
 python-multipart==0.0.17
 
+# Rate limiting
+slowapi==0.1.9
+
+# HTML sanitization
+bleach==6.2.0
+
 # Config
 pydantic==2.10.3
 pydantic-settings==2.6.1
@@ -32,6 +38,12 @@ openai==1.57.4
 # Embeddings (fastembed — ONNX-based, no API key, ~50 MB vs ~800 MB for PyTorch)
 fastembed==0.4.2
 numpy>=1.24.0
+
+# Monitoring & error tracking
+sentry-sdk[fastapi]==2.19.2
+
+# PDF generation (resume export — pure Python, no system deps)
+reportlab==4.2.5
 
 # Utilities
 python-dateutil==2.9.0

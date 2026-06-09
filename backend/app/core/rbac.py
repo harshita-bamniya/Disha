@@ -57,3 +57,10 @@ def require_role(*roles: str):
 
 require_admin = require_role("admin", "super_admin")
 require_super_admin = require_role("super_admin")
+
+
+def get_current_aspirant(current_user: User = Depends(get_current_verified_user)) -> User:
+    """Dependency: user must be an aspirant (not employer, not admin)."""
+    if current_user.role_name not in ("aspirant",):
+        raise ForbiddenException("This endpoint is for aspirants only.")
+    return current_user
