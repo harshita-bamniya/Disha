@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { counsellorApi, type ConversationSummary, type MessageOut } from '@/api/counsellor'
 import AppSidebar from '@/components/layout/AppSidebar'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
-import { Send, Plus, Archive, MessageCircle, AlertTriangle, Briefcase } from 'lucide-react'
+import { Send, Plus, Archive, MessageCircle, AlertTriangle, Briefcase, BrainCircuit, Zap } from 'lucide-react'
 
 const CRISIS_NUMBERS = [
   { name: 'iCall (TISS)', number: '9152987821' },
@@ -95,14 +96,18 @@ function TypingIndicator() {
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function CounsellorPage() {
   const qc = useQueryClient()
+  const { convId: urlConvId } = useParams<{ convId?: string }>()
   const { activePrep } = useActivePrepJob()
-  const [activeConvId, setActiveConvId] = useState<string | null>(null)
+  const [activeConvId, setActiveConvId] = useState<string | null>(urlConvId ?? null)
   const [messages, setMessages] = useState<(MessageOut | { role: string; content: string; id: string; streaming?: boolean })[]>([])
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const autoStartedRef = useRef<Set<string>>(new Set())
+  // Maps convId → the hidden auto-start trigger text so we can filter it from display
+  const hiddenTriggerRef = useRef<Map<string, string>>(new Map())
 
   const { data: conversations } = useQuery({
     queryKey: ['counsellor-conversations'],
@@ -115,11 +120,44 @@ export default function CounsellorPage() {
     enabled: !!activeConvId,
   })
 
+  // Sync active conversation when navigating from skill cards (URL changes)
+  useEffect(() => {
+    if (urlConvId && urlConvId !== activeConvId) {
+      setActiveConvId(urlConvId)
+      setMessages([])
+    }
+  }, [urlConvId])
+
   useEffect(() => {
     if (convDetail) {
-      setMessages(convDetail.messages)
+      const hiddenText = hiddenTriggerRef.current.get(convDetail.id)
+      // Filter out the silent auto-start trigger message from display
+      const visible = hiddenText
+        ? convDetail.messages.filter(m => !(m.role === 'user' && m.content === hiddenText))
+        : convDetail.messages
+      setMessages(visible)
     }
   }, [convDetail])
+
+  // Auto-start: when a skill_learning conversation is loaded with 0 messages,
+  // send a silent trigger so the AI speaks first without the user typing anything.
+  useEffect(() => {
+    if (
+      convDetail &&
+      convDetail.context_type === 'skill_learning' &&
+      convDetail.messages.length === 0 &&
+      !isStreaming &&
+      !autoStartedRef.current.has(convDetail.id)
+    ) {
+      autoStartedRef.current.add(convDetail.id)
+      const skill = convDetail.skill_focus ?? 'the skill'
+      const jobTitle = (convDetail.job_context as any)?.job_title ?? 'this role'
+      const company = (convDetail.job_context as any)?.company ?? 'the company'
+      const triggerText = `Please start by introducing what I'll be learning: ${skill}, in the context of the ${jobTitle} role at ${company}. Give me a brief overview of what this skill means for this specific job, and what we'll cover in this session.`
+      hiddenTriggerRef.current.set(convDetail.id, triggerText)
+      sendMessage(triggerText, true)
+    }
+  }, [convDetail, isStreaming])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -134,18 +172,19 @@ export default function CounsellorPage() {
     },
   })
 
-  const handleSend = useCallback(async () => {
-    if (!input.trim() || isStreaming || !activeConvId) return
+  // sendMessage accepts an explicit text (for auto-start) or reads from input state
+  const sendMessage = useCallback(async (overrideText?: string, hideUserBubble = false) => {
+    const userText = overrideText ?? input.trim()
+    if (!userText || isStreaming || !activeConvId) return
 
-    const userText = input.trim()
-    setInput('')
+    if (!overrideText) setInput('')
     setError(null)
 
-    // Optimistically add user message
     const tempUserId = `temp-${Date.now()}`
-    setMessages(prev => [...prev, { id: tempUserId, role: 'user', content: userText }])
+    if (!hideUserBubble) {
+      setMessages(prev => [...prev, { id: tempUserId, role: 'user', content: userText }])
+    }
 
-    // Add streaming placeholder for assistant
     const tempAssistantId = `streaming-${Date.now()}`
     setMessages(prev => [...prev, { id: tempAssistantId, role: 'assistant', content: '', streaming: true }])
     setIsStreaming(true)
@@ -184,6 +223,8 @@ export default function CounsellorPage() {
       }
     )
   }, [input, isStreaming, activeConvId, qc])
+
+  const handleSend = useCallback(() => sendMessage(), [sendMessage])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -277,13 +318,19 @@ export default function CounsellorPage() {
                   onMouseOut={e => { if (activeConvId !== conv.id) e.currentTarget.style.background = 'transparent' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <MessageCircle size={13} color={activeConvId === conv.id ? '#2D6A4F' : '#94A3B8'} />
+                    {conv.context_type === 'skill_learning'
+                      ? <BrainCircuit size={13} color={activeConvId === conv.id ? '#EA580C' : '#F97316'} />
+                      : <MessageCircle size={13} color={activeConvId === conv.id ? '#2D6A4F' : '#94A3B8'} />
+                    }
                     <p style={{
                       fontSize: 12, fontWeight: 600,
-                      color: activeConvId === conv.id ? '#2D6A4F' : '#374151',
+                      color: activeConvId === conv.id
+                        ? (conv.context_type === 'skill_learning' ? '#EA580C' : '#2D6A4F')
+                        : '#374151',
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      userSelect: 'none', pointerEvents: 'none',
                     }}>
-                      {conv.title || 'New conversation'}
+                      {conv.title || (conv.context_type === 'skill_learning' ? conv.skill_focus ?? 'Skill session' : 'New conversation')}
                     </p>
                   </div>
                   <p style={{ fontSize: 10, color: '#94A3B8', marginTop: 3, paddingLeft: 20 }}>
@@ -320,7 +367,7 @@ export default function CounsellorPage() {
           {/* Main chat area */}
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             {!activeConvId ? (
-              /* Empty state */
+              /* No conversation selected — general welcome */
               <div style={{
                 flex: 1, display: 'flex', flexDirection: 'column',
                 alignItems: 'center', justifyContent: 'center', padding: 40,
@@ -340,7 +387,7 @@ export default function CounsellorPage() {
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', maxWidth: 440 }}>
                   <p style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 4 }}>
-                    Start with one of these
+                    Or start with one of these
                   </p>
                   {[
                     ...(activePrep
@@ -404,11 +451,12 @@ export default function CounsellorPage() {
                   borderTop: '1px solid rgba(226,232,240,0.8)',
                 }}>
                   <div style={{
-                    display: 'flex', gap: 10, alignItems: 'flex-end',
+                    display: 'flex', gap: 10, alignItems: 'center',
                     background: '#F8FAFC', borderRadius: 16,
                     border: '1.5px solid rgba(226,232,240,0.9)',
-                    padding: '10px 14px',
+                    padding: '10px 14px', minHeight: 52,
                     transition: 'border-color 0.2s',
+                    width: '100%',
                   }}
                     onFocus={e => { e.currentTarget.style.borderColor = '#2D6A4F' }}
                     onBlur={e => { e.currentTarget.style.borderColor = 'rgba(226,232,240,0.9)' }}
@@ -418,7 +466,11 @@ export default function CounsellorPage() {
                       value={input}
                       onChange={e => setInput(e.target.value)}
                       onKeyDown={handleKeyDown}
-                      placeholder="Type your message... (Enter to send, Shift+Enter for new line)"
+                      placeholder={
+                        convDetail?.context_type === 'skill_learning'
+                          ? `Ask anything about ${convDetail.skill_focus}... (Enter to send)`
+                          : 'Type your message... (Enter to send, Shift+Enter for new line)'
+                      }
                       disabled={isStreaming}
                       rows={1}
                       style={{

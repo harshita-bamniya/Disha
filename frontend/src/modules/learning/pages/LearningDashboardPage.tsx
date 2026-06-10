@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { learningApi, type LearningPathSummary } from '@/api/learning'
+import { counsellorApi } from '@/api/counsellor'
 import AppSidebar from '@/components/layout/AppSidebar'
 import { ActivePrepBanner } from '@/components/ActivePrepBanner'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
-import { BookOpen, Flame, ChevronRight, Clock, BarChart2, CheckCircle, Lock, Target } from 'lucide-react'
+import { BookOpen, Flame, ChevronRight, Clock, BarChart2, CheckCircle, Lock, Target, Zap, BrainCircuit, ArrowRight } from 'lucide-react'
 
 const DIFFICULTY_COLORS: Record<string, [string, string]> = {
   beginner:     ['#10B981', '#34D399'],
@@ -13,6 +14,122 @@ const DIFFICULTY_COLORS: Record<string, [string, string]> = {
   advanced:     ['#8B5CF6', '#A78BFA'],
 }
 
+// ─── Skill Gap Card ────────────────────────────────────────────────────────────
+function SkillGapCard({ skill, jobId, jobTitle, company, sector }: {
+  skill: string
+  jobId: string
+  jobTitle: string
+  company: string
+  sector: string
+}) {
+  const navigate = useNavigate()
+  const [hov, setHov] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  async function handleLearn() {
+    setLoading(true)
+    try {
+      const conv = await counsellorApi.createSkillConversation({
+        skillFocus: skill,
+        jobId,
+        jobTitle,
+        company,
+        sector,
+      })
+      navigate(`/app/counsellor/${conv.id}`)
+    } catch (err) {
+      console.error('Failed to create skill conversation', err)
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        background: hov ? '#FFFBF5' : 'rgba(255,255,255,0.95)',
+        borderRadius: 18,
+        border: hov ? '1.5px solid #FDBA74' : '1.5px solid rgba(226,232,240,0.8)',
+        boxShadow: hov ? '0 10px 28px rgba(251,146,60,0.12)' : '0 2px 10px rgba(15,23,42,0.05)',
+        transform: hov ? 'translateY(-3px)' : 'translateY(0)',
+        transition: 'all 0.22s cubic-bezier(0.34,1.1,0.64,1)',
+        padding: '18px 20px',
+        display: 'flex',
+        flexDirection: 'column' as const,
+        gap: 14,
+      }}
+    >
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <div style={{
+          width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+          background: 'linear-gradient(135deg, #FFF7ED, #FFEDD5)',
+          border: '1px solid #FED7AA',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <BrainCircuit size={18} color="#EA580C" />
+        </div>
+        <div style={{ flex: 1 }}>
+          <h3 style={{
+            fontSize: 14, fontWeight: 800, color: '#0F172A',
+            fontFamily: 'Hind, sans-serif', lineHeight: 1.3, marginBottom: 3,
+          }}>
+            {skill}
+          </h3>
+          <span style={{
+            fontSize: 11, color: '#94A3B8', fontWeight: 500,
+          }}>
+            Needed for {jobTitle}
+          </span>
+        </div>
+        <span style={{
+          fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20,
+          background: '#FEF3C7', color: '#D97706', border: '1px solid #FDE68A',
+          flexShrink: 0,
+        }}>
+          Gap
+        </span>
+      </div>
+
+      {/* Description */}
+      <p style={{ fontSize: 12, color: '#64748B', lineHeight: 1.6, margin: 0 }}>
+        AI coach will teach you <strong style={{ color: '#0F172A' }}>{skill}</strong> specifically
+        for the {jobTitle} role at {company}.
+      </p>
+
+      {/* CTA */}
+      <button
+        onClick={handleLearn}
+        disabled={loading}
+        style={{
+          width: '100%', height: 36, borderRadius: 10, border: 'none',
+          background: loading
+            ? '#E2E8F0'
+            : 'linear-gradient(135deg, #F97316, #EA580C)',
+          color: loading ? '#94A3B8' : 'white',
+          fontSize: 12, fontWeight: 700,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          cursor: loading ? 'not-allowed' : 'pointer',
+          transition: 'opacity 0.2s',
+        }}
+      >
+        {loading ? (
+          <>
+            <div style={{ width: 12, height: 12, border: '2px solid #CBD5E1', borderTopColor: '#64748B', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            Opening...
+          </>
+        ) : (
+          <>
+            <Zap size={12} /> Learn with AI <ArrowRight size={11} />
+          </>
+        )}
+      </button>
+    </div>
+  )
+}
+
+// ─── Path Card ─────────────────────────────────────────────────────────────────
 function PathCard({ path, onEnroll, isEnrolling }: {
   path: LearningPathSummary
   onEnroll: () => void
@@ -117,6 +234,7 @@ function PathCard({ path, onEnroll, isEnrolling }: {
   )
 }
 
+// ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function LearningDashboardPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -140,19 +258,11 @@ export default function LearningDashboardPage() {
   const { activePrep } = useActivePrepJob()
 
   const enrolledPaths = allPaths?.filter(p => p.is_enrolled) ?? []
-  const availablePaths = allPaths?.filter(p => !p.is_enrolled) ?? []
+  const enrolledIds = new Set(enrolledPaths.map(p => p.id))
+  const otherPaths = (allPaths ?? []).filter(p => !enrolledIds.has(p.id))
 
-  // If there's an active prep job with a matched track, surface those paths first
-  const recommendedPaths = activePrep?.matched_track_slug
-    ? availablePaths.filter(p =>
-        p.career_track_slug === activePrep.matched_track_slug ||
-        activePrep.skills_to_develop.some(sk =>
-          p.name?.toLowerCase().includes(sk.toLowerCase()) ||
-          p.description?.toLowerCase().includes(sk.toLowerCase())
-        )
-      )
-    : []
-  const otherPaths = availablePaths.filter(p => !recommendedPaths.find(r => r.id === p.id))
+  // Gap skills from active prep — these drive the AI skill cards
+  const gapSkills: string[] = activePrep?.skills_to_develop ?? []
 
   return (
     <div style={{ minHeight: '100vh', background: '#F0F4F8', display: 'flex' }}>
@@ -196,6 +306,58 @@ export default function LearningDashboardPage() {
             </div>
           )}
 
+          {/* ── Skill Gap Cards (AI-driven, per active prep job) ── */}
+          {activePrep && gapSkills.length > 0 && (
+            <section style={{ marginBottom: 36 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <div style={{ width: 4, height: 16, background: 'linear-gradient(180deg, #F97316, #EA580C)', borderRadius: 4 }} />
+                <Target size={14} color="#EA580C" />
+                <h2 style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>
+                  Skills to Build — {activePrep.job_title}
+                </h2>
+                <span style={{ fontSize: 12, color: '#94A3B8' }}>
+                  at {activePrep.company_name}
+                </span>
+              </div>
+              <p style={{ fontSize: 12, color: '#64748B', marginBottom: 16, marginLeft: 12 }}>
+                Click any skill to open a dedicated AI coaching session that teaches it in the context of this specific job.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+                {gapSkills.map(skill => (
+                  <SkillGapCard
+                    key={skill}
+                    skill={skill}
+                    jobId={activePrep.job_id}
+                    jobTitle={activePrep.job_title}
+                    company={activePrep.company_name}
+                    sector={activePrep.sector}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* No gap skills — show a prompt to set a prep job */}
+          {!activePrep && !isLoading && (
+            <div style={{
+              background: 'linear-gradient(135deg, #FFF7ED, #FFFBF5)',
+              border: '1.5px solid #FED7AA',
+              borderRadius: 16, padding: '20px 24px',
+              marginBottom: 32,
+              display: 'flex', alignItems: 'center', gap: 16,
+            }}>
+              <Target size={28} color="#EA580C" />
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', margin: 0 }}>
+                  Set an active prep job to see personalised skill cards
+                </p>
+                <p style={{ fontSize: 12, color: '#64748B', margin: '4px 0 0' }}>
+                  Go to Jobs → choose a job → Start Prep. AI coaching cards will appear here based on your skill gap.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Enrolled paths */}
           {enrolledPaths.length > 0 && (
             <section style={{ marginBottom: 32 }}>
@@ -216,37 +378,15 @@ export default function LearningDashboardPage() {
             </section>
           )}
 
-          {/* Recommended paths for active prep job */}
-          {recommendedPaths.length > 0 && (
-            <section style={{ marginBottom: 32 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                <div style={{ width: 4, height: 16, background: 'linear-gradient(180deg, #10B981, #059669)', borderRadius: 4 }} />
-                <Target size={14} color="#059669" />
-                <h2 style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>
-                  Recommended for {activePrep?.job_title}
-                </h2>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-                {recommendedPaths.map(p => (
-                  <PathCard
-                    key={p.id} path={p}
-                    onEnroll={() => enrollMutation.mutate(p.id)}
-                    isEnrolling={enrollMutation.isPending && enrollMutation.variables === p.id}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Available paths */}
-          {(otherPaths.length > 0 || (availablePaths.length > 0 && recommendedPaths.length === 0)) && (
+          {/* All other paths */}
+          {otherPaths.length > 0 && (
             <section>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
                 <div style={{ width: 4, height: 16, background: 'linear-gradient(180deg, #3B82F6, #6366F1)', borderRadius: 4 }} />
                 <h2 style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>Explore Learning Paths</h2>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-                {(recommendedPaths.length > 0 ? otherPaths : availablePaths).map(p => (
+                {otherPaths.map(p => (
                   <PathCard
                     key={p.id} path={p}
                     onEnroll={() => enrollMutation.mutate(p.id)}
@@ -257,12 +397,12 @@ export default function LearningDashboardPage() {
             </section>
           )}
 
-          {!isLoading && allPaths?.length === 0 && (
+          {!isLoading && (allPaths?.length === 0) && !activePrep && (
             <div style={{ textAlign: 'center', padding: 60 }}>
               <BookOpen size={48} color="#CBD5E1" style={{ margin: '0 auto 16px' }} />
-              <p style={{ fontSize: 16, fontWeight: 700, color: '#0F172A' }}>Learning paths coming soon</p>
+              <p style={{ fontSize: 16, fontWeight: 700, color: '#0F172A' }}>No learning paths yet</p>
               <p style={{ fontSize: 13, color: '#94A3B8', marginTop: 4 }}>
-                Complete your career assessment first to get personalized paths.
+                Set an active prep job to see AI-powered skill coaching cards.
               </p>
             </div>
           )}

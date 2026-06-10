@@ -68,7 +68,7 @@ def get_dashboard(user: User, db: Session) -> EmployerDashboardResponse:
 
 
 def _embed_job(job: JobPosting) -> None:
-    """Dispatch embedding to Celery — retried automatically on failure."""
+    """Dispatch description embedding + required_skills caching to Celery."""
     from app.tasks.worker import embed_job
     embed_job.delay(str(job.id))
 
@@ -89,6 +89,7 @@ def create_job(user: User, data: JobPostingRequest, db: Session) -> JobPostingRe
         location=data.location,
         employment_type=data.employment_type,
         expires_at=data.expires_at,
+        skill_extraction_status="done",
     )
     db.add(job)
     db.commit()
@@ -119,6 +120,8 @@ def update_job(user: User, job_id: str, data: JobPostingRequest, db: Session) ->
     job.employment_type = data.employment_type
     job.expires_at = data.expires_at
     job.updated_at = datetime.now(timezone.utc)
+    job.skill_extraction_status = "pending"
+    job.skill_extraction_status = "done"
     db.commit()
     db.refresh(job)
     logger.info(f"[JOBS] Updated job {job_id}: {job.title}")

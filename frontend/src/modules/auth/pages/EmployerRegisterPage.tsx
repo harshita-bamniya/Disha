@@ -269,6 +269,7 @@ export default function EmployerRegisterPage() {
                   onChange={set('password')}
                   error={fieldErrors.password}
                   prefix={<Lock className="w-4 h-4" />}
+                  maxLength={128}
                   onFocus={() => setShowPasswordHints(true)}
                 />
 

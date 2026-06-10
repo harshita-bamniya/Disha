@@ -65,6 +65,7 @@ export default function LoginPage() {
           onChange={(e) => setPassword(e.target.value)}
           error={fieldErrors.password}
           prefix={<Lock className="w-4 h-4" />}
+          maxLength={128}
         />
 
         {serverError && (

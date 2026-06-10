@@ -3,7 +3,6 @@ import uuid
 
 import sentry_sdk
 from fastapi import FastAPI, Request, status
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -96,13 +95,32 @@ class LimitRequestSizeMiddleware(BaseHTTPMiddleware):
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(LimitRequestSizeMiddleware)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.get_allowed_origins(),
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
-)
+_allowed_origins = set(settings.get_allowed_origins())
+
+
+class StrictCORSMiddleware(BaseHTTPMiddleware):
+    """Only emit CORS headers when the request Origin is in the allowlist."""
+
+    async def dispatch(self, request: Request, call_next):
+        origin = request.headers.get("origin", "")
+        if origin not in _allowed_origins:
+            # Unknown origin: serve the response with no CORS headers at all.
+            return await call_next(request)
+
+        if request.method == "OPTIONS":
+            response = JSONResponse(content="OK", status_code=200)
+        else:
+            response = await call_next(request)
+
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-Request-ID"
+        response.headers["Vary"] = "Origin"
+        return response
+
+
+app.add_middleware(StrictCORSMiddleware)
 
 
 # ── Global exception handlers ─────────────────────────────────────────────────

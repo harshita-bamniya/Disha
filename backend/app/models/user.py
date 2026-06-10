@@ -368,6 +368,7 @@ class JobPosting(Base):
     expires_at = Column(Date, nullable=True)               # date the posting closes
     is_active = Column(Boolean, nullable=False, default=True, index=True)
     description_embedding = Column(Vector(384), nullable=True)  # sentence-transformers job vector
+    skill_extraction_status = Column(String(20), nullable=False, default="pending")  # pending | done | failed
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

@@ -46,7 +46,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.user import EmployerProfile, JobPosting, AspirantProfile, KrsScore
-from app.modules.krs.matching import _skill_overlap_pct, _krs_fit
+from app.modules.krs.matching import _krs_fit
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +75,15 @@ class RankedJob:
 
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
+
+def _skill_overlap_pct(user_skills: set[str], required: list[str]) -> int:
+    """String-match overlap for fast bulk job ranking (no DB/vector call)."""
+    if not required:
+        return 100
+    user_lower = {s.lower().strip() for s in user_skills}
+    matched = sum(1 for s in required if s.lower().strip() in user_lower)
+    return round(matched / len(required) * 100)
+
 
 def _split_skills(user_lower: set[str], required: list[str]) -> tuple[list[str], list[str]]:
     have = [s for s in required if s.lower().strip() in user_lower]
@@ -273,4 +282,21 @@ def rank_jobs_for_user(
 
     total = len(all_results)
     page  = all_results[offset : offset + limit]
+
+    # Post-process the returned page with semantic gap so that
+    # skills_you_have / skills_to_develop are accurate for the user.
+    # We only do this for the final page (≤20 jobs) to keep it fast.
+    if page and db is not None:
+        try:
+            from app.modules.krs.skill_gap import compute_gap
+            user_skill_list = list(user_skills)
+            for ranked in page:
+                required = ranked.job.required_skills or []
+                if required:
+                    have, gap, _ = compute_gap(user_skill_list, required, db)
+                    ranked.skills_you_have = have
+                    ranked.skills_to_develop = gap
+        except Exception:
+            logger.warning("[RANKER] Semantic skill split failed — keeping string-match results")
+
     return page, total

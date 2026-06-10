@@ -17,6 +17,8 @@ export interface ConversationSummary {
   context_type: string
   status: string
   message_count: number
+  skill_focus?: string | null
+  job_context?: Record<string, string> | null
   created_at: string
   updated_at: string
 }
@@ -32,6 +34,26 @@ export const counsellorApi = {
   createConversation: (contextType: string = 'general') =>
     apiClient.post<ConversationSummary>('/counsellor/conversations', {
       context_type: contextType,
+    }).then(r => r.data),
+
+  /**
+   * Create a skill-learning conversation scoped to one skill + one job.
+   * Returns the new conversation (with its id) so the caller can redirect.
+   */
+  createSkillConversation: (params: {
+    skillFocus: string
+    jobId?: string
+    jobTitle?: string
+    company?: string
+    sector?: string
+  }) =>
+    apiClient.post<ConversationSummary>('/counsellor/conversations', {
+      context_type: 'skill_learning',
+      skill_focus: params.skillFocus,
+      job_id: params.jobId,
+      job_title: params.jobTitle,
+      company: params.company,
+      sector: params.sector,
     }).then(r => r.data),
 
   getConversation: (convId: string) =>

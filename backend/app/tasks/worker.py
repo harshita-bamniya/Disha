@@ -57,9 +57,17 @@ celery_app.conf.update(
     retry_backoff=True,
 )
 def embed_job(self, job_id: str) -> None:
-    """Compute and store description embedding for a job posting."""
+    """
+    Embed a job posting:
+      1. Build a rich text from title + description + skills + metadata and
+         store the vector in job_postings.description_embedding (for ANN retrieval).
+      2. Embed each required_skill individually and upsert into skill_vectors
+         so semantic skill-overlap matching works at query time.
+    No external API is called — only the local fastembed model.
+    """
     from app.database import SessionLocal
     from app.models.user import JobPosting
+    from app.models.mvp2 import SkillVector
     from app.modules.recommendations import embedder
 
     db = SessionLocal()
@@ -69,17 +77,37 @@ def embed_job(self, job_id: str) -> None:
             logger.warning("[EMBED_JOB] Job %s not found — skipping", job_id)
             return
 
+        # 1. Embed full job document
         text = embedder.build_job_text(job)
         vec = embedder.embed(text)
         if vec:
             job.description_embedding = vec
-            db.commit()
-            logger.info("[EMBED_JOB] Embedding stored for job=%s", job_id)
+            logger.info("[EMBED_JOB] Description embedding stored for job=%s", job_id)
         else:
-            logger.warning("[EMBED_JOB] Empty embedding for job=%s", job_id)
+            logger.warning("[EMBED_JOB] Empty description embedding for job=%s", job_id)
+
+        # 2. Embed required_skills into skill_vectors cache
+        skills = list(job.required_skills or [])
+        if skills:
+            normalised = [s.lower().strip() for s in skills]
+            existing = {
+                r.skill_text
+                for r in db.query(SkillVector.skill_text)
+                .filter(SkillVector.skill_text.in_(normalised))
+                .all()
+            }
+            to_embed = [s for s in normalised if s not in existing]
+            if to_embed:
+                vecs = embedder.embed_batch(to_embed)
+                for skill_text, skill_vec in zip(to_embed, vecs):
+                    if skill_vec is not None:
+                        db.merge(SkillVector(skill_text=skill_text, embedding=skill_vec))
+                logger.info("[EMBED_JOB] Cached %d skill vectors for job=%s", len(to_embed), job_id)
+
+        db.commit()
     except Exception as exc:
         logger.error("[EMBED_JOB] Failed for job=%s: %s", job_id, exc)
-        raise  # Let Celery retry
+        raise
     finally:
         db.close()
 
@@ -121,6 +149,57 @@ def embed_profile(self, user_id: str) -> None:
             logger.info("[EMBED_PROFILE] Embedding stored for user=%s", user_id)
     except Exception as exc:
         logger.error("[EMBED_PROFILE] Failed for user=%s: %s", user_id, exc)
+        raise
+    finally:
+        db.close()
+
+
+# ── Skill embedding cache task ────────────────────────────────────────────────
+
+@celery_app.task(
+    bind=True,
+    name="app.tasks.worker.embed_skill_texts",
+    max_retries=3,
+    default_retry_delay=30,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+)
+def embed_skill_texts(self, skills: list[str]) -> None:
+    """Embed a list of skill strings and upsert into the skill_vectors cache.
+
+    Idempotent — already-cached skills are skipped.
+    Called after user saves skills and after AI job skill extraction completes.
+    """
+    from app.database import SessionLocal
+    from app.models.mvp2 import SkillVector
+    from app.modules.recommendations import embedder
+
+    if not skills:
+        return
+
+    db = SessionLocal()
+    try:
+        normalised = [s.lower().strip() for s in skills]
+        existing = {
+            row.skill_text
+            for row in db.query(SkillVector.skill_text)
+            .filter(SkillVector.skill_text.in_(normalised))
+            .all()
+        }
+        to_embed = [s for s in normalised if s not in existing]
+        if not to_embed:
+            return
+
+        vecs = embedder.embed_batch(to_embed)
+        for skill_text, vec in zip(to_embed, vecs):
+            if vec is not None:
+                db.merge(SkillVector(skill_text=skill_text, embedding=vec))
+
+        db.commit()
+        logger.info("[SKILL_EMBED] Cached %d new skill vectors", len(to_embed))
+    except Exception as exc:
+        logger.error("[SKILL_EMBED] Failed: %s", exc)
+        db.rollback()
         raise
     finally:
         db.close()

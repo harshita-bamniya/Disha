@@ -14,6 +14,7 @@ export interface LearningPathSummary {
   progress_pct: number
   status: string | null
   is_enrolled: boolean
+  gap_skills_covered: string[]      // gap skills this path addresses (job-specific)
 }
 
 export interface LessonOut {
@@ -69,6 +70,9 @@ export const learningApi = {
       time_spent_sec: timeSpentSec,
       score,
     }).then(r => r.data),
+
+  getPathsForJob: (jobId: string) =>
+    apiClient.get<LearningPathSummary[]>(`/learn/paths/for-job/${jobId}`).then(r => r.data),
 
   getStreak: () =>
     apiClient.get<StreakData>('/learn/streak').then(r => r.data),

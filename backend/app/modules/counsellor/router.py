@@ -34,6 +34,8 @@ def list_conversations(
             context_type=c.context_type,
             status=c.status,
             message_count=c.message_count,
+            skill_focus=c.skill_focus,
+            job_context=c.job_context,
             created_at=c.created_at,
             updated_at=c.updated_at,
         )
@@ -47,20 +49,38 @@ def create_conversation(
     user: User = Depends(get_current_aspirant),
     db: Session = Depends(get_db),
 ):
+    job_ctx = None
+    title = None
+
+    if body.context_type == "skill_learning" and body.skill_focus:
+        job_ctx = {
+            "job_id":    body.job_id,
+            "job_title": body.job_title,
+            "company":   body.company,
+            "sector":    body.sector,
+        }
+        title = f"{body.skill_focus} — {body.job_title or 'Job Prep'}"
+
     conv = Conversation(
         user_id=user.id,
+        title=title,
         context_type=body.context_type,
         status="active",
+        skill_focus=body.skill_focus if body.context_type == "skill_learning" else None,
+        job_context=job_ctx,
     )
     db.add(conv)
     db.commit()
     db.refresh(conv)
+
     return ConversationSummary(
         id=str(conv.id),
         title=conv.title,
         context_type=conv.context_type,
         status=conv.status,
         message_count=conv.message_count,
+        skill_focus=conv.skill_focus,
+        job_context=conv.job_context,
         created_at=conv.created_at,
         updated_at=conv.updated_at,
     )
@@ -93,6 +113,8 @@ def get_conversation(
         context_type=conv.context_type,
         status=conv.status,
         message_count=conv.message_count,
+        skill_focus=conv.skill_focus,
+        job_context=conv.job_context,
         created_at=conv.created_at,
         updated_at=conv.updated_at,
         messages=[

@@ -116,6 +116,7 @@ export default function RegisterPage() {
             }}
             error={fieldErrors.password}
             prefix={<Lock className="w-4 h-4" />}
+            maxLength={128}
           />
 
           {/* Strength bar */}

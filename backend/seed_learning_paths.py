@@ -19,6 +19,7 @@ PATHS = [
         "description": "From UPSC analyst to policy consultant — translate your governance depth into client-facing advisory skills.",
         "estimated_hours": 12,
         "difficulty": "intermediate",
+        "target_skills": ["Policy Research", "Analytical Reasoning", "Report Writing", "Stakeholder Engagement", "Strategic Planning", "Written Communication", "Presentation Skills"],
         "modules": [
             {
                 "title": "The Consulting Mindset",
@@ -55,6 +56,7 @@ PATHS = [
         "description": "Leverage your policy and governance knowledge to enter the rapidly growing ESG and sustainability sector.",
         "estimated_hours": 10,
         "difficulty": "beginner",
+        "target_skills": ["Ethics & Integrity", "Research & Analysis", "Stakeholder Engagement", "Data Interpretation", "Policy Research", "Report Writing", "Project Management"],
         "modules": [
             {
                 "title": "ESG Fundamentals",
@@ -90,6 +92,7 @@ PATHS = [
         "description": "Transform formal UPSC communication style into crisp, impact-focused corporate communication.",
         "estimated_hours": 8,
         "difficulty": "beginner",
+        "target_skills": ["Written Communication", "Public Speaking", "Presentation Skills", "Report Writing", "Stakeholder Engagement", "English Proficiency"],
         "modules": [
             {
                 "title": "The Corporate Communication Shift",
@@ -125,6 +128,7 @@ PATHS = [
         "description": "Build data fluency to complement your policy expertise — from Excel to basic Python data analysis.",
         "estimated_hours": 15,
         "difficulty": "intermediate",
+        "target_skills": ["Data Analysis", "Data Interpretation", "Research & Analysis", "Analytical Reasoning", "MS Office / Excel", "Computer Skills", "Problem Solving"],
         "modules": [
             {
                 "title": "Excel for Policy Analysis",
@@ -161,6 +165,7 @@ PATHS = [
         "description": "Translate your grassroots leadership experience into structured management frameworks valued by employers.",
         "estimated_hours": 8,
         "difficulty": "beginner",
+        "target_skills": ["Leadership", "Management", "Project Management", "Strategic Planning", "Decision Making", "Stakeholder Engagement", "Budget & Finance"],
         "modules": [
             {
                 "title": "Leadership Frameworks",
@@ -211,6 +216,7 @@ def seed():
                 description=path_data["description"],
                 estimated_hours=path_data["estimated_hours"],
                 difficulty=path_data["difficulty"],
+                target_skills=path_data.get("target_skills"),
                 is_active=True,
                 sort_order=i,
             )

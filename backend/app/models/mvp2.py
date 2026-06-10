@@ -22,6 +22,24 @@ def _now():
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# SKILL VECTOR CACHE — shared across all users and jobs
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class SkillVector(Base):
+    """Embedding cache for individual skill strings.
+
+    Keyed by the normalised skill text (lowercased + stripped).
+    Shared across all users and job postings — each unique skill phrase is
+    embedded exactly once, then looked up for all future gap computations.
+    """
+    __tablename__ = "skill_vectors"
+
+    skill_text  = Column(String(200), primary_key=True)   # normalised: lower + strip
+    embedding   = Column(Vector(384), nullable=False)
+    created_at  = Column(DateTime(timezone=True), server_default=func.now())
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # MODULE 05 — LEARNING SYSTEM
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -34,6 +52,7 @@ class LearningPath(Base):
     description      = Column(Text, nullable=True)
     estimated_hours  = Column(Integer, default=0)
     difficulty       = Column(String(20), nullable=True)
+    target_skills    = Column(JSONB, nullable=True)   # master-list skills this path develops
     is_active        = Column(Boolean, default=True, nullable=False)
     sort_order       = Column(Integer, default=0)
     created_at       = Column(DateTime(timezone=True), server_default=func.now())
@@ -337,6 +356,9 @@ class Conversation(Base):
     context_type  = Column(String(30), default="general", nullable=False)
     status        = Column(String(20), default="active", nullable=False)
     message_count = Column(Integer, default=0, nullable=False)
+    # skill_learning context fields
+    skill_focus   = Column(String(200), nullable=True)   # e.g. "Policy Research"
+    job_context   = Column(JSONB, nullable=True)          # {job_id, job_title, company, sector}
     created_at    = Column(DateTime(timezone=True), server_default=func.now())
     updated_at    = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -345,7 +367,7 @@ class Conversation(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "context_type IN ('career','emotional','learning','resume','general')",
+            "context_type IN ('career','emotional','learning','resume','general','skill_learning')",
             name="ck_conv_context_type"
         ),
         CheckConstraint("status IN ('active','archived')", name="ck_conv_status"),

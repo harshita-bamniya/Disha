@@ -21,7 +21,7 @@ def compute_and_store(user: User, db: Session) -> KrsScore:
         raise ValueError("Onboarding not complete — cannot compute KRS score.")
 
     psych = db.query(PsychologicalAssessment).filter(PsychologicalAssessment.user_id == user.id).first()
-    scores = scoring.compute_all(profile, psych)
+    scores = scoring.compute_all(profile, psych, db)
 
     # Upsert krs_scores
     krs = db.query(KrsScore).filter(KrsScore.user_id == user.id).first()
@@ -38,7 +38,7 @@ def compute_and_store(user: User, db: Session) -> KrsScore:
 
     # Compute career matches
     tracks = db.query(CareerTrack).all()
-    ranked = matching.rank_tracks(profile, tracks, scores["k_score"], top_n=5)
+    ranked = matching.rank_tracks(profile, tracks, scores["k_score"], top_n=5, db=db)
 
     # Delete old matches, insert fresh
     db.query(CareerMatch).filter(CareerMatch.user_id == user.id).delete()
@@ -149,7 +149,11 @@ def get_dashboard(user: User, db: Session) -> KrsDashboardResponse:
             gap_set.update(st.skills_to_develop)
         missing = sorted(gap_set)[:5]
     elif matches:
-        missing = list(set(matches[0].track.required_skills) - user_skills)[:4]
+        user_lower = {s.lower().strip() for s in user_skills}
+        missing = [
+            s for s in matches[0].track.required_skills
+            if s.lower().strip() not in user_lower
+        ][:4]
 
     return KrsDashboardResponse(
         krs=KrsScoreResponse(
@@ -224,7 +228,15 @@ def get_live_jobs(user: User, db: Session) -> list[LiveJobResponse]:
     """
     profile = db.query(AspirantProfile).filter(AspirantProfile.user_id == user.id).first()
     krs = db.query(KrsScore).filter(KrsScore.user_id == user.id).first()
-    if not profile or not krs:
+    if not profile:
+        return []
+    if not krs and profile.is_completed:
+        try:
+            krs = compute_and_store(user, db)
+        except Exception as exc:
+            logger.warning("[LIVE_JOBS] KRS recompute failed for user=%s: %s", user.id, exc)
+            return []
+    if not krs:
         return []
 
     # ── Build hard SQL filters from user profile preferences ─────────────────
@@ -315,17 +327,17 @@ def get_prepared_jobs(user: User, db: Session) -> list[LiveJobResponse]:
 
 def _best_career_track_for_job(job: JobPosting, profile: AspirantProfile, krs: KrsScore, db: Session):
     """Find the career track whose required_skills best overlap with the job's required_skills."""
-    job_skills: set[str] = {s.lower().strip() for s in (job.required_skills or [])}
+    from app.modules.krs.skill_gap import skill_overlap_pct
+    job_skills = list(job.required_skills or [])
     if not job_skills:
         return None, 0
 
     tracks = db.query(CareerTrack).all()
     best_track, best_score, best_overlap = None, -1, 0
     for track in tracks:
-        score, overlap = matching.compute_match_score(profile, track, krs.k_score)
-        # Also consider how many of the job's skills this track covers
-        track_skills = {s.lower().strip() for s in (track.required_skills or [])}
-        job_coverage = len(job_skills & track_skills) / len(job_skills) if job_skills else 0
+        score, overlap = matching.compute_match_score(profile, track, krs.k_score, db=db)
+        # Semantic coverage of job skills by this track
+        job_coverage = skill_overlap_pct(list(track.required_skills or []), job_skills, db) / 100
         combined = round(score * 0.5 + job_coverage * 50)
         if combined > best_score:
             best_score, best_overlap, best_track = combined, overlap, track
@@ -400,11 +412,9 @@ def _build_active_prep_context(
     krs: KrsScore | None,
     db: Session,
 ) -> ActivePrepJobContext:
-    user_skills = {s.lower().strip() for s in (profile.skills or [])}
+    from app.modules.krs.skill_gap import compute_gap
     required = job.required_skills or []
-    have = [s for s in required if s.lower().strip() in user_skills]
-    gap  = [s for s in required if s.lower().strip() not in user_skills]
-    gap_pct = round(len(gap) / len(required) * 100) if required else 0
+    have, gap, gap_pct = compute_gap(profile.skills or [], required, db)
 
     # Get employer name
     employer = db.query(EmployerProfile).filter(EmployerProfile.id == job.employer_id).first()

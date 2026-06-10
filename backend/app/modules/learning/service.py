@@ -11,7 +11,7 @@ from app.models.mvp2 import (
     LearningPath, LessonCompletion, PathModule, Lesson,
     UserLearningEnrollment, UserStreak,
 )
-from app.models.user import User, UserCareerSelection
+from app.models.user import AspirantProfile, JobPosting, User, UserCareerSelection
 from app.modules.learning.schemas import (
     CompleteLessonResponse, EnrollResponse, LearningPathDetail,
     LearningPathSummary, LessonOut, PathModuleOut, StreakResponse,
@@ -43,6 +43,8 @@ def _build_path_summary(
     path: LearningPath,
     completed_ids: set[str],
     enrollment_map: dict[str, str],
+    gap_skills: set[str] | None = None,
+    _gap_db: Session | None = None,
 ) -> LearningPathSummary:
     total = _count_path_lessons(path)
     done = sum(
@@ -54,6 +56,16 @@ def _build_path_summary(
     status = enrollment_map.get(str(path.id))
     track_name = path.career_track.title if path.career_track else None
     track_slug = path.career_track.slug if path.career_track else None
+
+    covered: list[str] = []
+    if gap_skills and path.target_skills and _gap_db is not None:
+        from app.modules.krs.skill_gap import compute_gap
+        _, _uncovered, _ = compute_gap(list(path.target_skills), list(gap_skills), _gap_db)
+        covered = [s for s in gap_skills if s not in _uncovered]
+    elif gap_skills and path.target_skills:
+        # String-match fallback
+        path_lower = {s.lower().strip() for s in path.target_skills}
+        covered = [s for s in gap_skills if s.lower().strip() in path_lower]
 
     return LearningPathSummary(
         id=str(path.id),
@@ -68,6 +80,7 @@ def _build_path_summary(
         progress_pct=pct,
         status=status,
         is_enrolled=status is not None,
+        gap_skills_covered=covered,
     )
 
 
@@ -114,6 +127,45 @@ def get_recommended_paths(user: User, db: Session) -> list[LearningPathSummary]:
     completed = _completed_lesson_ids(user.id, db)
     enrollment = _enrollment_map(user.id, db)
     return [_build_path_summary(p, completed, enrollment) for p in paths]
+
+
+def get_paths_for_job_gap(job_id: str, user: User, db: Session) -> list[LearningPathSummary]:
+    """Return learning paths ranked by how many of the user's gap skills for a specific job they cover."""
+    job = db.query(JobPosting).filter(JobPosting.id == job_id, JobPosting.is_active == True).first()
+    if not job:
+        raise ValueError("Job not found.")
+
+    profile = db.query(AspirantProfile).filter(AspirantProfile.user_id == user.id).first()
+    user_skills = {s.lower().strip() for s in (profile.skills if profile else []) or []}
+    required = job.required_skills or []
+    gap_skills = [s for s in required if s.lower().strip() not in user_skills]
+
+    if not gap_skills:
+        # No gap — return all recommended paths, still useful for skill reinforcement
+        return get_recommended_paths(user, db)
+
+    paths = (
+        db.query(LearningPath)
+        .options(
+            joinedload(LearningPath.modules).joinedload(PathModule.lessons),
+            joinedload(LearningPath.career_track),
+        )
+        .filter(LearningPath.is_active == True)
+        .all()
+    )
+
+    completed = _completed_lesson_ids(user.id, db)
+    enrollment = _enrollment_map(user.id, db)
+    gap_set = set(gap_skills)
+
+    summaries = [_build_path_summary(p, completed, enrollment, gap_set, _gap_db=db) for p in paths]
+
+    # Sort: most gap skills covered first; paths with zero coverage go last
+    summaries.sort(key=lambda s: len(s.gap_skills_covered), reverse=True)
+
+    # Only return paths that cover at least one gap skill; if none do, return all
+    relevant = [s for s in summaries if s.gap_skills_covered]
+    return relevant if relevant else summaries
 
 
 def get_path_detail(path_id: str, user: User, db: Session) -> LearningPathDetail:

@@ -156,6 +156,7 @@ export default function ForgotPasswordPage() {
           onChange={e => setNewPassword(e.target.value)}
           error={fieldErrors.newPassword}
           prefix={<Lock className="w-4 h-4" />}
+          maxLength={128}
         />
 
         <Input
@@ -166,6 +167,7 @@ export default function ForgotPasswordPage() {
           onChange={e => setConfirmPassword(e.target.value)}
           error={fieldErrors.confirmPassword}
           prefix={<Lock className="w-4 h-4" />}
+          maxLength={128}
         />
 
         {error && (

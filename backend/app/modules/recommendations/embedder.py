@@ -47,12 +47,24 @@ def embed(text: str) -> list[float] | None:
     if model is None:
         return None
     try:
-        # fastembed returns a generator; take the first (and only) result
         vec = next(model.embed([text]))
         return vec.tolist()
     except Exception as exc:
         logger.warning(f"[EMBEDDER] embed() failed: {exc}")
         return None
+
+
+def embed_batch(texts: list[str]) -> list[list[float] | None]:
+    """Embed a list of texts in one model pass. Returns parallel list of vectors."""
+    model = _get_model()
+    if model is None:
+        return [None] * len(texts)
+    try:
+        vecs = list(model.embed(texts))
+        return [v.tolist() for v in vecs]
+    except Exception as exc:
+        logger.warning(f"[EMBEDDER] embed_batch() failed: {exc}")
+        return [None] * len(texts)
 
 
 def cosine_similarity(a: list[float] | np.ndarray, b: list[float] | np.ndarray) -> float:

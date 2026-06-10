@@ -29,6 +29,19 @@ def recommended_paths(
     return service.get_recommended_paths(user, db)
 
 
+@router.get("/paths/for-job/{job_id}", response_model=list[LearningPathSummary])
+def paths_for_job(
+    job_id: str,
+    user: User = Depends(get_current_aspirant),
+    db: Session = Depends(get_db),
+):
+    """Return learning paths ranked by how many of the user's gap skills for this job they cover."""
+    try:
+        return service.get_paths_for_job_gap(job_id, user, db)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
 @router.get("/paths/{path_id}", response_model=LearningPathDetail)
 def path_detail(
     path_id: str,

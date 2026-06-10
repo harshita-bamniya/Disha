@@ -27,6 +27,24 @@ Key skills they have: {skills_have}
 Skills they are building: {skills_gap}
 When the user asks about interviews, resume, or strategy — relate it to this target role."""
 
+_SKILL_LEARNING_SYSTEM = """You are DISHA, an expert career coach and skill mentor.
+
+This is a focused learning session. Your ONLY job in this conversation is to teach:
+
+SKILL TO TEACH: {skill_focus}
+TARGET JOB: {job_title} at {company} ({sector} sector)
+
+How to teach:
+- Start by explaining what {skill_focus} means in the context of {job_title}
+- Use practical examples, frameworks, and exercises relevant to this specific role
+- Break concepts down into clear, digestible steps
+- Ask the user questions to check understanding and keep them engaged
+- Give real assignments or practice tasks they can do immediately
+- Connect everything back to what this employer actually needs
+
+Stay strictly focused on {skill_focus} for this job. If the user drifts to other topics, gently bring them back.
+Do NOT give generic career advice — every response must relate to teaching {skill_focus} for {job_title}."""
+
 
 def _score_label(score: int | None) -> str:
     """Convert numeric score to qualitative label — avoids leaking raw numbers to AI."""
@@ -186,15 +204,25 @@ async def handle_message(
 
     relevant_memories = memory_svc.retrieve_relevant_memories(user.id, query_embedding, db)
     user_context = _build_user_context(user, db)
-    active_prep_section = _build_active_prep_context(user, db)
     lang = user.preferred_language or "en"
 
-    system_prompt = get_prompt("counsellor_system", db).format(
-        user_context=user_context,
-        active_prep_section=active_prep_section,
-        memories="\n".join(f"- {m}" for m in relevant_memories) if relevant_memories else "No prior memories.",
-        language="Hindi (hi)" if lang == "hi" else "English (en)",
-    )
+    # Skill-learning conversations use a focused teaching prompt, not the general counsellor prompt
+    if conversation.context_type == "skill_learning" and conversation.skill_focus:
+        job_ctx = conversation.job_context or {}
+        system_prompt = _SKILL_LEARNING_SYSTEM.format(
+            skill_focus=conversation.skill_focus,
+            job_title=job_ctx.get("job_title", "your target job"),
+            company=job_ctx.get("company", "the company"),
+            sector=job_ctx.get("sector", "the sector"),
+        )
+    else:
+        active_prep_section = _build_active_prep_context(user, db)
+        system_prompt = get_prompt("counsellor_system", db).format(
+            user_context=user_context,
+            active_prep_section=active_prep_section,
+            memories="\n".join(f"- {m}" for m in relevant_memories) if relevant_memories else "No prior memories.",
+            language="Hindi (hi)" if lang == "hi" else "English (en)",
+        )
 
     # Build message history (exclude the message we just stored to avoid duplication)
     ai_messages = [

@@ -182,6 +182,10 @@ def save_skills(user: User, data: SkillsRequest, db: Session) -> StepSavedRespon
     db.commit()
     logger.info(f"[ONBOARDING] user={user.id} saved step 5 (skills)")
     _maybe_recompute_krs(user, profile, db)
+    # Cache embeddings for user skills so gap computation is instant at query time
+    if data.skills:
+        from app.tasks.worker import embed_skill_texts
+        embed_skill_texts.delay(data.skills)
     return StepSavedResponse(message="Skills saved", current_step=profile.current_step, is_completed=profile.is_completed)
 
 
@@ -209,10 +213,8 @@ def save_psychology(user: User, data: PsychologicalAssessmentRequest, db: Sessio
     confidence = _CONFIDENCE_MAP[data.confidence_level]
     pressure = _PRESSURE_MAP[data.financial_pressure]
 
-    # Generate Groq personalised insight before writing to DB
-    insight = _call_groq_insight(profile, burnout, confidence, pressure, data)
-
-    # Upsert psychological assessment
+    # Upsert psychological assessment — commit BEFORE calling Groq so data is
+    # never lost if the AI call times out or fails.
     assessment = db.query(PsychologicalAssessment).filter(PsychologicalAssessment.user_id == user.id).first()
     if not assessment:
         assessment = PsychologicalAssessment(
@@ -224,7 +226,7 @@ def save_psychology(user: User, data: PsychologicalAssessmentRequest, db: Sessio
             motivation_type=data.motivation_type,
             identity_attachment=data.identity_attachment,
             support_system=data.support_system,
-            disha_insight=insight or None,
+            disha_insight=None,
         )
         db.add(assessment)
     else:
@@ -235,7 +237,7 @@ def save_psychology(user: User, data: PsychologicalAssessmentRequest, db: Sessio
         assessment.motivation_type = data.motivation_type
         assessment.identity_attachment = data.identity_attachment
         assessment.support_system = data.support_system
-        assessment.disha_insight = insight or None
+        assessment.disha_insight = None
 
     profile.current_step = 7
     profile.is_completed = True
@@ -248,6 +250,13 @@ def save_psychology(user: User, data: PsychologicalAssessmentRequest, db: Sessio
         compute_and_store(user, db)
     except Exception as exc:
         logger.warning(f"[KRS] Auto-compute failed for user={user.id}: {exc}")
+
+    # Attempt Groq insight AFTER the commit — if it times out the user still
+    # lands on the dashboard; they just don't see the personalised message.
+    insight = _call_groq_insight(profile, burnout, confidence, pressure, data)
+    if insight:
+        assessment.disha_insight = insight
+        db.commit()
 
     return StepSavedResponse(
         message="Onboarding complete!",
@@ -313,7 +322,7 @@ def _call_groq_insight(
                 "max_tokens": 180,
                 "temperature": 0.75,
             },
-            timeout=20.0,
+            timeout=httpx.Timeout(connect=5.0, read=10.0, write=5.0, pool=2.0),
         )
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"].strip()

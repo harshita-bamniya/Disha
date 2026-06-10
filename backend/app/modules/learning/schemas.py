@@ -45,6 +45,7 @@ class LearningPathSummary(BaseModel):
     progress_pct: int
     status: Optional[str]  # enrollment status if enrolled
     is_enrolled: bool
+    gap_skills_covered: list[str] = []  # subset of user's gap skills this path addresses
 
     class Config:
         from_attributes = True

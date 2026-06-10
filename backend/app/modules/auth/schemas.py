@@ -25,6 +25,8 @@ class RegisterRequest(BaseModel):
         errors = []
         if len(v) < 8:
             errors.append("at least 8 characters")
+        if len(v) > 128:
+            raise ValueError("Password must not exceed 128 characters")
         if not re.search(r"[A-Z]", v):
             errors.append("one uppercase letter")
         if not re.search(r"[a-z]", v):
@@ -65,7 +67,10 @@ class VerifyPhoneRequest(BaseModel):
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, v: str) -> str:
-        return re.sub(r"\D", "", v)
+        cleaned = re.sub(r"\D", "", v)
+        if cleaned.startswith("91") and len(cleaned) == 12:
+            cleaned = cleaned[2:]
+        return cleaned
 
     @field_validator("otp")
     @classmethod
@@ -82,7 +87,10 @@ class SendOtpRequest(BaseModel):
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, v: str) -> str:
-        return re.sub(r"\D", "", v)
+        cleaned = re.sub(r"\D", "", v)
+        if cleaned.startswith("91") and len(cleaned) == 12:
+            cleaned = cleaned[2:]
+        return cleaned
 
     @field_validator("purpose")
     @classmethod
@@ -121,6 +129,8 @@ class EmployerRegisterRequest(BaseModel):
         errors = []
         if len(v) < 8:
             errors.append("at least 8 characters")
+        if len(v) > 128:
+            raise ValueError("Password must not exceed 128 characters")
         if not re.search(r"[A-Z]", v):
             errors.append("one uppercase letter")
         if not re.search(r"[a-z]", v):
@@ -159,7 +169,10 @@ class ForgotPasswordRequest(BaseModel):
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, v: str) -> str:
-        return re.sub(r"\D", "", v)
+        cleaned = re.sub(r"\D", "", v)
+        if cleaned.startswith("91") and len(cleaned) == 12:
+            cleaned = cleaned[2:]
+        return cleaned
 
 
 class ResetPasswordRequest(BaseModel):
@@ -170,7 +183,10 @@ class ResetPasswordRequest(BaseModel):
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, v: str) -> str:
-        return re.sub(r"\D", "", v)
+        cleaned = re.sub(r"\D", "", v)
+        if cleaned.startswith("91") and len(cleaned) == 12:
+            cleaned = cleaned[2:]
+        return cleaned
 
     @field_validator("otp")
     @classmethod
@@ -185,6 +201,8 @@ class ResetPasswordRequest(BaseModel):
         errors = []
         if len(v) < 8:
             errors.append("at least 8 characters")
+        if len(v) > 128:
+            raise ValueError("Password must not exceed 128 characters")
         if not re.search(r"[A-Z]", v):
             errors.append("one uppercase letter")
         if not re.search(r"[a-z]", v):
