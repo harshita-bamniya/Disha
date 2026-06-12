@@ -19,12 +19,21 @@ export interface ConversationSummary {
   message_count: number
   skill_focus?: string | null
   job_context?: Record<string, string> | null
+  interview_config?: Record<string, any> | null
   created_at: string
   updated_at: string
 }
 
 export interface ConversationDetail extends ConversationSummary {
   messages: MessageOut[]
+}
+
+export interface CounsellorMemory {
+  id: string
+  memory_type: 'fact' | 'preference' | 'concern' | 'milestone' | 'goal'
+  content: string
+  importance: 'low' | 'medium' | 'high' | 'critical'
+  created_at: string
 }
 
 export const counsellorApi = {
@@ -36,10 +45,6 @@ export const counsellorApi = {
       context_type: contextType,
     }).then(r => r.data),
 
-  /**
-   * Create a skill-learning conversation scoped to one skill + one job.
-   * Returns the new conversation (with its id) so the caller can redirect.
-   */
   createSkillConversation: (params: {
     skillFocus: string
     jobId?: string
@@ -56,11 +61,48 @@ export const counsellorApi = {
       sector: params.sector,
     }).then(r => r.data),
 
+  createInterviewConversation: (params: {
+    interviewType: 'hr' | 'technical' | 'stress'
+    jobId?: string
+    jobTitle?: string
+    company?: string
+    sector?: string
+    keySkills?: string[]
+  }) =>
+    apiClient.post<ConversationSummary>('/counsellor/conversations', {
+      context_type: 'mock_interview',
+      interview_type: params.interviewType,
+      job_id: params.jobId,
+      job_title: params.jobTitle,
+      company: params.company,
+      sector: params.sector,
+      key_skills: params.keySkills ?? [],
+    }).then(r => r.data),
+
+  getInterviewReport: (convId: string) =>
+    apiClient.get<any>(`/counsellor/conversations/${convId}/interview-report`).then(r => r.data),
+
   getConversation: (convId: string) =>
     apiClient.get<ConversationDetail>(`/counsellor/conversations/${convId}`).then(r => r.data),
 
   archiveConversation: (convId: string) =>
     apiClient.put(`/counsellor/conversations/${convId}/archive`).then(r => r.data),
+
+  getPrepChecklist: (jobId: string) =>
+    apiClient.get<{
+      checklist: Array<{ item: string; done: boolean; cta: string; cta_label: string }>
+      gap_skills: string[]
+      is_active_prep: boolean
+    }>(`/counsellor/prep-checklist/${jobId}`).then(r => r.data),
+
+  getNudge: () =>
+    apiClient.get<{ type?: string; message?: string; cta?: string; cta_path?: string }>('/counsellor/nudge').then(r => r.data),
+
+  listMemories: () =>
+    apiClient.get<CounsellorMemory[]>('/counsellor/memories').then(r => r.data),
+
+  deleteMemory: (memoryId: string) =>
+    apiClient.delete(`/counsellor/memories/${memoryId}`),
 
   /**
    * Send a message and receive a streaming response.

@@ -1,228 +1,516 @@
 /**
- * Phase 3 — Candidate Pipeline Page (Employer)
- * Shows all applicants for a specific job posting with pipeline management.
+ * Phase 3+ — Candidate Pipeline Page (Employer)
+ * LinkedIn/Naukri-style candidate pipeline with full profile drawer,
+ * search, filter, sort, bulk actions, recruiter notes, and CSV export.
  */
-import { useParams } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
-import { getJobPipeline, updateApplicationStatus, type CandidateOut } from '@/api/matching'
+import { useState, useMemo } from 'react'
+import {
+  getJobPipeline, updateApplicationStatus, updateApplicationNote,
+  type CandidateOut,
+} from '@/api/matching'
+import {
+  Search, X, Download, ChevronDown, ChevronUp, SlidersHorizontal,
+  FileText, Briefcase, GraduationCap, Brain, TrendingUp, MapPin,
+  CheckCircle2, Clock, AlertCircle, Star, Users, ArrowLeft,
+  MessageSquare, BookOpen,
+} from 'lucide-react'
+
+// ── Constants ─────────────────────────────────────────────────────────────────
 
 const STATUS_OPTIONS = [
-  { value: 'under_review', label: 'Mark Under Review' },
-  { value: 'shortlisted', label: 'Shortlist' },
-  { value: 'rejected', label: 'Reject' },
-  { value: 'hired', label: 'Mark as Hired' },
+  { value: 'under_review', label: 'Mark Under Review', color: '#D97706' },
+  { value: 'shortlisted',  label: 'Shortlist',         color: '#059669' },
+  { value: 'rejected',     label: 'Reject',            color: '#DC2626' },
+  { value: 'hired',        label: 'Mark as Hired',     color: '#7C3AED' },
 ]
 
-const STATUS_COLOR: Record<string, string> = {
-  applied:       'bg-blue-100 text-blue-800',
-  under_review:  'bg-yellow-100 text-yellow-800',
-  shortlisted:   'bg-green-100 text-green-800',
-  rejected:      'bg-red-100 text-red-800',
-  hired:         'bg-emerald-100 text-emerald-800',
-  withdrawn:     'bg-gray-100 text-gray-600',
+const STATUS_STYLE: Record<string, { bg: string; text: string }> = {
+  applied:      { bg: 'rgba(59,130,246,0.1)',   text: '#2563EB' },
+  under_review: { bg: 'rgba(217,119,6,0.1)',    text: '#D97706' },
+  shortlisted:  { bg: 'rgba(5,150,105,0.1)',    text: '#059669' },
+  rejected:     { bg: 'rgba(220,38,38,0.1)',    text: '#DC2626' },
+  hired:        { bg: 'rgba(124,58,237,0.1)',   text: '#7C3AED' },
+  withdrawn:    { bg: 'rgba(107,114,128,0.08)', text: '#9CA3AF' },
 }
 
-function KrsBar({ label, score }: { label: string; score: number | null }) {
+const SORT_OPTIONS = [
+  { value: 'match_score', label: 'Best Match' },
+  { value: 'applied_at',  label: 'Newest First' },
+  { value: 'krs',         label: 'KRS Score' },
+]
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function ScoreBar({ label, score, color = '#3B82F6' }: { label: string; score: number | null; color?: string }) {
   if (score === null) return null
   return (
-    <div className="mt-1">
-      <div className="flex justify-between text-xs text-gray-500 mb-0.5">
-        <span>{label}</span>
-        <span>{score}</span>
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#94A3B8', marginBottom: 3 }}>
+        <span>{label}</span><span style={{ color, fontWeight: 700 }}>{score}</span>
       </div>
-      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-primary rounded-full"
-          style={{ width: `${score}%` }}
-        />
+      <div style={{ height: 6, background: '#F1F5F9', borderRadius: 20, overflow: 'hidden' }}>
+        <div style={{ width: `${score}%`, height: '100%', background: color, borderRadius: 20 }} />
       </div>
     </div>
   )
 }
 
-function CandidateCard({ candidate, jobId }: { candidate: CandidateOut; jobId: string }) {
-  const qc = useQueryClient()
-  const [selectedStatus, setSelectedStatus] = useState('')
-  const [note, setNote] = useState('')
-  const [showActions, setShowActions] = useState(false)
+function exportToCSV(candidates: CandidateOut[], jobTitle: string) {
+  const headers = [
+    'Name','City','State','Gender','Qualification','Degree','Field','Institution','Grad Year',
+    'UPSC Attempts','Highest Stage','Years Preparing','Optional Subject',
+    'Work Exp','Work Years','Work Domain','Last Designation',
+    'Skills','K Score','R Score','S Score','Composite','Match Score',
+    'Salary Min','Salary Max','Status','Cover Note','Applied (days ago)',
+  ]
+  const rows = candidates.map(c => [
+    c.full_name??'',c.city??'',c.state??'',c.gender??'',
+    c.highest_qualification??'',c.degree??'',c.field_of_study??'',c.institution??'',c.graduation_year??'',
+    c.upsc_attempts??'',c.highest_stage_cleared??'',c.years_preparing??'',c.optional_subject??'',
+    c.has_work_experience?'Yes':'No',c.work_experience_years??'',c.work_experience_domain??'',c.last_designation??'',
+    (c.skills??[]).join('; '),c.k_score??'',c.r_score??'',c.s_score??'',c.composite??'',c.match_score??'',
+    c.expected_salary_min??'',c.expected_salary_max??'',c.status,(c.cover_note??'').replace(/"/g,'""'),c.days_ago,
+  ])
+  const csv=[headers,...rows].map(r=>r.map(v=>`"${v}"`).join(',')).join('\n')
+  const blob=new Blob([csv],{type:'text/csv'})
+  const url=URL.createObjectURL(blob)
+  const a=document.createElement('a')
+  a.href=url;a.download=`${jobTitle.replace(/\s+/g,'_')}_candidates.csv`;a.click()
+  URL.revokeObjectURL(url)
+}
 
-  const updateMutation = useMutation({
-    mutationFn: () => updateApplicationStatus(candidate.application_id, selectedStatus, note || undefined),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['pipeline', jobId] })
-      setShowActions(false)
-      setSelectedStatus('')
-      setNote('')
-    },
+function Section({icon,title,children}:{icon:React.ReactNode;title:string;children:React.ReactNode}){
+  return(
+    <div style={{background:'#F8FAFC',borderRadius:14,padding:'14px 16px',border:'1px solid #E2E8F0'}}>
+      <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:12}}>
+        <span style={{color:'#64748B'}}>{icon}</span>
+        <h3 style={{fontSize:11,fontWeight:700,color:'#475569',textTransform:'uppercase',letterSpacing:'0.5px',margin:0}}>{title}</h3>
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function InfoRow({label,value}:{label:string;value:string}){
+  return(
+    <div style={{display:'flex',justifyContent:'space-between',gap:12,marginBottom:5}}>
+      <span style={{fontSize:12,color:'#94A3B8',flexShrink:0}}>{label}</span>
+      <span style={{fontSize:12,color:'#1E293B',fontWeight:600,textAlign:'right'}}>{value}</span>
+    </div>
+  )
+}
+
+function FilterTab({label,active,onClick}:{label:string;active:boolean;onClick:()=>void}){
+  return(
+    <button onClick={onClick} style={{padding:'6px 14px',borderRadius:20,fontSize:12,fontWeight:600,border:active?'none':'1px solid #E5E7EB',background:active?'#1E293B':'#fff',color:active?'#fff':'#64748B',cursor:'pointer',textTransform:'capitalize'}}>
+      {label}
+    </button>
+  )
+}
+
+function StatChip({label,value,color}:{label:string;value:string;color:string}){
+  return(
+    <span style={{padding:'3px 8px',borderRadius:20,fontSize:10,fontWeight:700,background:`${color}16`,color,border:`1px solid ${color}28`}}>
+      {label}: {value}
+    </span>
+  )
+}
+
+// ── Profile Drawer ────────────────────────────────────────────────────────────
+
+function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:string;onClose:()=>void}){
+  const qc=useQueryClient()
+  const [selectedStatus,setSelectedStatus]=useState('')
+  const [statusNote,setStatusNote]=useState('')
+  const [recruiterNote,setRecruiterNote]=useState(candidate.employer_note??'')
+  const [noteSaved,setNoteSaved]=useState(false)
+
+  const updateMutation=useMutation({
+    mutationFn:()=>updateApplicationStatus(candidate.application_id,selectedStatus,statusNote||undefined),
+    onSuccess:()=>{qc.invalidateQueries({queryKey:['pipeline',jobId]});setSelectedStatus('');setStatusNote('')},
+  })
+  const noteMutation=useMutation({
+    mutationFn:()=>updateApplicationNote(candidate.application_id,recruiterNote),
+    onSuccess:()=>{qc.invalidateQueries({queryKey:['pipeline',jobId]});setNoteSaved(true);setTimeout(()=>setNoteSaved(false),2500)},
   })
 
-  const isTerminal = ['withdrawn', 'hired', 'rejected'].includes(candidate.status)
+  const isTerminal=['withdrawn','hired','rejected'].includes(candidate.status)
+  const st=STATUS_STYLE[candidate.status]??{bg:'#F3F4F6',text:'#6B7280'}
 
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5">
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div>
-          <h3 className="font-semibold text-gray-900">{candidate.full_name || 'Anonymous'}</h3>
-          <p className="text-sm text-gray-500">
-            {[candidate.city, candidate.state].filter(Boolean).join(', ') || 'Location not specified'}
-          </p>
+  return(
+    <div style={{position:'fixed',inset:0,zIndex:100,background:'rgba(15,23,42,0.45)',backdropFilter:'blur(4px)',display:'flex',justifyContent:'flex-end'}} onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
+      <div style={{width:'100%',maxWidth:680,height:'100vh',background:'#fff',overflowY:'auto',display:'flex',flexDirection:'column',boxShadow:'-8px 0 48px rgba(15,23,42,0.18)'}}>
+        {/* Header */}
+        <div style={{padding:'18px 24px',borderBottom:'1px solid #E5E7EB',position:'sticky',top:0,background:'#fff',zIndex:10,display:'flex',alignItems:'center',justifyContent:'space-between',gap:12}}>
+          <div style={{display:'flex',alignItems:'center',gap:12}}>
+            <div style={{width:44,height:44,borderRadius:'50%',background:'linear-gradient(135deg,#3B82F6,#1D4ED8)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,fontWeight:900,color:'#fff',flexShrink:0}}>
+              {(candidate.full_name||'A')[0].toUpperCase()}
+            </div>
+            <div>
+              <h2 style={{fontSize:16,fontWeight:800,color:'#0F172A',margin:0}}>{candidate.full_name??'Anonymous'}</h2>
+              <p style={{fontSize:11,color:'#64748B',marginTop:2}}>
+                {[candidate.city,candidate.state].filter(Boolean).join(', ')||'Location N/A'}
+                {candidate.gender?` · ${candidate.gender}`:''}
+                {' · Applied '}<strong>{candidate.days_ago===0?'today':`${candidate.days_ago}d ago`}</strong>
+              </p>
+            </div>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <span style={{padding:'4px 12px',borderRadius:20,fontSize:11,fontWeight:700,background:st.bg,color:st.text,textTransform:'capitalize'}}>{candidate.status.replace('_',' ')}</span>
+            <button onClick={onClose} style={{width:32,height:32,border:'none',background:'#F1F5F9',borderRadius:8,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><X size={16} color="#64748B"/></button>
+          </div>
         </div>
-        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLOR[candidate.status] || 'bg-gray-100 text-gray-600'}`}>
-          {candidate.status.replace('_', ' ')}
-        </span>
-      </div>
 
-      <div className="text-sm text-gray-700 mb-2">
-        <span className="font-medium">UPSC:</span>{' '}
-        {candidate.upsc_attempts} attempt(s), highest: {candidate.highest_stage_cleared || 'N/A'}
-      </div>
+        {/* Body */}
+        <div style={{padding:'20px 24px',display:'flex',flexDirection:'column',gap:16,flex:1}}>
+          {/* Match + KRS summary */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+            {candidate.match_score!==null&&(
+              <div style={{background:'rgba(59,130,246,0.04)',border:'1px solid rgba(59,130,246,0.12)',borderRadius:14,padding:'14px 16px'}}>
+                <p style={{fontSize:10,fontWeight:700,color:'#94A3B8',textTransform:'uppercase',marginBottom:8}}>Job Match</p>
+                <div style={{fontSize:32,fontWeight:900,color:candidate.match_score>=70?'#059669':candidate.match_score>=40?'#D97706':'#DC2626',lineHeight:1}}>{candidate.match_score}%</div>
+              </div>
+            )}
+            {candidate.composite!==null&&(
+              <div style={{background:'rgba(124,58,237,0.04)',border:'1px solid rgba(124,58,237,0.12)',borderRadius:14,padding:'14px 16px'}}>
+                <p style={{fontSize:10,fontWeight:700,color:'#94A3B8',textTransform:'uppercase',marginBottom:8}}>KRS Composite</p>
+                <div style={{fontSize:32,fontWeight:900,color:'#7C3AED',lineHeight:1}}>{candidate.composite}</div>
+              </div>
+            )}
+          </div>
 
-      {candidate.skills.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-3">
-          {candidate.skills.slice(0, 6).map((s) => (
-            <span key={s} className="text-xs bg-green-50 text-green-800 px-2 py-0.5 rounded-full">{s}</span>
-          ))}
-          {candidate.skills.length > 6 && (
-            <span className="text-xs text-gray-400">+{candidate.skills.length - 6} more</span>
+          {(candidate.k_score!==null||candidate.r_score!==null||candidate.s_score!==null)&&(
+            <Section icon={<TrendingUp size={13}/>} title="KRS Score Breakdown">
+              <ScoreBar label="Knowledge (K)" score={candidate.k_score} color="#3B82F6"/>
+              <ScoreBar label="Readiness (R)" score={candidate.r_score} color="#7C3AED"/>
+              <ScoreBar label="Skill Match (S)" score={candidate.s_score} color="#059669"/>
+            </Section>
           )}
-        </div>
-      )}
 
-      <KrsBar label="Knowledge" score={candidate.k_score} />
-      <KrsBar label="Readiness" score={candidate.r_score} />
-      <KrsBar label="Skill Match" score={candidate.s_score} />
+          {candidate.highest_qualification&&(
+            <Section icon={<GraduationCap size={13}/>} title="Education">
+              <InfoRow label="Qualification" value={candidate.highest_qualification}/>
+              {candidate.degree&&<InfoRow label="Degree" value={`${candidate.degree}${candidate.field_of_study?` in ${candidate.field_of_study}`:''}`}/>}
+              {candidate.institution&&<InfoRow label="Institution" value={candidate.institution}/>}
+              {candidate.graduation_year&&<InfoRow label="Graduation Year" value={String(candidate.graduation_year)}/>}
+            </Section>
+          )}
 
-      {candidate.match_score !== null && (
-        <div className="mt-2 text-sm font-medium text-gray-700">
-          Job match: {candidate.match_score}%
-        </div>
-      )}
+          <Section icon={<BookOpen size={13}/>} title="UPSC Journey">
+            {candidate.upsc_attempts!==null&&<InfoRow label="Attempts" value={String(candidate.upsc_attempts)}/>}
+            {candidate.highest_stage_cleared&&<InfoRow label="Highest Stage" value={candidate.highest_stage_cleared.replace(/_/g,' ')}/>}
+            {candidate.years_preparing!=null&&<InfoRow label="Years Preparing" value={`${candidate.years_preparing} yr${candidate.years_preparing===1?'':'s'}`}/>}
+            {candidate.optional_subject&&<InfoRow label="Optional Subject" value={candidate.optional_subject}/>}
+          </Section>
 
-      {candidate.cover_note && (
-        <div className="mt-3 p-3 bg-gray-50 rounded-lg text-sm text-gray-600 italic">
-          "{candidate.cover_note}"
-        </div>
-      )}
+          {candidate.has_work_experience&&(
+            <Section icon={<Briefcase size={13}/>} title="Work Experience">
+              {candidate.work_experience_years!=null&&<InfoRow label="Experience" value={`${candidate.work_experience_years} yr${candidate.work_experience_years===1?'':'s'}`}/>}
+              {candidate.work_experience_domain&&<InfoRow label="Domain" value={candidate.work_experience_domain}/>}
+              {candidate.last_designation&&<InfoRow label="Last Designation" value={candidate.last_designation}/>}
+            </Section>
+          )}
 
-      {!isTerminal && (
-        <div className="mt-4">
-          {!showActions ? (
-            <button
-              onClick={() => setShowActions(true)}
-              className="w-full text-sm border border-primary text-primary rounded-lg py-2 hover:bg-green-50 transition-colors"
-            >
-              Update Status
-            </button>
-          ) : (
-            <div className="space-y-2">
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-              >
-                <option value="">Select action...</option>
-                {STATUS_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
+          {candidate.skills.length>0&&(
+            <Section icon={<Star size={13}/>} title="Skills">
+              <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+                {candidate.skills.map(s=>(
+                  <span key={s} style={{padding:'3px 10px',background:'rgba(59,130,246,0.07)',border:'1px solid rgba(59,130,246,0.12)',borderRadius:20,fontSize:11,fontWeight:600,color:'#3B82F6'}}>{s}</span>
                 ))}
-              </select>
-              {selectedStatus && (
-                <textarea
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  placeholder="Add a note for the candidate (optional)..."
-                  maxLength={500}
-                  rows={2}
-                  className="w-full border border-gray-300 rounded-lg p-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              )}
-              <div className="flex gap-2">
-                <button onClick={() => setShowActions(false)} className="flex-1 border border-gray-300 text-gray-600 rounded-lg py-2 text-sm hover:bg-gray-50">
-                  Cancel
-                </button>
-                <button
-                  onClick={() => updateMutation.mutate()}
-                  disabled={!selectedStatus || updateMutation.isPending}
-                  className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-medium disabled:opacity-60"
-                >
-                  {updateMutation.isPending ? 'Saving...' : 'Confirm'}
+              </div>
+            </Section>
+          )}
+
+          {candidate.psych&&(
+            <Section icon={<Brain size={13}/>} title="Psychological Profile">
+              <ScoreBar label="Confidence" score={candidate.psych.confidence_index} color="#059669"/>
+              <ScoreBar label="Burnout Level" score={candidate.psych.burnout_score} color="#EF4444"/>
+              <ScoreBar label="Financial Pressure" score={candidate.psych.financial_pressure_score} color="#D97706"/>
+              {candidate.psych.risk_tolerance&&<InfoRow label="Risk Tolerance" value={candidate.psych.risk_tolerance.replace(/_/g,' ')}/>}
+              {candidate.psych.motivation_type&&<InfoRow label="Motivation Type" value={candidate.psych.motivation_type.replace(/_/g,' ')}/>}
+            </Section>
+          )}
+
+          {(candidate.expected_salary_min||candidate.expected_salary_max||candidate.open_to_relocation!=null)&&(
+            <Section icon={<MapPin size={13}/>} title="Preferences">
+              {(candidate.expected_salary_min||candidate.expected_salary_max)&&<InfoRow label="Expected Salary" value={`₹${candidate.expected_salary_min??'?'}–${candidate.expected_salary_max??'?'} LPA`}/>}
+              {candidate.open_to_relocation!=null&&<InfoRow label="Open to Relocation" value={candidate.open_to_relocation?'Yes':'No'}/>}
+              {candidate.preferred_locations&&candidate.preferred_locations.length>0&&<InfoRow label="Preferred Locations" value={candidate.preferred_locations.join(', ')}/>}
+            </Section>
+          )}
+
+          {candidate.cover_note&&(
+            <Section icon={<FileText size={13}/>} title="Cover Note">
+              <p style={{fontSize:13,color:'#475569',lineHeight:1.6,fontStyle:'italic',margin:0}}>"{candidate.cover_note}"</p>
+            </Section>
+          )}
+
+          {candidate.status_history.length>0&&(
+            <Section icon={<Clock size={13}/>} title="Application Timeline">
+              <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                {candidate.status_history.map((h,i)=>(
+                  <div key={i} style={{display:'flex',gap:10}}>
+                    <div style={{width:8,height:8,borderRadius:'50%',background:'#3B82F6',flexShrink:0,marginTop:4}}/>
+                    <div>
+                      <p style={{fontSize:12,fontWeight:600,color:'#1E293B',margin:0}}>{h.from_status?`${h.from_status.replace('_',' ')} → `:''}{h.to_status.replace('_',' ')}</p>
+                      {h.note&&<p style={{fontSize:11,color:'#64748B',margin:'2px 0 0'}}>{h.note}</p>}
+                      <p style={{fontSize:11,color:'#94A3B8',margin:'2px 0 0'}}>{new Date(h.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          )}
+
+          <Section icon={<MessageSquare size={13}/>} title="Private Recruiter Note">
+            <textarea value={recruiterNote} onChange={e=>setRecruiterNote(e.target.value)} placeholder="Internal notes (not visible to applicant)..." rows={3} maxLength={1000}
+              style={{width:'100%',border:'1px solid #E2E8F0',borderRadius:10,padding:'10px 12px',fontSize:13,resize:'none',outline:'none',color:'#1E293B',fontFamily:'inherit',boxSizing:'border-box'}}/>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:10,marginTop:8}}>
+              {noteSaved&&<span style={{fontSize:12,color:'#059669',fontWeight:600}}>✓ Saved</span>}
+              <button onClick={()=>noteMutation.mutate()} disabled={noteMutation.isPending}
+                style={{padding:'7px 16px',borderRadius:8,border:'none',background:'#1E293B',color:'#fff',fontSize:12,fontWeight:700,cursor:noteMutation.isPending?'not-allowed':'pointer'}}>
+                {noteMutation.isPending?'Saving…':'Save Note'}
+              </button>
+            </div>
+          </Section>
+
+          {!isTerminal&&(
+            <Section icon={<CheckCircle2 size={13}/>} title="Update Application Status">
+              <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                <select value={selectedStatus} onChange={e=>setSelectedStatus(e.target.value)}
+                  style={{width:'100%',border:'1px solid #E2E8F0',borderRadius:10,padding:'10px 12px',fontSize:13,background:'#fff',color:'#1E293B',outline:'none'}}>
+                  <option value="">Select new status…</option>
+                  {STATUS_OPTIONS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+                {selectedStatus&&(
+                  <textarea value={statusNote} onChange={e=>setStatusNote(e.target.value)} placeholder="Note to candidate (optional)..." rows={2} maxLength={500}
+                    style={{width:'100%',border:'1px solid #E2E8F0',borderRadius:10,padding:'10px 12px',fontSize:13,resize:'none',outline:'none',fontFamily:'inherit',boxSizing:'border-box'}}/>
+                )}
+                <button onClick={()=>updateMutation.mutate()} disabled={!selectedStatus||updateMutation.isPending}
+                  style={{padding:11,borderRadius:10,border:'none',fontSize:13,fontWeight:700,background:selectedStatus?(STATUS_OPTIONS.find(o=>o.value===selectedStatus)?.color??'#3B82F6'):'#E2E8F0',color:selectedStatus?'#fff':'#94A3B8',cursor:(!selectedStatus||updateMutation.isPending)?'not-allowed':'pointer'}}>
+                  {updateMutation.isPending?'Saving…':selectedStatus?`Confirm: ${STATUS_OPTIONS.find(o=>o.value===selectedStatus)?.label}`:'Select a status above'}
                 </button>
               </div>
-            </div>
+            </Section>
           )}
         </div>
-      )}
+      </div>
     </div>
   )
 }
 
-export default function CandidatePipelinePage() {
-  const { jobId } = useParams<{ jobId: string }>()
-  const [filter, setFilter] = useState('all')
+// ── Candidate Card ────────────────────────────────────────────────────────────
 
-  const { data: pipeline, isLoading, isError } = useQuery({
-    queryKey: ['pipeline', jobId],
-    queryFn: () => getJobPipeline(jobId!),
-    enabled: !!jobId,
+function CandidateCard({candidate,jobId,selected,onSelect}:{candidate:CandidateOut;jobId:string;selected:boolean;onSelect:(id:string)=>void}){
+  const [drawerOpen,setDrawerOpen]=useState(false)
+  const st=STATUS_STYLE[candidate.status]??{bg:'#F3F4F6',text:'#6B7280'}
+
+  return(
+    <>
+      <div style={{background:'#fff',borderRadius:16,border:selected?'2px solid #3B82F6':'1px solid #E5E7EB',padding:'16px 18px',cursor:'pointer',transition:'all 0.18s',boxShadow:selected?'0 0 0 3px rgba(59,130,246,0.1)':'0 2px 8px rgba(0,0,0,0.03)'}}
+        onClick={()=>setDrawerOpen(true)}
+        onMouseOver={e=>{if(!selected)e.currentTarget.style.borderColor='#CBD5E1'}}
+        onMouseOut={e=>{if(!selected)e.currentTarget.style.borderColor='#E5E7EB'}}>
+        <div style={{display:'flex',alignItems:'flex-start',gap:10,marginBottom:10}}>
+          <input type="checkbox" checked={selected} onChange={e=>{e.stopPropagation();onSelect(candidate.application_id)}} onClick={e=>e.stopPropagation()}
+            style={{marginTop:3,accentColor:'#3B82F6',flexShrink:0,width:15,height:15}}/>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+              <h3 style={{fontSize:14,fontWeight:700,color:'#0F172A',margin:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{candidate.full_name??'Anonymous'}</h3>
+              <span style={{padding:'3px 9px',borderRadius:20,fontSize:10,fontWeight:700,background:st.bg,color:st.text,flexShrink:0,textTransform:'capitalize'}}>{candidate.status.replace('_',' ')}</span>
+            </div>
+            <p style={{fontSize:11,color:'#64748B',marginTop:2}}>
+              {[candidate.city,candidate.state].filter(Boolean).join(', ')||'Location N/A'}
+              {candidate.last_designation?` · ${candidate.last_designation}`:''}
+            </p>
+          </div>
+        </div>
+        <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
+          {candidate.match_score!==null&&<StatChip label="Match" value={`${candidate.match_score}%`} color={candidate.match_score>=70?'#059669':candidate.match_score>=40?'#D97706':'#DC2626'}/>}
+          {candidate.composite!==null&&<StatChip label="KRS" value={String(candidate.composite)} color="#7C3AED"/>}
+          {candidate.upsc_attempts!==null&&<StatChip label="Attempts" value={String(candidate.upsc_attempts)} color="#3B82F6"/>}
+        </div>
+        {candidate.skills.length>0&&(
+          <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+            {candidate.skills.slice(0,4).map(s=>(
+              <span key={s} style={{padding:'2px 8px',borderRadius:20,fontSize:10,fontWeight:600,background:'rgba(59,130,246,0.07)',color:'#3B82F6',border:'1px solid rgba(59,130,246,0.12)'}}>{s}</span>
+            ))}
+            {candidate.skills.length>4&&<span style={{fontSize:10,color:'#94A3B8',padding:'2px 0'}}>+{candidate.skills.length-4}</span>}
+          </div>
+        )}
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:12,paddingTop:10,borderTop:'1px solid #F1F5F9'}}>
+          <span style={{fontSize:11,color:'#94A3B8'}}>{candidate.days_ago===0?'Applied today':`Applied ${candidate.days_ago}d ago`}</span>
+          <span style={{fontSize:11,color:'#3B82F6',fontWeight:600}}>View full profile →</span>
+        </div>
+      </div>
+      {drawerOpen&&<ProfileDrawer candidate={candidate} jobId={jobId} onClose={()=>setDrawerOpen(false)}/>}
+    </>
+  )
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
+
+export default function CandidatePipelinePage() {
+  const {jobId}=useParams<{jobId:string}>()
+  const qc=useQueryClient()
+
+  const [statusFilter,setStatusFilter]=useState('all')
+  const [searchQuery,setSearchQuery]=useState('')
+  const [sortBy,setSortBy]=useState('match_score')
+  const [selectedIds,setSelectedIds]=useState<Set<string>>(new Set())
+  const [bulkStatus,setBulkStatus]=useState('')
+  const [bulkNote,setBulkNote]=useState('')
+  const [showFilters,setShowFilters]=useState(false)
+  const [minKrs,setMinKrs]=useState(0)
+
+  const {data:pipeline,isLoading,isError}=useQuery({
+    queryKey:['pipeline',jobId],
+    queryFn:()=>getJobPipeline(jobId!),
+    enabled:!!jobId,
   })
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
+  const bulkMutation=useMutation({
+    mutationFn:async()=>{
+      await Promise.all([...selectedIds].map(id=>updateApplicationStatus(id,bulkStatus,bulkNote||undefined)))
+    },
+    onSuccess:()=>{qc.invalidateQueries({queryKey:['pipeline',jobId]});setSelectedIds(new Set());setBulkStatus('');setBulkNote('')},
+  })
+
+  const filtered=useMemo(()=>{
+    if(!pipeline)return[]
+    let list=pipeline.candidates
+    if(statusFilter!=='all')list=list.filter(c=>c.status===statusFilter)
+    if(searchQuery.trim()){
+      const q=searchQuery.toLowerCase()
+      list=list.filter(c=>(c.full_name??'').toLowerCase().includes(q)||(c.skills??[]).some(s=>s.toLowerCase().includes(q))||(c.work_experience_domain??'').toLowerCase().includes(q)||(c.last_designation??'').toLowerCase().includes(q))
+    }
+    if(minKrs>0)list=list.filter(c=>(c.composite??0)>=minKrs)
+    return[...list].sort((a,b)=>{
+      if(sortBy==='match_score')return(b.match_score??0)-(a.match_score??0)
+      if(sortBy==='krs')return(b.composite??0)-(a.composite??0)
+      if(sortBy==='applied_at')return a.days_ago-b.days_ago
+      return 0
+    })
+  },[pipeline,statusFilter,searchQuery,sortBy,minKrs])
+
+  const toggleSelect=(id:string)=>{
+    setSelectedIds(prev=>{const n=new Set(prev);n.has(id)?n.delete(id):n.add(id);return n})
+  }
+  const toggleSelectAll=()=>{
+    setSelectedIds(selectedIds.size===filtered.length&&filtered.length>0?new Set():new Set(filtered.map(c=>c.application_id)))
   }
 
-  if (isError || !pipeline) {
-    return (
-      <div className="flex min-h-screen items-center justify-center text-red-600">
-        Failed to load candidate pipeline.
-      </div>
-    )
-  }
+  if(isLoading)return(
+    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <div style={{width:36,height:36,border:'3px solid rgba(59,130,246,0.2)',borderTopColor:'#3B82F6',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  )
 
-  const filtered = filter === 'all'
-    ? pipeline.candidates
-    : pipeline.candidates.filter((c) => c.status === filter)
+  if(isError||!pipeline)return(
+    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',color:'#DC2626',gap:8}}>
+      <AlertCircle size={20}/>Failed to load candidate pipeline.
+    </div>
+  )
 
-  return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">{pipeline.job_title}</h1>
-          <p className="text-gray-600 text-sm mt-1">{pipeline.total_applications} total application(s)</p>
+  return(
+    <div style={{minHeight:'100vh',background:'#F8FAFC'}}>
+      {/* Top bar */}
+      <header style={{background:'#fff',borderBottom:'1px solid #E5E7EB',padding:'0 28px',height:60,display:'flex',alignItems:'center',gap:16,position:'sticky',top:0,zIndex:30,boxShadow:'0 1px 8px rgba(0,0,0,0.04)'}}>
+        <Link to="/app/employer" style={{color:'#64748B',textDecoration:'none',display:'flex',alignItems:'center',gap:6,fontSize:13,fontWeight:600}}>
+          <ArrowLeft size={14}/>Back
+        </Link>
+        <div style={{width:1,height:24,background:'#E5E7EB'}}/>
+        <div style={{flex:1}}>
+          <h1 style={{fontSize:16,fontWeight:800,color:'#0F172A',margin:0}}>{pipeline.job_title}</h1>
+          <p style={{fontSize:11,color:'#94A3B8',margin:0}}>{pipeline.total_applications} total application{pipeline.total_applications!==1?'s':''}</p>
         </div>
+        <button onClick={()=>exportToCSV(filtered,pipeline.job_title)}
+          style={{display:'flex',alignItems:'center',gap:7,padding:'8px 14px',borderRadius:10,border:'1px solid #E5E7EB',background:'#fff',fontSize:12,fontWeight:700,color:'#374151',cursor:'pointer'}}>
+          <Download size={13}/>Export CSV
+        </button>
+      </header>
 
-        {/* Status summary */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          <button
-            onClick={() => setFilter('all')}
-            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${filter === 'all' ? 'bg-primary text-white border-primary' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
-          >
-            All ({pipeline.total_applications})
-          </button>
-          {Object.entries(pipeline.by_status).map(([status, count]) => (
-            <button
-              key={status}
-              onClick={() => setFilter(status)}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-colors capitalize ${filter === status ? 'bg-primary text-white border-primary' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
-            >
-              {status.replace('_', ' ')} ({count})
-            </button>
+      <div style={{maxWidth:1100,margin:'0 auto',padding:24}}>
+        {/* Status tabs */}
+        <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:16}}>
+          <FilterTab label={`All (${pipeline.total_applications})`} active={statusFilter==='all'} onClick={()=>setStatusFilter('all')}/>
+          {Object.entries(pipeline.by_status).map(([s,count])=>(
+            <FilterTab key={s} label={`${s.replace('_',' ')} (${count})`} active={statusFilter===s} onClick={()=>setStatusFilter(s)}/>
           ))}
         </div>
 
-        {filtered.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">No candidates in this stage.</div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filtered.map((c) => (
-              <CandidateCard key={c.application_id} candidate={c} jobId={jobId!} />
+        {/* Search + Sort */}
+        <div style={{display:'flex',gap:10,marginBottom:14,flexWrap:'wrap'}}>
+          <div style={{flex:1,minWidth:200,position:'relative'}}>
+            <Search size={14} style={{position:'absolute',left:12,top:'50%',transform:'translateY(-50%)',color:'#94A3B8'}}/>
+            <input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Search by name, skill, or domain…"
+              style={{width:'100%',height:38,paddingLeft:34,paddingRight:12,border:'1px solid #E5E7EB',borderRadius:10,fontSize:13,background:'#fff',color:'#0F172A',outline:'none',boxSizing:'border-box'}}/>
+          </div>
+          <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{height:38,padding:'0 12px',border:'1px solid #E5E7EB',borderRadius:10,fontSize:13,background:'#fff',color:'#374151',cursor:'pointer'}}>
+            {SORT_OPTIONS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <button onClick={()=>setShowFilters(!showFilters)} style={{height:38,padding:'0 14px',border:'1px solid #E5E7EB',borderRadius:10,fontSize:12,fontWeight:600,background:showFilters?'#1E293B':'#fff',color:showFilters?'#fff':'#374151',cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+            <SlidersHorizontal size={13}/>Filters{showFilters?<ChevronUp size={11}/>:<ChevronDown size={11}/>}
+          </button>
+        </div>
+
+        {/* Advanced filters */}
+        {showFilters&&(
+          <div style={{background:'#fff',border:'1px solid #E5E7EB',borderRadius:12,padding:'14px 18px',marginBottom:14}}>
+            <div style={{display:'flex',alignItems:'center',gap:14}}>
+              <label style={{fontSize:12,fontWeight:600,color:'#64748B',whiteSpace:'nowrap'}}>Min KRS Score:</label>
+              <input type="range" min={0} max={100} step={5} value={minKrs} onChange={e=>setMinKrs(Number(e.target.value))} style={{flex:1}}/>
+              <span style={{fontSize:13,fontWeight:700,color:'#7C3AED',minWidth:30}}>{minKrs}</span>
+              {minKrs>0&&<button onClick={()=>setMinKrs(0)} style={{fontSize:11,color:'#94A3B8',border:'none',background:'none',cursor:'pointer'}}>Reset</button>}
+            </div>
+          </div>
+        )}
+
+        {/* Bulk action bar */}
+        {selectedIds.size>0&&(
+          <div style={{background:'#1E293B',borderRadius:12,padding:'12px 18px',display:'flex',alignItems:'center',gap:12,marginBottom:14,flexWrap:'wrap'}}>
+            <span style={{fontSize:12,fontWeight:700,color:'#fff'}}>{selectedIds.size} selected</span>
+            <select value={bulkStatus} onChange={e=>setBulkStatus(e.target.value)} style={{height:32,padding:'0 10px',borderRadius:8,border:'none',fontSize:12,background:'#334155',color:'#fff',cursor:'pointer'}}>
+              <option value="">Bulk action…</option>
+              {STATUS_OPTIONS.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            {bulkStatus&&<input value={bulkNote} onChange={e=>setBulkNote(e.target.value)} placeholder="Optional note…" style={{height:32,padding:'0 10px',borderRadius:8,border:'none',fontSize:12,background:'#334155',color:'#fff',minWidth:180}}/>}
+            <button onClick={()=>bulkMutation.mutate()} disabled={!bulkStatus||bulkMutation.isPending} style={{height:32,padding:'0 14px',borderRadius:8,border:'none',background:'#3B82F6',color:'#fff',fontSize:12,fontWeight:700,cursor:(!bulkStatus||bulkMutation.isPending)?'not-allowed':'pointer',opacity:!bulkStatus?0.5:1}}>
+              {bulkMutation.isPending?'Applying…':'Apply'}
+            </button>
+            <button onClick={()=>setSelectedIds(new Set())} style={{height:32,padding:'0 12px',borderRadius:8,border:'1px solid #475569',background:'none',color:'#94A3B8',fontSize:12,cursor:'pointer'}}>Cancel</button>
+          </div>
+        )}
+
+        {/* Select all */}
+        {filtered.length>0&&(
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
+            <input type="checkbox" checked={selectedIds.size===filtered.length&&filtered.length>0} onChange={toggleSelectAll} style={{accentColor:'#3B82F6',width:15,height:15}}/>
+            <span style={{fontSize:12,color:'#64748B'}}>
+              {selectedIds.size===filtered.length&&filtered.length>0?'Deselect all':'Select all'} ({filtered.length})
+            </span>
+          </div>
+        )}
+
+        {/* Grid */}
+        {filtered.length===0?(
+          <div style={{textAlign:'center',padding:'60px 24px',color:'#94A3B8'}}>
+            <Users size={40} style={{margin:'0 auto 12px',opacity:0.3,display:'block'}}/>
+            <p style={{fontSize:15,fontWeight:600,margin:'0 0 4px'}}>No candidates found</p>
+            <p style={{fontSize:13,margin:0}}>Try adjusting your filters or search.</p>
+          </div>
+        ):(
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(320px,1fr))',gap:14}}>
+            {filtered.map(c=>(
+              <CandidateCard key={c.application_id} candidate={c} jobId={jobId!} selected={selectedIds.has(c.application_id)} onSelect={toggleSelect}/>
             ))}
           </div>
         )}
       </div>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   )
 }

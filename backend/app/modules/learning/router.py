@@ -101,6 +101,60 @@ def get_streak(
     return service.get_streak(user, db)
 
 
+@router.get("/due-reviews")
+def get_due_reviews(
+    user: User = Depends(get_current_aspirant),
+    db: Session = Depends(get_db),
+):
+    """
+    Return lessons due for spaced-repetition review.
+
+    Schedule: review at 1, 3, 7, 14, 30 days after completion.
+    A lesson is "due" when today is within ±12 hours of one of those intervals.
+    Returns at most 5 lessons, ordered by most overdue first.
+    """
+    from datetime import datetime, timezone, timedelta
+    from app.models.mvp2 import LessonCompletion, Lesson, PathModule, LearningPath
+
+    INTERVALS = [1, 3, 7, 14, 30]
+
+    now = datetime.now(timezone.utc)
+    completions = (
+        db.query(LessonCompletion)
+        .filter(LessonCompletion.user_id == user.id)
+        .all()
+    )
+
+    due = []
+    for comp in completions:
+        if not comp.completed_at:
+            continue
+        completed_at = comp.completed_at
+        if completed_at.tzinfo is None:
+            completed_at = completed_at.replace(tzinfo=timezone.utc)
+        days_since = (now - completed_at).total_seconds() / 86400
+
+        for interval in INTERVALS:
+            delta = days_since - interval
+            if -0.5 <= delta <= 3:   # due now or up to 3 days overdue
+                lesson = db.query(Lesson).filter(Lesson.id == comp.lesson_id).first()
+                if lesson and lesson.is_active:
+                    module = db.query(PathModule).filter(PathModule.id == lesson.module_id).first()
+                    path = db.query(LearningPath).filter(LearningPath.id == module.learning_path_id).first() if module else None
+                    due.append({
+                        "lesson_id": str(comp.lesson_id),
+                        "lesson_title": lesson.title,
+                        "path_id": str(path.id) if path else None,
+                        "path_name": path.name if path else None,
+                        "days_overdue": round(max(0, delta), 1),
+                        "review_interval_days": interval,
+                    })
+                break  # only count the next due interval per lesson
+
+    due.sort(key=lambda x: x["days_overdue"], reverse=True)
+    return due[:5]
+
+
 @router.get("/next-lesson")
 def get_next_lesson(
     user: User = Depends(get_current_aspirant),

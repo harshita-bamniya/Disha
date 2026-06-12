@@ -8,6 +8,11 @@ export interface AdminStats {
   approved_employers: number
   total_job_postings: number
   active_job_postings: number
+  total_applications: number
+  new_users_last_7d: number
+  new_jobs_last_7d: number
+  avg_krs_composite: number | null
+  hired_count: number
 }
 
 export type EmployerStatus = 'pending' | 'approved' | 'all'
@@ -29,6 +34,8 @@ export interface EmployerEntry {
   is_approved: boolean
   rejection_reason: string | null
   registered_at: string
+  job_count: number
+  application_count: number
 }
 
 export interface AspirantUserEntry {
@@ -39,15 +46,15 @@ export interface AspirantUserEntry {
   city: string | null
   state: string | null
   is_completed: boolean
+  is_active: boolean
   current_step: number
   krs_composite: number | null
   k_score: number | null
   r_score: number | null
   s_score: number | null
   registered_at: string
+  application_count: number
 }
-
-// ── Full detail types ─────────────────────────────────────────────────────────
 
 export interface AspirantEducation {
   highest_qualification: string | null
@@ -128,6 +135,7 @@ export interface AspirantDetailResponse {
   psychological_profile: AspirantPsychProfile | null
   krs: AspirantKrsDetail | null
   selected_tracks: AspirantSelectedTrack[]
+  total_applications: number
 }
 
 export interface CareerTrackAdminEntry {
@@ -142,6 +150,7 @@ export interface CareerTrackAdminEntry {
   growth_outlook: string | null
   example_roles: string[]
   created_at: string
+  aspirant_count: number
 }
 
 export interface CareerTrackCreatePayload {
@@ -167,10 +176,47 @@ export interface CareerTrackUpdatePayload {
   example_roles?: string[]
 }
 
+export interface AdminJobEntry {
+  id: string
+  title: string
+  company_name: string
+  employer_id: string
+  sector: string
+  location: string | null
+  employment_type: string | null
+  salary_min: number | null
+  salary_max: number | null
+  is_active: boolean
+  applicant_count: number
+  created_at: string
+  expires_at: string | null
+}
+
+export interface AdminApplicationEntry {
+  id: string
+  aspirant_name: string | null
+  aspirant_phone: string
+  aspirant_id: string
+  job_title: string
+  company_name: string
+  job_id: string
+  status: string
+  match_score: number | null
+  applied_at: string
+}
+
+export interface AdminActivityItem {
+  type: 'signup' | 'application' | 'job_posted' | 'employer_approved'
+  title: string
+  subtitle: string | null
+  timestamp: string
+}
+
 export const adminApi = {
   getStats: () =>
     apiClient.get<AdminStats>('/admin/stats').then(r => r.data),
 
+  // ── Employers ────────────────────────────────────────────────────────────────
   listEmployers: (status: EmployerStatus = 'pending') =>
     apiClient.get<EmployerEntry[]>('/admin/employers', { params: { status } }).then(r => r.data),
 
@@ -178,20 +224,25 @@ export const adminApi = {
     apiClient.post<{ message: string }>(`/admin/employers/${profileId}/approve`).then(r => r.data),
 
   rejectEmployer: (profileId: string, reason: string) =>
-    apiClient
-      .post<{ message: string }>(`/admin/employers/${profileId}/reject`, { reason })
-      .then(r => r.data),
+    apiClient.post<{ message: string }>(`/admin/employers/${profileId}/reject`, { reason }).then(r => r.data),
 
-  // ── Aspirant users ──────────────────────────────────────────────────────────
+  revokeEmployer: (profileId: string) =>
+    apiClient.post<{ message: string }>(`/admin/employers/${profileId}/revoke`).then(r => r.data),
+
+  // ── Users ────────────────────────────────────────────────────────────────────
   listUsers: (search?: string) =>
-    apiClient
-      .get<AspirantUserEntry[]>('/admin/users', { params: search ? { search } : undefined })
-      .then(r => r.data),
+    apiClient.get<AspirantUserEntry[]>('/admin/users', { params: search ? { search } : undefined }).then(r => r.data),
 
   getUser: (userId: string) =>
     apiClient.get<AspirantDetailResponse>(`/admin/users/${userId}`).then(r => r.data),
 
-  // ── Career tracks ───────────────────────────────────────────────────────────
+  deactivateUser: (userId: string) =>
+    apiClient.post<{ message: string }>(`/admin/users/${userId}/deactivate`).then(r => r.data),
+
+  reactivateUser: (userId: string) =>
+    apiClient.post<{ message: string }>(`/admin/users/${userId}/reactivate`).then(r => r.data),
+
+  // ── Career tracks ─────────────────────────────────────────────────────────────
   listCareerTracks: () =>
     apiClient.get<CareerTrackAdminEntry[]>('/admin/career-tracks').then(r => r.data),
 
@@ -203,4 +254,22 @@ export const adminApi = {
 
   deleteCareerTrack: (trackId: string) =>
     apiClient.delete<{ message: string }>(`/admin/career-tracks/${trackId}`).then(r => r.data),
+
+  // ── Jobs ──────────────────────────────────────────────────────────────────────
+  listJobs: (params?: { search?: string; active_only?: boolean }) =>
+    apiClient.get<AdminJobEntry[]>('/admin/jobs', { params }).then(r => r.data),
+
+  toggleJob: (jobId: string) =>
+    apiClient.patch<AdminJobEntry>(`/admin/jobs/${jobId}/toggle`).then(r => r.data),
+
+  deleteJob: (jobId: string) =>
+    apiClient.delete<{ message: string }>(`/admin/jobs/${jobId}`).then(r => r.data),
+
+  // ── Applications ──────────────────────────────────────────────────────────────
+  listApplications: (params?: { status?: string; search?: string; limit?: number; offset?: number }) =>
+    apiClient.get<AdminApplicationEntry[]>('/admin/applications', { params }).then(r => r.data),
+
+  // ── Activity ──────────────────────────────────────────────────────────────────
+  getActivity: (limit = 25) =>
+    apiClient.get<AdminActivityItem[]>('/admin/activity', { params: { limit } }).then(r => r.data),
 }

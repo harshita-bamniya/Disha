@@ -2,7 +2,7 @@
  * Phase 3 — Employer Matching API
  * Covers both aspirant (job search + applications) and employer (candidate pipeline) flows.
  */
-import apiClient from './client'
+import { apiClient } from './client'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -60,23 +60,60 @@ export interface ApplicationDetailOut extends ApplicationOut {
   status_history: ApplicationStatusHistoryItem[]
 }
 
+export interface CandidatePsychProfile {
+  burnout_score: number | null
+  confidence_index: number | null
+  financial_pressure_score: number | null
+  risk_tolerance: string | null
+  motivation_type: string | null
+}
+
 export interface CandidateOut {
   application_id: string
   aspirant_id: string
+  // Personal
   full_name: string | null
   city: string | null
   state: string | null
+  gender: string | null
+  // Education
+  highest_qualification: string | null
+  degree: string | null
+  field_of_study: string | null
+  institution: string | null
+  graduation_year: number | null
+  // UPSC
   upsc_attempts: number | null
   highest_stage_cleared: string | null
+  years_preparing: number | null
+  optional_subject: string | null
+  // Work Experience
+  has_work_experience: boolean | null
+  work_experience_years: number | null
+  work_experience_domain: string | null
+  last_designation: string | null
+  // Skills
   skills: string[]
+  // KRS
   k_score: number | null
   r_score: number | null
   s_score: number | null
   composite: number | null
+  // Psychological
+  psych: CandidatePsychProfile | null
+  // Salary
+  expected_salary_min: number | null
+  expected_salary_max: number | null
+  open_to_relocation: boolean | null
+  preferred_locations: string[] | null
+  // Application
   match_score: number | null
   status: string
   cover_note: string | null
+  employer_note: string | null
   applied_at: string
+  days_ago: number
+  status_history: ApplicationStatusHistoryItem[]
 }
 
 export interface JobCandidatePipeline {
@@ -129,4 +166,12 @@ export const updateApplicationStatus = (
 ): Promise<{ application_id: string; status: string }> =>
   apiClient
     .patch(`/employer/pipeline/applications/${applicationId}`, { status, note: note || null })
+    .then((r) => r.data)
+
+export const updateApplicationNote = (
+  applicationId: string,
+  note: string,
+): Promise<{ application_id: string; note: string }> =>
+  apiClient
+    .patch(`/employer/pipeline/applications/${applicationId}/note`, { note })
     .then((r) => r.data)

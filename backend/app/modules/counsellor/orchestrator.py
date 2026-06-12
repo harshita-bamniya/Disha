@@ -27,23 +27,73 @@ Key skills they have: {skills_have}
 Skills they are building: {skills_gap}
 When the user asks about interviews, resume, or strategy — relate it to this target role."""
 
-_SKILL_LEARNING_SYSTEM = """You are DISHA, an expert career coach and skill mentor.
+_SKILL_LEARNING_SYSTEM = """You are DISHA, an expert career coach and Socratic skill mentor.
 
 This is a focused learning session. Your ONLY job in this conversation is to teach:
 
 SKILL TO TEACH: {skill_focus}
 TARGET JOB: {job_title} at {company} ({sector} sector)
 
-How to teach:
-- Start by explaining what {skill_focus} means in the context of {job_title}
-- Use practical examples, frameworks, and exercises relevant to this specific role
-- Break concepts down into clear, digestible steps
-- Ask the user questions to check understanding and keep them engaged
-- Give real assignments or practice tasks they can do immediately
-- Connect everything back to what this employer actually needs
+HOW TO TEACH — USE THE SOCRATIC METHOD:
+- NEVER just explain a concept upfront. Instead, ASK the user first: "Before I explain, what do you already know about {skill_focus}?" or "How would you approach X in this context?"
+- Listen to their answer, identify the gaps, then correct and build from what they said.
+- After every explanation, test retention: "Can you explain back to me what [concept] means in your own words?"
+- Give them a small challenge or scenario to solve, then give feedback on their attempt.
+- Use real examples and frameworks but always ask the user to apply them before you demonstrate.
+- Celebrate correct understanding: "Exactly right — and here's why that matters for {job_title}..."
+
+This is proven to build 2x stronger retention than passive reading.
 
 Stay strictly focused on {skill_focus} for this job. If the user drifts to other topics, gently bring them back.
 Do NOT give generic career advice — every response must relate to teaching {skill_focus} for {job_title}."""
+
+
+_MOCK_INTERVIEW_SYSTEM = """You are {persona_name}, {persona_role} at {company}.
+
+You are conducting a {interview_type} interview for the {job_title} position ({sector} sector).
+
+STRICT RULES:
+- You are a HUMAN interviewer, not an AI. Never reveal you are AI. Stay in character completely.
+- Ask ONE question at a time. Wait for the candidate's answer before continuing.
+- React naturally to answers: "That's interesting.", "Could you elaborate on that?", "Got it, noted."
+- After their answer, give a brief natural reaction, then transition to the next question.
+- Keep track of what has been covered. Aim for {total_questions} questions total.
+- After the final question say: "That's all from my side. Do you have any questions for me?" then wrap up naturally.
+- Keep your tone {tone}.
+
+INTERVIEW FOCUS:
+- Role: {job_title} at {company}
+- Key skills to probe: {key_skills}
+- Interview type: {interview_type}
+
+START: Introduce yourself warmly, mention the role, and ask your first question."""
+
+_INTERVIEW_TYPES = {
+    "hr": {
+        "label": "HR Screening",
+        "persona_name": "Priya Sharma",
+        "persona_role": "Senior HR Manager",
+        "tone": "warm, professional, and encouraging",
+        "total_questions": 8,
+        "focus": "cultural fit, motivation, background, salary expectations, career goals",
+    },
+    "technical": {
+        "label": "Technical Round",
+        "persona_name": "Arjun Mehta",
+        "persona_role": "Senior Technical Lead",
+        "tone": "precise, probing, and focused on depth",
+        "total_questions": 8,
+        "focus": "domain knowledge, problem-solving, past project experience, technical depth",
+    },
+    "stress": {
+        "label": "Stress Interview",
+        "persona_name": "Meera Iyer",
+        "persona_role": "Director of Operations",
+        "tone": "direct, challenging, and intentionally pushing back on every answer",
+        "total_questions": 7,
+        "focus": "pressure handling, decision-making under ambiguity, resilience, self-awareness",
+    },
+}
 
 
 def _score_label(score: int | None) -> str:
@@ -97,6 +147,39 @@ def _build_user_context(user: User, db: Session) -> str:
             lines.append(f"Selected career paths: {', '.join(track_names)}")
 
     return "\n".join(lines) if lines else "No profile data available yet."
+
+
+def _build_previous_session_context(user: User, current_conv_id, db: Session) -> str:
+    """Return a one-line hint about the most recent prior conversation so DISHA can reference it."""
+    from app.models.mvp2 import Message as Msg
+    prev = (
+        db.query(Conversation)
+        .filter(
+            Conversation.user_id == user.id,
+            Conversation.id != current_conv_id,
+            Conversation.context_type == "general",
+            Conversation.message_count > 0,
+        )
+        .order_by(Conversation.updated_at.desc())
+        .first()
+    )
+    if not prev:
+        return ""
+    # Grab the last assistant message as a summary proxy
+    last_msg = (
+        db.query(Msg)
+        .filter(Msg.conversation_id == prev.id, Msg.role == "assistant")
+        .order_by(Msg.created_at.desc())
+        .first()
+    )
+    topic = prev.title or "a previous conversation"
+    snippet = (last_msg.content[:200] + "...") if last_msg and len(last_msg.content) > 200 else (last_msg.content if last_msg else "")
+    return (
+        f"\nPREVIOUS SESSION CONTEXT (for continuity — reference naturally if relevant):\n"
+        f"Last time you spoke, the topic was: \"{topic}\".\n"
+        f"Your last message to them ended with: \"{snippet}\"\n"
+        f"If it's natural, briefly acknowledge this continuity — e.g. 'Last time we were talking about X — want to pick that up?'\n"
+    )
 
 
 def _build_active_prep_context(user: User, db: Session) -> str:
@@ -206,8 +289,24 @@ async def handle_message(
     user_context = _build_user_context(user, db)
     lang = user.preferred_language or "en"
 
+    # Mock interview — AI plays a human interviewer persona
+    if conversation.context_type == "mock_interview" and conversation.interview_config:
+        cfg = conversation.interview_config
+        itype = _INTERVIEW_TYPES.get(cfg.get("interview_type", "hr"), _INTERVIEW_TYPES["hr"])
+        system_prompt = _MOCK_INTERVIEW_SYSTEM.format(
+            persona_name=itype["persona_name"],
+            persona_role=itype["persona_role"],
+            company=cfg.get("company", "the company"),
+            interview_type=itype["label"],
+            job_title=cfg.get("job_title", "the role"),
+            sector=cfg.get("sector", "general"),
+            total_questions=itype["total_questions"],
+            tone=itype["tone"],
+            key_skills=", ".join(cfg.get("key_skills", [])) or "relevant domain skills",
+        )
+
     # Skill-learning conversations use a focused teaching prompt, not the general counsellor prompt
-    if conversation.context_type == "skill_learning" and conversation.skill_focus:
+    elif conversation.context_type == "skill_learning" and conversation.skill_focus:
         job_ctx = conversation.job_context or {}
         system_prompt = _SKILL_LEARNING_SYSTEM.format(
             skill_focus=conversation.skill_focus,
@@ -217,12 +316,13 @@ async def handle_message(
         )
     else:
         active_prep_section = _build_active_prep_context(user, db)
+        prev_session_ctx = _build_previous_session_context(user, conversation.id, db)
         system_prompt = get_prompt("counsellor_system", db).format(
             user_context=user_context,
             active_prep_section=active_prep_section,
             memories="\n".join(f"- {m}" for m in relevant_memories) if relevant_memories else "No prior memories.",
             language="Hindi (hi)" if lang == "hi" else "English (en)",
-        )
+        ) + prev_session_ctx
 
     # Build message history (exclude the message we just stored to avoid duplication)
     ai_messages = [

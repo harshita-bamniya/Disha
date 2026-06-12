@@ -8,6 +8,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import AppSidebar from '@/components/layout/AppSidebar'
 import { getJobDetail, applyToJob } from '@/api/matching'
 import { resumeApi } from '@/api/resume'
+import { counsellorApi } from '@/api/counsellor'
+import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 
 export default function JobDetailPage() {
   const { jobId } = useParams<{ jobId: string }>()
@@ -23,6 +25,13 @@ export default function JobDetailPage() {
     queryKey: ['job', jobId],
     queryFn: () => getJobDetail(jobId!),
     enabled: !!jobId,
+  })
+  const { activePrep } = useActivePrepJob()
+  const isActivePrepJob = activePrep?.job_id === jobId
+  const { data: checklist } = useQuery({
+    queryKey: ['prep-checklist', jobId],
+    queryFn: () => counsellorApi.getPrepChecklist(jobId!),
+    enabled: !!jobId && isActivePrepJob,
   })
 
   const applyMutation = useMutation({
@@ -192,6 +201,70 @@ export default function JobDetailPage() {
             )}
           </button>
         </div>
+
+        {/* Mock Interview CTA */}
+        <div className="bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl border border-violet-200 p-5 mb-4">
+          <div className="flex items-start gap-3">
+            <div className="text-2xl mt-0.5">🎯</div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-violet-900 text-sm">Practice Mock Interview</h3>
+              <p className="text-xs text-violet-700 mt-0.5 leading-relaxed">
+                AI will roleplay as a real interviewer — HR, Technical, or Stress round — tailored to <span className="font-medium">{job.title}</span> at {job.company_name}. Get a detailed scorecard after.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate(`/app/mock-interview/${job.id}`)}
+            className="mt-3 w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-lg py-2.5 text-sm transition-colors"
+          >
+            🎯 Start Mock Interview
+          </button>
+        </div>
+
+        {/* Prep Checklist — only shown when this is the active prep job */}
+        {isActivePrepJob && checklist && (
+          <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-lg">📋</span>
+              <h3 className="font-semibold text-gray-900 text-sm">Your Prep Checklist</h3>
+              <span className="ml-auto text-xs text-gray-400">
+                {checklist.checklist.filter(c => c.done).length}/{checklist.checklist.length} done
+              </span>
+            </div>
+            <div className="flex flex-col gap-2">
+              {checklist.checklist.map((item, i) => (
+                <div key={i} className="flex items-center gap-3 p-2 rounded-lg" style={{ background: item.done ? '#F0FDF4' : '#F8FAFC' }}>
+                  <div style={{
+                    width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                    background: item.done ? '#10B981' : '#E2E8F0',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 11, color: 'white', fontWeight: 800,
+                  }}>
+                    {item.done ? '✓' : i + 1}
+                  </div>
+                  <span className="text-sm flex-1" style={{ color: item.done ? '#15803D' : '#374151', textDecoration: item.done ? 'line-through' : 'none' }}>
+                    {item.item}
+                  </span>
+                  {!item.done && (
+                    <Link to={item.cta} className="text-xs text-indigo-600 font-semibold hover:underline shrink-0">
+                      {item.cta_label} →
+                    </Link>
+                  )}
+                </div>
+              ))}
+            </div>
+            {checklist.gap_skills.length > 0 && (
+              <div className="mt-4 pt-3 border-t border-gray-100">
+                <p className="text-xs font-semibold text-gray-500 mb-2">Skills still to build:</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {checklist.gap_skills.map(s => (
+                    <span key={s} className="text-xs bg-orange-50 text-orange-700 border border-orange-200 px-2 py-0.5 rounded-full">{s}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Apply CTA */}
         {!applied ? (

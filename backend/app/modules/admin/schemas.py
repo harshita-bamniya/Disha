@@ -93,6 +93,9 @@ class AspirantDetailResponse(BaseModel):
     krs: Optional[AspirantKrsDetail] = None
     selected_tracks: list[AspirantSelectedTrack] = []
 
+    # Application stats
+    total_applications: int = 0
+
 
 class AspirantUserEntry(BaseModel):
     """One row in the admin aspirant list."""
@@ -104,11 +107,13 @@ class AspirantUserEntry(BaseModel):
     state: Optional[str] = None
     is_completed: bool
     current_step: int
+    is_active: bool = True
     krs_composite: Optional[int] = None
     k_score: Optional[int] = None
     r_score: Optional[int] = None
     s_score: Optional[int] = None
     registered_at: datetime
+    application_count: int = 0
 
 
 class CareerTrackAdminEntry(BaseModel):
@@ -123,6 +128,7 @@ class CareerTrackAdminEntry(BaseModel):
     growth_outlook: Optional[str] = None
     example_roles: list[str]
     created_at: datetime
+    aspirant_count: int = 0
 
 
 class CareerTrackCreateRequest(BaseModel):
@@ -165,6 +171,8 @@ class PendingEmployerResponse(BaseModel):
     is_approved: bool
     rejection_reason: Optional[str] = None
     registered_at: datetime
+    job_count: int = 0
+    application_count: int = 0
 
 
 class AdminStatsResponse(BaseModel):
@@ -175,6 +183,48 @@ class AdminStatsResponse(BaseModel):
     approved_employers: int
     total_job_postings: int
     active_job_postings: int
+    # New
+    total_applications: int = 0
+    new_users_last_7d: int = 0
+    new_jobs_last_7d: int = 0
+    avg_krs_composite: Optional[float] = None
+    hired_count: int = 0
+
+
+class AdminJobEntry(BaseModel):
+    id: str
+    title: str
+    company_name: str
+    employer_id: str
+    sector: str
+    location: Optional[str] = None
+    employment_type: Optional[str] = None
+    salary_min: Optional[int] = None
+    salary_max: Optional[int] = None
+    is_active: bool
+    applicant_count: int = 0
+    created_at: datetime
+    expires_at: Optional[datetime] = None
+
+
+class AdminApplicationEntry(BaseModel):
+    id: str
+    aspirant_name: Optional[str] = None
+    aspirant_phone: str
+    aspirant_id: str
+    job_title: str
+    company_name: str
+    job_id: str
+    status: str
+    match_score: Optional[int] = None
+    applied_at: datetime
+
+
+class AdminActivityItem(BaseModel):
+    type: str          # 'signup' | 'application' | 'job_posted' | 'employer_approved'
+    title: str
+    subtitle: Optional[str] = None
+    timestamp: datetime
 
 
 class RejectRequest(BaseModel):

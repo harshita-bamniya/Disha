@@ -31,6 +31,11 @@ from app.modules.matching.schemas import (
     JobDetail, JobRecommendationsResponse, JobCandidatePipeline,
     UpdateApplicationStatusRequest,
 )
+from pydantic import BaseModel, Field
+
+
+class UpdateNoteRequest(BaseModel):
+    note: str = Field(..., max_length=1000)
 
 _JOBS_CACHE_TTL = 600  # 10 minutes
 
@@ -183,6 +188,32 @@ def get_job_pipeline(
         return service.get_job_pipeline(job_id, current_user, db)
     except (AuthException, NotFoundException) as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.patch("/employer/pipeline/applications/{application_id}/note", status_code=200)
+def update_application_note(
+    application_id: str,
+    body: UpdateNoteRequest,
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    """Employer saves a private recruiter note on an application without changing status."""
+    from app.models.mvp3 import Application
+    from app.models.user import EmployerProfile, JobPosting
+    employer = db.query(EmployerProfile).filter(EmployerProfile.user_id == current_user.id).first()
+    if not employer:
+        raise HTTPException(status_code=404, detail="Employer profile not found.")
+    app = (
+        db.query(Application)
+        .join(JobPosting, Application.job_id == JobPosting.id)
+        .filter(Application.id == application_id, JobPosting.employer_id == employer.id)
+        .first()
+    )
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found.")
+    app.employer_note = body.note
+    db.commit()
+    return {"application_id": application_id, "note": body.note}
 
 
 @router.patch("/employer/pipeline/applications/{application_id}", status_code=200)

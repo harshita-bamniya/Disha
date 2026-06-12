@@ -23,6 +23,7 @@ class ConversationSummary(BaseModel):
     message_count: int
     skill_focus: Optional[str] = None
     job_context: Optional[dict] = None
+    interview_config: Optional[dict] = None
     created_at: datetime
     updated_at: datetime
 
@@ -36,11 +37,13 @@ class ConversationDetail(ConversationSummary):
 
 class CreateConversationRequest(BaseModel):
     context_type: str = "general"
-    skill_focus: Optional[str] = None   # only for context_type="skill_learning"
+    skill_focus: Optional[str] = None       # skill_learning
     job_id: Optional[str] = None
     job_title: Optional[str] = None
     company: Optional[str] = None
     sector: Optional[str] = None
+    interview_type: Optional[str] = None    # mock_interview: "hr"|"technical"|"stress"
+    key_skills: Optional[list[str]] = None  # mock_interview: skills to probe
 
 
 class SendMessageRequest(BaseModel):

@@ -6,7 +6,7 @@ import { counsellorApi } from '@/api/counsellor'
 import AppSidebar from '@/components/layout/AppSidebar'
 import { ActivePrepBanner } from '@/components/ActivePrepBanner'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
-import { BookOpen, Flame, ChevronRight, Clock, BarChart2, CheckCircle, Lock, Target, Zap, BrainCircuit, ArrowRight } from 'lucide-react'
+import { BookOpen, Flame, ChevronRight, Clock, BarChart2, CheckCircle, Lock, Target, Zap, BrainCircuit, ArrowRight, RefreshCw } from 'lucide-react'
 
 const DIFFICULTY_COLORS: Record<string, [string, string]> = {
   beginner:     ['#10B981', '#34D399'],
@@ -247,6 +247,10 @@ export default function LearningDashboardPage() {
     queryKey: ['learning-streak'],
     queryFn: learningApi.getStreak,
   })
+  const { data: dueReviews } = useQuery({
+    queryKey: ['learning-due-reviews'],
+    queryFn: learningApi.getDueReviews,
+  })
 
   const enrollMutation = useMutation({
     mutationFn: (pathId: string) => learningApi.enrollPath(pathId),
@@ -257,9 +261,17 @@ export default function LearningDashboardPage() {
 
   const { activePrep } = useActivePrepJob()
 
+  const [quickMode, setQuickMode] = useState(false)
+
   const enrolledPaths = allPaths?.filter(p => p.is_enrolled) ?? []
   const enrolledIds = new Set(enrolledPaths.map(p => p.id))
   const otherPaths = (allPaths ?? []).filter(p => !enrolledIds.has(p.id))
+
+  // Quick mode: only show paths ≤2 estimated hours (roughly 15-30 min sessions)
+  const filterPaths = <T extends { estimated_hours?: number }>(paths: T[]) =>
+    quickMode ? paths.filter(p => (p.estimated_hours ?? 99) <= 2) : paths
+  const filteredEnrolled = filterPaths(enrolledPaths)
+  const filteredOther = filterPaths(otherPaths)
 
   // Gap skills from active prep — these drive the AI skill cards
   const gapSkills: string[] = activePrep?.skills_to_develop ?? []
@@ -283,18 +295,36 @@ export default function LearningDashboardPage() {
               Learning Hub
             </span>
           </div>
-          {streakData && (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 7,
-              background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)',
-              borderRadius: 20, padding: '6px 14px',
-            }}>
-              <Flame size={14} color="#D97706" />
-              <span style={{ fontSize: 13, fontWeight: 800, color: '#D97706', fontFamily: 'Hind, sans-serif' }}>
-                {streakData.current_streak} day streak
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button
+              onClick={() => setQuickMode(q => !q)}
+              title="Show only paths under 2 hours — perfect for 15-minute daily sessions"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: quickMode ? 'rgba(16,185,129,0.1)' : 'white',
+                border: quickMode ? '1.5px solid #10B981' : '1.5px solid rgba(226,232,240,0.9)',
+                borderRadius: 20, padding: '5px 12px', cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+            >
+              <Clock size={12} color={quickMode ? '#10B981' : '#94A3B8'} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: quickMode ? '#10B981' : '#64748B' }}>
+                Quick (≤2h)
               </span>
-            </div>
-          )}
+            </button>
+            {streakData && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 7,
+                background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)',
+                borderRadius: 20, padding: '6px 14px',
+              }}>
+                <Flame size={14} color="#D97706" />
+                <span style={{ fontSize: 13, fontWeight: 800, color: '#D97706', fontFamily: 'Hind, sans-serif' }}>
+                  {streakData.current_streak} day streak
+                </span>
+              </div>
+            )}
+          </div>
         </header>
 
         <main style={{ padding: '24px 28px' }}>
@@ -358,35 +388,84 @@ export default function LearningDashboardPage() {
             </div>
           )}
 
+          {/* Spaced repetition — due reviews */}
+          {dueReviews && dueReviews.length > 0 && (
+            <section style={{ marginBottom: 32 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                <div style={{ width: 4, height: 16, background: 'linear-gradient(180deg, #8B5CF6, #A78BFA)', borderRadius: 4 }} />
+                <RefreshCw size={14} color="#7C3AED" />
+                <h2 style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>Due for Review</h2>
+                <span style={{ fontSize: 12, color: '#94A3B8' }}>{dueReviews.length} lesson{dueReviews.length > 1 ? 's' : ''}</span>
+              </div>
+              <p style={{ fontSize: 12, color: '#64748B', marginBottom: 14, marginLeft: 12 }}>
+                Spaced repetition: revisit these lessons now to lock in what you learned.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {dueReviews.map(r => (
+                  <div
+                    key={r.lesson_id}
+                    onClick={() => r.path_id && navigate(`/app/learn/${r.path_id}`)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 14,
+                      background: 'white', borderRadius: 12, padding: '12px 16px',
+                      border: '1.5px solid rgba(139,92,246,0.2)',
+                      cursor: r.path_id ? 'pointer' : 'default',
+                      boxShadow: '0 1px 6px rgba(139,92,246,0.07)',
+                      transition: 'all 0.15s',
+                    }}
+                    onMouseOver={e => { if (r.path_id) e.currentTarget.style.borderColor = '#8B5CF6' }}
+                    onMouseOut={e => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.2)' }}
+                  >
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(139,92,246,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <RefreshCw size={14} color="#7C3AED" />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.lesson_title}</p>
+                      <p style={{ fontSize: 11, color: '#94A3B8' }}>{r.path_name} · {r.review_interval_days}-day review</p>
+                    </div>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, flexShrink: 0,
+                      background: r.days_overdue > 1 ? '#FEE2E2' : '#EDE9FE',
+                      color: r.days_overdue > 1 ? '#DC2626' : '#7C3AED',
+                    }}>
+                      {r.days_overdue > 0 ? `${r.days_overdue}d overdue` : 'Due today'}
+                    </span>
+                    <ChevronRight size={14} color="#CBD5E1" />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* Enrolled paths */}
-          {enrolledPaths.length > 0 && (
+          {filteredEnrolled.length > 0 && (
             <section style={{ marginBottom: 32 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
                 <div style={{ width: 4, height: 16, background: 'linear-gradient(180deg, #2D6A4F, #40916C)', borderRadius: 4 }} />
                 <h2 style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>My Learning Paths</h2>
-                <span style={{ fontSize: 12, color: '#94A3B8' }}>{enrolledPaths.length} enrolled</span>
+                <span style={{ fontSize: 12, color: '#94A3B8' }}>{filteredEnrolled.length} enrolled</span>
+                {quickMode && enrolledPaths.length !== filteredEnrolled.length && (
+                  <span style={{ fontSize: 11, color: '#10B981', fontWeight: 600 }}>({enrolledPaths.length - filteredEnrolled.length} hidden by Quick filter)</span>
+                )}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-                {enrolledPaths.map(p => (
-                  <PathCard
-                    key={p.id} path={p}
-                    onEnroll={() => {}}
-                    isEnrolling={false}
-                  />
+                {filteredEnrolled.map(p => (
+                  <PathCard key={p.id} path={p} onEnroll={() => {}} isEnrolling={false} />
                 ))}
               </div>
             </section>
           )}
 
           {/* All other paths */}
-          {otherPaths.length > 0 && (
+          {filteredOther.length > 0 && (
             <section>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
                 <div style={{ width: 4, height: 16, background: 'linear-gradient(180deg, #3B82F6, #6366F1)', borderRadius: 4 }} />
                 <h2 style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>Explore Learning Paths</h2>
+                {quickMode && <span style={{ fontSize: 11, color: '#10B981', fontWeight: 600 }}>showing quick paths only</span>}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-                {otherPaths.map(p => (
+                {filteredOther.map(p => (
                   <PathCard
                     key={p.id} path={p}
                     onEnroll={() => enrollMutation.mutate(p.id)}

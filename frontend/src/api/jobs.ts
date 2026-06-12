@@ -36,6 +36,7 @@ export interface JobPosting {
   is_active: boolean
   created_at: string
   updated_at: string
+  applicant_count: number
 }
 
 export interface EmployerDashboard {

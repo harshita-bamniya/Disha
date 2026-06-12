@@ -38,6 +38,7 @@ type NavPath =
   | '/app/learn'
   | '/app/resume'
   | '/app/interview'
+  | '/app/mock-interview'
   | '/app/counsellor'
   | '/app/jobs'
   | '/app/jobs/applications'
@@ -50,7 +51,7 @@ const NAV_ITEMS: { icon: React.ReactNode; label: string; path: NavPath; section?
   // MVP2 items
   { icon: <GraduationCap size={16} />,   label: 'Learning',     path: '/app/learn',           section: 'mvp2' },
   { icon: <FileText size={16} />,        label: 'Resume',       path: '/app/resume',          section: 'mvp2' },
-  { icon: <MessageSquare size={16} />,   label: 'Mock Interview', path: '/app/interview',     section: 'mvp2' },
+  { icon: <MessageSquare size={16} />,   label: 'Mock Interview', path: '/app/mock-interview', section: 'mvp2' },
   { icon: <Brain size={16} />,           label: 'AI Counsellor', path: '/app/counsellor',     section: 'mvp2' },
   // Phase 3 items
   { icon: <Briefcase size={16} />,       label: 'Jobs',         path: '/app/jobs',            section: 'phase3' },

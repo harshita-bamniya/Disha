@@ -8,6 +8,9 @@ from app.database import get_db
 from app.models.user import User
 from app.modules.admin import service
 from app.modules.admin.schemas import (
+    AdminActivityItem,
+    AdminApplicationEntry,
+    AdminJobEntry,
     AdminStatsResponse,
     AspirantDetailResponse,
     AspirantUserEntry,
@@ -27,9 +30,10 @@ def admin_stats(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """Platform overview statistics."""
     return service.get_stats(db)
 
+
+# ── Employers ─────────────────────────────────────────────────────────────────
 
 @router.get("/employers", response_model=list[PendingEmployerResponse])
 def list_employers(
@@ -37,7 +41,6 @@ def list_employers(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """List employers filtered by approval status."""
     return service.list_employers(db, status)
 
 
@@ -47,7 +50,6 @@ def approve_employer(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """Approve an employer — activates their account for login."""
     return service.approve_employer(profile_id, str(admin.id), db)
 
 
@@ -58,19 +60,26 @@ def reject_employer(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """Reject an employer registration with a reason."""
     return service.reject_employer(profile_id, body.reason, db)
 
 
-# ── Aspirant users ────────────────────────────────────────────────────────────
-
-@router.get("/users", response_model=list[AspirantUserEntry])
-def list_users(
-    search: Optional[str] = Query(None, description="Search by phone, email, name, or city"),
+@router.post("/employers/{profile_id}/revoke", response_model=MessageResponse)
+def revoke_employer(
+    profile_id: str,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """List all aspirant users with onboarding status and KRS scores."""
+    return service.revoke_employer(profile_id, db)
+
+
+# ── Aspirant users ─────────────────────────────────────────────────────────────
+
+@router.get("/users", response_model=list[AspirantUserEntry])
+def list_users(
+    search: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
     return service.list_aspirants(db, search)
 
 
@@ -80,8 +89,25 @@ def get_user_detail(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """Full profile detail for a single aspirant."""
     return service.get_aspirant_detail(user_id, db)
+
+
+@router.post("/users/{user_id}/deactivate", response_model=MessageResponse)
+def deactivate_user(
+    user_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return service.deactivate_user(user_id, db)
+
+
+@router.post("/users/{user_id}/reactivate", response_model=MessageResponse)
+def reactivate_user(
+    user_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return service.reactivate_user(user_id, db)
 
 
 # ── Career track management ───────────────────────────────────────────────────
@@ -91,7 +117,6 @@ def list_career_tracks(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """List all career tracks."""
     return service.list_career_tracks_admin(db)
 
 
@@ -101,7 +126,6 @@ def create_career_track(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """Create a new career track."""
     try:
         return service.create_career_track(body, db)
     except ValueError as e:
@@ -115,7 +139,6 @@ def update_career_track(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """Update an existing career track."""
     return service.update_career_track(track_id, body, db)
 
 
@@ -125,5 +148,59 @@ def delete_career_track(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """Delete a career track."""
     return service.delete_career_track(track_id, db)
+
+
+# ── Jobs management ───────────────────────────────────────────────────────────
+
+@router.get("/jobs", response_model=list[AdminJobEntry])
+def list_jobs(
+    search: Optional[str] = Query(None),
+    active_only: bool = False,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return service.list_admin_jobs(db, search, active_only)
+
+
+@router.patch("/jobs/{job_id}/toggle", response_model=AdminJobEntry)
+def toggle_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return service.toggle_admin_job(job_id, db)
+
+
+@router.delete("/jobs/{job_id}", response_model=MessageResponse)
+def delete_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return service.delete_admin_job(job_id, db)
+
+
+# ── Applications ──────────────────────────────────────────────────────────────
+
+@router.get("/applications", response_model=list[AdminApplicationEntry])
+def list_applications(
+    status: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return service.list_admin_applications(db, status, search, limit, offset)
+
+
+# ── Activity feed ─────────────────────────────────────────────────────────────
+
+@router.get("/activity", response_model=list[AdminActivityItem])
+def activity_feed(
+    limit: int = Query(25, ge=1, le=100),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return service.get_activity_feed(db, limit)

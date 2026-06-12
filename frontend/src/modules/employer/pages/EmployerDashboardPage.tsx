@@ -108,7 +108,7 @@ function Sidebar({
               { label: 'Total', value: totalJobs },
               { label: 'Active', value: activeJobs },
               { label: 'Paused', value: totalJobs - activeJobs },
-            ].map(s => (
+            ].map((s) => (
               <div key={s.label} style={{
                 background: 'rgba(59,130,246,0.07)', borderRadius: 10, padding: '8px 4px',
                 border: '1px solid rgba(59,130,246,0.1)', textAlign: 'center',
@@ -306,20 +306,29 @@ function JobCard({
           <Trash2 size={13} />
         </button>
       </div>
-      {/* Phase 3: Candidate pipeline link */}
-      <Link
-        to={`/app/employer/pipeline/${job.id}`}
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          height: 34, borderRadius: 10, fontSize: 12, fontWeight: 700,
-          background: 'rgba(5,150,105,0.07)', border: '1px solid rgba(5,150,105,0.2)',
-          color: '#059669', textDecoration: 'none', transition: 'all 0.2s',
-        }}
-        onMouseOver={e => (e.currentTarget.style.background = 'rgba(5,150,105,0.12)')}
-        onMouseOut={e => (e.currentTarget.style.background = 'rgba(5,150,105,0.07)')}
-      >
-        <Users size={12} /> View Candidates
-      </Link>
+      {/* Applicant count summary */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '8px 12px', borderRadius: 10,
+        background: (job.applicant_count ?? 0) > 0 ? 'rgba(5,150,105,0.06)' : 'rgba(107,114,128,0.04)',
+        border: `1px solid ${(job.applicant_count ?? 0) > 0 ? 'rgba(5,150,105,0.15)' : 'rgba(107,114,128,0.1)'}`,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+          <Users size={13} color={(job.applicant_count ?? 0) > 0 ? '#059669' : '#9CA3AF'} />
+          <span style={{ fontSize: 13, fontWeight: 700, color: (job.applicant_count ?? 0) > 0 ? '#059669' : '#9CA3AF' }}>
+            {job.applicant_count ?? 0} applicant{(job.applicant_count ?? 0) !== 1 ? 's' : ''}
+          </span>
+        </div>
+        <Link
+          to={`/app/employer/pipeline/${job.id}`}
+          style={{
+            fontSize: 12, fontWeight: 700, color: '#059669',
+            textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4,
+          }}
+        >
+          View Pipeline →
+        </Link>
+      </div>
     </div>
   )
 }
@@ -469,13 +478,14 @@ export default function EmployerDashboardPage() {
                     <p style={{ fontSize: 14, color: '#475569', lineHeight: 1.6 }}>
                       Reach <strong style={{ color: '#1E3A5F' }}>UPSC-prepared talent</strong> with high career readiness scores
                     </p>
-                    <div style={{ display: 'flex', gap: 20, marginTop: 20 }}>
+                    <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
                       {[
                         { label: 'Total Jobs', value: data.total_jobs },
                         { label: 'Active', value: data.active_jobs },
                         { label: 'Paused', value: data.total_jobs - data.active_jobs },
+                        { label: 'Total Applicants', value: data.jobs.reduce((sum, j) => sum + (j.applicant_count ?? 0), 0) },
                       ].map(s => (
-                        <div key={s.label} style={{ textAlign: 'center', background: 'rgba(255,255,255,0.7)', borderRadius: 14, padding: '10px 16px', border: '1px solid rgba(59,130,246,0.1)' }}>
+                        <div key={s.label} style={{ textAlign: 'center', background: 'rgba(255,255,255,0.7)', borderRadius: 14, padding: '10px 16px', border: '1px solid rgba(59,130,246,0.1)', minWidth: 80 }}>
                           <div style={{ fontSize: 26, fontWeight: 900, color: '#1E3A5F', fontFamily: 'Hind, sans-serif', lineHeight: 1 }}>{s.value}</div>
                           <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 3 }}>{s.label}</div>
                         </div>

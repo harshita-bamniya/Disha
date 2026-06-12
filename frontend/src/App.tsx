@@ -72,10 +72,8 @@ const PathDetailPage        = lazy(() => import('@/modules/learning/pages/PathDe
 const LessonViewerPage      = lazy(() => import('@/modules/learning/pages/LessonViewerPage'))
 const ResumeListPage        = lazy(() => import('@/modules/resume/pages/ResumeListPage'))
 const ResumeEditorPage      = lazy(() => import('@/modules/resume/pages/ResumeEditorPage'))
-const InterviewHomePage     = lazy(() => import('@/modules/interview/pages/InterviewHomePage'))
-const InterviewRoomPage     = lazy(() => import('@/modules/interview/pages/InterviewRoomPage'))
-const FeedbackPage          = lazy(() => import('@/modules/interview/pages/FeedbackPage'))
 const CounsellorPage        = lazy(() => import('@/modules/counsellor/pages/CounsellorPage'))
+const MockInterviewPage     = lazy(() => import('@/modules/interview/pages/MockInterviewPage'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -220,10 +218,10 @@ function App() {
           <Route path="/app/resume" element={<OnboardingGate><Suspense fallback={null}><ResumeListPage /></Suspense></OnboardingGate>} />
           <Route path="/app/resume/:resumeId" element={<OnboardingGate><Suspense fallback={null}><ResumeEditorPage /></Suspense></OnboardingGate>} />
 
-          {/* MVP2: Mock Interview */}
-          <Route path="/app/interview" element={<OnboardingGate><Suspense fallback={null}><InterviewHomePage /></Suspense></OnboardingGate>} />
-          <Route path="/app/interview/sessions/:sessionId" element={<OnboardingGate><Suspense fallback={null}><InterviewRoomPage /></Suspense></OnboardingGate>} />
-          <Route path="/app/interview/sessions/:sessionId/feedback" element={<OnboardingGate><Suspense fallback={null}><FeedbackPage /></Suspense></OnboardingGate>} />
+          {/* Old interview routes — redirect to new mock interview */}
+          <Route path="/app/interview" element={<Navigate to="/app/mock-interview" replace />} />
+          <Route path="/app/interview/sessions/:sessionId" element={<Navigate to="/app/mock-interview" replace />} />
+          <Route path="/app/interview/sessions/:sessionId/feedback" element={<Navigate to="/app/mock-interview" replace />} />
 
           {/* Phase 3: Job marketplace (aspirant) */}
           <Route path="/app/jobs" element={<OnboardingGate><Suspense fallback={null}><JobsPage /></Suspense></OnboardingGate>} />
@@ -232,6 +230,10 @@ function App() {
 
           {/* Phase 3: Employer candidate pipeline */}
           <Route path="/app/employer/pipeline/:jobId" element={<ProtectedRoute><Suspense fallback={null}><CandidatePipelinePage /></Suspense></ProtectedRoute>} />
+
+          {/* Mock Interview */}
+          <Route path="/app/mock-interview/:jobId" element={<OnboardingGate><Suspense fallback={null}><MockInterviewPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/mock-interview" element={<OnboardingGate><Suspense fallback={null}><MockInterviewPage /></Suspense></OnboardingGate>} />
 
           {/* MVP2: AI Counsellor */}
           <Route path="/app/counsellor" element={<OnboardingGate><Suspense fallback={null}><CounsellorPage /></Suspense></OnboardingGate>} />

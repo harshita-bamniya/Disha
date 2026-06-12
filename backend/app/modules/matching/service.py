@@ -16,12 +16,12 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.exceptions import AuthException, BadRequestException, NotFoundException
 from app.models.mvp3 import Application, ApplicationStatusHistory
 from app.models.user import (
-    AspirantProfile, EmployerProfile, JobPosting, KrsScore, User,
+    AspirantProfile, EmployerProfile, JobPosting, KrsScore, PsychologicalAssessment, User,
     UserCareerSelection,
 )
 from app.modules.matching.schemas import (
     ApplicationDetailOut, ApplicationOut, ApplicationStatusHistoryItem,
-    ApplyRequest, CandidateOut, JobCandidatePipeline, JobDetail,
+    ApplyRequest, CandidateOut, CandidatePsychProfile, JobCandidatePipeline, JobDetail,
     JobListItem, JobRecommendationsResponse, UpdateApplicationStatusRequest,
 )
 from app.modules.recommendations.ranker import RankedJob, rank_jobs_for_user
@@ -349,6 +349,9 @@ def get_job_pipeline(job_id: str, user: User, db: Session) -> JobCandidatePipeli
     by_status: dict[str, int] = {}
     candidates: list[CandidateOut] = []
 
+    from datetime import timezone as _tz
+    now = __import__("datetime").datetime.now(_tz.utc)
+
     for app in apps:
         by_status[app.status] = by_status.get(app.status, 0) + 1
 
@@ -358,6 +361,34 @@ def get_job_pipeline(job_id: str, user: User, db: Session) -> JobCandidatePipeli
             .first()
         )
         krs = db.query(KrsScore).filter(KrsScore.user_id == app.aspirant_id).first()
+        psych = db.query(PsychologicalAssessment).filter(
+            PsychologicalAssessment.user_id == app.aspirant_id
+        ).first()
+
+        applied_at = app.created_at
+        if applied_at.tzinfo is None:
+            applied_at = applied_at.replace(tzinfo=_tz.utc)
+        days_ago = max(0, (now - applied_at).days)
+
+        psych_out = None
+        if psych:
+            psych_out = CandidatePsychProfile(
+                burnout_score=psych.burnout_score,
+                confidence_index=psych.confidence_index,
+                financial_pressure_score=psych.financial_pressure_score,
+                risk_tolerance=psych.risk_tolerance,
+                motivation_type=psych.motivation_type,
+            )
+
+        history = [
+            ApplicationStatusHistoryItem(
+                from_status=h.from_status,
+                to_status=h.to_status,
+                note=h.note,
+                created_at=h.created_at,
+            )
+            for h in (app.status_history or [])
+        ]
 
         candidates.append(CandidateOut(
             application_id=str(app.id),
@@ -365,17 +396,37 @@ def get_job_pipeline(job_id: str, user: User, db: Session) -> JobCandidatePipeli
             full_name=profile.full_name if profile else None,
             city=profile.city if profile else None,
             state=profile.state if profile else None,
+            gender=profile.gender if profile else None,
+            highest_qualification=profile.highest_qualification if profile else None,
+            degree=profile.degree if profile else None,
+            field_of_study=profile.field_of_study if profile else None,
+            institution=profile.institution if profile else None,
+            graduation_year=profile.graduation_year if profile else None,
             upsc_attempts=profile.upsc_attempts if profile else None,
             highest_stage_cleared=profile.highest_stage_cleared if profile else None,
+            years_preparing=profile.years_preparing if profile else None,
+            optional_subject=profile.optional_subject if profile else None,
+            has_work_experience=profile.has_work_experience if profile else None,
+            work_experience_years=profile.work_experience_years if profile else None,
+            work_experience_domain=profile.work_experience_domain if profile else None,
+            last_designation=profile.last_designation if profile else None,
             skills=profile.skills or [] if profile else [],
             k_score=krs.k_score if krs else None,
             r_score=krs.r_score if krs else None,
             s_score=krs.s_score if krs else None,
             composite=krs.composite if krs else None,
+            psych=psych_out,
+            expected_salary_min=profile.expected_salary_min if profile else None,
+            expected_salary_max=profile.expected_salary_max if profile else None,
+            open_to_relocation=profile.open_to_relocation if profile else None,
+            preferred_locations=profile.preferred_locations if profile else None,
             match_score=app.match_score,
             status=app.status,
             cover_note=app.cover_note,
+            employer_note=app.employer_note,
             applied_at=app.created_at,
+            days_ago=days_ago,
+            status_history=history,
         ))
 
     return JobCandidatePipeline(

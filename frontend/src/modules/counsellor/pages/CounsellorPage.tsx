@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { counsellorApi, type ConversationSummary, type MessageOut } from '@/api/counsellor'
+import { counsellorApi, type ConversationSummary, type MessageOut, type CounsellorMemory } from '@/api/counsellor'
 import AppSidebar from '@/components/layout/AppSidebar'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
-import { Send, Plus, Archive, MessageCircle, AlertTriangle, Briefcase, BrainCircuit, Zap } from 'lucide-react'
+import { Send, Plus, Archive, MessageCircle, AlertTriangle, Briefcase, BrainCircuit, Zap, Brain, ChevronDown, ChevronUp, X, Mic, MicOff } from 'lucide-react'
 
 const CRISIS_NUMBERS = [
   { name: 'iCall (TISS)', number: '9152987821' },
@@ -89,6 +89,135 @@ function TypingIndicator() {
           }} />
         ))}
       </div>
+    </div>
+  )
+}
+
+const MEMORY_TYPE_COLORS: Record<string, string> = {
+  fact: '#3B82F6',
+  preference: '#8B5CF6',
+  concern: '#EF4444',
+  milestone: '#10B981',
+  goal: '#F59E0B',
+}
+
+// ── Memory Panel ──────────────────────────────────────────────────────────────
+function MemoryPanel() {
+  const qc = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const { data: memories, isLoading } = useQuery({
+    queryKey: ['counsellor-memories'],
+    queryFn: counsellorApi.listMemories,
+    enabled: open,
+  })
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => counsellorApi.deleteMemory(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['counsellor-memories'] }),
+  })
+
+  return (
+    <div style={{ margin: '0 12px 8px', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 10, overflow: 'hidden' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: '100%', background: 'rgba(99,102,241,0.05)', border: 'none',
+          padding: '8px 10px', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 6,
+        }}
+      >
+        <Brain size={11} color="#6366F1" />
+        <span style={{ fontSize: 10, fontWeight: 700, color: '#6366F1', flex: 1, textAlign: 'left' }}>
+          WHAT DISHA KNOWS
+        </span>
+        {open ? <ChevronUp size={11} color="#6366F1" /> : <ChevronDown size={11} color="#6366F1" />}
+      </button>
+      {open && (
+        <div style={{ padding: '8px 10px', background: 'white', maxHeight: 200, overflowY: 'auto' }}>
+          {isLoading && <p style={{ fontSize: 11, color: '#94A3B8', textAlign: 'center' }}>Loading...</p>}
+          {memories?.length === 0 && (
+            <p style={{ fontSize: 11, color: '#94A3B8', textAlign: 'center' }}>No memories yet — start chatting!</p>
+          )}
+          {memories?.map(m => (
+            <div key={m.id} style={{
+              display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 6,
+              padding: '5px 6px', borderRadius: 6, background: '#F8FAFC',
+            }}>
+              <span style={{
+                fontSize: 9, fontWeight: 700, padding: '2px 5px', borderRadius: 8, flexShrink: 0, marginTop: 1,
+                background: `${MEMORY_TYPE_COLORS[m.memory_type]}15`,
+                color: MEMORY_TYPE_COLORS[m.memory_type],
+              }}>{m.memory_type}</span>
+              <p style={{ fontSize: 11, color: '#374151', flex: 1, lineHeight: 1.4, margin: 0 }}>{m.content}</p>
+              <button
+                onClick={() => deleteMutation.mutate(m.id)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, flexShrink: 0, opacity: 0.4 }}
+                title="Forget this"
+              >
+                <X size={10} color="#EF4444" />
+              </button>
+            </div>
+          ))}
+          <p style={{ fontSize: 9, color: '#CBD5E1', textAlign: 'center', marginTop: 4 }}>
+            Click × to ask DISHA to forget something
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Nudge Banner ──────────────────────────────────────────────────────────────
+function NudgeBanner() {
+  const navigate = useNavigate()
+  const [dismissed, setDismissed] = useState(false)
+  const { data: nudge } = useQuery({
+    queryKey: ['counsellor-nudge'],
+    queryFn: counsellorApi.getNudge,
+    staleTime: 1000 * 60 * 10,
+  })
+
+  if (dismissed || !nudge?.message) return null
+
+  const bgMap: Record<string, string> = {
+    interview: 'rgba(139,92,246,0.07)',
+    learning: 'rgba(59,130,246,0.07)',
+    streak: 'rgba(245,158,11,0.07)',
+  }
+  const borderMap: Record<string, string> = {
+    interview: 'rgba(139,92,246,0.25)',
+    learning: 'rgba(59,130,246,0.25)',
+    streak: 'rgba(245,158,11,0.25)',
+  }
+  const colorMap: Record<string, string> = {
+    interview: '#7C3AED',
+    learning: '#2563EB',
+    streak: '#D97706',
+  }
+  const t = nudge.type ?? 'interview'
+
+  return (
+    <div style={{
+      margin: '16px 24px 0',
+      padding: '12px 16px',
+      borderRadius: 12,
+      background: bgMap[t] ?? bgMap.interview,
+      border: `1px solid ${borderMap[t] ?? borderMap.interview}`,
+      display: 'flex', alignItems: 'center', gap: 12,
+    }}>
+      <Zap size={14} color={colorMap[t]} style={{ flexShrink: 0 }} />
+      <p style={{ fontSize: 13, color: '#374151', flex: 1, lineHeight: 1.5 }}>{nudge.message}</p>
+      {nudge.cta_path && (
+        <button
+          onClick={() => navigate(nudge.cta_path!)}
+          style={{
+            padding: '5px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
+            background: colorMap[t], color: 'white', fontSize: 11, fontWeight: 700, flexShrink: 0,
+          }}
+        >{nudge.cta}</button>
+      )}
+      <button onClick={() => setDismissed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, opacity: 0.4, flexShrink: 0 }}>
+        <X size={12} color="#374151" />
+      </button>
     </div>
   )
 }
@@ -265,6 +394,7 @@ export default function CounsellorPage() {
           </div>
         </header>
 
+        <NudgeBanner />
         <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
           {/* Left sidebar — conversation list */}
           <div style={{
@@ -344,6 +474,8 @@ export default function CounsellorPage() {
                 </p>
               )}
             </div>
+
+            <MemoryPanel />
 
             {/* Crisis resources footer */}
             <div style={{

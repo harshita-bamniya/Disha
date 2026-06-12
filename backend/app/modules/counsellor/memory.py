@@ -80,19 +80,29 @@ async def extract_and_store_memories(
         raw = response.content.strip()
         raw = re.sub(r"^```(?:json)?\n?", "", raw)
         raw = re.sub(r"\n?```$", "", raw)
+        # Extract just the JSON array in case the model appended extra text
+        start = raw.find("[")
+        end = raw.rfind("]") + 1
+        if start < 0 or end <= start:
+            return 0
+        raw = raw[start:end]
 
         memories = json.loads(raw)
         if not isinstance(memories, list):
             return 0
 
+        VALID_TYPES = {"fact", "preference", "concern", "milestone", "goal"}
         count = 0
         for mem in memories[:3]:  # Cap at 3 per exchange
             if not isinstance(mem, dict) or "content" not in mem:
                 continue
 
+            raw_type = mem.get("memory_type", "fact")
+            safe_type = raw_type if raw_type in VALID_TYPES else "fact"
+
             memory_obj = CounsellorMemory(
                 user_id=user.id,
-                memory_type=mem.get("memory_type", "fact"),
+                memory_type=safe_type,
                 content=mem["content"][:500],
                 importance=mem.get("importance", "medium"),
                 source_conv_id=conversation.id,
@@ -158,11 +168,18 @@ async def extract_and_store_memories_bg(
         raw = response.content.strip()
         raw = re.sub(r"^```(?:json)?\n?", "", raw)
         raw = re.sub(r"\n?```$", "", raw)
+        # Extract just the JSON array in case the model appended extra text
+        start = raw.find("[")
+        end = raw.rfind("]") + 1
+        if start < 0 or end <= start:
+            return 0
+        raw = raw[start:end]
 
         memories = json.loads(raw)
         if not isinstance(memories, list):
             return 0
 
+        VALID_TYPES = {"fact", "preference", "concern", "milestone", "goal"}
         uid = UUID(user_id)
         conv_id = UUID(conversation_id)
         count = 0
@@ -170,9 +187,12 @@ async def extract_and_store_memories_bg(
             if not isinstance(mem, dict) or "content" not in mem:
                 continue
 
+            raw_type = mem.get("memory_type", "fact")
+            safe_type = raw_type if raw_type in VALID_TYPES else "fact"
+
             memory_obj = CounsellorMemory(
                 user_id=uid,
-                memory_type=mem.get("memory_type", "fact"),
+                memory_type=safe_type,
                 content=mem["content"][:500],
                 importance=mem.get("importance", "medium"),
                 source_conv_id=conv_id,
@@ -215,8 +235,9 @@ def retrieve_relevant_memories(
     """Retrieve the most relevant active memories for the current context."""
     if query_embedding is not None:
         try:
+            from sqlalchemy import text
             rows = db.execute(
-                """
+                text("""
                 SELECT cm.content, cm.importance,
                        1 - (cme.embedding <=> :emb) AS relevance
                 FROM counsellor_memory_embeddings cme
@@ -226,7 +247,7 @@ def retrieve_relevant_memories(
                   AND (cm.expires_at IS NULL OR cm.expires_at > NOW())
                 ORDER BY relevance DESC
                 LIMIT :lim
-                """,
+                """),
                 {"emb": str(query_embedding), "uid": str(user_id), "lim": limit},
             ).fetchall()
             return [row[0] for row in rows]

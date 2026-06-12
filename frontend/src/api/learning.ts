@@ -76,4 +76,14 @@ export const learningApi = {
 
   getStreak: () =>
     apiClient.get<StreakData>('/learn/streak').then(r => r.data),
+
+  getDueReviews: () =>
+    apiClient.get<Array<{
+      lesson_id: string
+      lesson_title: string
+      path_id: string | null
+      path_name: string | null
+      days_overdue: number
+      review_interval_days: number
+    }>>('/learn/due-reviews').then(r => r.data),
 }

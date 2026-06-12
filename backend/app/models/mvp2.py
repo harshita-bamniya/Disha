@@ -357,8 +357,12 @@ class Conversation(Base):
     status        = Column(String(20), default="active", nullable=False)
     message_count = Column(Integer, default=0, nullable=False)
     # skill_learning context fields
-    skill_focus   = Column(String(200), nullable=True)   # e.g. "Policy Research"
-    job_context   = Column(JSONB, nullable=True)          # {job_id, job_title, company, sector}
+    skill_focus      = Column(String(200), nullable=True)   # e.g. "Policy Research"
+    job_context      = Column(JSONB, nullable=True)          # {job_id, job_title, company, sector}
+    # mock_interview context fields
+    interview_config = Column(JSONB, nullable=True)
+    # {persona_name, persona_role, interview_type, job_id, job_title, company, sector,
+    #  total_questions, status: "in_progress"|"completed"}
     created_at    = Column(DateTime(timezone=True), server_default=func.now())
     updated_at    = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -367,7 +371,7 @@ class Conversation(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "context_type IN ('career','emotional','learning','resume','general','skill_learning')",
+            "context_type IN ('career','emotional','learning','resume','general','skill_learning','mock_interview')",
             name="ck_conv_context_type"
         ),
         CheckConstraint("status IN ('active','archived')", name="ck_conv_status"),

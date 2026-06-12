@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import AuthException, BadRequestException
 from app.models.user import EmployerProfile, JobPosting, User
+from sqlalchemy import func
 from app.modules.jobs.schemas import (
     EmployerDashboardResponse, JobPostingRequest,
     JobPostingResponse,
@@ -28,7 +29,7 @@ def _get_employer_profile(user: User, db: Session) -> EmployerProfile:
     return profile
 
 
-def _job_to_response(job: JobPosting) -> JobPostingResponse:
+def _job_to_response(job: JobPosting, applicant_count: int = 0) -> JobPostingResponse:
     return JobPostingResponse(
         id=str(job.id),
         title=job.title,
@@ -46,10 +47,12 @@ def _job_to_response(job: JobPosting) -> JobPostingResponse:
         is_active=job.is_active,
         created_at=job.created_at,
         updated_at=job.updated_at,
+        applicant_count=applicant_count,
     )
 
 
 def get_dashboard(user: User, db: Session) -> EmployerDashboardResponse:
+    from app.models.mvp3 import Application
     profile = _get_employer_profile(user, db)
     jobs = (
         db.query(JobPosting)
@@ -57,13 +60,25 @@ def get_dashboard(user: User, db: Session) -> EmployerDashboardResponse:
         .order_by(JobPosting.created_at.desc())
         .all()
     )
+    # Batch count applicants per job
+    job_ids = [j.id for j in jobs]
+    counts = {}
+    if job_ids:
+        rows = (
+            db.query(Application.job_id, func.count(Application.id))
+            .filter(Application.job_id.in_(job_ids))
+            .group_by(Application.job_id)
+            .all()
+        )
+        counts = {str(row[0]): row[1] for row in rows}
+
     active = [j for j in jobs if j.is_active]
     return EmployerDashboardResponse(
         company_name=profile.company_name,
         is_approved=profile.is_approved,
         total_jobs=len(jobs),
         active_jobs=len(active),
-        jobs=[_job_to_response(j) for j in jobs],
+        jobs=[_job_to_response(j, counts.get(str(j.id), 0)) for j in jobs],
     )
 
 

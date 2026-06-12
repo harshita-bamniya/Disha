@@ -6,6 +6,8 @@ import type { LiveJob } from '@/api/krs'
 import { formatSalary } from '@/api/jobs'
 import AppSidebar from '@/components/layout/AppSidebar'
 import { resumeApi } from '@/api/resume'
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
+import { applyToJob, getMyApplications } from '@/api/matching'
 
 function greeting() {
   const h = new Date().getHours()
@@ -80,8 +82,8 @@ function ScoreRing({ value, label, color, size = 72, run }: {
 }
 
 // ── Job card (new design) ─────────────────────────────────────────────────────
-function JobCard({ job, onOpen, onApply, onPrepare, isPreparing, delay }: {
-  job: LiveJob; onOpen: () => void; onApply: () => void; onPrepare: () => void; isPreparing?: boolean; delay: number
+function JobCard({ job, onOpen, onApply, onPrepare, isPreparing, isApplied, delay }: {
+  job: LiveJob; onOpen: () => void; onApply: () => void; onPrepare: () => void; isPreparing?: boolean; isApplied?: boolean; delay: number
 }) {
   const [c1, c2] = sectorColor(job.sector)
   const [hov, setHov] = useState(false)
@@ -160,13 +162,14 @@ function JobCard({ job, onOpen, onApply, onPrepare, isPreparing, delay }: {
                 ? <div style={{ width: 10, height: 10, border: `2px solid ${c1}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
                 : <><BookOpen size={10} />{job.is_prepared ? 'Saved' : 'Prep'}</>}
             </button>
-            <button onClick={onApply} style={{
-              height: 28, padding: '0 12px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: 'pointer',
-              background: `linear-gradient(135deg, ${c1}, ${c2})`, color: 'white', border: 'none',
+            <button onClick={isApplied ? undefined : onApply} disabled={isApplied} style={{
+              height: 28, padding: '0 12px', borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: isApplied ? 'default' : 'pointer',
+              background: isApplied ? 'rgba(16,185,129,0.1)' : `linear-gradient(135deg, ${c1}, ${c2})`,
+              color: isApplied ? '#059669' : 'white', border: isApplied ? '1.5px solid rgba(16,185,129,0.3)' : 'none',
               display: 'flex', alignItems: 'center', gap: 3,
-              boxShadow: `0 3px 10px ${c1}40`, transition: 'all 0.2s',
+              boxShadow: isApplied ? 'none' : `0 3px 10px ${c1}40`, transition: 'all 0.2s',
             }}>
-              Apply <ArrowUpRight size={10} />
+              {isApplied ? <><CheckCircle2 size={10} /> Applied</> : <>Apply <ArrowUpRight size={10} /></>}
             </button>
           </div>
         </div>
@@ -176,8 +179,8 @@ function JobCard({ job, onOpen, onApply, onPrepare, isPreparing, delay }: {
 }
 
 // ── Compact job row ───────────────────────────────────────────────────────────
-function JobRow({ job, index, onOpen, onApply, onPrepare, isPreparing }: {
-  job: LiveJob; index: number; onOpen: () => void; onApply: () => void; onPrepare: () => void; isPreparing?: boolean
+function JobRow({ job, index, onOpen, onApply, onPrepare, isPreparing, isApplied }: {
+  job: LiveJob; index: number; onOpen: () => void; onApply: () => void; onPrepare: () => void; isPreparing?: boolean; isApplied?: boolean
 }) {
   const [c1] = sectorColor(job.sector)
   const [hov, setHov] = useState(false)
@@ -232,12 +235,13 @@ function JobRow({ job, index, onOpen, onApply, onPrepare, isPreparing }: {
               ? <div style={{ width: 9, height: 9, border: `2px solid ${c1}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
               : <><BookOpen size={9} />{job.is_prepared ? 'Saved' : 'Prep'}</>}
           </button>
-          <button onClick={onApply} style={{
-            height: 28, padding: '0 9px', borderRadius: 7, fontSize: 10, fontWeight: 700, cursor: 'pointer',
-            background: c1, color: 'white', border: 'none',
-            display: 'flex', alignItems: 'center', gap: 3, boxShadow: `0 2px 8px ${c1}35`, transition: 'all 0.2s',
+          <button onClick={isApplied ? undefined : onApply} disabled={isApplied} style={{
+            height: 28, padding: '0 9px', borderRadius: 7, fontSize: 10, fontWeight: 700, cursor: isApplied ? 'default' : 'pointer',
+            background: isApplied ? 'rgba(16,185,129,0.1)' : c1, color: isApplied ? '#059669' : 'white',
+            border: isApplied ? '1.5px solid rgba(16,185,129,0.3)' : 'none',
+            display: 'flex', alignItems: 'center', gap: 3, boxShadow: isApplied ? 'none' : `0 2px 8px ${c1}35`, transition: 'all 0.2s',
           }}>
-            <ArrowUpRight size={9} /> Apply
+            {isApplied ? <><CheckCircle2 size={9} /> Applied</> : <><ArrowUpRight size={9} /> Apply</>}
           </button>
         </div>
       </div>
@@ -246,8 +250,8 @@ function JobRow({ job, index, onOpen, onApply, onPrepare, isPreparing }: {
 }
 
 // ── Job detail modal ──────────────────────────────────────────────────────────
-function JobModal({ job, onClose, onApply, onPrepare, onGenerateResume, isPreparing }: {
-  job: LiveJob; onClose: () => void; onApply: () => void; onPrepare: () => void; onGenerateResume: () => void; isPreparing?: boolean
+function JobModal({ job, onClose, onApply, onPrepare, onGenerateResume, isPreparing, isApplied }: {
+  job: LiveJob; onClose: () => void; onApply: () => void; onPrepare: () => void; onGenerateResume: () => void; isPreparing?: boolean; isApplied?: boolean
 }) {
   const [c1, c2] = sectorColor(job.sector)
   return (
@@ -307,8 +311,8 @@ function JobModal({ job, onClose, onApply, onPrepare, onGenerateResume, isPrepar
             <button onClick={onPrepare} disabled={isPreparing} style={{ flex: 1, height: 42, borderRadius: 13, border: '1.5px solid #E2E8F0', background: job.is_prepared ? `${c1}08` : 'white', color: job.is_prepared ? c1 : '#374151', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'all 0.2s' }}>
               {isPreparing ? <div style={{ width: 14, height: 14, border: `2px solid ${c1}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /> : <><BookOpen size={13} />{job.is_prepared ? '✓ In Prep List' : 'Add to Prep List'}</>}
             </button>
-            <button onClick={onApply} style={{ flex: 1, height: 42, borderRadius: 13, background: `linear-gradient(135deg, ${c1}, ${c2})`, color: 'white', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, boxShadow: `0 4px 18px ${c1}45`, transition: 'all 0.2s' }}>
-              <ExternalLink size={13} /> Apply Now
+            <button onClick={isApplied ? undefined : onApply} disabled={isApplied} style={{ flex: 1, height: 42, borderRadius: 13, background: isApplied ? 'rgba(16,185,129,0.08)' : `linear-gradient(135deg, ${c1}, ${c2})`, color: isApplied ? '#059669' : 'white', border: isApplied ? '1.5px solid rgba(16,185,129,0.25)' : 'none', fontSize: 13, fontWeight: 700, cursor: isApplied ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, boxShadow: isApplied ? 'none' : `0 4px 18px ${c1}45`, transition: 'all 0.2s' }}>
+              {isApplied ? <><CheckCircle2 size={13} /> Applied</> : <><ExternalLink size={13} /> Apply Now</>}
             </button>
           </div>
         </div>
@@ -320,22 +324,82 @@ function JobModal({ job, onClose, onApply, onPrepare, onGenerateResume, isPrepar
 // ── Apply modal ───────────────────────────────────────────────────────────────
 function ApplyModal({ job, onClose }: { job: LiveJob; onClose: () => void }) {
   const [c1, c2] = sectorColor(job.sector)
+  const [coverNote, setCoverNote] = useState('')
+  const [submitted, setSubmitted] = useState(false)
+  const qc = useQueryClient()
+
+  const applyMutation = useMutation({
+    mutationFn: () => applyToJob(job.id, coverNote.trim() || undefined),
+    onSuccess: () => {
+      setSubmitted(true)
+      qc.invalidateQueries({ queryKey: ['my-applications'] })
+      qc.invalidateQueries({ queryKey: ['live-jobs'] })
+    },
+  })
+
   return (
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 60, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(14px)', animation: 'fadeIn 0.2s ease both' }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: 24, width: '100%', maxWidth: 360, padding: 26, boxShadow: '0 24px 60px rgba(15,23,42,0.25)', animation: 'popIn 0.3s cubic-bezier(0.34,1.5,0.64,1) both', position: 'relative' }}>
-        <button onClick={onClose} style={{ position: 'absolute', top: 14, right: 14, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 9, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748B' }}><X size={13} /></button>
-        <div style={{ fontSize: 32, marginBottom: 12 }}>💼</div>
-        <h3 style={{ fontFamily: 'Hind, sans-serif', fontSize: 17, fontWeight: 900, color: '#0F172A', marginBottom: 3 }}>{job.title}</h3>
-        <p style={{ fontSize: 13, color: '#64748B', marginBottom: 16 }}>{job.company_name}</p>
-        <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 12, padding: '11px 13px', marginBottom: 18 }}>
-          <p style={{ fontSize: 13, color: '#92400E', lineHeight: 1.6 }}>Application tracking coming soon. Apply directly through the employer's website.</p>
-        </div>
-        {job.employer_website
-          ? <a href={job.employer_website.startsWith('http') ? job.employer_website : `https://${job.employer_website}`} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, width: '100%', height: 44, borderRadius: 12, background: `linear-gradient(135deg, ${c1}, ${c2})`, color: 'white', fontSize: 14, fontWeight: 700, textDecoration: 'none', boxShadow: `0 4px 14px ${c1}40` }}>
-              <ExternalLink size={13} /> Visit {job.company_name}
-            </a>
-          : <div style={{ textAlign: 'center', padding: '12px', background: '#F1F5F9', borderRadius: 12, color: '#94A3B8', fontSize: 13 }}>No website — contact employer directly</div>}
-        <button onClick={onClose} style={{ width: '100%', marginTop: 8, fontSize: 12, color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', padding: 7 }}>Close</button>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: 24, width: '100%', maxWidth: 400, padding: 26, boxShadow: '0 24px 60px rgba(15,23,42,0.25)', animation: 'popIn 0.3s cubic-bezier(0.34,1.5,0.64,1) both', position: 'relative' }}>
+        <button onClick={onClose} style={{ position: 'absolute', top: 14, right: 14, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 9, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748B' }}>
+          <X size={13} />
+        </button>
+
+        {submitted ? (
+          <div style={{ textAlign: 'center', padding: '12px 0' }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
+            <h3 style={{ fontSize: 18, fontWeight: 800, color: '#059669', marginBottom: 6 }}>Application Submitted!</h3>
+            <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6 }}>
+              The employer will review your profile and KRS score. You'll be notified of any updates.
+            </p>
+            <button onClick={onClose} style={{ marginTop: 18, padding: '10px 28px', borderRadius: 12, background: 'linear-gradient(135deg, #059669, #047857)', color: '#fff', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+              Done
+            </button>
+          </div>
+        ) : (
+          <>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>💼</div>
+            <h3 style={{ fontFamily: 'Hind, sans-serif', fontSize: 17, fontWeight: 900, color: '#0F172A', marginBottom: 3 }}>{job.title}</h3>
+            <p style={{ fontSize: 13, color: '#64748B', marginBottom: 16 }}>{job.company_name}</p>
+
+            <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 12, padding: '10px 13px', marginBottom: 16 }}>
+              <p style={{ fontSize: 12, color: '#15803D', lineHeight: 1.6, margin: 0 }}>
+                Your full profile, KRS score, and skills will be shared with the employer.
+              </p>
+            </div>
+
+            <label style={{ fontSize: 12, fontWeight: 700, color: '#374151', display: 'block', marginBottom: 6 }}>
+              Cover note <span style={{ fontWeight: 400, color: '#94A3B8' }}>(optional)</span>
+            </label>
+            <textarea
+              value={coverNote}
+              onChange={e => setCoverNote(e.target.value)}
+              placeholder="Tell the employer why you're a great fit..."
+              maxLength={1000}
+              rows={3}
+              style={{ width: '100%', border: '1px solid #E2E8F0', borderRadius: 12, padding: '10px 12px', fontSize: 13, resize: 'none', outline: 'none', color: '#1E293B', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 4 }}
+            />
+            <p style={{ fontSize: 11, color: '#94A3B8', textAlign: 'right', marginBottom: 16 }}>{coverNote.length}/1000</p>
+
+            {applyMutation.isError && (
+              <p style={{ fontSize: 12, color: '#DC2626', marginBottom: 12 }}>
+                {(applyMutation.error as any)?.response?.data?.detail || 'Failed to submit. Please try again.'}
+              </p>
+            )}
+
+            <button
+              onClick={() => applyMutation.mutate()}
+              disabled={applyMutation.isPending}
+              style={{ width: '100%', height: 46, borderRadius: 13, background: `linear-gradient(135deg, ${c1}, ${c2})`, color: 'white', border: 'none', fontSize: 14, fontWeight: 700, cursor: applyMutation.isPending ? 'not-allowed' : 'pointer', opacity: applyMutation.isPending ? 0.75 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: `0 4px 14px ${c1}40` }}
+            >
+              {applyMutation.isPending ? (
+                <><div style={{ width: 16, height: 16, border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />Submitting…</>
+              ) : (
+                <><CheckCircle2 size={15} />Submit Application</>
+              )}
+            </button>
+            <button onClick={onClose} style={{ width: '100%', marginTop: 8, fontSize: 12, color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', padding: 7 }}>Cancel</button>
+          </>
+        )}
       </div>
     </div>
   )
@@ -346,6 +410,8 @@ export default function DashboardPage() {
   const navigate = useNavigate()
   const { data, isLoading, error } = useKrsDashboard()
   const { data: liveJobs, isLoading: jobsLoading } = useLiveJobs()
+  const { data: myApps } = useQuery({ queryKey: ['my-applications'], queryFn: getMyApplications })
+  const appliedJobIds = new Set((myApps ?? []).map(a => a.job_id))
   const prepareJob   = usePrepareJob()
   const unprepareJob = useUnprepareJob()
 
@@ -592,6 +658,7 @@ export default function DashboardPage() {
                         onApply={() => setApplyJob(job)}
                         onPrepare={() => handlePrepare(job)}
                         isPreparing={preparingJobId === job.id}
+                        isApplied={appliedJobIds.has(job.id)}
                       />
                     ))}
                   </div>
@@ -634,6 +701,7 @@ export default function DashboardPage() {
                             onApply={() => setApplyJob(job)}
                             onPrepare={() => handlePrepare(job)}
                             isPreparing={preparingJobId === job.id}
+                            isApplied={appliedJobIds.has(job.id)}
                           />
                         ))}
                       </div>
@@ -744,6 +812,7 @@ export default function DashboardPage() {
           onPrepare={() => { setSelectedJob(null); handlePrepare(selectedJob).catch(() => {}) }}
           onGenerateResume={() => handleGenerateResume(selectedJob)}
           isPreparing={preparingJobId === selectedJob?.id}
+          isApplied={appliedJobIds.has(selectedJob.id)}
         />
       )}
       {applyJob && <ApplyModal job={applyJob} onClose={() => setApplyJob(null)} />}
