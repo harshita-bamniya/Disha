@@ -201,39 +201,61 @@ Rules:
 - Never repeat similar questions
 - Each question should assess a different competency"""
 
-_READINESS_SYSTEM = """You are a Senior Hiring Manager generating a comprehensive post-interview assessment.
+_READINESS_SYSTEM = """You are a strict, unbiased Senior Hiring Manager generating a post-interview assessment.
+Your job is to give ACCURATE scores — not encouraging ones. Candidates need to know the truth.
 
-Based on the interview transcript (questions + candidate responses with AI scores), generate a job readiness report.
+SCORING CALIBRATION (follow this exactly):
+- 0–30:   Poor. Candidate struggled badly, gave vague or irrelevant answers.
+- 31–50:  Below average. Basic understanding but significant gaps. Not ready for the role.
+- 51–65:  Average. Some relevant knowledge but lacks depth or experience.
+- 66–80:  Good. Solid answers with minor gaps. Close to hire-ready.
+- 81–90:  Strong. Clear expertise, well-structured answers, few gaps.
+- 91–100: Exceptional. Would impress any hiring panel.
 
-Return ONLY valid JSON:
+COMPLETENESS RULE (critical):
+- You will be told how many questions were answered vs. planned.
+- If the candidate answered < 50% of planned questions, cap overall_readiness_score at 45.
+- If the candidate answered < 70% of planned questions, cap overall_readiness_score at 60.
+- An incomplete interview is a signal of poor preparation or disengagement.
+
+ANSWER QUALITY MAPPING:
+- AI per-answer overall_score of 0–4/10 → that skill scores 0–40 in readiness
+- AI per-answer overall_score of 5/10 → that skill scores ~50 in readiness (average)
+- AI per-answer overall_score of 6–7/10 → that skill scores 55–70
+- AI per-answer overall_score of 8–9/10 → that skill scores 75–90
+- AI per-answer overall_score of 10/10 → that skill scores 95–100
+
+Return ONLY valid JSON — no commentary, no markdown:
 {
-  "overall_readiness_score": 0-100,
-  "technical_readiness_score": 0-100,
-  "communication_score": 0-100,
-  "confidence_score": 0-100,
+  "overall_readiness_score": <integer 0-100>,
+  "technical_readiness_score": <integer 0-100>,
+  "communication_score": <integer 0-100>,
+  "confidence_score": <integer 0-100>,
   "hiring_recommendation": "Strong Hire" | "Hire" | "Maybe" | "No Hire",
-  "hiring_recommendation_reason": "2-3 sentence explanation",
-  "strengths": ["strength1", "strength2", "strength3"],
-  "critical_gaps": ["gap1", "gap2"],
+  "hiring_recommendation_reason": "2-3 sentence explanation referencing specific answers",
+  "strengths": ["specific strength observed in answers", ...],
+  "critical_gaps": ["specific gap observed in answers", ...],
   "skill_scores": {
-    "skill_name": score_0_to_100,
+    "skill_name": <integer 0-100>,
     ...
   },
-  "candidate_summary": "3-4 sentence summary of the candidate for a recruiter",
+  "candidate_summary": "3-4 sentence factual summary for a recruiter, citing actual answer quality",
   "roadmap": [
     {
       "week_range": "Week 1-2",
       "focus": "Topic/Skill",
-      "action": "Specific action to take",
+      "action": "Specific, actionable step the candidate should take",
       "resource_type": "project" | "course" | "practice" | "reading"
-    },
-    ...
+    }
   ],
-  "readiness_message": "A direct, motivational 2-sentence message to the candidate about where they stand"
+  "readiness_message": "Direct 2-sentence message to the candidate. Honest, not sugarcoated."
 }
 
-The roadmap should have 4-6 entries, each targeting a specific gap identified during the interview.
-Be honest but constructive. Base everything on actual answers given."""
+Rules:
+- Roadmap must have 4–6 entries targeting actual gaps found in the answers.
+- skill_scores must cover every competency listed under Expected Competencies.
+- Strengths and gaps must reference specific things said (or not said) in the answers.
+- Do NOT inflate scores to be kind. A weak answer is a weak answer."""
 
 
 async def generate_blueprint(
@@ -311,16 +333,22 @@ async def generate_job_readiness_report(
     experience_level: str,
     competencies: list[dict],
     transcript: list[dict],
+    total_questions_planned: int = 0,
 ) -> dict:
     """Generate a comprehensive job readiness report from interview transcript.
 
-    transcript: list of { question, question_type, skill_assessed, response, scores }
+    transcript: list of { question, question_type, skill_assessed, response, clarity, impact, overall }
+    total_questions_planned: how many questions the session was supposed to have
     """
+    answers_given = len(transcript)
+    planned = total_questions_planned or answers_given  # avoid division by zero
+    completion_pct = round((answers_given / planned) * 100) if planned else 100
+
     transcript_text = "\n\n".join(
-        f"Q{i+1} [{t.get('question_type','').upper()}] ({t.get('skill_assessed','General')})\n"
+        f"Q{i+1} [{t.get('question_type','').upper()}] (Skill: {t.get('skill_assessed','General')})\n"
         f"Question: {t['question']}\n"
-        f"Answer: {t['response']}\n"
-        f"Scores: clarity={t.get('clarity',5)}/10, impact={t.get('impact',5)}/10, overall={t.get('overall',5)}/10"
+        f"Answer: {t['response'] or '[No answer provided]'}\n"
+        f"AI Scores → clarity={t.get('clarity', 0)}/10, impact={t.get('impact', 0)}/10, overall={t.get('overall', 0)}/10"
         for i, t in enumerate(transcript)
     )
 
@@ -328,6 +356,7 @@ async def generate_job_readiness_report(
 
     user_msg = f"""Role: {job_role}
 Experience Level: {experience_level}
+Interview Completeness: {answers_given} of {planned} questions answered ({completion_pct}% complete)
 
 Expected Competencies:
 {competency_list}
@@ -335,7 +364,8 @@ Expected Competencies:
 Interview Transcript:
 {transcript_text}
 
-Generate the job readiness report."""
+IMPORTANT: Apply the completeness cap rule from your instructions if {completion_pct}% < 70%.
+Generate the job readiness report based strictly on what was actually demonstrated above."""
 
     try:
         from app.ai.providers.groq import GroqProvider
@@ -420,26 +450,22 @@ def _fallback_questions(job_role: str, count: int) -> list[dict]:
 
 
 def _default_readiness_report(job_role: str, competencies: list[dict]) -> dict:
+    """Fallback used only when the AI call fails. Uses 0 scores, not 60, so
+    we don't mislead the candidate with false averages."""
     return {
         "job_role": job_role,
-        "overall_readiness_score": 60,
-        "technical_readiness_score": 60,
-        "communication_score": 60,
-        "confidence_score": 60,
-        "hiring_recommendation": "Maybe",
-        "hiring_recommendation_reason": "Assessment data was limited. Please review individual question scores for detailed analysis.",
-        "strengths": ["Completed the interview", "Showed engagement"],
-        "critical_gaps": ["Detailed evaluation unavailable"],
-        "skill_scores": {c["skill"]: 60 for c in competencies},
-        "candidate_summary": "Candidate completed the interview. Manual review recommended for full evaluation.",
-        "roadmap": [
-            {
-                "week_range": "Week 1-2",
-                "focus": competencies[0]["skill"] if competencies else "Core Skills",
-                "action": "Review fundamentals and complete a hands-on project",
-                "resource_type": "practice",
-            }
-        ],
-        "readiness_message": "You've taken the first step by completing this interview. Review the feedback carefully to identify your growth areas.",
+        "overall_readiness_score": 0,
+        "technical_readiness_score": 0,
+        "communication_score": 0,
+        "confidence_score": 0,
+        "hiring_recommendation": "No Hire",
+        "hiring_recommendation_reason": "Report generation failed — no scores could be computed. Please retake the interview.",
+        "strengths": [],
+        "critical_gaps": ["Report generation failed. Retake the interview to get a full evaluation."],
+        "skill_scores": {c["skill"]: 0 for c in competencies},
+        "candidate_summary": "Report generation failed. Manual review required.",
+        "roadmap": [],
+        "readiness_message": "We couldn't generate your report due to a technical issue. Please try again.",
         "competencies": competencies,
+        "error": True,
     }

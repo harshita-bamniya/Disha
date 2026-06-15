@@ -1,14 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { interviewApi, type InterviewQuestion } from '@/api/interview'
 import {
   Mic, MicOff, Video, VideoOff, Send, Clock, CheckCircle,
-  AlertCircle, Wifi, WifiOff, ChevronRight, Square,
-  Volume2, VolumeX, User, Loader, SkipForward
+  Wifi, WifiOff, ChevronRight, Square,
+  Volume2, VolumeX, User, Loader, SkipForward, PhoneOff, AlertTriangle
 } from 'lucide-react'
-
-// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface TranscriptEntry {
   role: 'ai' | 'candidate'
@@ -16,7 +14,6 @@ interface TranscriptEntry {
   timestamp: Date
   isFollowUp?: boolean
   questionType?: string | null
-  skillAssessed?: string | null
 }
 
 // ── Hooks ─────────────────────────────────────────────────────────────────────
@@ -24,9 +21,11 @@ interface TranscriptEntry {
 function useCamera() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const [active, setActive] = useState(false)
-  const [muted, setMuted] = useState(false)
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const [camOn, setCamOn] = useState(false)
+  const [micOn, setMicOn] = useState(true)
   const [audioLevel, setAudioLevel] = useState(0)
+  const [error, setError] = useState<string | null>(null)
   const animRef = useRef<number>(0)
 
   useEffect(() => {
@@ -37,9 +36,10 @@ function useCamera() {
           videoRef.current.srcObject = stream
           videoRef.current.play().catch(() => {})
         }
-        setActive(true)
+        setCamOn(true)
 
         const ctx = new AudioContext()
+        audioCtxRef.current = ctx
         const src = ctx.createMediaStreamSource(stream)
         const analyser = ctx.createAnalyser()
         analyser.fftSize = 256
@@ -53,53 +53,78 @@ function useCamera() {
         }
         tick()
       })
-      .catch(() => {})
+      .catch((err: DOMException) => {
+        if (err.name === 'NotAllowedError') {
+          setError('Camera and microphone access was denied. You can still type your answers below.')
+        } else if (err.name === 'NotFoundError') {
+          setError('No camera or microphone found. You can still type your answers below.')
+        } else {
+          setError('Could not access camera/microphone. You can still type your answers below.')
+        }
+      })
 
     return () => {
       streamRef.current?.getTracks().forEach(t => t.stop())
       cancelAnimationFrame(animRef.current)
+      audioCtxRef.current?.close()
     }
   }, [])
 
-  const toggleMic = () => {
-    streamRef.current?.getAudioTracks().forEach(t => { t.enabled = muted })
-    setMuted(m => !m)
-  }
-
   const toggleCam = () => {
-    streamRef.current?.getVideoTracks().forEach(t => { t.enabled = !active })
-    setActive(a => !a)
+    const tracks = streamRef.current?.getVideoTracks() ?? []
+    const next = !camOn
+    tracks.forEach(t => { t.enabled = next })
+    setCamOn(next)
   }
 
-  return { videoRef, active, muted, audioLevel, toggleMic, toggleCam }
+  const toggleMic = (onMicChange?: (on: boolean) => void) => {
+    const next = !micOn
+    streamRef.current?.getAudioTracks().forEach(t => { t.enabled = next })
+    setMicOn(next)
+    onMicChange?.(next)
+  }
+
+  return { videoRef, camOn, micOn, audioLevel, error, toggleCam, toggleMic }
 }
 
-function useVoiceInput(onResult: (text: string) => void) {
+function useVoiceInput(onResult: (text: string) => void, lang: string = 'en-US') {
   const [listening, setListening] = useState(false)
-  const recognitionRef = useRef<any>(null)
+  const recognitionRef = useRef<SpeechRecognition | null>(null)
+  const shouldListenRef = useRef(false)
+  const onResultRef = useRef(onResult)
+  onResultRef.current = onResult
 
   const start = useCallback(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!SpeechRecognition) return
+    const SR = (window as unknown as { SpeechRecognition?: typeof SpeechRecognition; webkitSpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition
+      || (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition
+    if (!SR) return
+    shouldListenRef.current = true
 
-    const rec = new SpeechRecognition()
-    rec.continuous = true
-    rec.interimResults = true
-    rec.lang = 'en-US'
-
-    rec.onresult = (e: any) => {
-      const transcript = Array.from(e.results)
-        .map((r: any) => r[0].transcript)
-        .join('')
-      onResult(transcript)
+    const launch = () => {
+      if (!shouldListenRef.current) return
+      const rec = new SR()
+      rec.continuous = true
+      rec.interimResults = true
+      rec.lang = lang
+      rec.onresult = (e: SpeechRecognitionEvent) => {
+        onResultRef.current(Array.from(e.results).map(r => r[0].transcript).join(''))
+      }
+      rec.onend = () => {
+        if (shouldListenRef.current) setTimeout(launch, 200)
+        else setListening(false)
+      }
+      rec.onerror = () => {
+        if (shouldListenRef.current) setTimeout(launch, 500)
+      }
+      rec.start()
+      recognitionRef.current = rec
+      setListening(true)
     }
-    rec.onend = () => setListening(false)
-    rec.start()
-    recognitionRef.current = rec
-    setListening(true)
-  }, [onResult])
+    launch()
+  }, [lang])
 
   const stop = useCallback(() => {
+    shouldListenRef.current = false
     recognitionRef.current?.stop()
     setListening(false)
   }, [])
@@ -110,24 +135,25 @@ function useVoiceInput(onResult: (text: string) => void) {
 function useAISpeech() {
   const [speaking, setSpeaking] = useState(false)
   const [enabled, setEnabled] = useState(true)
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null)
+  const enabledRef = useRef(enabled)
+  enabledRef.current = enabled
 
-  const speak = useCallback((text: string) => {
-    if (!enabled || !window.speechSynthesis) return
+  const speak = useCallback((text: string, onEnd?: () => void) => {
+    if (!enabledRef.current || !window.speechSynthesis) {
+      onEnd?.()
+      return
+    }
     window.speechSynthesis.cancel()
     const utt = new SpeechSynthesisUtterance(text)
-    utt.rate = 0.95
-    utt.pitch = 1
-    utt.volume = 1
+    utt.rate = 0.95; utt.pitch = 1; utt.volume = 1
     const voices = window.speechSynthesis.getVoices()
     const preferred = voices.find(v => v.name.includes('Google') || v.name.includes('Microsoft') || v.lang === 'en-US')
     if (preferred) utt.voice = preferred
     utt.onstart = () => setSpeaking(true)
-    utt.onend = () => setSpeaking(false)
-    utt.onerror = () => setSpeaking(false)
-    utteranceRef.current = utt
+    utt.onend = () => { setSpeaking(false); onEnd?.() }
+    utt.onerror = () => { setSpeaking(false); onEnd?.() }
     window.speechSynthesis.speak(utt)
-  }, [enabled])
+  }, [])
 
   const cancel = useCallback(() => {
     window.speechSynthesis?.cancel()
@@ -137,55 +163,18 @@ function useAISpeech() {
   return { speaking, enabled, setEnabled, speak, cancel }
 }
 
-// ── Typewriter text ────────────────────────────────────────────────────────────
+// ── Network status ─────────────────────────────────────────────────────────────
 
-function TypewriterText({ text, speed = 18, onDone }: { text: string; speed?: number; onDone?: () => void }) {
-  const [displayed, setDisplayed] = useState('')
+function useNetworkStatus() {
+  const [online, setOnline] = useState(navigator.onLine)
   useEffect(() => {
-    setDisplayed('')
-    let i = 0
-    const id = setInterval(() => {
-      i++
-      setDisplayed(text.slice(0, i))
-      if (i >= text.length) { clearInterval(id); onDone?.() }
-    }, speed)
-    return () => clearInterval(id)
-  }, [text])
-  return <>{displayed}</>
-}
-
-// ── AI Avatar ─────────────────────────────────────────────────────────────────
-
-function AIAvatar({ state }: { state: 'idle' | 'thinking' | 'speaking' }) {
-  return (
-    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-      {state === 'speaking' && (
-        <div style={{
-          position: 'absolute', inset: -8, borderRadius: '50%',
-          border: '2px solid rgba(99,102,241,0.5)',
-          animation: 'ring-pulse 1.2s ease-in-out infinite',
-        }} />
-      )}
-      <div style={{
-        width: 72, height: 72, borderRadius: '50%',
-        background: state === 'thinking'
-          ? 'linear-gradient(135deg, #1E293B, #334155)'
-          : 'linear-gradient(135deg, #6366F1, #8B5CF6)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28,
-        border: `3px solid ${state === 'speaking' ? '#818CF8' : 'rgba(255,255,255,0.1)'}`,
-        transition: 'border-color 0.3s, background 0.5s',
-      }}>
-        {state === 'thinking' ? '💭' : '🤖'}
-      </div>
-      <div style={{
-        position: 'absolute', bottom: 3, right: 3,
-        width: 14, height: 14, borderRadius: '50%',
-        background: state === 'idle' ? '#64748B' : state === 'thinking' ? '#F59E0B' : '#10B981',
-        border: '2px solid #0F172A',
-        animation: state !== 'idle' ? 'dot-blink 1s ease-in-out infinite' : 'none',
-      }} />
-    </div>
-  )
+    const on = () => setOnline(true)
+    const off = () => setOnline(false)
+    window.addEventListener('online', on)
+    window.addEventListener('offline', off)
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
+  }, [])
+  return online
 }
 
 // ── Timer ─────────────────────────────────────────────────────────────────────
@@ -201,12 +190,280 @@ function InterviewTimer({ startTime }: { startTime: number }) {
   return <span>{m}:{s}</span>
 }
 
+// ── AI Video Tile ─────────────────────────────────────────────────────────────
+
+// Bar heights give a natural voice waveform shape rather than uniform bars
+const SPEAKING_BARS = [
+  { delay: 0,    height: [4, 22] },
+  { delay: 0.08, height: [4, 32] },
+  { delay: 0.16, height: [4, 18] },
+  { delay: 0.24, height: [4, 28] },
+  { delay: 0.12, height: [4, 36] },
+  { delay: 0.20, height: [4, 24] },
+  { delay: 0.04, height: [4, 14] },
+  { delay: 0.28, height: [4, 30] },
+  { delay: 0.10, height: [4, 20] },
+]
+
+function AIVideoTile({ state, questionText }: { state: 'idle' | 'thinking' | 'speaking'; questionText: string }) {
+  return (
+    <div style={{
+      flex: 1, borderRadius: 16, overflow: 'hidden', position: 'relative',
+      background: 'linear-gradient(135deg, #1E1B4B 0%, #0F172A 60%, #1a1035 100%)',
+      border: `2px solid ${
+        state === 'speaking' ? 'rgba(99,102,241,0.7)'
+        : state === 'thinking' ? 'rgba(245,158,11,0.4)'
+        : 'rgba(255,255,255,0.06)'
+      }`,
+      transition: 'border-color 0.4s, box-shadow 0.4s',
+      boxShadow: state === 'speaking'
+        ? '0 0 0 3px rgba(99,102,241,0.2), 0 0 40px rgba(99,102,241,0.1)'
+        : state === 'thinking'
+          ? '0 0 0 2px rgba(245,158,11,0.1)'
+          : 'none',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      minHeight: 0,
+    }}>
+
+      {/* Outer glow ring — speaking only */}
+      {state === 'speaking' && (
+        <div style={{
+          position: 'absolute', inset: 0, borderRadius: 14,
+          border: '2px solid rgba(99,102,241,0.35)',
+          animation: 'ring-pulse 1.6s ease-in-out infinite',
+          pointerEvents: 'none',
+        }} />
+      )}
+
+      {/* Subtle background shimmer when thinking */}
+      {state === 'thinking' && (
+        <div style={{
+          position: 'absolute', inset: 0, borderRadius: 14,
+          background: 'radial-gradient(ellipse at center, rgba(245,158,11,0.04) 0%, transparent 70%)',
+          animation: 'bg-breathe 2s ease-in-out infinite',
+          pointerEvents: 'none',
+        }} />
+      )}
+
+      {/* Idle breathing glow */}
+      {state === 'idle' && (
+        <div style={{
+          position: 'absolute', inset: 0, borderRadius: 14,
+          background: 'radial-gradient(ellipse at center, rgba(99,102,241,0.03) 0%, transparent 70%)',
+          animation: 'bg-breathe 4s ease-in-out infinite',
+          pointerEvents: 'none',
+        }} />
+      )}
+
+      {/* Avatar */}
+      <div style={{ position: 'relative', marginBottom: 16 }}>
+        {/* Speaking ripple rings */}
+        {state === 'speaking' && (
+          <>
+            <div style={{ position: 'absolute', inset: -14, borderRadius: '50%', border: '2px solid rgba(99,102,241,0.35)', animation: 'ring-pulse 1.4s ease-in-out infinite' }} />
+            <div style={{ position: 'absolute', inset: -26, borderRadius: '50%', border: '1.5px solid rgba(99,102,241,0.2)', animation: 'ring-pulse 1.4s ease-in-out 0.25s infinite' }} />
+            <div style={{ position: 'absolute', inset: -40, borderRadius: '50%', border: '1px solid rgba(99,102,241,0.1)', animation: 'ring-pulse 1.4s ease-in-out 0.5s infinite' }} />
+          </>
+        )}
+        {/* Thinking orbit dot */}
+        {state === 'thinking' && (
+          <div style={{ position: 'absolute', inset: -20, borderRadius: '50%', animation: 'orbit 1.8s linear infinite' }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#F59E0B', boxShadow: '0 0 8px rgba(245,158,11,0.8)' }} />
+          </div>
+        )}
+
+        <div style={{
+          width: 104, height: 104, borderRadius: '50%',
+          background: state === 'thinking'
+            ? 'linear-gradient(135deg, #1E293B, #334155)'
+            : 'linear-gradient(135deg, #4F46E5, #7C3AED)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 42,
+          border: `3px solid ${
+            state === 'speaking' ? '#818CF8'
+            : state === 'thinking' ? 'rgba(245,158,11,0.5)'
+            : 'rgba(255,255,255,0.12)'
+          }`,
+          boxShadow: state === 'speaking'
+            ? '0 0 32px rgba(99,102,241,0.5), inset 0 0 20px rgba(99,102,241,0.1)'
+            : state === 'thinking'
+              ? '0 0 20px rgba(245,158,11,0.2)'
+              : '0 6px 24px rgba(0,0,0,0.5)',
+          transition: 'all 0.4s',
+          animation: state === 'idle' ? 'avatar-breathe 4s ease-in-out infinite' : 'none',
+        }}>
+          {state === 'thinking' ? '🧠' : '🤖'}
+        </div>
+
+        {/* Status dot */}
+        <div style={{
+          position: 'absolute', bottom: 4, right: 4,
+          width: 16, height: 16, borderRadius: '50%',
+          background: state === 'idle' ? '#64748B' : state === 'thinking' ? '#F59E0B' : '#10B981',
+          border: '2.5px solid #1E1B4B',
+          boxShadow: state !== 'idle' ? `0 0 8px ${state === 'thinking' ? 'rgba(245,158,11,0.6)' : 'rgba(16,185,129,0.6)'}` : 'none',
+          animation: state !== 'idle' ? 'dot-blink 1.2s ease-in-out infinite' : 'none',
+          transition: 'background 0.3s',
+        }} />
+      </div>
+
+      {/* Voice waveform bars — speaking */}
+      {state === 'speaking' && (
+        <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', marginBottom: 10, height: 36 }}>
+          {SPEAKING_BARS.map((bar, i) => (
+            <div key={i} style={{
+              width: 4, borderRadius: 3,
+              background: 'linear-gradient(180deg, #A5B4FC, #6366F1)',
+              boxShadow: '0 0 4px rgba(99,102,241,0.4)',
+              animation: `voice-bar-${i % 3} 0.${6 + (i % 3)}s ease-in-out ${bar.delay}s infinite`,
+              minHeight: bar.height[0],
+            }} />
+          ))}
+        </div>
+      )}
+
+      {/* Thinking dots */}
+      {state === 'thinking' && (
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10 }}>
+          {[0, 0.2, 0.4].map((d, i) => (
+            <div key={i} style={{
+              width: 6, height: 6, borderRadius: '50%',
+              background: '#F59E0B',
+              boxShadow: '0 0 6px rgba(245,158,11,0.5)',
+              animation: `dot-bounce 0.9s ease-in-out ${d}s infinite`,
+            }} />
+          ))}
+        </div>
+      )}
+
+      {questionText && (
+        <div style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0,
+          background: 'linear-gradient(0deg, rgba(0,0,0,0.85) 0%, transparent 100%)',
+          padding: '32px 16px 14px',
+        }}>
+          <p style={{
+            fontSize: 12, color: 'rgba(255,255,255,0.9)', lineHeight: 1.5,
+            margin: 0, textAlign: 'center',
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+          } as React.CSSProperties}>
+            {questionText}
+          </p>
+        </div>
+      )}
+
+      <div style={{
+        position: 'absolute', top: 10, left: 10,
+        background: 'rgba(0,0,0,0.55)', borderRadius: 8, padding: '4px 10px',
+        display: 'flex', alignItems: 'center', gap: 6, backdropFilter: 'blur(8px)',
+      }}>
+        <div style={{ width: 6, height: 6, borderRadius: '50%', background: state === 'idle' ? '#64748B' : '#10B981', flexShrink: 0 }} />
+        <span style={{ fontSize: 11, color: 'white', fontWeight: 700 }}>Alex · AI Interviewer</span>
+      </div>
+    </div>
+  )
+}
+
+// ── User Video Tile ───────────────────────────────────────────────────────────
+
+function UserVideoTile({
+  videoRef, camOn, micOn, audioLevel, toggleCam, onToggleMic, cameraError
+}: Pick<ReturnType<typeof useCamera>, 'videoRef' | 'camOn' | 'micOn' | 'audioLevel' | 'toggleCam'> & {
+  onToggleMic: () => void
+  cameraError: string | null
+}) {
+  return (
+    <div style={{
+      flex: 1, borderRadius: 16, overflow: 'hidden', position: 'relative',
+      background: '#0F172A',
+      border: `2px solid ${audioLevel > 15 && micOn ? 'rgba(16,185,129,0.6)' : 'rgba(255,255,255,0.06)'}`,
+      transition: 'border-color 0.2s',
+      boxShadow: audioLevel > 15 && micOn ? '0 0 0 3px rgba(16,185,129,0.15)' : 'none',
+      minHeight: 0,
+    }}>
+      {cameraError ? (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 16 }}>
+          <AlertTriangle size={28} color="#F59E0B" />
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: 1.5 }}>{cameraError}</span>
+        </div>
+      ) : (
+        <>
+          <video
+            ref={videoRef}
+            muted playsInline autoPlay
+            style={{
+              width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+              transform: 'scaleX(-1)',
+              filter: camOn ? 'none' : 'brightness(0)',
+            }}
+          />
+          {!camOn && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+              <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <User size={32} color="rgba(255,255,255,0.4)" />
+              </div>
+              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Camera off</span>
+            </div>
+          )}
+          {audioLevel > 15 && micOn && (
+            <div style={{ position: 'absolute', inset: 0, borderRadius: 14, border: '2px solid rgba(16,185,129,0.5)', pointerEvents: 'none' }} />
+          )}
+          <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 8 }}>
+            <button
+              onClick={onToggleMic}
+              aria-label={micOn ? 'Mute microphone' : 'Unmute microphone'}
+              style={{
+                width: 36, height: 36, borderRadius: '50%', border: 'none', cursor: 'pointer',
+                background: !micOn ? '#EF4444' : 'rgba(255,255,255,0.18)',
+                backdropFilter: 'blur(8px)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'background 0.2s',
+              }}
+            >
+              {micOn ? <Mic size={14} color="white" /> : <MicOff size={14} color="white" />}
+            </button>
+            <button
+              onClick={toggleCam}
+              aria-label={camOn ? 'Turn off camera' : 'Turn on camera'}
+              style={{
+                width: 36, height: 36, borderRadius: '50%', border: 'none', cursor: 'pointer',
+                background: !camOn ? '#EF4444' : 'rgba(255,255,255,0.18)',
+                backdropFilter: 'blur(8px)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'background 0.2s',
+              }}
+            >
+              {camOn ? <Video size={14} color="white" /> : <VideoOff size={14} color="white" />}
+            </button>
+          </div>
+        </>
+      )}
+
+      <div style={{
+        position: 'absolute', top: 10, left: 10,
+        background: 'rgba(0,0,0,0.55)', borderRadius: 8, padding: '4px 10px',
+        display: 'flex', alignItems: 'center', gap: 6, backdropFilter: 'blur(8px)',
+      }}>
+        <div style={{ width: 6, height: 6, borderRadius: '50%', background: micOn && !cameraError ? '#10B981' : '#EF4444', flexShrink: 0 }} />
+        <span style={{ fontSize: 11, color: 'white', fontWeight: 700 }}>You · Candidate</span>
+      </div>
+
+      {!micOn && !cameraError && (
+        <div style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(239,68,68,0.85)', borderRadius: 6, padding: '3px 8px', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <MicOff size={10} color="white" />
+          <span style={{ fontSize: 10, color: 'white', fontWeight: 700 }}>Muted</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
+
+const MIN_ANSWER_CHARS = 30
 
 export default function InterviewRoomPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
-  const qc = useQueryClient()
 
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([])
   const [answer, setAnswer] = useState('')
@@ -219,22 +476,30 @@ export default function InterviewRoomPage() {
   const [completing, setCompleting] = useState(false)
   const [startTime] = useState(Date.now())
   const [responseStartTime, setResponseStartTime] = useState(Date.now())
-  const [pendingResponseId, setPendingResponseId] = useState<string | null>(null)
   const [waitingForNext, setWaitingForNext] = useState(false)
-  const [networkOk] = useState(true)
+  const [showTextarea, setShowTextarea] = useState(false)
 
   const transcriptRef = useRef<HTMLDivElement>(null)
-  const answerRef = useRef<HTMLTextAreaElement>(null)
-  const lastResponseIdRef = useRef<string | null>(null)
   const initDoneRef = useRef(false)
+  const networkOk = useNetworkStatus()
 
   const camera = useCamera()
   const aiSpeech = useAISpeech()
 
-  const onVoiceResult = useCallback((text: string) => {
-    setAnswer(text)
-  }, [])
-  const voice = useVoiceInput(onVoiceResult)
+  // Use a ref so the voice input callback always sees the latest setter
+  const setAnswerRef = useRef(setAnswer)
+  setAnswerRef.current = setAnswer
+  const onVoiceResult = useCallback((text: string) => setAnswerRef.current(text), [])
+
+  const userLang = 'en-US' // TODO: derive from user.preferred_language once exposed
+  const voice = useVoiceInput(onVoiceResult, userLang)
+
+  // Keep latest voice/aiSpeech methods in refs so the session-init effect
+  // never captures stale closures even if hook identities change
+  const voiceRef = useRef(voice)
+  voiceRef.current = voice
+  const aiSpeechRef = useRef(aiSpeech)
+  aiSpeechRef.current = aiSpeech
 
   const { data: session, isLoading } = useQuery({
     queryKey: ['interview-session', sessionId],
@@ -242,7 +507,8 @@ export default function InterviewRoomPage() {
     enabled: !!sessionId,
   })
 
-  // Start session + present first question (fires exactly once)
+  // Runs once when session data first arrives. Uses refs for speak/voice so it
+  // never depends on hook identity — avoids stale-closure ESLint trap.
   useEffect(() => {
     if (!session || initDoneRef.current) return
     initDoneRef.current = true
@@ -252,34 +518,29 @@ export default function InterviewRoomPage() {
     const greeting = session.blueprint?.opening_greeting
       || `Welcome! I'm Alex, your AI interviewer for the ${session.job_role || 'interview'} today. Let's get started.`
     const iceBreaker = session.blueprint?.ice_breaker_question
-
-    const firstQ = iceBreaker || session.questions[0]?.question_text || "Tell me about yourself and your background."
-    const firstQData = !iceBreaker ? session.questions[0] : null
+    const firstQText = iceBreaker || session.questions?.[0]?.question_text || 'Tell me about yourself and your background.'
+    const firstQData = !iceBreaker ? (session.questions?.[0] ?? null) : null
 
     setAiState('speaking')
-    const greetEntry: TranscriptEntry = { role: 'ai', text: greeting, timestamp: new Date() }
-    setTranscript([greetEntry])
-    aiSpeech.speak(greeting)
+    setTranscript([{ role: 'ai', text: greeting, timestamp: new Date() }])
 
-    setTimeout(() => {
-      const qEntry: TranscriptEntry = {
-        role: 'ai', text: firstQ, timestamp: new Date(),
-        questionType: firstQData?.question_type,
-        skillAssessed: firstQData?.skill_assessed,
-      }
+    // Chain greeting → first question using speech onEnd events, not magic timeouts
+    aiSpeechRef.current.speak(greeting, () => {
       setTranscript(t => {
-        const alreadyAdded = t.some(e => e.role === 'ai' && e.text === firstQ)
-        return alreadyAdded ? t : [...t, qEntry]
+        if (t.some(e => e.role === 'ai' && e.text === firstQText)) return t
+        return [...t, { role: 'ai', text: firstQText, timestamp: new Date(), questionType: firstQData?.question_type }]
       })
-      setQuestionText(firstQ)
+      setQuestionText(firstQText)
       setCurrentQuestion(firstQData)
-      aiSpeech.speak(firstQ)
       setResponseStartTime(Date.now())
-      setTimeout(() => setAiState('idle'), 3000)
-    }, 2500)
-  }, [session])
 
-  // Auto-scroll transcript
+      aiSpeechRef.current.speak(firstQText, () => {
+        setAiState('idle')
+        voiceRef.current.start()
+      })
+    })
+  }, [session, sessionId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (transcriptRef.current) {
       transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight
@@ -290,7 +551,7 @@ export default function InterviewRoomPage() {
     mutationFn: async () => {
       const elapsed = Math.round((Date.now() - responseStartTime) / 1000)
       return interviewApi.submitResponse(sessionId!, {
-        question_id: currentQuestion?.is_dynamic ? currentQuestion.id : (currentQuestion?.id ?? undefined),
+        question_id: currentQuestion?.id ?? undefined,
         question_text: questionText,
         question_type: currentQuestion?.question_type ?? undefined,
         response_text: answer.trim(),
@@ -298,69 +559,56 @@ export default function InterviewRoomPage() {
       })
     },
     onSuccess: async (result) => {
-      const userEntry: TranscriptEntry = { role: 'candidate', text: answer.trim(), timestamp: new Date() }
-      setTranscript(t => [...t, userEntry])
+      setTranscript(t => [...t, { role: 'candidate', text: answer.trim(), timestamp: new Date() }])
       setAnswer('')
       voice.stop()
 
       const respId = result.response_id
-      lastResponseIdRef.current = respId
       setAnsweredCount(c => c + 1)
       setWaitingForNext(true)
       setAiState('thinking')
 
-      setTimeout(async () => {
-        try {
-          const next = await interviewApi.getNextQuestion(sessionId!, respId)
-          setWaitingForNext(false)
+      // Small pause so the thinking indicator is visible before the API call resolves
+      await new Promise(r => setTimeout(r, 800))
 
-          if (next.session_complete || !next.question) {
-            setSessionDone(true)
-            const doneText = "That concludes our interview. Thank you for your time and thoughtful answers. I'll now compile your results and generate your detailed report."
-            setTranscript(t => [...t, { role: 'ai', text: doneText, timestamp: new Date() }])
-            setAiState('speaking')
-            aiSpeech.speak(doneText)
-            setTimeout(() => setAiState('idle'), 4000)
-            return
-          }
+      try {
+        const next = await interviewApi.getNextQuestion(sessionId!, respId)
+        setWaitingForNext(false)
 
-          const nextText = next.question.text
-          const nextQData: InterviewQuestion | null = next.question.id
-            ? {
-                id: next.question.id,
-                question_text: nextText,
-                question_type: next.question.question_type ?? null,
-                difficulty: next.question.difficulty ?? null,
-                language: 'en',
-                career_track_id: null,
-                is_dynamic: true,
-              }
-            : null
-
-          if (next.coaching_note) {
-            setTimeout(() => {
-              const coachEntry: TranscriptEntry = {
-                role: 'ai',
-                text: nextText,
-                timestamp: new Date(),
-                isFollowUp: next.action !== 'next_question',
-                questionType: nextQData?.question_type,
-              }
-              setTranscript(t => [...t, coachEntry])
-              setQuestionText(nextText)
-              setCurrentQuestion(nextQData)
-              setQuestionIdx(i => i + 1)
-              setResponseStartTime(Date.now())
-              setAiState('speaking')
-              aiSpeech.speak(nextText)
-              setTimeout(() => setAiState('idle'), nextText.length * 80)
-            }, 800)
-          }
-        } catch {
-          setWaitingForNext(false)
-          setAiState('idle')
+        if (next.session_complete || !next.question) {
+          setSessionDone(true)
+          const doneText = "That concludes our interview. Thank you for your time and thoughtful answers. I'll now generate your detailed Job Readiness Report."
+          setTranscript(t => [...t, { role: 'ai', text: doneText, timestamp: new Date() }])
+          setQuestionText(doneText)
+          setAiState('speaking')
+          aiSpeech.speak(doneText, () => setAiState('idle'))
+          return
         }
-      }, 1200)
+
+        const nextText = next.question.text
+        const nextQData: InterviewQuestion | null = next.question.id
+          ? { id: next.question.id, question_text: nextText, question_type: next.question.question_type ?? null, difficulty: next.question.difficulty ?? null, language: 'en', career_track_id: null, is_dynamic: true }
+          : null
+
+        setTranscript(t => [...t, {
+          role: 'ai', text: nextText, timestamp: new Date(),
+          isFollowUp: next.action !== 'next_question',
+          questionType: nextQData?.question_type,
+        }])
+        setQuestionText(nextText)
+        setCurrentQuestion(nextQData)
+        setQuestionIdx(i => i + 1)
+        setResponseStartTime(Date.now())
+        setAiState('speaking')
+
+        aiSpeech.speak(nextText, () => {
+          setAiState('idle')
+          if (camera.micOn && !camera.error) voice.start()
+        })
+      } catch {
+        setWaitingForNext(false)
+        setAiState('idle')
+      }
     },
   })
 
@@ -379,7 +627,7 @@ export default function InterviewRoomPage() {
     <div style={{ minHeight: '100vh', background: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ textAlign: 'center' }}>
         <div style={{ width: 40, height: 40, border: '3px solid rgba(255,255,255,0.15)', borderTopColor: '#818CF8', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
-        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Starting interview...</p>
+        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Joining interview...</p>
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
@@ -390,242 +638,157 @@ export default function InterviewRoomPage() {
       <div style={{ textAlign: 'center' }}>
         <div style={{ fontSize: 48, marginBottom: 20 }}>🧠</div>
         <p style={{ fontSize: 18, fontWeight: 800, color: 'white', marginBottom: 8 }}>Analyzing your performance...</p>
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 24 }}>AI is generating your Job Readiness Report. This takes ~10 seconds.</p>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 24 }}>Generating your Job Readiness Report. ~10 seconds.</p>
         <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
           {['Evaluating answers', 'Scoring competencies', 'Building roadmap'].map((t, i) => (
-            <div key={t} style={{
-              padding: '5px 12px', borderRadius: 20, fontSize: 11,
-              background: 'rgba(99,102,241,0.15)', color: '#818CF8', border: '1px solid rgba(99,102,241,0.2)',
-              animation: `fade-in 0.4s ease ${i * 0.3}s both`,
-            }}>{t}</div>
+            <div key={t} style={{ padding: '5px 12px', borderRadius: 20, fontSize: 11, background: 'rgba(99,102,241,0.15)', color: '#818CF8', border: '1px solid rgba(99,102,241,0.2)', animation: `fade-in 0.4s ease ${i * 0.3}s both` }}>{t}</div>
           ))}
         </div>
       </div>
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg) } }
-        @keyframes fade-in { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: none } }
-      `}</style>
+      <style>{`@keyframes fade-in { from { opacity:0;transform:translateY(6px) } to { opacity:1;transform:none } }`}</style>
     </div>
   )
 
   const totalQ = session.total_questions
   const progress = Math.round((answeredCount / totalQ) * 100)
-  const canSubmit = answer.trim().length > 10 && !submitMutation.isPending && !waitingForNext && !sessionDone
+  const canSubmit = answer.trim().length >= MIN_ANSWER_CHARS && !submitMutation.isPending && !waitingForNext && !sessionDone
 
   return (
-    <div style={{ minHeight: '100vh', background: '#0F172A', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ height: '100vh', background: '#080D1A', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
-      {/* ── Top bar ────────────────────────────────────────────────────────── */}
+      {/* ── Top bar ── */}
       <div style={{
-        height: 54, padding: '0 20px', display: 'flex', alignItems: 'center', gap: 16,
-        borderBottom: '1px solid rgba(255,255,255,0.06)', background: '#0B1120', flexShrink: 0,
+        height: 52, padding: '0 20px', display: 'flex', alignItems: 'center', gap: 16,
+        background: 'rgba(15,23,42,0.95)', borderBottom: '1px solid rgba(255,255,255,0.06)',
+        flexShrink: 0,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: 'white' }}>
-            {session.job_role || 'Interview'}
-          </div>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981', animation: 'dot-blink 2s ease-in-out infinite' }} />
+          <span style={{ fontSize: 13, fontWeight: 800, color: 'white' }}>{session.job_role || 'Interview'}</span>
           {session.experience_level && (
-            <div style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'rgba(99,102,241,0.15)', color: '#818CF8', fontWeight: 700 }}>
+            <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'rgba(99,102,241,0.15)', color: '#818CF8', fontWeight: 700 }}>
               {session.experience_level}
-            </div>
+            </span>
           )}
         </div>
 
-        {/* Progress bar */}
-        <div style={{ flex: 2, maxWidth: 260 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>Question {Math.min(questionIdx + 1, totalQ)} of {totalQ}</span>
-            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{progress}% complete</span>
+        <div style={{ flex: 2, maxWidth: 240 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Q {Math.min(questionIdx + 1, totalQ)} of {totalQ}</span>
+            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>{progress}%</span>
           </div>
           <div style={{ height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 3 }}>
             <div style={{ width: `${progress}%`, height: '100%', background: 'linear-gradient(90deg, #6366F1, #10B981)', borderRadius: 3, transition: 'width 0.6s ease' }} />
           </div>
         </div>
 
-        {/* Timer */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: 700, fontFamily: 'monospace' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'rgba(255,255,255,0.45)', fontSize: 13, fontWeight: 700, fontFamily: 'monospace' }}>
           <Clock size={13} />
           <InterviewTimer startTime={startTime} />
         </div>
 
-        {/* Status indicators */}
-        <div style={{ display: 'flex', gap: 8 }}>
-          {networkOk
-            ? <Wifi size={14} color="#10B981" />
-            : <WifiOff size={14} color="#EF4444" />
-          }
-          {aiSpeech.speaking && <Volume2 size={14} color="#818CF8" />}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {networkOk ? <Wifi size={14} color="#10B981" aria-label="Network connected" /> : <WifiOff size={14} color="#EF4444" aria-label="Network disconnected" />}
+          {aiSpeech.speaking && <Volume2 size={14} color="#818CF8" aria-label="AI is speaking" />}
         </div>
 
-        {/* Voice toggle */}
         <button
           onClick={() => { aiSpeech.setEnabled(e => !e); if (aiSpeech.speaking) aiSpeech.cancel() }}
-          title={aiSpeech.enabled ? 'Mute AI voice' : 'Unmute AI voice'}
+          aria-label={aiSpeech.enabled ? 'Mute AI voice' : 'Unmute AI voice'}
           style={{ background: 'rgba(255,255,255,0.06)', border: 'none', cursor: 'pointer', color: aiSpeech.enabled ? '#818CF8' : '#475569', padding: '6px 8px', borderRadius: 8 }}
         >
           {aiSpeech.enabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
         </button>
-
-        {/* End interview */}
-        {(sessionDone || answeredCount > 0) && (
-          <button
-            onClick={() => completeMutation.mutate()}
-            style={{
-              padding: '6px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
-              background: sessionDone ? 'linear-gradient(135deg, #2D6A4F, #40916C)' : 'rgba(239,68,68,0.15)',
-              color: sessionDone ? 'white' : '#F87171', fontSize: 12, fontWeight: 700,
-              display: 'flex', alignItems: 'center', gap: 5,
-            }}
-          >
-            {sessionDone ? <><CheckCircle size={12} /> Get Report</> : <><Square size={12} /> End</>}
-          </button>
-        )}
       </div>
 
-      {/* ── Main area ─────────────────────────────────────────────────────── */}
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 300px', overflow: 'hidden' }}>
+      {/* ── Offline banner ── */}
+      {!networkOk && (
+        <div role="alert" style={{ background: '#7F1D1D', padding: '6px 20px', fontSize: 12, color: '#FCA5A5', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <WifiOff size={12} />
+          You're offline. Your answer won't submit until the connection is restored.
+        </div>
+      )}
 
-        {/* Left: interview content */}
-        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* ── Main layout ── */}
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 272px', overflow: 'hidden', minHeight: 0 }}>
 
-          {/* AI + Candidate video row */}
-          <div style={{ display: 'flex', gap: 16, padding: '16px 20px', flexShrink: 0 }}>
-            {/* AI Interviewer */}
-            <div style={{
-              flex: 1, background: 'linear-gradient(135deg, #1E1B4B, #1E293B)', borderRadius: 16, padding: '20px',
-              display: 'flex', gap: 16, alignItems: 'center', border: '1px solid rgba(99,102,241,0.2)',
-              minHeight: 120,
-            }}>
-              <AIAvatar state={aiState} />
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontSize: 13, fontWeight: 800, color: 'white' }}>Alex</span>
-                  <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 20, background: 'rgba(99,102,241,0.2)', color: '#818CF8', fontWeight: 600 }}>
-                    {aiState === 'thinking' ? 'Thinking...' : aiState === 'speaking' ? 'Speaking' : 'AI Interviewer'}
-                  </span>
-                  {aiState === 'speaking' && (
-                    <div style={{ display: 'flex', gap: 2 }}>
-                      {[0, 1, 2].map(i => (
-                        <div key={i} style={{ width: 3, background: '#818CF8', borderRadius: 2, animation: `bar-bounce 0.6s ease-in-out ${i * 0.12}s infinite` }} className="audio-bar" />
-                      ))}
-                    </div>
-                  )}
-                </div>
-                {questionText && (
-                  <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', lineHeight: 1.6, margin: 0 }}>
-                    {questionText}
-                  </p>
-                )}
-              </div>
-            </div>
+        <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '14px 14px 14px 16px', gap: 12 }}>
 
-            {/* Candidate camera */}
-            <div style={{
-              width: 200, borderRadius: 16, overflow: 'hidden', background: '#1E293B',
-              position: 'relative', border: '1px solid rgba(255,255,255,0.06)', flexShrink: 0,
-            }}>
-              <video
-                ref={camera.videoRef}
-                muted
-                playsInline
-                autoPlay
-                style={{
-                  width: '100%', height: '100%', objectFit: 'cover', display: 'block',
-                  transform: 'scaleX(-1)',
-                  filter: camera.active ? 'none' : 'brightness(0)',
-                }}
-              />
-              {!camera.active && (
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <VideoOff size={24} color="rgba(255,255,255,0.3)" />
-                </div>
-              )}
-              <div style={{ position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 6 }}>
-                <button
-                  onClick={camera.toggleMic}
-                  style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', cursor: 'pointer', background: camera.muted ? '#EF4444' : 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  {camera.muted ? <MicOff size={13} color="white" /> : <Mic size={13} color="white" />}
-                </button>
-                <button
-                  onClick={camera.toggleCam}
-                  style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', cursor: 'pointer', background: !camera.active ? '#EF4444' : 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  {!camera.active ? <VideoOff size={13} color="white" /> : <Video size={13} color="white" />}
-                </button>
-              </div>
-              <div style={{ position: 'absolute', top: 8, left: 8, background: 'rgba(0,0,0,0.5)', borderRadius: 6, padding: '3px 8px' }}>
-                <span style={{ fontSize: 10, color: 'white', fontWeight: 600 }}>You</span>
-              </div>
-              {!camera.muted && (
-                <div style={{ position: 'absolute', bottom: 44, left: 8, right: 8 }}>
-                  <div style={{ height: 3, background: 'rgba(255,255,255,0.1)', borderRadius: 3 }}>
-                    <div style={{ width: `${camera.audioLevel}%`, height: '100%', background: '#10B981', borderRadius: 3, transition: 'width 0.1s' }} />
-                  </div>
-                </div>
-              )}
-            </div>
+          {/* ── Video tiles ── */}
+          <div style={{ display: 'flex', gap: 12, height: '42%', flexShrink: 0 }}>
+            <AIVideoTile state={aiState} questionText={questionText} />
+            <UserVideoTile
+              videoRef={camera.videoRef}
+              camOn={camera.camOn}
+              micOn={camera.micOn}
+              audioLevel={camera.audioLevel}
+              cameraError={camera.error}
+              toggleCam={camera.toggleCam}
+              onToggleMic={() => camera.toggleMic(micNowOn => micNowOn ? voice.start() : voice.stop())}
+            />
           </div>
 
-          {/* Transcript */}
-          <div ref={transcriptRef} style={{ flex: 1, overflowY: 'auto', padding: '0 20px 12px' }}>
+          {/* ── Transcript ── */}
+          <div
+            ref={transcriptRef}
+            role="log"
+            aria-label="Interview transcript"
+            aria-live="polite"
+            style={{
+              flex: 1, overflowY: 'auto', borderRadius: 12,
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.06)',
+              padding: '12px 14px',
+            }}
+          >
             {transcript.map((entry, idx) => (
-              <div
-                key={idx}
-                style={{
-                  display: 'flex', gap: 10, marginBottom: 14,
-                  justifyContent: entry.role === 'candidate' ? 'flex-end' : 'flex-start',
-                }}
-              >
+              <div key={idx} style={{
+                display: 'flex', gap: 8, marginBottom: 10,
+                justifyContent: entry.role === 'candidate' ? 'flex-end' : 'flex-start',
+              }}>
                 {entry.role === 'ai' && (
-                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #6366F1, #8B5CF6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0, marginTop: 2 }}>🤖</div>
+                  <div aria-hidden="true" style={{ width: 24, height: 24, borderRadius: '50%', background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, flexShrink: 0, marginTop: 2 }}>🤖</div>
                 )}
-                <div style={{ maxWidth: '72%' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: entry.role === 'ai' ? '#818CF8' : '#34D399' }}>
+                <div style={{ maxWidth: '70%' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: entry.role === 'ai' ? '#818CF8' : '#34D399' }}>
                       {entry.role === 'ai' ? 'Alex' : 'You'}
                     </span>
                     {entry.isFollowUp && (
-                      <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 10, background: 'rgba(251,191,36,0.15)', color: '#FBBF24', fontWeight: 700 }}>
-                        Follow-up
-                      </span>
+                      <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 8, background: 'rgba(251,191,36,0.15)', color: '#FBBF24', fontWeight: 700 }}>Follow-up</span>
                     )}
                     {entry.questionType && (
-                      <span style={{ fontSize: 9, padding: '1px 6px', borderRadius: 10, background: 'rgba(99,102,241,0.1)', color: '#818CF8', fontWeight: 700, textTransform: 'capitalize' }}>
-                        {entry.questionType}
-                      </span>
+                      <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 8, background: 'rgba(99,102,241,0.1)', color: '#818CF8', fontWeight: 700, textTransform: 'capitalize' }}>{entry.questionType}</span>
                     )}
-                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)' }}>
+                    <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.18)' }}>
                       {entry.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
                   <div style={{
-                    padding: '10px 14px', borderRadius: entry.role === 'ai' ? '4px 14px 14px 14px' : '14px 4px 14px 14px',
+                    padding: '8px 12px',
+                    borderRadius: entry.role === 'ai' ? '4px 12px 12px 12px' : '12px 4px 12px 12px',
                     background: entry.role === 'ai' ? 'rgba(99,102,241,0.1)' : 'rgba(52,211,153,0.08)',
                     border: `1px solid ${entry.role === 'ai' ? 'rgba(99,102,241,0.15)' : 'rgba(52,211,153,0.12)'}`,
-                    fontSize: 13, color: 'rgba(255,255,255,0.85)', lineHeight: 1.7,
+                    fontSize: 12, color: 'rgba(255,255,255,0.82)', lineHeight: 1.6,
                   }}>
-                    {idx === transcript.length - 1 && entry.role === 'ai'
-                      ? <TypewriterText text={entry.text} />
-                      : entry.text
-                    }
+                    {entry.text}
                   </div>
                 </div>
                 {entry.role === 'candidate' && (
-                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(52,211,153,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
-                    <User size={14} color="#34D399" />
+                  <div aria-hidden="true" style={{ width: 24, height: 24, borderRadius: '50%', background: 'rgba(52,211,153,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
+                    <User size={12} color="#34D399" />
                   </div>
                 )}
               </div>
             ))}
 
             {waitingForNext && (
-              <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
-                <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #6366F1, #8B5CF6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>🤖</div>
-                <div style={{ padding: '12px 16px', borderRadius: '4px 14px 14px 14px', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.12)' }}>
+              <div role="status" aria-label="Alex is thinking" style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                <div aria-hidden="true" style={{ width: 24, height: 24, borderRadius: '50%', background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>🤖</div>
+                <div style={{ padding: '10px 14px', borderRadius: '4px 12px 12px 12px', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.12)' }}>
                   <div style={{ display: 'flex', gap: 4 }}>
                     {[0, 0.2, 0.4].map((d, i) => (
-                      <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: '#818CF8', animation: `dot-bounce 0.8s ease-in-out ${d}s infinite` }} />
+                      <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: '#818CF8', animation: `dot-bounce 0.8s ease-in-out ${d}s infinite` }} />
                     ))}
                   </div>
                 </div>
@@ -633,154 +796,228 @@ export default function InterviewRoomPage() {
             )}
           </div>
 
-          {/* Answer input */}
-          {!sessionDone && (
-            <div style={{ padding: '12px 20px 16px', borderTop: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-                <button
-                  onClick={() => voice.listening ? voice.stop() : voice.start()}
-                  style={{
-                    width: 42, height: 42, borderRadius: '50%', border: 'none', cursor: 'pointer', flexShrink: 0,
-                    background: voice.listening ? '#EF4444' : 'rgba(99,102,241,0.15)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    animation: voice.listening ? 'ring-pulse 1.2s ease-in-out infinite' : 'none',
-                    transition: 'background 0.2s',
-                  }}
-                  title={voice.listening ? 'Stop voice input' : 'Start voice input'}
-                >
-                  {voice.listening ? <MicOff size={16} color="white" /> : <Mic size={16} color="#818CF8" />}
-                </button>
+          {/* ── Answer input ── */}
+          {!sessionDone ? (
+            <div style={{ flexShrink: 0 }}>
 
-                <div style={{ flex: 1, position: 'relative' }}>
-                  <textarea
-                    ref={answerRef}
-                    value={answer}
-                    onChange={e => setAnswer(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' && !e.shiftKey && canSubmit) {
-                        e.preventDefault()
-                        submitMutation.mutate()
-                      }
-                    }}
-                    placeholder={waitingForNext ? 'Alex is thinking...' : 'Type your answer or use voice input... (Enter to send, Shift+Enter for new line)'}
-                    disabled={waitingForNext || submitMutation.isPending || sessionDone}
-                    rows={2}
-                    style={{
-                      width: '100%', padding: '10px 14px', borderRadius: 12,
-                      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                      color: 'rgba(255,255,255,0.9)', fontSize: 13, lineHeight: 1.6,
-                      outline: 'none', resize: 'none', boxSizing: 'border-box', fontFamily: 'system-ui',
-                      transition: 'border-color 0.2s',
-                    }}
-                    onFocus={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)' }}
-                    onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}
-                  />
-                  {voice.listening && (
-                    <div style={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 2, alignItems: 'center' }}>
-                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#EF4444', animation: 'dot-blink 1s infinite' }} />
-                      <span style={{ fontSize: 10, color: '#F87171' }}>Listening</span>
-                    </div>
-                  )}
+              {/* Live transcript preview — shows voice input in real time */}
+              {voice.listening && answer.length > 0 && (
+                <div style={{
+                  marginBottom: 10, padding: '8px 14px', borderRadius: 10,
+                  background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.15)',
+                  animation: 'fade-slide-up 0.2s ease',
+                }}>
+                  <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 1.5, fontStyle: 'italic' }}>
+                    "{answer}"
+                  </p>
                 </div>
+              )}
 
-                <button
-                  onClick={() => canSubmit && submitMutation.mutate()}
-                  disabled={!canSubmit}
-                  style={{
-                    width: 42, height: 42, borderRadius: '50%', border: 'none', cursor: canSubmit ? 'pointer' : 'not-allowed', flexShrink: 0,
-                    background: canSubmit ? 'linear-gradient(135deg, #2D6A4F, #40916C)' : 'rgba(255,255,255,0.06)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s',
-                  }}
-                >
-                  {submitMutation.isPending
-                    ? <Loader size={15} color="white" style={{ animation: 'spin 0.8s linear infinite' }} />
-                    : <Send size={15} color={canSubmit ? 'white' : '#475569'} />
-                  }
-                </button>
-              </div>
+              {/* Mic-first row */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, paddingBottom: 4 }}>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>
-                  {answer.length > 0 ? `${answer.length} chars` : 'Minimum ~2 sentences for best evaluation'}
-                </span>
-                {answeredCount > 0 && !sessionDone && (
+                {/* Big mic button — primary action */}
+                {!waitingForNext && !submitMutation.isPending && (
                   <button
-                    onClick={() => setSessionDone(true)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', gap: 4 }}
+                    onClick={() => voice.listening ? voice.stop() : voice.start()}
+                    aria-label={voice.listening ? 'Stop recording' : 'Start recording your answer'}
+                    style={{
+                      width: 64, height: 64, borderRadius: '50%', border: 'none', cursor: 'pointer',
+                      background: voice.listening
+                        ? 'linear-gradient(135deg, #065F46, #10B981)'
+                        : 'linear-gradient(135deg, #3730A3, #6366F1)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'all 0.25s',
+                      animation: voice.listening ? 'mic-live 1.4s ease-in-out infinite' : 'mic-idle 3s ease-in-out infinite',
+                      flexShrink: 0,
+                    }}
                   >
-                    <SkipForward size={11} /> Skip to results
+                    {voice.listening
+                      ? <Square size={22} color="white" fill="white" />
+                      : <Mic size={24} color="white" />
+                    }
+                  </button>
+                )}
+
+                {/* Waiting / submitting state replaces mic */}
+                {(waitingForNext || submitMutation.isPending) && (
+                  <div style={{
+                    width: 64, height: 64, borderRadius: '50%',
+                    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  }}>
+                    <Loader size={22} color="#818CF8" style={{ animation: 'spin 0.9s linear infinite' }} />
+                  </div>
+                )}
+
+                {/* Send button — appears once there's enough text */}
+                {canSubmit && (
+                  <button
+                    onClick={() => submitMutation.mutate()}
+                    aria-label="Send answer"
+                    style={{
+                      height: 44, padding: '0 20px', borderRadius: 22, border: 'none', cursor: 'pointer',
+                      background: 'linear-gradient(135deg, #2D6A4F, #40916C)',
+                      color: 'white', fontSize: 13, fontWeight: 700,
+                      display: 'flex', alignItems: 'center', gap: 7,
+                      boxShadow: '0 4px 16px rgba(45,106,79,0.4)',
+                      animation: 'fade-slide-up 0.2s ease',
+                    }}
+                  >
+                    <Send size={14} /> Send answer
+                  </button>
+                )}
+
+                {/* End call button */}
+                {answeredCount > 0 && (
+                  <button
+                    onClick={() => completeMutation.mutate()}
+                    aria-label="End interview"
+                    title="End interview and generate report"
+                    style={{
+                      width: 44, height: 44, borderRadius: '50%', border: 'none', cursor: 'pointer',
+                      background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.2)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'background 0.2s',
+                    } as React.CSSProperties}
+                  >
+                    <PhoneOff size={15} color="#F87171" />
                   </button>
                 )}
               </div>
-            </div>
-          )}
 
-          {/* Session done CTA */}
-          {sessionDone && (
-            <div style={{ padding: '20px', borderTop: '1px solid rgba(255,255,255,0.06)', textAlign: 'center' }}>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 14 }}>
-                Interview complete. Ready to see your results?
-              </p>
+              {/* Status label under mic */}
+              <div style={{ textAlign: 'center', marginTop: 6 }}>
+                {waitingForNext || submitMutation.isPending ? (
+                  <span style={{ fontSize: 11, color: '#818CF8' }}>Alex is thinking...</span>
+                ) : voice.listening ? (
+                  <span style={{ fontSize: 11, color: '#10B981', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981', display: 'inline-block', animation: 'dot-blink 1s infinite' }} />
+                    Listening — tap to stop
+                  </span>
+                ) : (
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)' }}>
+                    Tap mic to answer
+                  </span>
+                )}
+              </div>
+
+              {/* Fallback: type instead toggle */}
+              <div style={{ textAlign: 'center', marginTop: 8 }}>
+                <button
+                  onClick={() => setShowTextarea(v => !v)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'rgba(255,255,255,0.22)', textDecoration: 'underline', padding: 0 }}
+                >
+                  {showTextarea ? 'Hide keyboard' : 'Type instead'}
+                </button>
+                {answeredCount > 0 && !sessionDone && (
+                  <button
+                    onClick={() => completeMutation.mutate()}
+                    aria-label="Skip to results"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'rgba(255,255,255,0.22)', display: 'inline-flex', alignItems: 'center', gap: 3, marginLeft: 16 }}
+                  >
+                    <SkipForward size={10} /> Skip to results
+                  </button>
+                )}
+              </div>
+
+              {/* Textarea — hidden by default, revealed on demand */}
+              {showTextarea && (
+                <div style={{ marginTop: 10, animation: 'fade-slide-up 0.2s ease' }}>
+                  <div style={{ position: 'relative' }}>
+                    <textarea
+                      value={answer}
+                      onChange={e => setAnswer(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && !e.shiftKey && canSubmit) { e.preventDefault(); submitMutation.mutate() }
+                      }}
+                      placeholder="Type your answer here... (Enter to send)"
+                      disabled={waitingForNext || submitMutation.isPending}
+                      rows={3}
+                      maxLength={5000}
+                      aria-label="Type your answer"
+                      style={{
+                        width: '100%', padding: '9px 12px', borderRadius: 12,
+                        background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                        color: 'rgba(255,255,255,0.9)', fontSize: 13, lineHeight: 1.5,
+                        outline: 'none', resize: 'none', boxSizing: 'border-box', fontFamily: 'system-ui',
+                      }}
+                      onFocus={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)' }}
+                      onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, padding: '0 2px' }}>
+                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)' }}>
+                      {answer.length < MIN_ANSWER_CHARS
+                        ? `${MIN_ANSWER_CHARS - answer.length} more characters needed`
+                        : `${answer.length} / 5000`}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ flexShrink: 0, textAlign: 'center', padding: '12px 0' }}>
               <button
                 onClick={() => completeMutation.mutate()}
+                disabled={completeMutation.isPending}
+                aria-label="View my interview report"
                 style={{
-                  padding: '12px 28px', borderRadius: 12, border: 'none', cursor: 'pointer',
-                  background: 'linear-gradient(135deg, #2D6A4F, #40916C)', color: 'white',
+                  padding: '12px 32px', borderRadius: 12, border: 'none', cursor: completeMutation.isPending ? 'not-allowed' : 'pointer',
+                  background: 'linear-gradient(135deg,#2D6A4F,#40916C)', color: 'white',
                   fontSize: 14, fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 8,
                   boxShadow: '0 4px 20px rgba(45,106,79,0.4)',
+                  opacity: completeMutation.isPending ? 0.7 : 1,
                 }}
               >
-                <CheckCircle size={16} /> View My Report
+                {completeMutation.isPending
+                  ? <><Loader size={15} style={{ animation: 'spin 0.8s linear infinite' }} /> Generating report...</>
+                  : <><CheckCircle size={16} /> View My Report</>
+                }
               </button>
             </div>
           )}
         </div>
 
-        {/* Right: Skills sidebar */}
-        <div style={{ borderLeft: '1px solid rgba(255,255,255,0.06)', overflowY: 'auto', padding: '16px' }}>
-          <h3 style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14 }}>
+        {/* ── Right sidebar ── */}
+        <div style={{ borderLeft: '1px solid rgba(255,255,255,0.06)', overflowY: 'auto', padding: '16px 14px', background: 'rgba(15,23,42,0.6)' }}>
+          <h3 style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
             Skills Being Assessed
           </h3>
-          {(session.blueprint?.skills_to_assess || []).map((skill, i) => (
-            <div key={i} style={{
-              padding: '8px 12px', borderRadius: 10, marginBottom: 6,
-              background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
-              display: 'flex', alignItems: 'center', gap: 8,
-            }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#6366F1', flexShrink: 0 }} />
-              <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{skill}</span>
+          {(session.blueprint?.skills_to_assess ?? []).map((skill: string, i: number) => (
+            <div key={i} style={{ padding: '7px 10px', borderRadius: 8, marginBottom: 5, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 7 }}>
+              <div aria-hidden="true" style={{ width: 5, height: 5, borderRadius: '50%', background: '#6366F1', flexShrink: 0 }} />
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>{skill}</span>
             </div>
           ))}
 
-          <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '16px 0' }} />
+          <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '14px 0' }} />
 
-          <h3 style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
+          <h3 style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
             Tips
           </h3>
           {[
-            'Use the STAR method for behavioral questions',
-            'Quantify your impact with numbers',
-            'Be concise — 2-3 minutes per answer',
-            "Ask for clarification if needed",
+            'Use STAR method for behavioural questions',
+            'Quantify impact with numbers',
+            'Be concise — 2–3 minutes per answer',
+            'Ask for clarification if needed',
           ].map((tip, i) => (
-            <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'flex-start' }}>
-              <ChevronRight size={12} color="#10B981" style={{ flexShrink: 0, marginTop: 2 }} />
-              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', lineHeight: 1.5 }}>{tip}</span>
+            <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 8, alignItems: 'flex-start' }}>
+              <ChevronRight size={11} color="#10B981" style={{ flexShrink: 0, marginTop: 2 }} aria-hidden="true" />
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.38)', lineHeight: 1.5 }}>{tip}</span>
             </div>
           ))}
 
           {answeredCount > 0 && (
             <>
-              <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '16px 0' }} />
-              <h3 style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-                Progress
-              </h3>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <span style={{ fontSize: 24, fontWeight: 900, color: 'white' }}>{answeredCount}</span>
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>/ {totalQ} answered</span>
+              <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '14px 0' }} />
+              <h3 style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Progress</h3>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, marginBottom: 6 }}>
+                <span style={{ fontSize: 26, fontWeight: 900, color: 'white' }}>{answeredCount}</span>
+                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>/ {totalQ} answered</span>
               </div>
-              <div style={{ height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 6, overflow: 'hidden' }}>
-                <div style={{ width: `${progress}%`, height: '100%', background: 'linear-gradient(90deg, #6366F1, #10B981)', borderRadius: 6, transition: 'width 0.6s' }} />
+              <div style={{ height: 5, background: 'rgba(255,255,255,0.08)', borderRadius: 5, overflow: 'hidden' }}>
+                <div style={{ width: `${progress}%`, height: '100%', background: 'linear-gradient(90deg,#6366F1,#10B981)', borderRadius: 5, transition: 'width 0.6s' }} />
               </div>
             </>
           )}
@@ -789,23 +1026,21 @@ export default function InterviewRoomPage() {
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
-        @keyframes ring-pulse {
-          0%, 100% { transform: scale(1); opacity: 0.6 }
-          50% { transform: scale(1.08); opacity: 1 }
+        @keyframes ring-pulse { 0%,100% { transform:scale(1);opacity:0.5 } 50% { transform:scale(1.07);opacity:1 } }
+        @keyframes dot-blink { 0%,100% { opacity:1 } 50% { opacity:0.15 } }
+        @keyframes dot-bounce { 0%,100% { transform:translateY(0) } 50% { transform:translateY(-6px) } }
+        @keyframes avatar-breathe { 0%,100% { transform:scale(1) } 50% { transform:scale(1.03) } }
+        @keyframes bg-breathe { 0%,100% { opacity:0.5 } 50% { opacity:1 } }
+        @keyframes orbit {
+          from { transform: rotate(0deg) translateX(36px) rotate(0deg) }
+          to   { transform: rotate(360deg) translateX(36px) rotate(-360deg) }
         }
-        @keyframes dot-blink {
-          0%, 100% { opacity: 1 }
-          50% { opacity: 0.2 }
-        }
-        @keyframes dot-bounce {
-          0%, 100% { transform: translateY(0) }
-          50% { transform: translateY(-4px) }
-        }
-        @keyframes bar-bounce {
-          0%, 100% { height: 6px }
-          50% { height: 14px }
-        }
-        .audio-bar { min-height: 6px; }
+        @keyframes voice-bar-0 { 0%,100% { height:4px } 50% { height:22px } }
+        @keyframes voice-bar-1 { 0%,100% { height:4px } 50% { height:34px } }
+        @keyframes voice-bar-2 { 0%,100% { height:4px } 50% { height:16px } }
+        @keyframes mic-idle { 0%,100% { box-shadow:0 0 0 0 rgba(99,102,241,0.4) } 50% { box-shadow:0 0 0 10px rgba(99,102,241,0) } }
+        @keyframes mic-live { 0%,100% { box-shadow:0 0 0 0 rgba(16,185,129,0.6),0 0 0 8px rgba(16,185,129,0) } 50% { box-shadow:0 0 0 8px rgba(16,185,129,0.2),0 0 0 16px rgba(16,185,129,0) } }
+        @keyframes fade-slide-up { from { opacity:0;transform:translateY(6px) } to { opacity:1;transform:none } }
       `}</style>
     </div>
   )

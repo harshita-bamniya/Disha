@@ -522,9 +522,10 @@ async def complete_session_and_generate_feedback(
             "question_type": question_type or "behavioral",
             "skill_assessed": skill_assessed or "General",
             "response": resp.response_text or "",
-            "clarity": fb.clarity_score or 5,
-            "impact": fb.impact_score or 5,
-            "overall": fb.overall_score or 5,
+            # Use actual scores including 0 — never substitute a fake 5
+            "clarity": fb.clarity_score if fb.clarity_score is not None else 0,
+            "impact": fb.impact_score if fb.impact_score is not None else 0,
+            "overall": fb.overall_score if fb.overall_score is not None else 0,
         })
 
     db.commit()
@@ -543,6 +544,7 @@ async def complete_session_and_generate_feedback(
                 experience_level=session.experience_level or "Mid-Level",
                 competencies=competencies,
                 transcript=transcript_for_report,
+                total_questions_planned=session.total_questions,
             )
             session.job_readiness_report = raw_report
             db.commit()
