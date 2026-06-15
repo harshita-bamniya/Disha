@@ -67,9 +67,10 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    phone = Column(String(15), unique=True, nullable=False, index=True)
+    phone = Column(String(15), unique=True, nullable=True, index=True)
     email = Column(String(255), unique=True, nullable=True, index=True)
-    password_hash = Column(Text, nullable=False)
+    password_hash = Column(Text, nullable=True)
+    google_id = Column(String(255), unique=True, nullable=True, index=True)
     phone_verified = Column(Boolean, default=False, nullable=False)
     email_verified = Column(Boolean, default=False, nullable=False)
     preferred_language = Column(Enum("en", "hi", name="language_enum"), default="hi", nullable=False)

@@ -41,8 +41,8 @@ def get_current_user(
 
 
 def get_current_verified_user(current_user: User = Depends(get_current_user)) -> User:
-    if not current_user.phone_verified:
-        raise ForbiddenException("Phone number not verified. Please verify your phone first.")
+    if not current_user.phone_verified and not current_user.email_verified:
+        raise ForbiddenException("Please verify your account before continuing.")
     return current_user
 
 

@@ -159,6 +159,10 @@ class EmployerRegisterRequest(BaseModel):
         return v.strip()
 
 
+class GoogleLoginRequest(BaseModel):
+    credential: str  # Google ID token from the frontend
+
+
 class RefreshRequest(BaseModel):
     refresh_token: str
 
@@ -220,7 +224,7 @@ class ResetPasswordRequest(BaseModel):
 
 class UserResponse(BaseModel):
     id: str
-    phone: str
+    phone: str | None
     email: str | None
     role: str | None
     preferred_language: str

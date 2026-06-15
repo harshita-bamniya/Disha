@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { counsellorApi, type ConversationSummary, type MessageOut, type CounsellorMemory } from '@/api/counsellor'
 import AppSidebar from '@/components/layout/AppSidebar'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
-import { Send, Plus, Archive, MessageCircle, AlertTriangle, Briefcase, BrainCircuit, Zap, Brain, ChevronDown, ChevronUp, X, Mic, MicOff } from 'lucide-react'
+import { Send, Plus, Archive, MessageCircle, AlertTriangle, Briefcase, BrainCircuit, Zap, Brain, ChevronDown, ChevronUp, X, Mic, MicOff, Trash2 } from 'lucide-react'
 
 const CRISIS_NUMBERS = [
   { name: 'iCall (TISS)', number: '9152987821' },
@@ -301,6 +301,17 @@ export default function CounsellorPage() {
     },
   })
 
+  const deleteConvMutation = useMutation({
+    mutationFn: (convId: string) => counsellorApi.deleteConversation(convId),
+    onSuccess: (_data, convId) => {
+      qc.invalidateQueries({ queryKey: ['counsellor-conversations'] })
+      if (activeConvId === convId) {
+        setActiveConvId(null)
+        setMessages([])
+      }
+    },
+  })
+
   // sendMessage accepts an explicit text (for auto-start) or reads from input state
   const sendMessage = useCallback(async (overrideText?: string, hideUserBubble = false) => {
     const userText = overrideText ?? input.trim()
@@ -435,38 +446,72 @@ export default function CounsellorPage() {
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '0 8px' }}>
               {conversations?.map(conv => (
-                <button
+                <div
                   key={conv.id}
-                  onClick={() => setActiveConvId(conv.id)}
-                  style={{
-                    width: '100%', padding: '10px 12px', borderRadius: 10, marginBottom: 4,
-                    background: activeConvId === conv.id ? 'rgba(45,106,79,0.08)' : 'transparent',
-                    border: activeConvId === conv.id ? '1px solid rgba(45,106,79,0.2)' : '1px solid transparent',
-                    cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s',
+                  style={{ position: 'relative' }}
+                  className="conv-item-wrap"
+                  onMouseEnter={e => {
+                    const btn = e.currentTarget.querySelector<HTMLElement>('.conv-delete-btn')
+                    if (btn) btn.style.opacity = '1'
                   }}
-                  onMouseOver={e => { if (activeConvId !== conv.id) e.currentTarget.style.background = '#F8FAFC' }}
-                  onMouseOut={e => { if (activeConvId !== conv.id) e.currentTarget.style.background = 'transparent' }}
+                  onMouseLeave={e => {
+                    const btn = e.currentTarget.querySelector<HTMLElement>('.conv-delete-btn')
+                    if (btn) btn.style.opacity = '0'
+                  }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    {conv.context_type === 'skill_learning'
-                      ? <BrainCircuit size={13} color={activeConvId === conv.id ? '#EA580C' : '#F97316'} />
-                      : <MessageCircle size={13} color={activeConvId === conv.id ? '#2D6A4F' : '#94A3B8'} />
-                    }
-                    <p style={{
-                      fontSize: 12, fontWeight: 600,
-                      color: activeConvId === conv.id
-                        ? (conv.context_type === 'skill_learning' ? '#EA580C' : '#2D6A4F')
-                        : '#374151',
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      userSelect: 'none', pointerEvents: 'none',
-                    }}>
-                      {conv.title || (conv.context_type === 'skill_learning' ? conv.skill_focus ?? 'Skill session' : 'New conversation')}
+                  <button
+                    onClick={() => setActiveConvId(conv.id)}
+                    style={{
+                      width: '100%', padding: '10px 12px', borderRadius: 10, marginBottom: 4,
+                      background: activeConvId === conv.id ? 'rgba(45,106,79,0.08)' : 'transparent',
+                      border: activeConvId === conv.id ? '1px solid rgba(45,106,79,0.2)' : '1px solid transparent',
+                      cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s', paddingRight: 30,
+                    }}
+                    onMouseOver={e => { if (activeConvId !== conv.id) e.currentTarget.style.background = '#F8FAFC' }}
+                    onMouseOut={e => { if (activeConvId !== conv.id) e.currentTarget.style.background = 'transparent' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                      {conv.context_type === 'skill_learning'
+                        ? <BrainCircuit size={13} color={activeConvId === conv.id ? '#EA580C' : '#F97316'} />
+                        : <MessageCircle size={13} color={activeConvId === conv.id ? '#2D6A4F' : '#94A3B8'} />
+                      }
+                      <p style={{
+                        fontSize: 12, fontWeight: 600,
+                        color: activeConvId === conv.id
+                          ? (conv.context_type === 'skill_learning' ? '#EA580C' : '#2D6A4F')
+                          : '#374151',
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        userSelect: 'none', pointerEvents: 'none',
+                      }}>
+                        {conv.title || (conv.context_type === 'skill_learning' ? conv.skill_focus ?? 'Skill session' : 'New conversation')}
+                      </p>
+                    </div>
+                    <p style={{ fontSize: 10, color: '#94A3B8', marginTop: 3, paddingLeft: 20 }}>
+                      {conv.message_count} messages
                     </p>
-                  </div>
-                  <p style={{ fontSize: 10, color: '#94A3B8', marginTop: 3, paddingLeft: 20 }}>
-                    {conv.message_count} messages
-                  </p>
-                </button>
+                  </button>
+                  <button
+                    className="conv-delete-btn"
+                    onClick={e => {
+                      e.stopPropagation()
+                      if (window.confirm('Delete this conversation?')) {
+                        deleteConvMutation.mutate(conv.id)
+                      }
+                    }}
+                    title="Delete conversation"
+                    style={{
+                      position: 'absolute', top: '50%', right: 8, transform: 'translateY(-50%)',
+                      opacity: 0, transition: 'opacity 0.15s',
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      padding: 4, borderRadius: 6, display: 'flex', alignItems: 'center',
+                      color: '#EF4444',
+                    }}
+                    onMouseOver={e => { e.currentTarget.style.background = '#FEE2E2' }}
+                    onMouseOut={e => { e.currentTarget.style.background = 'none' }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
               ))}
               {(!conversations || conversations.length === 0) && (
                 <p style={{ fontSize: 12, color: '#94A3B8', textAlign: 'center', padding: '20px 0' }}>

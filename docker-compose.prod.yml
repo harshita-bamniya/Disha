@@ -93,6 +93,18 @@ services:
     command: celery -A app.tasks.worker.celery_app beat --loglevel=info
     restart: unless-stopped
 
+  frontend-build:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+        VITE_GOOGLE_CLIENT_ID: ${VITE_GOOGLE_CLIENT_ID}
+    container_name: disha_frontend_build
+    volumes:
+      - frontend_build:/output
+    restart: "no"
+
   nginx:
     image: nginx:1.27-alpine
     container_name: disha_nginx
@@ -105,7 +117,10 @@ services:
       - frontend_build:/usr/share/nginx/html:ro
       - ./nginx/logs:/var/log/nginx
     depends_on:
-      - backend
+      frontend-build:
+        condition: service_completed_successfully
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

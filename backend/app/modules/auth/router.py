@@ -10,7 +10,7 @@ from app.modules.auth import service
 from app.modules.auth.schemas import (
     EmployerRegisterRequest, EmployerRegisterResponse,
     ForgotPasswordRequest, ResetPasswordRequest,
-    LoginRequest, MessageResponse, RefreshRequest,
+    GoogleLoginRequest, LoginRequest, MessageResponse, RefreshRequest,
     RegisterRequest, SendOtpRequest, TokenResponse,
     UserResponse, VerifyPhoneRequest,
 )
@@ -111,6 +111,12 @@ async def register_employer(body: EmployerRegisterRequest, request: Request, db:
         db=db,
         request=request,
     )
+
+
+@router.post("/google", response_model=TokenResponse)
+@limiter.limit("20/minute")
+def google_login(body: GoogleLoginRequest, request: Request, db: Session = Depends(get_db)):
+    return service.google_login(credential=body.credential, db=db, request=request)
 
 
 @router.post("/verify-phone/employer", response_model=MessageResponse)

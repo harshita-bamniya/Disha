@@ -34,12 +34,12 @@ def list_sessions(
 
 
 @router.post("/sessions", response_model=SessionDetail, status_code=201)
-def create_session(
+async def create_session(
     body: CreateSessionRequest,
     user: User = Depends(get_current_aspirant),
     db: Session = Depends(get_db),
 ):
-    return service.create_session(body, user, db)
+    return await service.create_session(body, user, db)
 
 
 @router.get("/sessions/{session_id}", response_model=SessionDetail)
@@ -75,6 +75,23 @@ def submit_response(
 ):
     try:
         return service.submit_response(session_id, body, user, db)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/sessions/{session_id}/next-question")
+async def get_next_question(
+    session_id: str,
+    response_id: str,
+    user: User = Depends(get_current_aspirant),
+    db: Session = Depends(get_db),
+):
+    """After submitting a response, get the adaptive next action.
+
+    Returns either a follow-up probe, a challenge question, or the next bank question.
+    """
+    try:
+        return await service.get_next_question(session_id, response_id, user, db)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

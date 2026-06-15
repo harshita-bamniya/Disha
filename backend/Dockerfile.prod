@@ -31,6 +31,9 @@ COPY --from=builder /install /usr/local
 # Copy application code
 COPY --chown=disha:disha . .
 
+COPY --chown=disha:disha entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
 USER disha
 
 EXPOSE 8000
@@ -38,12 +41,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Production: no --reload, multiple workers
-CMD ["uvicorn", "app.main:app", \
-     "--host", "0.0.0.0", \
-     "--port", "8000", \
-     "--workers", "2", \
-     "--log-level", "info", \
-     "--access-log", \
-     "--proxy-headers", \
-     "--forwarded-allow-ips", "*"]
+# Runs alembic migrations then starts uvicorn
+ENTRYPOINT ["/entrypoint.sh"]

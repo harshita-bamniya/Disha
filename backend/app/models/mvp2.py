@@ -285,15 +285,21 @@ class QuestionBank(Base):
 class InterviewSession(Base):
     __tablename__ = "interview_sessions"
 
-    id              = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
-    user_id         = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    career_track_id = Column(UUID(as_uuid=True), ForeignKey("career_tracks.id", ondelete="SET NULL"), nullable=True)
-    session_type    = Column(String(20), default="practice", nullable=False)
-    status          = Column(String(20), default="scheduled", nullable=False)
-    total_questions = Column(Integer, default=5)
-    started_at      = Column(DateTime(timezone=True), nullable=True)
-    completed_at    = Column(DateTime(timezone=True), nullable=True)
-    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+    id                   = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    user_id              = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    career_track_id      = Column(UUID(as_uuid=True), ForeignKey("career_tracks.id", ondelete="SET NULL"), nullable=True)
+    session_type         = Column(String(20), default="practice", nullable=False)
+    status               = Column(String(20), default="scheduled", nullable=False)
+    total_questions      = Column(Integer, default=5)
+    started_at           = Column(DateTime(timezone=True), nullable=True)
+    completed_at         = Column(DateTime(timezone=True), nullable=True)
+    created_at           = Column(DateTime(timezone=True), server_default=func.now())
+    # Dynamic interview fields
+    job_role             = Column(String(150), nullable=True)
+    experience_level     = Column(String(50), nullable=True)
+    job_description      = Column(Text, nullable=True)
+    blueprint            = Column(JSONB, nullable=True)
+    job_readiness_report = Column(JSONB, nullable=True)
 
     user            = relationship("User")
     career_track    = relationship("CareerTrack", foreign_keys=[career_track_id])
@@ -309,13 +315,16 @@ class InterviewSession(Base):
 class SessionResponse(Base):
     __tablename__ = "session_responses"
 
-    id                = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
-    session_id        = Column(UUID(as_uuid=True), ForeignKey("interview_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
-    question_id       = Column(UUID(as_uuid=True), ForeignKey("question_banks.id"), nullable=False)
-    response_text     = Column(Text, nullable=False)
-    response_time_sec = Column(Integer, default=0)
-    sequence_num      = Column(Integer, nullable=False)
-    submitted_at      = Column(DateTime(timezone=True), server_default=func.now())
+    id                    = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    session_id            = Column(UUID(as_uuid=True), ForeignKey("interview_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    question_id           = Column(UUID(as_uuid=True), ForeignKey("question_banks.id"), nullable=True)
+    response_text         = Column(Text, nullable=False)
+    response_time_sec     = Column(Integer, default=0)
+    sequence_num          = Column(Integer, nullable=False)
+    submitted_at          = Column(DateTime(timezone=True), server_default=func.now())
+    # For AI-generated dynamic questions (no FK needed)
+    dynamic_question_text = Column(Text, nullable=True)
+    dynamic_question_type = Column(String(50), nullable=True)
 
     session           = relationship("InterviewSession", back_populates="responses")
     question          = relationship("QuestionBank", back_populates="responses")

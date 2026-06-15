@@ -296,6 +296,34 @@ def complete_lesson(
     streak = _update_streak(user.id, db)
     db.commit()
 
+    # XP award
+    try:
+        from app.modules.xp.service import award_xp
+        xp_event = "lesson_complete"
+        if score is not None and score >= 80:
+            xp_event = "exercise_score_80"
+        award_xp(user.id, xp_event, ref_id=lesson_id,
+                 note=f"Lesson: {lesson.title}", db=db)
+        db.commit()
+    except Exception as exc:
+        logger.warning("[LEARNING] XP award failed: %s", exc)
+
+    # Skill competence hook — update competence for the module's skill_focus
+    if score is not None:
+        try:
+            from app.modules.roadmap.service import update_skill_competence
+            if module and module.skill_focus:
+                is_exercise = lesson.content_type in ("exercise", "case_study", "quiz")
+                update_skill_competence(
+                    user_id=str(user.id),
+                    skill_text=module.skill_focus,
+                    quiz_score=float(score) if lesson.content_type == "quiz" else None,
+                    exercise_score=float(score) if is_exercise and lesson.content_type != "quiz" else None,
+                    db=db,
+                )
+        except Exception as exc:
+            logger.warning("[LEARNING] Skill competence update failed: %s", exc)
+
     return CompleteLessonResponse(
         lesson_id=lesson_id,
         completed=True,

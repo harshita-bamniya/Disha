@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { Phone, Lock, CheckCircle2 } from 'lucide-react'
+import { GoogleLogin } from '@react-oauth/google'
 import AuthLayout from '@/layouts/AuthLayout'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
-import { useLogin } from '../hooks/useAuth'
+import { useLogin, useGoogleLogin } from '../hooks/useAuth'
 import { getApiError } from '@/api/client'
 
 export default function LoginPage() {
@@ -13,6 +14,7 @@ export default function LoginPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const login = useLogin()
+  const googleLogin = useGoogleLogin()
   const location = useLocation()
   const justVerified = (location.state as any)?.verified === true
 
@@ -94,6 +96,33 @@ export default function LoginPage() {
           <Link to="/auth/forgot-password" className="text-primary font-medium hover:underline">
             Forgot password?
           </Link>
+        </div>
+
+        <div className="relative flex items-center my-1">
+          <div className="flex-grow border-t border-gray-200" />
+          <span className="mx-3 text-xs text-gray-400 shrink-0">or continue with</span>
+          <div className="flex-grow border-t border-gray-200" />
+        </div>
+
+        {googleLogin.error && (
+          <p className="text-sm text-danger bg-danger/5 border border-danger/20 rounded-xl px-4 py-3">
+            {getApiError(googleLogin.error, 'Google sign-in failed. Please try again.')}
+          </p>
+        )}
+
+        <div className="flex justify-center">
+          <GoogleLogin
+            onSuccess={(response) => {
+              if (response.credential) {
+                googleLogin.mutate({ credential: response.credential })
+              }
+            }}
+            onError={() => {}}
+            width="320"
+            text="signin_with"
+            shape="rectangular"
+            theme="outline"
+          />
         </div>
       </form>
     </AuthLayout>

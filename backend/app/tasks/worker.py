@@ -42,6 +42,17 @@ celery_app.conf.update(
             "task": "app.tasks.worker.refresh_job_embeddings",
             "schedule": crontab(hour=4, minute=0, day_of_week=0),
         },
+        # Recalibrate all active roadmaps weekly with fresh job market data.
+        # Runs Sunday 5am IST — after job embeddings refresh.
+        "recalibrate-roadmaps": {
+            "task": "app.tasks.roadmap_tasks.recalibrate_all_roadmaps",
+            "schedule": crontab(hour=5, minute=0, day_of_week=0),
+        },
+        # Reset weekly XP counters every Sunday at 6am IST
+        "reset-weekly-xp": {
+            "task": "app.tasks.worker.reset_weekly_xp",
+            "schedule": crontab(hour=6, minute=0, day_of_week=0),
+        },
     },
 )
 
@@ -291,6 +302,24 @@ def refresh_job_embeddings() -> dict:
     except Exception as exc:
         logger.error("[REFRESH_EMBED] Failed: %s", exc)
         return {"queued": queued, "error": str(exc)}
+    finally:
+        db.close()
+
+
+@celery_app.task(name="app.tasks.worker.reset_weekly_xp")
+def reset_weekly_xp() -> dict:
+    """Reset xp_this_week to 0 for all users every Sunday."""
+    from app.database import SessionLocal
+    from app.modules.xp.service import reset_weekly_xp as _reset
+
+    db = SessionLocal()
+    try:
+        count = _reset(db)
+        return {"reset_count": count}
+    except Exception as exc:
+        logger.error("[XP_RESET] Failed: %s", exc)
+        db.rollback()
+        return {"reset_count": 0, "error": str(exc)}
     finally:
         db.close()
 

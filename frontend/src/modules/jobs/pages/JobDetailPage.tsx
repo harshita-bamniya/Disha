@@ -26,7 +26,7 @@ export default function JobDetailPage() {
     queryFn: () => getJobDetail(jobId!),
     enabled: !!jobId,
   })
-  const { activePrep } = useActivePrepJob()
+  const { activePrep, startPrep, isStartingPrep, clearPrep, isClearingPrep } = useActivePrepJob()
   const isActivePrepJob = activePrep?.job_id === jobId
   const { data: checklist } = useQuery({
     queryKey: ['prep-checklist', jobId],
@@ -167,6 +167,66 @@ export default function JobDetailPage() {
             </div>
           </div>
         )}
+
+        {/* ── Active Prep Job CTA ── */}
+        <div style={{
+          background: isActivePrepJob
+            ? 'linear-gradient(135deg, #F0FDF4, #ECFDF5)'
+            : 'linear-gradient(135deg, #F8FAFC, #F1F5F9)',
+          border: isActivePrepJob ? '1.5px solid #86EFAC' : '1.5px solid #E2E8F0',
+          borderRadius: 14, padding: '16px 18px', marginBottom: 16,
+          display: 'flex', alignItems: 'center', gap: 14,
+        }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+            background: isActivePrepJob ? 'linear-gradient(135deg,#22C55E,#16A34A)' : 'linear-gradient(135deg,#2D6A4F,#40916C)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 22,
+          }}>
+            {isActivePrepJob ? '✓' : '🎯'}
+          </div>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 14, fontWeight: 800, color: '#111827', margin: 0 }}>
+              {isActivePrepJob ? 'This is your active prep job' : 'Set as Active Prep Job'}
+            </p>
+            <p style={{ fontSize: 12, color: '#6B7280', margin: '3px 0 0', lineHeight: 1.4 }}>
+              {isActivePrepJob
+                ? 'DISHA AI is building your personalised learning roadmap. View it in My Roadmap → Stage 2.'
+                : 'Get a personalised AI learning roadmap, YouTube course suggestions, and skill-gap tracking tailored to this role.'
+              }
+            </p>
+          </div>
+          {isActivePrepJob ? (
+            <button
+              onClick={() => clearPrep()}
+              disabled={isClearingPrep}
+              style={{
+                flexShrink: 0, background: 'none', border: '1px solid #E2E8F0',
+                borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 600,
+                color: '#6B7280', cursor: isClearingPrep ? 'wait' : 'pointer',
+              }}
+            >
+              {isClearingPrep ? 'Clearing…' : 'Clear'}
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                startPrep(jobId!)
+                qc.invalidateQueries({ queryKey: ['roadmap'] })
+              }}
+              disabled={isStartingPrep}
+              style={{
+                flexShrink: 0,
+                background: 'linear-gradient(135deg,#2D6A4F,#40916C)', color: 'white',
+                border: 'none', borderRadius: 8, padding: '9px 18px',
+                fontSize: 13, fontWeight: 700, cursor: isStartingPrep ? 'wait' : 'pointer',
+                opacity: isStartingPrep ? 0.7 : 1, whiteSpace: 'nowrap',
+              }}
+            >
+              {isStartingPrep ? 'Setting…' : 'Set as Prep Job'}
+            </button>
+          )}
+        </div>
 
         {/* Generate Resume for This Job */}
         <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl border border-indigo-200 p-5 mb-4">

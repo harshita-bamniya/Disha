@@ -66,7 +66,14 @@ export interface TokenResponse {
   user: User
 }
 
+export interface GoogleLoginPayload {
+  credential: string
+}
+
 export const authApi = {
+  googleLogin: (data: GoogleLoginPayload) =>
+    apiClient.post<TokenResponse>('/auth/google', data).then((r) => r.data),
+
   register: (data: RegisterPayload) =>
     apiClient.post<MessageResponse>('/auth/register', data).then((r) => r.data),
 

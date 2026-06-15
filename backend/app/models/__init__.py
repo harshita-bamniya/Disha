@@ -19,3 +19,9 @@ from app.models.mvp3 import (  # noqa: F401
     UserEvent,
     OAuthProvider,
 )
+from app.models.roadmap import (  # noqa: F401
+    TicketTemplate, UserRoadmap, UserSkillCompetence,
+    StageGateEvaluation, TicketSubmission,
+)
+from app.models.xp import UserXP, XPTransaction  # noqa: F401
+from app.models.job_plan import JobLearningPlan  # noqa: F401

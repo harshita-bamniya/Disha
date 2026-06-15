@@ -7,6 +7,8 @@ export interface InterviewQuestion {
   difficulty: string | null
   language: string
   career_track_id: string | null
+  skill_assessed?: string | null
+  is_dynamic?: boolean
 }
 
 export interface SessionSummary {
@@ -20,16 +22,56 @@ export interface SessionSummary {
   started_at: string | null
   completed_at: string | null
   created_at: string
+  job_role?: string | null
+  experience_level?: string | null
+  blueprint?: InterviewBlueprint | null
+}
+
+export interface InterviewBlueprint {
+  skills_to_assess: string[]
+  question_breakdown: Record<string, number>
+  difficulty_ramp: string
+  focus_areas: string[]
+  interview_style: string
+  opening_greeting: string
+  ice_breaker_question: string
 }
 
 export interface SessionDetail extends SessionSummary {
   questions: InterviewQuestion[]
 }
 
+export interface RoadmapStep {
+  week_range: string
+  focus: string
+  action: string
+  resource_type: string
+}
+
+export interface JobReadinessReport {
+  job_role: string
+  experience_level: string | null
+  overall_readiness_score: number
+  technical_readiness_score: number
+  communication_score: number
+  confidence_score: number
+  hiring_recommendation: string
+  hiring_recommendation_reason: string
+  strengths: string[]
+  critical_gaps: string[]
+  skill_scores: Record<string, number>
+  competencies: Array<{ skill: string; weight: number }>
+  candidate_summary: string
+  roadmap: RoadmapStep[]
+  readiness_message: string
+}
+
 export interface FeedbackItem {
   id: string
   response_id: string | null
   question_text: string | null
+  question_type: string | null
+  skill_assessed: string | null
   original_response: string | null
   clarity_score: number | null
   conciseness_score: number | null
@@ -46,6 +88,7 @@ export interface SessionFeedback {
   session_id: string
   overall_avg: number
   feedback_items: FeedbackItem[]
+  job_readiness_report: JobReadinessReport | null
 }
 
 export interface PerformanceStats {
@@ -57,6 +100,21 @@ export interface PerformanceStats {
   avg_impact: number
   best_session_score: number
   sessions_by_type: Record<string, number>
+}
+
+export interface NextQuestionResult {
+  action: 'follow_up' | 'challenge' | 'next_question'
+  question: {
+    id?: string
+    text: string
+    is_followup: boolean
+    question_type?: string
+    difficulty?: string
+    original_question_id?: string
+  } | null
+  provisional_score: number
+  coaching_note: string
+  session_complete: boolean
 }
 
 export const interviewApi = {
@@ -75,6 +133,9 @@ export const interviewApi = {
     total_questions?: number
     difficulty?: string
     job_context?: string
+    job_role?: string
+    experience_level?: string
+    job_description?: string
   }) => apiClient.post<SessionDetail>('/interview/sessions', data).then(r => r.data),
 
   getSession: (sessionId: string) =>
@@ -84,10 +145,19 @@ export const interviewApi = {
     apiClient.post(`/interview/sessions/${sessionId}/start`).then(r => r.data),
 
   submitResponse: (sessionId: string, data: {
-    question_id: string
+    question_id?: string
+    question_text?: string
+    question_type?: string
     response_text: string
     response_time_sec?: number
-  }) => apiClient.post(`/interview/sessions/${sessionId}/respond`, data).then(r => r.data),
+  }) => apiClient.post<{ response_id: string; sequence_num: number }>(
+    `/interview/sessions/${sessionId}/respond`, data
+  ).then(r => r.data),
+
+  getNextQuestion: (sessionId: string, responseId: string) =>
+    apiClient.post<NextQuestionResult>(
+      `/interview/sessions/${sessionId}/next-question?response_id=${responseId}`
+    ).then(r => r.data),
 
   completeSession: (sessionId: string) =>
     apiClient.post<SessionFeedback>(`/interview/sessions/${sessionId}/complete`).then(r => r.data),

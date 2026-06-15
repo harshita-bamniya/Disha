@@ -96,6 +96,29 @@ export function useVerifyEmployerPhone() {
   })
 }
 
+export function useGoogleLogin() {
+  const { setAuth } = useAuthStore()
+  const navigate = useNavigate()
+
+  return useMutation({
+    mutationFn: authApi.googleLogin,
+    onSuccess: (data) => {
+      setAuth(data.user, {
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+        token_type: data.token_type as 'bearer',
+      })
+      if (data.user.role === 'employer') {
+        navigate('/app/employer/dashboard')
+      } else if (data.user.role === 'admin') {
+        navigate('/admin')
+      } else {
+        navigate('/app/dashboard')
+      }
+    },
+  })
+}
+
 export function useLogout() {
   const { refreshToken, logout } = useAuthStore()
   const navigate = useNavigate()

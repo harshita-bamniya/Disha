@@ -85,6 +85,9 @@ export const counsellorApi = {
   getConversation: (convId: string) =>
     apiClient.get<ConversationDetail>(`/counsellor/conversations/${convId}`).then(r => r.data),
 
+  deleteConversation: (convId: string) =>
+    apiClient.delete(`/counsellor/conversations/${convId}`),
+
   archiveConversation: (convId: string) =>
     apiClient.put(`/counsellor/conversations/${convId}/archive`).then(r => r.data),
 

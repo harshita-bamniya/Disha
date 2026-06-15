@@ -39,13 +39,12 @@ export default function InterviewHomePage() {
     mutationFn: () => interviewApi.createSession({
       session_type: sessionType,
       total_questions: sessionType === 'practice' ? 5 : sessionType === 'timed' ? 10 : 10,
-      // Inject active prep context so AI generates job-specific questions
       career_track_id: activePrep?.matched_track_id ?? undefined,
       job_context: activePrep
         ? `Job: ${activePrep.job_title} at ${activePrep.company_name}. Skills needed: ${activePrep.skills_to_develop.slice(0, 3).join(', ')}`
         : undefined,
     }),
-    onSuccess: (session) => navigate(`/app/interview/sessions/${session.id}`),
+    onSuccess: (session) => navigate(`/app/interview/room/${session.id}`),
   })
 
   const recentSessions = sessions?.slice(0, 5) ?? []
@@ -105,20 +104,33 @@ export default function InterviewHomePage() {
                   ))}
                 </div>
 
-                <button
-                  onClick={() => createMutation.mutate()}
-                  disabled={createMutation.isPending}
-                  style={{
-                    width: '100%', height: 44, borderRadius: 12,
-                    background: 'linear-gradient(135deg, #2D6A4F, #40916C)',
-                    color: 'white', border: 'none', cursor: 'pointer',
-                    fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    opacity: createMutation.isPending ? 0.7 : 1,
-                  }}
-                >
-                  <Play size={15} fill="white" />
-                  {createMutation.isPending ? 'Setting up...' : 'Start Interview'}
-                </button>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    onClick={() => navigate('/app/interview/setup')}
+                    style={{
+                      flex: 2, height: 44, borderRadius: 12,
+                      background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+                      color: 'white', border: 'none', cursor: 'pointer',
+                      fontSize: 13, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                    }}
+                  >
+                    <Play size={14} fill="white" />
+                    AI Interview (Role-Specific)
+                  </button>
+                  <button
+                    onClick={() => createMutation.mutate()}
+                    disabled={createMutation.isPending}
+                    style={{
+                      flex: 1, height: 44, borderRadius: 12,
+                      background: 'white', border: '1.5px solid rgba(45,106,79,0.3)',
+                      color: '#2D6A4F', cursor: 'pointer',
+                      fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      opacity: createMutation.isPending ? 0.7 : 1,
+                    }}
+                  >
+                    {createMutation.isPending ? 'Setting up...' : 'Quick Practice'}
+                  </button>
+                </div>
               </div>
 
               {/* Recent sessions */}

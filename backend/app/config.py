@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     msg91_template_id: str = ""
     msg91_sender_id: str = "DISHA"
 
+    # Google OAuth
+    google_client_id: str = ""
+
     # Monitoring
     sentry_dsn: str = ""
 

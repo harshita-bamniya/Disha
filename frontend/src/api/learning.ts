@@ -49,9 +49,25 @@ export interface StreakData {
   last_activity: string | null
 }
 
+export interface ExerciseLesson {
+  lesson_id: string
+  lesson_title: string
+  content_type: string
+  content_body: string | null
+  duration_minutes: number
+  module_title: string
+  skill_focus: string | null
+  path_id: string
+  path_name: string
+  is_completed: boolean
+}
+
 export const learningApi = {
   getAllPaths: () =>
     apiClient.get<LearningPathSummary[]>('/learn/paths').then(r => r.data),
+
+  getExercises: () =>
+    apiClient.get<ExerciseLesson[]>('/learn/exercises').then(r => r.data),
 
   getRecommendedPaths: () =>
     apiClient.get<LearningPathSummary[]>('/learn/paths/recommended').then(r => r.data),

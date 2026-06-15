@@ -155,6 +155,59 @@ def get_due_reviews(
     return due[:5]
 
 
+@router.get("/exercises")
+def get_exercise_lessons(
+    user: User = Depends(get_current_aspirant),
+    db: Session = Depends(get_db),
+):
+    """Return all exercise/case_study/quiz lessons from the user's enrolled paths.
+
+    Used by the Stage 3 exercise panel for inline submission without navigating to Learning Hub.
+    """
+    from app.models.mvp2 import LearningPath, PathModule, Lesson, UserLearningEnrollment, LessonCompletion
+
+    EXERCISE_TYPES = {"exercise", "case_study", "quiz"}
+
+    enrolled_path_ids = [
+        str(e.learning_path_id)
+        for e in db.query(UserLearningEnrollment).filter(
+            UserLearningEnrollment.user_id == user.id,
+            UserLearningEnrollment.status.in_(["enrolled", "in_progress", "completed"]),
+        ).all()
+    ]
+    if not enrolled_path_ids:
+        return []
+
+    completed_ids = {
+        str(c.lesson_id)
+        for c in db.query(LessonCompletion.lesson_id).filter(
+            LessonCompletion.user_id == user.id
+        ).all()
+    }
+
+    results = []
+    for path_id in enrolled_path_ids:
+        path = db.query(LearningPath).filter(LearningPath.id == path_id).first()
+        if not path or not path.is_active:
+            continue
+        for mod in path.modules:
+            for lesson in mod.lessons:
+                if lesson.content_type in EXERCISE_TYPES and lesson.is_active:
+                    results.append({
+                        "lesson_id": str(lesson.id),
+                        "lesson_title": lesson.title,
+                        "content_type": lesson.content_type,
+                        "content_body": lesson.content_body,
+                        "duration_minutes": lesson.duration_minutes or 15,
+                        "module_title": mod.title,
+                        "skill_focus": mod.skill_focus,
+                        "path_id": str(path.id),
+                        "path_name": path.name,
+                        "is_completed": str(lesson.id) in completed_ids,
+                    })
+    return results
+
+
 @router.get("/next-lesson")
 def get_next_lesson(
     user: User = Depends(get_current_aspirant),

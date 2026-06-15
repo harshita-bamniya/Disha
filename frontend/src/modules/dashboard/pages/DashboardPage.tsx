@@ -8,6 +8,7 @@ import AppSidebar from '@/components/layout/AppSidebar'
 import { resumeApi } from '@/api/resume'
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { applyToJob, getMyApplications } from '@/api/matching'
+import DailyMissionCard from '@/modules/roadmap/components/DailyMissionCard'
 
 function greeting() {
   const h = new Date().getHours()
@@ -718,6 +719,9 @@ export default function DashboardPage() {
 
                 {/* Right sidebar */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14, animation: 'slideInRight 0.5s ease both', animationDelay: '160ms' }}>
+
+                  {/* Daily Mission */}
+                  <DailyMissionCard />
 
                   {/* KRS breakdown */}
                   <div style={{ background: 'white', borderRadius: 20, padding: 18, border: '1.5px solid rgba(226,232,240,0.8)', boxShadow: '0 2px 12px rgba(15,23,42,0.04)' }}>

@@ -29,6 +29,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 }
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { GoogleOAuthProvider } from '@react-oauth/google'
 import { useAuthStore } from '@/stores/authStore'
 
 // Auth pages
@@ -73,7 +74,13 @@ const LessonViewerPage      = lazy(() => import('@/modules/learning/pages/Lesson
 const ResumeListPage        = lazy(() => import('@/modules/resume/pages/ResumeListPage'))
 const ResumeEditorPage      = lazy(() => import('@/modules/resume/pages/ResumeEditorPage'))
 const CounsellorPage        = lazy(() => import('@/modules/counsellor/pages/CounsellorPage'))
-const MockInterviewPage     = lazy(() => import('@/modules/interview/pages/MockInterviewPage'))
+const MockInterviewPage       = lazy(() => import('@/modules/interview/pages/MockInterviewPage'))
+const StructuredInterviewPage = lazy(() => import('@/modules/interview/pages/StructuredInterviewPage'))
+const InterviewSetupPage      = lazy(() => import('@/modules/interview/pages/InterviewSetupPage'))
+const InterviewLobbyPage      = lazy(() => import('@/modules/interview/pages/InterviewLobbyPage'))
+const InterviewRoomPage       = lazy(() => import('@/modules/interview/pages/InterviewRoomPage'))
+const InterviewReportPage     = lazy(() => import('@/modules/interview/pages/InterviewReportPage'))
+const RoadmapPage             = lazy(() => import('@/modules/roadmap/pages/RoadmapPage'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -122,6 +129,7 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <ErrorBoundary>
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''}>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
@@ -223,6 +231,28 @@ function App() {
           <Route path="/app/interview/sessions/:sessionId" element={<Navigate to="/app/mock-interview" replace />} />
           <Route path="/app/interview/sessions/:sessionId/feedback" element={<Navigate to="/app/mock-interview" replace />} />
 
+          {/* ── Production AI Interview Platform ── */}
+          <Route path="/app/interview/setup" element={
+            <OnboardingGate>
+              <Suspense fallback={null}><InterviewSetupPage /></Suspense>
+            </OnboardingGate>
+          } />
+          <Route path="/app/interview/lobby/:sessionId" element={
+            <OnboardingGate>
+              <Suspense fallback={null}><InterviewLobbyPage /></Suspense>
+            </OnboardingGate>
+          } />
+          <Route path="/app/interview/room/:sessionId" element={
+            <OnboardingGate>
+              <Suspense fallback={null}><InterviewRoomPage /></Suspense>
+            </OnboardingGate>
+          } />
+          <Route path="/app/interview/report/:sessionId" element={
+            <OnboardingGate>
+              <Suspense fallback={null}><InterviewReportPage /></Suspense>
+            </OnboardingGate>
+          } />
+
           {/* Phase 3: Job marketplace (aspirant) */}
           <Route path="/app/jobs" element={<OnboardingGate><Suspense fallback={null}><JobsPage /></Suspense></OnboardingGate>} />
           <Route path="/app/jobs/applications" element={<OnboardingGate><Suspense fallback={null}><MyApplicationsPage /></Suspense></OnboardingGate>} />
@@ -231,9 +261,14 @@ function App() {
           {/* Phase 3: Employer candidate pipeline */}
           <Route path="/app/employer/pipeline/:jobId" element={<ProtectedRoute><Suspense fallback={null}><CandidatePipelinePage /></Suspense></ProtectedRoute>} />
 
-          {/* Mock Interview */}
-          <Route path="/app/mock-interview/:jobId" element={<OnboardingGate><Suspense fallback={null}><MockInterviewPage /></Suspense></OnboardingGate>} />
-          <Route path="/app/mock-interview" element={<OnboardingGate><Suspense fallback={null}><MockInterviewPage /></Suspense></OnboardingGate>} />
+          {/* Mock Interview — redirect to new AI Interview Platform */}
+          <Route path="/app/mock-interview/:jobId" element={<Navigate to="/app/interview/setup" replace />} />
+          <Route path="/app/mock-interview" element={<Navigate to="/app/interview/setup" replace />} />
+          {/* Structured Interview with AI-adaptive questioning */}
+          <Route path="/app/interview/structured" element={<OnboardingGate><Suspense fallback={null}><StructuredInterviewPage /></Suspense></OnboardingGate>} />
+
+          {/* Roadmap — 6-stage job-readiness system */}
+          <Route path="/app/roadmap" element={<OnboardingGate><Suspense fallback={null}><RoadmapPage /></Suspense></OnboardingGate>} />
 
           {/* MVP2: AI Counsellor */}
           <Route path="/app/counsellor" element={<OnboardingGate><Suspense fallback={null}><CounsellorPage /></Suspense></OnboardingGate>} />
@@ -252,6 +287,7 @@ function App() {
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>
+    </GoogleOAuthProvider>
     </ErrorBoundary>
   )
 }

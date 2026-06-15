@@ -1,7 +1,9 @@
 import { useNavigate } from 'react-router-dom'
-import { LayoutDashboard, BookOpen, UserCircle, Compass, LogOut, BarChart2, FileText, MessageSquare, GraduationCap, Brain, Briefcase } from 'lucide-react'
+import { LayoutDashboard, BookOpen, UserCircle, Compass, LogOut, BarChart2, FileText, MessageSquare, GraduationCap, Brain, Briefcase, Map, Zap } from 'lucide-react'
 import { useKrsDashboard } from '@/modules/dashboard/hooks/useKrs'
 import { useLogout } from '@/modules/auth/hooks/useAuth'
+import { useQuery } from '@tanstack/react-query'
+import { xpApi } from '@/api/xp'
 
 // ── KRS Ring ──────────────────────────────────────────────────────────────────
 function KrsRing({ value, size = 90, stroke = 7 }: {
@@ -39,9 +41,11 @@ type NavPath =
   | '/app/resume'
   | '/app/interview'
   | '/app/mock-interview'
+  | '/app/interview/setup'
   | '/app/counsellor'
   | '/app/jobs'
   | '/app/jobs/applications'
+  | '/app/roadmap'
 
 const NAV_ITEMS: { icon: React.ReactNode; label: string; path: NavPath; section?: string }[] = [
   { icon: <LayoutDashboard size={16} />, label: 'Dashboard',    path: '/app/dashboard'       },
@@ -51,16 +55,22 @@ const NAV_ITEMS: { icon: React.ReactNode; label: string; path: NavPath; section?
   // MVP2 items
   { icon: <GraduationCap size={16} />,   label: 'Learning',     path: '/app/learn',           section: 'mvp2' },
   { icon: <FileText size={16} />,        label: 'Resume',       path: '/app/resume',          section: 'mvp2' },
-  { icon: <MessageSquare size={16} />,   label: 'Mock Interview', path: '/app/mock-interview', section: 'mvp2' },
+  { icon: <MessageSquare size={16} />,   label: 'AI Interview',   path: '/app/interview/setup', section: 'mvp2' },
   { icon: <Brain size={16} />,           label: 'AI Counsellor', path: '/app/counsellor',     section: 'mvp2' },
   // Phase 3 items
   { icon: <Briefcase size={16} />,       label: 'Jobs',         path: '/app/jobs',            section: 'phase3' },
+  { icon: <Map size={16} />,             label: 'My Roadmap',   path: '/app/roadmap',         section: 'phase3' },
 ]
 
 export default function AppSidebar({ activePath }: { activePath: NavPath }) {
   const navigate = useNavigate()
   const logout = useLogout()
   const { data } = useKrsDashboard()
+  const { data: xp } = useQuery({
+    queryKey: ['xp-summary'],
+    queryFn: xpApi.getSummary,
+    staleTime: 60 * 1000,
+  })
 
   const name  = data?.full_name?.split(' ')[0] ?? 'Aspirant'
   const krs   = data?.krs
@@ -158,6 +168,29 @@ export default function AppSidebar({ activePath }: { activePath: NavPath }) {
           )
         })}
 
+        {/* Phase 3 section */}
+        <p style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.8px', padding: '0 8px', margin: '14px 0 6px' }}>Career</p>
+        {NAV_ITEMS.filter(i => i.section === 'phase3').map(item => {
+          const isActive = activePath === item.path || (activePath as string).startsWith(item.path + '/')
+          return (
+            <button key={item.path} onClick={() => navigate(item.path)} style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+              padding: '10px 12px', borderRadius: 12, marginBottom: 2,
+              background: isActive ? 'linear-gradient(135deg, #F97316, #EA580C)' : 'transparent',
+              color: isActive ? 'white' : '#6B7280',
+              border: 'none', cursor: 'pointer', textAlign: 'left',
+              fontSize: 14, fontWeight: 600, transition: 'all 0.2s',
+              boxShadow: isActive ? '0 4px 12px rgba(249,115,22,0.22)' : 'none',
+            }}
+              onMouseOver={e => { if (!isActive) e.currentTarget.style.background = 'rgba(249,115,22,0.06)' }}
+              onMouseOut={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
+            >
+              {item.icon}
+              {item.label}
+            </button>
+          )
+        })}
+
         {/* KRS Score card */}
         {krs && (
           <div style={{
@@ -188,6 +221,44 @@ export default function AppSidebar({ activePath }: { activePath: NavPath }) {
           </div>
         )}
       </nav>
+
+      {/* XP Bar */}
+      {xp && (
+        <div style={{
+          padding: '12px 20px',
+          borderTop: '1px solid rgba(59,130,246,0.07)',
+        }}>
+          <div style={{
+            background: 'rgba(245,158,11,0.07)',
+            border: '1px solid rgba(245,158,11,0.18)',
+            borderRadius: 12, padding: '10px 14px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <Zap size={12} color="#F59E0B" />
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#F59E0B' }}>
+                  Level {xp.level}
+                </span>
+              </div>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#1E3A5F' }}>
+                {xp.xp_total.toLocaleString()} XP
+              </span>
+            </div>
+            {/* XP progress bar to next level */}
+            <div style={{ background: 'rgba(245,158,11,0.15)', borderRadius: 100, height: 4 }}>
+              <div style={{
+                height: '100%', borderRadius: 100,
+                width: `${Math.min(100, ((xp.xp_total % 500) / 500) * 100)}%`,
+                background: 'linear-gradient(90deg, #F59E0B, #D97706)',
+                transition: 'width 0.6s ease',
+              }} />
+            </div>
+            <p style={{ fontSize: 10, color: '#94A3B8', marginTop: 4 }}>
+              {xp.xp_to_next} XP to Level {xp.level + 1}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Logout */}
       <div style={{ padding: '12px 20px', borderTop: '1px solid rgba(59,130,246,0.07)' }}>

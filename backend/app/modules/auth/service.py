@@ -192,7 +192,7 @@ def login_user(phone: str, password: str, db: Session, request: Request | None =
         User.deleted_at == None,
     ).first()
 
-    if not user or not verify_password(password, user.password_hash):
+    if not user or not user.password_hash or not verify_password(password, user.password_hash):
         raise AuthException("Incorrect phone number or password.")
 
     user.last_login_at = datetime.now(timezone.utc)
@@ -356,6 +356,59 @@ def verify_employer_phone(phone: str, otp: str, db: Session, request: Request | 
     db.commit()
     logger.info("[EMPLOYER-VERIFY] phone verified for user_id=%s, pending admin approval", user.id)
     return MessageResponse(message="Phone verified. Your account is pending admin approval. We'll notify you once approved.")
+
+
+def google_login(credential: str, db: Session, request: Request | None = None) -> TokenResponse:
+    """Verifies a Google ID token, creates account if new, returns JWT token pair."""
+    from google.oauth2 import id_token
+    from google.auth.transport import requests as google_requests
+
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            credential,
+            google_requests.Request(),
+            settings.google_client_id,
+        )
+    except ValueError as e:
+        logger.warning("[GOOGLE-LOGIN] Token verification failed: %s", e)
+        raise AuthException("Invalid Google token. Please try again.")
+
+    google_id = idinfo["sub"]
+    email = idinfo.get("email")
+
+    user = db.query(User).filter(User.google_id == google_id, User.deleted_at == None).first()
+
+    if not user and email:
+        # Link Google to an existing account that shares the same email
+        user = db.query(User).filter(User.email == email, User.deleted_at == None).first()
+        if user:
+            user.google_id = google_id
+
+    if not user:
+        # New user — create aspirant account
+        role = _get_aspirant_role(db)
+        user = User(
+            google_id=google_id,
+            email=email,
+            email_verified=True,
+            phone_verified=False,
+            preferred_language="en",
+            role_id=role.id,
+            is_active=True,
+        )
+        db.add(user)
+        db.flush()
+        _audit(db, "google_register", user_id=user.id, resource="user",
+               resource_id=user.id, request=request)
+        logger.info("[GOOGLE-LOGIN] New user created via Google: email=%s", email)
+
+    if not user.is_active:
+        raise AuthException("Your account has been deactivated.")
+
+    user.last_login_at = datetime.now(timezone.utc)
+    _audit(db, "google_login", user_id=user.id, resource="auth", request=request)
+
+    return _issue_token_pair(user, db, request)
 
 
 async def request_password_reset(phone: str, db: Session) -> str:

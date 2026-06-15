@@ -77,6 +77,9 @@ def create_conversation(
         }
         title = f"{itype_labels.get(itype, 'Interview')} — {body.job_title or 'Role'}"
 
+    elif body.context_type == "career_coaching":
+        title = "Career Coaching Session"
+
     conv = Conversation(
         user_id=user.id,
         title=title,
@@ -99,6 +102,34 @@ def create_conversation(
         skill_focus=conv.skill_focus,
         job_context=conv.job_context,
         interview_config=conv.interview_config,
+        created_at=conv.created_at,
+        updated_at=conv.updated_at,
+    )
+
+
+@router.post("/career-coaching", response_model=ConversationSummary, status_code=201)
+def start_career_coaching(
+    user: User = Depends(get_current_aspirant),
+    db: Session = Depends(get_db),
+):
+    """One-click start a career coaching conversation."""
+    conv = Conversation(
+        user_id=user.id,
+        title="Career Coaching Session",
+        context_type="career_coaching",
+        status="active",
+    )
+    db.add(conv)
+    db.commit()
+    db.refresh(conv)
+    return ConversationSummary(
+        id=str(conv.id),
+        title=conv.title,
+        context_type=conv.context_type,
+        status=conv.status,
+        message_count=0,
+        skill_focus=None,
+        job_context=None,
         created_at=conv.created_at,
         updated_at=conv.updated_at,
     )
@@ -186,6 +217,25 @@ async def send_message(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.delete("/conversations/{conv_id}", status_code=204)
+def delete_conversation(
+    conv_id: str,
+    user: User = Depends(get_current_aspirant),
+    db: Session = Depends(get_db),
+):
+    """Hard-delete a conversation and all its messages."""
+    conv = (
+        db.query(Conversation)
+        .filter(Conversation.id == conv_id, Conversation.user_id == user.id)
+        .first()
+    )
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found.")
+    db.query(Message).filter(Message.conversation_id == conv_id).delete()
+    db.delete(conv)
+    db.commit()
 
 
 @router.put("/conversations/{conv_id}/archive", response_model=ArchiveConversationResponse)
