@@ -1,36 +1,48 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import heroKeyImg from '../assets/hero-key.jpg'
 
-// ── Palette ───────────────────────────────────────────────────────────────────
+// ── Palette — original blue theme ──────────────────────────────────────────────
 const C = {
-  blue:    '#3B82F6',
-  blueDk:  '#1D4ED8',
-  blueLt:  '#EFF6FF',
-  blueXlt: '#F0F7FF',
-  sky:     '#93C5FD',
-  ink:     '#1E3A5F',
-  mid:     '#475569',
-  muted:   '#94A3B8',
-  white:   '#FFFFFF',
-  card:    '#FFFFFF',
-  border:  'rgba(59,130,246,0.12)',
+  ink:      '#1E3A5F',
+  inkSoft:  '#475569',
+  muted:    '#94A3B8',
+  cream:    '#F0F7FF',
+  creamDk:  '#EFF6FF',
+  card:     '#FFFFFF',
+  black:    '#3B82F6',
+  blackSoft:'#1D4ED8',
+  gold:     '#3B82F6',
+  goldLt:   '#EFF6FF',
+  border:   'rgba(59,130,246,0.12)',
+  borderDk: 'rgba(59,130,246,0.2)',
+  white:    '#FFFFFF',
+  success:  '#22C55E',
 }
 
 const KEYFRAMES = `
   @keyframes floatA { 0%,100%{transform:translateY(0px)} 50%{transform:translateY(-10px)} }
-  @keyframes floatB { 0%,100%{transform:translateY(0px)} 50%{transform:translateY(-7px)} }
+  @keyframes floatB { 0%,100%{transform:translateY(0px)} 50%{transform:translateY(-8px)} }
   @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
-  @keyframes spin   { to{transform:rotate(360deg)} }
+  @keyframes drift   { 0%,100%{transform:translate(0,0)} 50%{transform:translate(6px,-6px)} }
 `
 
-// ── Tiny icons ────────────────────────────────────────────────────────────────
+// ── Icons — clean single-weight line icons, no emoji ───────────────────────────
 const Icon = {
-  Menu:    () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20"><path d="M3 12h18M3 6h18M3 18h18"/></svg>,
-  X:       () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20"><path d="M18 6L6 18M6 6l12 12"/></svg>,
+  Menu:    () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="20" height="20"><path d="M3 12h18M3 6h18M3 18h18"/></svg>,
+  X:       () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="20" height="20"><path d="M18 6L6 18M6 6l12 12"/></svg>,
   Arrow:   () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16"><path d="M5 12h14M12 5l7 7-7 7"/></svg>,
-  Star:    () => <svg viewBox="0 0 24 24" fill="#FBBF24" width="13" height="13"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>,
-  Check:   () => <svg viewBox="0 0 24 24" fill="none" stroke={C.blue} strokeWidth="2.5" width="14" height="14"><path d="M20 6L9 17l-5-5"/></svg>,
-  Play:    () => <svg viewBox="0 0 24 24" fill={C.blue} width="16" height="16"><path d="M5 3l14 9-14 9V3z"/></svg>,
+  Star:    () => <svg viewBox="0 0 24 24" fill={C.gold} width="13" height="13"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>,
+  Check:   () => <svg viewBox="0 0 24 24" fill="none" stroke={C.gold} strokeWidth="2.4" width="13" height="13"><path d="M20 6L9 17l-5-5"/></svg>,
+  Target:  (p?: any) => <svg viewBox="0 0 24 24" fill="none" stroke={p?.c||C.ink} strokeWidth="1.6" width="20" height="20"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill={p?.c||C.ink}/></svg>,
+  Briefcase:(p?: any) => <svg viewBox="0 0 24 24" fill="none" stroke={p?.c||C.ink} strokeWidth="1.6" width="20" height="20"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/></svg>,
+  Trend:   (p?: any) => <svg viewBox="0 0 24 24" fill="none" stroke={p?.c||C.ink} strokeWidth="1.6" width="20" height="20"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>,
+  Map:     (p?: any) => <svg viewBox="0 0 24 24" fill="none" stroke={p?.c||C.ink} strokeWidth="1.6" width="20" height="20"><path d="M9 4l-6 2v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>,
+  Bell:    (p?: any) => <svg viewBox="0 0 24 24" fill="none" stroke={p?.c||C.ink} strokeWidth="1.6" width="16" height="16"><path d="M6 8a6 6 0 0 1 12 0c0 4 1.5 5 1.5 6.5H4.5C4.5 13 6 12 6 8z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>,
+  Users:   (p?: any) => <svg viewBox="0 0 24 24" fill="none" stroke={p?.c||C.gold} strokeWidth="1.6" width="20" height="20"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><circle cx="17.5" cy="9" r="2.4"/><path d="M16 13.2c2.3.3 4 2 4 4.3"/></svg>,
+  Bullseye:(p?: any) => <svg viewBox="0 0 24 24" fill="none" stroke={p?.c||C.gold} strokeWidth="1.6" width="20" height="20"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/></svg>,
+  Building:(p?: any) => <svg viewBox="0 0 24 24" fill="none" stroke={p?.c||C.gold} strokeWidth="1.6" width="20" height="20"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 8h.01M15 8h.01M9 12h.01M15 12h.01M9 16h.01M15 16h.01"/></svg>,
+  Clock:   (p?: any) => <svg viewBox="0 0 24 24" fill="none" stroke={p?.c||C.gold} strokeWidth="1.6" width="20" height="20"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>,
 }
 
 // ── Navbar ────────────────────────────────────────────────────────────────────
@@ -46,11 +58,11 @@ function Navbar() {
   return (
     <nav style={{
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-      background: scrolled ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.7)',
+      background: scrolled ? 'rgba(255,255,255,0.94)' : 'rgba(255,255,255,0.72)',
       backdropFilter: 'blur(16px)',
       borderBottom: `1px solid ${scrolled ? C.border : 'transparent'}`,
       transition: 'all 0.3s',
-      boxShadow: scrolled ? '0 1px 12px rgba(59,130,246,0.07)' : 'none',
+      boxShadow: scrolled ? '0 1px 14px rgba(59,130,246,0.06)' : 'none',
     }}>
       <div style={{ maxWidth: 1140, margin: '0 auto', padding: '0 24px' }}>
         <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -58,23 +70,23 @@ function Navbar() {
           {/* Logo */}
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none' }}>
             <div style={{
-              width: 34, height: 34, borderRadius: 10,
-              background: `linear-gradient(135deg, ${C.blue}, ${C.blueDk})`,
+              width: 34, height: 34, borderRadius: 9,
+              background: C.black,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 3px 10px rgba(59,130,246,0.3)',
+              boxShadow: '0 3px 10px rgba(59,130,246,0.28)',
             }}>
-              <span style={{ color: C.white, fontWeight: 800, fontSize: 15 }}>D</span>
+              <span style={{ color: C.gold, fontWeight: 800, fontSize: 15, fontFamily: 'Hind, sans-serif' }}>D</span>
             </div>
-            <span style={{ fontFamily: 'Hind, sans-serif', fontWeight: 800, fontSize: 18, color: C.ink }}>DISHA AI</span>
+            <span style={{ fontFamily: 'Hind, sans-serif', fontWeight: 800, fontSize: 18, color: C.ink, letterSpacing: '0.2px' }}>DISHA AI</span>
           </Link>
 
           {/* Desktop links */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 36 }} className="hidden md:flex">
             {['Features', 'How it works', 'For Employers'].map(l => (
               <a key={l} href={`#${l.toLowerCase().replace(/ /g,'-')}`}
-                style={{ fontSize: 14, color: C.mid, textDecoration: 'none', fontWeight: 500, transition: 'color 0.2s' }}
-                onMouseOver={e => e.currentTarget.style.color = C.blue}
-                onMouseOut={e => e.currentTarget.style.color = C.mid}
+                style={{ fontSize: 14, color: C.inkSoft, textDecoration: 'none', fontWeight: 500, transition: 'color 0.2s' }}
+                onMouseOver={e => e.currentTarget.style.color = C.ink}
+                onMouseOut={e => e.currentTarget.style.color = C.inkSoft}
               >{l}</a>
             ))}
           </div>
@@ -83,19 +95,19 @@ function Navbar() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }} className="hidden md:flex">
             <Link to="/auth/login" style={{
               padding: '7px 18px', borderRadius: 9, fontSize: 14, fontWeight: 600,
-              color: C.blue, textDecoration: 'none', border: `1.5px solid ${C.border}`,
+              color: C.ink, textDecoration: 'none', border: `1.5px solid ${C.borderDk}`,
               background: 'transparent', transition: 'all 0.2s',
             }}
-              onMouseOver={e => e.currentTarget.style.background = C.blueLt}
+              onMouseOver={e => e.currentTarget.style.background = C.creamDk}
               onMouseOut={e => e.currentTarget.style.background = 'transparent'}
             >Log in</Link>
             <Link to="/auth/register" style={{
               padding: '7px 20px', borderRadius: 9, fontSize: 14, fontWeight: 700,
-              background: C.blue, color: C.white, textDecoration: 'none',
-              boxShadow: '0 3px 12px rgba(59,130,246,0.35)', transition: 'all 0.2s',
+              background: C.black, color: C.white, textDecoration: 'none',
+              boxShadow: '0 3px 12px rgba(59,130,246,0.28)', transition: 'all 0.2s',
             }}
-              onMouseOver={e => { e.currentTarget.style.background = C.blueDk; e.currentTarget.style.transform = 'translateY(-1px)' }}
-              onMouseOut={e => { e.currentTarget.style.background = C.blue; e.currentTarget.style.transform = 'translateY(0)' }}
+              onMouseOver={e => { e.currentTarget.style.background = C.blackSoft; e.currentTarget.style.transform = 'translateY(-1px)' }}
+              onMouseOut={e => { e.currentTarget.style.background = C.black; e.currentTarget.style.transform = 'translateY(0)' }}
             >Get Started</Link>
           </div>
 
@@ -105,14 +117,14 @@ function Navbar() {
         </div>
 
         {open && (
-          <div style={{ background: C.white, borderRadius: 14, padding: 20, marginBottom: 12, boxShadow: '0 8px 32px rgba(59,130,246,0.1)', border: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', gap: 14 }} className="md:hidden">
+          <div style={{ background: C.white, borderRadius: 14, padding: 20, marginBottom: 12, boxShadow: '0 8px 32px rgba(59,130,246,0.10)', border: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', gap: 14 }} className="md:hidden">
             {['Features','How it works','For Employers'].map(l => (
               <a key={l} href={`#${l.toLowerCase().replace(/ /g,'-')}`} onClick={() => setOpen(false)}
-                style={{ fontSize: 14, color: C.mid, textDecoration: 'none', fontWeight: 500 }}>{l}</a>
+                style={{ fontSize: 14, color: C.inkSoft, textDecoration: 'none', fontWeight: 500 }}>{l}</a>
             ))}
             <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <Link to="/auth/login" onClick={() => setOpen(false)} style={{ padding: '10px', borderRadius: 9, fontSize: 14, fontWeight: 600, color: C.blue, textDecoration: 'none', border: `1.5px solid ${C.border}`, textAlign: 'center' }}>Log in</Link>
-              <Link to="/auth/register" onClick={() => setOpen(false)} style={{ padding: '10px', borderRadius: 9, fontSize: 14, fontWeight: 700, background: C.blue, color: C.white, textDecoration: 'none', textAlign: 'center' }}>Get Started</Link>
+              <Link to="/auth/login" onClick={() => setOpen(false)} style={{ padding: '10px', borderRadius: 9, fontSize: 14, fontWeight: 600, color: C.ink, textDecoration: 'none', border: `1.5px solid ${C.borderDk}`, textAlign: 'center' }}>Log in</Link>
+              <Link to="/auth/register" onClick={() => setOpen(false)} style={{ padding: '10px', borderRadius: 9, fontSize: 14, fontWeight: 700, background: C.black, color: C.white, textDecoration: 'none', textAlign: 'center' }}>Get Started</Link>
             </div>
           </div>
         )}
@@ -126,12 +138,12 @@ function Hero() {
   return (
     <section style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center',
-      background: `linear-gradient(170deg, ${C.blueXlt} 0%, #FFFFFF 55%, ${C.blueLt} 100%)`,
+      background: `linear-gradient(170deg, ${C.cream} 0%, #FFFFFF 55%, ${C.creamDk} 100%)`,
       paddingTop: 80, position: 'relative', overflow: 'hidden',
     }}>
       {/* Soft background blobs */}
-      <div style={{ position:'absolute', width: 560, height: 560, borderRadius:'50%', background: 'radial-gradient(circle, rgba(147,197,253,0.18) 0%, transparent 70%)', top:'-100px', right:'-120px', pointerEvents:'none' }} />
-      <div style={{ position:'absolute', width: 360, height: 360, borderRadius:'50%', background: 'radial-gradient(circle, rgba(99,102,241,0.07) 0%, transparent 70%)', bottom:'5%', left:'-60px', pointerEvents:'none' }} />
+      <div style={{ position:'absolute', width: 560, height: 560, borderRadius:'50%', background: 'radial-gradient(circle, rgba(59,130,246,0.10) 0%, transparent 70%)', top:'-100px', right:'-120px', pointerEvents:'none' }} />
+      <div style={{ position:'absolute', width: 360, height: 360, borderRadius:'50%', background: 'radial-gradient(circle, rgba(59,130,246,0.05) 0%, transparent 70%)', bottom:'5%', left:'-60px', pointerEvents:'none' }} />
 
       <div style={{ maxWidth: 1140, margin: '0 auto', padding: '48px 24px', width: '100%' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 64, alignItems: 'center' }}
@@ -142,11 +154,11 @@ function Hero() {
             {/* Badge */}
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 7,
-              background: 'rgba(59,130,246,0.08)', border: `1px solid rgba(59,130,246,0.2)`,
+              background: C.goldLt, border: `1px solid rgba(59,130,246,0.3)`,
               borderRadius: 100, padding: '5px 14px', marginBottom: 24,
             }}>
-              <span style={{ fontSize: 14 }}>✦</span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: C.blue }}>AI-powered career intelligence for UPSC aspirants</span>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.gold }} />
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#1D4ED8' }}>AI-powered career intelligence for UPSC aspirants</span>
             </div>
 
             <h1 style={{
@@ -156,11 +168,11 @@ function Hero() {
               color: C.ink, marginBottom: 20, letterSpacing: '-0.5px',
             }}>
               Your UPSC journey{' '}
-              <span style={{ color: C.blue }}>made you rare.</span>
+              <span style={{ color: C.gold }}>made you rare.</span>
               <br />Now let it launch your career.
             </h1>
 
-            <p style={{ fontSize: 16, color: C.mid, lineHeight: 1.75, maxWidth: 440, marginBottom: 36 }}>
+            <p style={{ fontSize: 16, color: C.inkSoft, lineHeight: 1.75, maxWidth: 440, marginBottom: 36 }}>
               DISHA AI matches UPSC aspirants with employers who value analytical depth and governance knowledge — turning years of preparation into a career advantage.
             </p>
 
@@ -169,22 +181,22 @@ function Hero() {
               <Link to="/auth/register" style={{
                 display:'inline-flex', alignItems:'center', gap: 8,
                 padding: '12px 26px', borderRadius: 12, fontSize: 15, fontWeight: 700,
-                background: C.blue, color: C.white, textDecoration: 'none',
-                boxShadow: '0 4px 18px rgba(59,130,246,0.38)', transition: 'all 0.2s',
+                background: C.black, color: C.white, textDecoration: 'none',
+                boxShadow: '0 6px 20px rgba(59,130,246,0.30)', transition: 'all 0.2s',
               }}
-                onMouseOver={e => { e.currentTarget.style.background = C.blueDk; e.currentTarget.style.transform = 'translateY(-2px)' }}
-                onMouseOut={e => { e.currentTarget.style.background = C.blue; e.currentTarget.style.transform = 'translateY(0)' }}
+                onMouseOver={e => { e.currentTarget.style.background = C.blackSoft; e.currentTarget.style.transform = 'translateY(-2px)' }}
+                onMouseOut={e => { e.currentTarget.style.background = C.black; e.currentTarget.style.transform = 'translateY(0)' }}
               >
                 Start free profile <Icon.Arrow />
               </Link>
               <Link to="/auth/register/employer" style={{
                 display:'inline-flex', alignItems:'center', gap: 7,
                 padding: '12px 22px', borderRadius: 12, fontSize: 14, fontWeight: 600,
-                border: `1.5px solid ${C.border}`, color: C.ink,
+                border: `1.5px solid ${C.borderDk}`, color: C.ink,
                 textDecoration: 'none', background: C.white, transition: 'all 0.2s',
               }}
-                onMouseOver={e => { e.currentTarget.style.borderColor = C.blue; e.currentTarget.style.color = C.blue }}
-                onMouseOut={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.ink }}
+                onMouseOver={e => { e.currentTarget.style.borderColor = C.gold; e.currentTarget.style.color = C.gold }}
+                onMouseOut={e => { e.currentTarget.style.borderColor = C.borderDk; e.currentTarget.style.color = C.ink }}
               >
                 For employers
               </Link>
@@ -194,12 +206,12 @@ function Hero() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ display: 'flex' }}>
-                  {['#BFDBFE','#DDD6FE','#BBF7D0','#FDE68A'].map((c,i) => (
+                  {['#E4D9C3','#D9CDB8','#E8E1D2','#EDD9A8'].map((c,i) => (
                     <div key={i} style={{
                       width: 30, height: 30, borderRadius: '50%', background: c,
-                      border: '2px solid white', marginLeft: i ? -9 : 0,
+                      border: `2px solid ${C.cream}`, marginLeft: i ? -9 : 0,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 11, fontWeight: 700, color: '#475569',
+                      fontSize: 11, fontWeight: 700, color: C.ink,
                     }}>{['A','R','S','P'][i]}</div>
                   ))}
                 </div>
@@ -214,122 +226,37 @@ function Hero() {
             </div>
           </div>
 
-          {/* Right — floating cards visual */}
-          <div style={{ position:'relative', height: 460, display:'flex', alignItems:'center', justifyContent:'center' }} className="hidden lg:flex">
+          {/* Right — illustration, edges faded into the page background */}
+          <div style={{ position:'relative', height: 480, display:'flex', alignItems:'center', justifyContent:'center' }} className="hidden lg:flex">
 
-            {/* Soft center circle */}
-            <div style={{ width: 280, height: 280, borderRadius:'50%', background: 'radial-gradient(circle, rgba(147,197,253,0.22) 0%, transparent 70%)', position:'absolute' }} />
+            {/* Soft glow behind the illustration, matched to the page background tone */}
+            <div style={{ width: 460, height: 460, borderRadius:'50%', background: `radial-gradient(circle, ${C.creamDk} 0%, transparent 72%)`, position:'absolute' }} />
 
-            {/* KRS score card */}
+            <img
+              src={heroKeyImg}
+              alt="Aspirant unlocking a career opportunity"
+              style={{
+                width: '100%', maxWidth: 520, display: 'block', position: 'relative',
+                WebkitMaskImage: 'radial-gradient(ellipse 62% 60% at 50% 48%, black 50%, transparent 88%)',
+                maskImage: 'radial-gradient(ellipse 62% 60% at 50% 48%, black 50%, transparent 88%)',
+                mixBlendMode: 'multiply',
+              }}
+            />
+
+            {/* Single supporting badge, kept minimal */}
             <div style={{
-              position:'absolute', top:'6%', left:'4%',
-              background: C.white, borderRadius: 18, padding: '16px 20px',
-              boxShadow: '0 6px 28px rgba(59,130,246,0.1)', border: `1px solid ${C.border}`,
-              minWidth: 160, animation: 'floatA 5s ease-in-out infinite',
+              position:'absolute', top: 36, right: 8,
+              background: C.white, borderRadius: 16, padding: '12px 16px',
+              boxShadow: '0 12px 30px rgba(59,130,246,0.14)', border: `1px solid ${C.border}`,
+              display:'flex', alignItems:'center', gap: 10,
+              animation: 'floatA 5s ease-in-out infinite',
             }}>
-              <p style={{ fontSize: 10, color: C.muted, fontWeight: 600, textTransform:'uppercase', letterSpacing:'0.5px', marginBottom: 10 }}>KRS Score</p>
-              <div style={{ display:'flex', alignItems:'center', gap: 12 }}>
-                <div style={{ position:'relative', width: 48, height: 48 }}>
-                  <svg width="48" height="48" viewBox="0 0 48 48" style={{ transform:'rotate(-90deg)' }}>
-                    <circle cx="24" cy="24" r="19" fill="none" stroke="#EFF6FF" strokeWidth="4.5" />
-                    <circle cx="24" cy="24" r="19" fill="none" stroke={C.blue} strokeWidth="4.5" strokeLinecap="round"
-                      strokeDasharray={119.4} strokeDashoffset={119.4*0.28} />
-                  </svg>
-                  <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:13, fontWeight:800, color: C.ink }}>72</div>
-                </div>
-                <div>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>Strong</p>
-                  <p style={{ fontSize: 11, color: C.muted }}>+8 this week</p>
-                </div>
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: C.goldLt, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <Icon.Bullseye c={C.gold} />
               </div>
-            </div>
-
-            {/* Job match card */}
-            <div style={{
-              position:'absolute', top:'14%', right:'0%',
-              background: C.white, borderRadius: 18, padding: '16px 18px',
-              boxShadow: '0 6px 28px rgba(59,130,246,0.1)', border: `1px solid ${C.border}`,
-              minWidth: 200, animation: 'floatB 6s ease-in-out 0.5s infinite',
-            }}>
-              <div style={{ display:'flex', alignItems:'center', gap: 10, marginBottom: 10 }}>
-                <div style={{ width: 32, height: 32, borderRadius: 10, background: C.blueLt, display:'flex', alignItems:'center', justifyContent:'center', fontSize: 16 }}>🎯</div>
-                <div>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: C.ink }}>Policy Analyst</p>
-                  <p style={{ fontSize: 11, color: C.muted }}>Indicc Associates</p>
-                </div>
-              </div>
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 6 }}>
-                <span style={{ fontSize: 11, color: C.muted }}>Match score</span>
-                <span style={{ fontSize: 13, fontWeight: 800, color: C.blue }}>87%</span>
-              </div>
-              <div style={{ height: 5, borderRadius: 10, background: C.blueLt, overflow:'hidden' }}>
-                <div style={{ width:'87%', height:'100%', background: C.blue, borderRadius: 10 }} />
-              </div>
-            </div>
-
-            {/* Skills card */}
-            <div style={{
-              position:'absolute', bottom:'20%', left:'0%',
-              background: C.white, borderRadius: 18, padding: '14px 18px',
-              boxShadow: '0 6px 28px rgba(59,130,246,0.1)', border: `1px solid ${C.border}`,
-              minWidth: 190, animation: 'floatA 7s ease-in-out 1s infinite',
-            }}>
-              <p style={{ fontSize: 10, color: C.muted, fontWeight: 600, textTransform:'uppercase', letterSpacing:'0.5px', marginBottom: 8 }}>Skills matched</p>
-              <div style={{ display:'flex', flexWrap:'wrap', gap: 5 }}>
-                {['Policy Research','Analysis','Writing'].map(sk => (
-                  <span key={sk} style={{ padding:'3px 9px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: C.blueLt, color: C.blue }}>✓ {sk}</span>
-                ))}
-              </div>
-            </div>
-
-            {/* Notification card */}
-            <div style={{
-              position:'absolute', bottom:'8%', right:'5%',
-              background: C.white, borderRadius: 18, padding: '14px 16px',
-              boxShadow: '0 6px 28px rgba(59,130,246,0.1)', border: `1px solid ${C.border}`,
-              minWidth: 198, animation: 'floatB 5s ease-in-out 0.8s infinite',
-            }}>
-              <div style={{ display:'flex', alignItems:'flex-start', gap: 10 }}>
-                <div style={{ width: 30, height: 30, borderRadius: 9, background: '#DCFCE7', display:'flex', alignItems:'center', justifyContent:'center', fontSize: 14, flexShrink: 0 }}>🎉</div>
-                <div>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: C.ink }}>New job matched!</p>
-                  <p style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Strategy Consultant · Delhi</p>
-                  <p style={{ fontSize: 11, color:'#22C55E', fontWeight: 600, marginTop: 3 }}>92% match</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Central phone */}
-            <div style={{
-              width: 164, height: 300, borderRadius: 26,
-              background: `linear-gradient(160deg, #EFF6FF 0%, #DBEAFE 100%)`,
-              border: `2px solid ${C.border}`,
-              boxShadow: '0 20px 60px rgba(59,130,246,0.18)',
-              display:'flex', flexDirection:'column', overflow:'hidden',
-              position:'relative',
-            }}>
-              <div style={{ padding:'16px 14px 8px', borderBottom:`1px solid ${C.border}` }}>
-                <p style={{ fontSize: 9, color: C.muted, marginBottom: 1 }}>Good afternoon</p>
-                <p style={{ fontSize: 13, fontWeight: 800, color: C.ink }}>Arjun 👋</p>
-              </div>
-              <div style={{ padding:'10px 14px', flex:1, display:'flex', flexDirection:'column', gap: 7 }}>
-                <div style={{ background:'rgba(59,130,246,0.07)', borderRadius: 10, padding: 10 }}>
-                  <p style={{ fontSize: 8, color: C.muted, textTransform:'uppercase', letterSpacing:'0.4px', marginBottom: 3 }}>KRS Score</p>
-                  <p style={{ fontSize: 22, fontWeight: 900, color: C.blue }}>72</p>
-                  <p style={{ fontSize: 9, color: C.mid }}>Strong profile</p>
-                </div>
-                {[{t:'Policy Analyst',c:'Indicc',p:87},{t:'CSR Manager',c:'Harshita',p:74}].map(j => (
-                  <div key={j.t} style={{ background: C.white, borderRadius: 10, padding:'8px 10px', border:`1px solid ${C.border}` }}>
-                    <p style={{ fontSize: 9, fontWeight: 700, color: C.ink }}>{j.t}</p>
-                    <p style={{ fontSize: 8, color: C.muted }}>{j.c}</p>
-                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop: 4 }}>
-                      <div style={{ flex:1, height: 3, borderRadius: 3, background: C.blueLt, overflow:'hidden', marginRight: 6 }}>
-                        <div style={{ width:`${j.p}%`, height:'100%', background: C.blue, borderRadius: 3 }} />
-                      </div>
-                      <span style={{ fontSize: 8, fontWeight: 700, color: C.blue }}>{j.p}%</span>
-                    </div>
-                  </div>
-                ))}
+              <div>
+                <p style={{ fontSize: 12, fontWeight: 700, color: C.ink }}>New match</p>
+                <p style={{ fontSize: 13, fontWeight: 800, color: C.success }}>92%</p>
               </div>
             </div>
           </div>
@@ -342,35 +269,37 @@ function Hero() {
 // ── Feature strip ─────────────────────────────────────────────────────────────
 function FeatureStrip() {
   const items = [
-    { icon: '🎯', title: 'KRS Score', desc: 'Tracks your knowledge, readiness and skills in one intelligent score.' },
-    { icon: '💼', title: 'Smart Matching', desc: 'Jobs ranked by how well your UPSC profile aligns with each role.' },
-    { icon: '⚡', title: 'Skill Gap Analysis', desc: 'See exactly which skills to build for each opportunity.' },
-    { icon: '🗺️', title: 'Career Paths', desc: 'Explore sectors where UPSC preparation gives you a real edge.' },
+    { Icon: Icon.Target,    title: 'KRS Score', desc: 'Tracks your knowledge, readiness and skills in one intelligent score.' },
+    { Icon: Icon.Briefcase, title: 'Smart Matching', desc: 'Jobs ranked by how well your UPSC profile aligns with each role.' },
+    { Icon: Icon.Trend,     title: 'Skill Gap Analysis', desc: 'See exactly which skills to build for each opportunity.' },
+    { Icon: Icon.Map,       title: 'Career Paths', desc: 'Explore sectors where UPSC preparation gives you a real edge.' },
   ]
   return (
-    <section id="features" style={{ background: C.white, padding: '72px 24px' }}>
+    <section id="features" style={{ background: C.white, padding: '88px 24px' }}>
       <div style={{ maxWidth: 1140, margin: '0 auto' }}>
-        <div style={{ textAlign:'center', marginBottom: 48 }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: C.blue, textTransform:'uppercase', letterSpacing:'1.2px', marginBottom: 10 }}>What you get</p>
-          <h2 style={{ fontFamily:'Hind, sans-serif', fontSize: 'clamp(22px,3vw,32px)', fontWeight: 800, color: C.ink, marginBottom: 12 }}>
+        <div style={{ textAlign:'center', marginBottom: 56 }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: C.gold, textTransform:'uppercase', letterSpacing:'1.5px', marginBottom: 12 }}>What you get</p>
+          <h2 style={{ fontFamily:'Hind, sans-serif', fontSize: 'clamp(22px,3vw,34px)', fontWeight: 800, color: C.ink, marginBottom: 14 }}>
             Built specifically for UPSC aspirants
           </h2>
-          <p style={{ fontSize: 15, color: C.mid, maxWidth: 480, margin: '0 auto', lineHeight: 1.7 }}>
+          <p style={{ fontSize: 15, color: C.inkSoft, maxWidth: 480, margin: '0 auto', lineHeight: 1.7 }}>
             Every feature is designed to translate your preparation into real career advantage.
           </p>
         </div>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(240px,1fr))', gap: 20 }}>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(250px,1fr))', gap: 1, background: C.border, borderRadius: 20, overflow: 'hidden', border: `1px solid ${C.border}` }}>
           {items.map(item => (
             <div key={item.title} style={{
-              background: C.blueXlt, borderRadius: 18, padding: '28px 24px',
-              border: `1px solid ${C.border}`, transition: 'all 0.25s',
+              background: C.white, padding: '36px 28px',
+              transition: 'background 0.25s',
             }}
-              onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 12px 36px rgba(59,130,246,0.12)' }}
-              onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none' }}
+              onMouseOver={e => { e.currentTarget.style.background = C.cream }}
+              onMouseOut={e => { e.currentTarget.style.background = C.white }}
             >
-              <div style={{ width: 44, height: 44, borderRadius: 13, background: C.white, display:'flex', alignItems:'center', justifyContent:'center', fontSize: 20, marginBottom: 16, boxShadow:'0 2px 8px rgba(59,130,246,0.1)' }}>{item.icon}</div>
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: C.creamDk, display:'flex', alignItems:'center', justifyContent:'center', marginBottom: 20 }}>
+                <item.Icon c={C.ink} />
+              </div>
               <h3 style={{ fontFamily:'Hind, sans-serif', fontSize: 16, fontWeight: 700, color: C.ink, marginBottom: 8 }}>{item.title}</h3>
-              <p style={{ fontSize: 13, color: C.mid, lineHeight: 1.65 }}>{item.desc}</p>
+              <p style={{ fontSize: 13.5, color: C.inkSoft, lineHeight: 1.65 }}>{item.desc}</p>
             </div>
           ))}
         </div>
@@ -388,24 +317,19 @@ function HowItWorks() {
     { n:'04', title:'Choose your path', desc:'Explore career tracks and pick the ones that suit your strengths and aspirations.' },
   ]
   return (
-    <section id="how-it-works" style={{ background: C.blueXlt, padding: '72px 24px' }}>
+    <section id="how-it-works" style={{ background: C.creamDk, padding: '88px 24px' }}>
       <div style={{ maxWidth: 1140, margin: '0 auto' }}>
-        <div style={{ textAlign:'center', marginBottom: 52 }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: C.blue, textTransform:'uppercase', letterSpacing:'1.2px', marginBottom: 10 }}>How it works</p>
-          <h2 style={{ fontFamily:'Hind, sans-serif', fontSize: 'clamp(22px,3vw,32px)', fontWeight: 800, color: C.ink }}>Four steps to your next opportunity</h2>
+        <div style={{ textAlign:'center', marginBottom: 56 }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: C.gold, textTransform:'uppercase', letterSpacing:'1.5px', marginBottom: 12 }}>How it works</p>
+          <h2 style={{ fontFamily:'Hind, sans-serif', fontSize: 'clamp(22px,3vw,34px)', fontWeight: 800, color: C.ink }}>Four steps to your next opportunity</h2>
         </div>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px,1fr))', gap: 24 }}>
-          {steps.map((s,i) => (
+          {steps.map((s) => (
             <div key={s.n} style={{ position:'relative' }}>
-              {i < steps.length - 1 && (
-                <div style={{ position:'absolute', top: 22, left:'calc(100% - 12px)', width: 24, height: 1, background: C.border, display:'none' }} className="lg:block" />
-              )}
-              <div style={{ background: C.white, borderRadius: 18, padding: '26px 22px', border: `1px solid ${C.border}`, height:'100%' }}>
-                <div style={{ display:'flex', alignItems:'center', gap: 10, marginBottom: 14 }}>
-                  <span style={{ fontSize: 11, fontWeight: 800, color: C.blue, background: C.blueLt, padding:'4px 10px', borderRadius: 20 }}>{s.n}</span>
-                </div>
+              <div style={{ background: C.white, borderRadius: 18, padding: '28px 24px', border: `1px solid ${C.border}`, height:'100%' }}>
+                <p style={{ fontFamily:'Hind, sans-serif', fontSize: 28, fontWeight: 800, color: C.creamDk, marginBottom: 14, WebkitTextStroke: `1.5px ${C.gold}` }}>{s.n}</p>
                 <h3 style={{ fontFamily:'Hind, sans-serif', fontSize: 15, fontWeight: 700, color: C.ink, marginBottom: 8 }}>{s.title}</h3>
-                <p style={{ fontSize: 13, color: C.mid, lineHeight: 1.65 }}>{s.desc}</p>
+                <p style={{ fontSize: 13, color: C.inkSoft, lineHeight: 1.65 }}>{s.desc}</p>
               </div>
             </div>
           ))}
@@ -424,50 +348,50 @@ function ForEmployers() {
     'Reach candidates in 24 hours',
   ]
   return (
-    <section id="for-employers" style={{ background: C.white, padding: '72px 24px' }}>
+    <section id="for-employers" style={{ background: C.white, padding: '88px 24px' }}>
       <div style={{ maxWidth: 1140, margin: '0 auto' }}>
         <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap: 60, alignItems:'center' }} className="lg:grid-cols-2 grid-cols-1">
           <div>
-            <p style={{ fontSize: 12, fontWeight: 700, color: C.blue, textTransform:'uppercase', letterSpacing:'1.2px', marginBottom: 12 }}>For employers</p>
-            <h2 style={{ fontFamily:'Hind, sans-serif', fontSize: 'clamp(22px,2.8vw,32px)', fontWeight: 800, color: C.ink, lineHeight: 1.25, marginBottom: 16 }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: C.gold, textTransform:'uppercase', letterSpacing:'1.5px', marginBottom: 14 }}>For employers</p>
+            <h2 style={{ fontFamily:'Hind, sans-serif', fontSize: 'clamp(22px,2.8vw,34px)', fontWeight: 800, color: C.ink, lineHeight: 1.25, marginBottom: 16 }}>
               Hire people with rare analytical depth
             </h2>
-            <p style={{ fontSize: 15, color: C.mid, lineHeight: 1.7, marginBottom: 28 }}>
+            <p style={{ fontSize: 15, color: C.inkSoft, lineHeight: 1.7, marginBottom: 28 }}>
               UPSC aspirants bring structured thinking, policy awareness and discipline that's hard to find elsewhere. DISHA helps you reach them.
             </p>
             <div style={{ display:'flex', flexDirection:'column', gap: 12, marginBottom: 32 }}>
               {perks.map(p => (
                 <div key={p} style={{ display:'flex', alignItems:'center', gap: 10 }}>
-                  <div style={{ width: 22, height: 22, borderRadius: '50%', background: C.blueLt, display:'flex', alignItems:'center', justifyContent:'center', flexShrink: 0 }}><Icon.Check /></div>
-                  <span style={{ fontSize: 14, color: C.mid }}>{p}</span>
+                  <div style={{ width: 22, height: 22, borderRadius: '50%', background: C.goldLt, display:'flex', alignItems:'center', justifyContent:'center', flexShrink: 0 }}><Icon.Check /></div>
+                  <span style={{ fontSize: 14, color: C.inkSoft }}>{p}</span>
                 </div>
               ))}
             </div>
             <Link to="/auth/register/employer" style={{
               display:'inline-flex', alignItems:'center', gap: 8,
               padding: '11px 24px', borderRadius: 11, fontSize: 14, fontWeight: 700,
-              background: C.blue, color: C.white, textDecoration:'none',
-              boxShadow:'0 4px 16px rgba(59,130,246,0.32)', transition:'all 0.2s',
+              background: C.black, color: C.white, textDecoration:'none',
+              boxShadow:'0 6px 18px rgba(59,130,246,0.28)', transition:'all 0.2s',
             }}
-              onMouseOver={e => { e.currentTarget.style.background = C.blueDk; e.currentTarget.style.transform = 'translateY(-1px)' }}
-              onMouseOut={e => { e.currentTarget.style.background = C.blue; e.currentTarget.style.transform = 'translateY(0)' }}
+              onMouseOver={e => { e.currentTarget.style.background = C.blackSoft; e.currentTarget.style.transform = 'translateY(-1px)' }}
+              onMouseOut={e => { e.currentTarget.style.background = C.black; e.currentTarget.style.transform = 'translateY(0)' }}
             >
               Post your first job <Icon.Arrow />
             </Link>
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap: 16 }}>
             {[
-              { v:'2,400+', l:'Active aspirants', icon:'👤' },
-              { v:'87%',    l:'Match accuracy',   icon:'🎯' },
-              { v:'140+',   l:'Employers',         icon:'🏢' },
-              { v:'3 days', l:'Avg. hire time',    icon:'⚡' },
+              { v:'2,400+', l:'Active aspirants', Icon: Icon.Users },
+              { v:'87%',    l:'Match accuracy',   Icon: Icon.Bullseye },
+              { v:'140+',   l:'Employers',         Icon: Icon.Building },
+              { v:'3 days', l:'Avg. hire time',    Icon: Icon.Clock },
             ].map(s => (
               <div key={s.l} style={{
-                background: C.blueXlt, borderRadius: 16, padding: '22px 18px',
+                background: C.cream, borderRadius: 16, padding: '24px 18px',
                 border: `1px solid ${C.border}`, textAlign:'center',
               }}>
-                <div style={{ fontSize: 22, marginBottom: 8 }}>{s.icon}</div>
-                <p style={{ fontFamily:'Hind, sans-serif', fontSize: 22, fontWeight: 800, color: C.blue, marginBottom: 4 }}>{s.v}</p>
+                <div style={{ display:'flex', justifyContent:'center', marginBottom: 12 }}><s.Icon /></div>
+                <p style={{ fontFamily:'Hind, sans-serif', fontSize: 22, fontWeight: 800, color: C.ink, marginBottom: 4 }}>{s.v}</p>
                 <p style={{ fontSize: 12, color: C.muted }}>{s.l}</p>
               </div>
             ))}
@@ -487,17 +411,17 @@ function CtaBanner() {
         <h2 style={{ fontFamily:'Hind, sans-serif', fontSize: 'clamp(22px,3vw,30px)', fontWeight: 800, color: C.ink, marginBottom: 14 }}>
           Ready to turn your preparation into opportunity?
         </h2>
-        <p style={{ fontSize: 15, color: C.mid, lineHeight: 1.7, marginBottom: 28 }}>
+        <p style={{ fontSize: 15, color: C.inkSoft, lineHeight: 1.7, marginBottom: 28 }}>
           Join thousands of UPSC aspirants who've discovered careers that value everything they built.
         </p>
         <Link to="/auth/register" style={{
           display:'inline-flex', alignItems:'center', gap: 8,
           padding: '13px 30px', borderRadius: 13, fontSize: 15, fontWeight: 700,
-          background: C.blue, color: C.white, textDecoration:'none',
+          background: C.black, color: C.white, textDecoration:'none',
           boxShadow:'0 6px 24px rgba(59,130,246,0.35)', transition:'all 0.2s',
         }}
-          onMouseOver={e => { e.currentTarget.style.background = C.blueDk; e.currentTarget.style.transform = 'translateY(-2px)' }}
-          onMouseOut={e => { e.currentTarget.style.background = C.blue; e.currentTarget.style.transform = 'translateY(0)' }}
+          onMouseOver={e => { e.currentTarget.style.background = C.blackSoft; e.currentTarget.style.transform = 'translateY(-2px)' }}
+          onMouseOut={e => { e.currentTarget.style.background = C.black; e.currentTarget.style.transform = 'translateY(0)' }}
         >
           Start for free today <Icon.Arrow />
         </Link>
@@ -513,8 +437,8 @@ function Footer() {
     <footer style={{ background: C.white, borderTop:`1px solid ${C.border}`, padding:'32px 24px' }}>
       <div style={{ maxWidth: 1140, margin:'0 auto', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap: 16 }}>
         <div style={{ display:'flex', alignItems:'center', gap: 9 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: C.blue, display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <span style={{ color: C.white, fontWeight: 800, fontSize: 13 }}>D</span>
+          <div style={{ width: 28, height: 28, borderRadius: 8, background: C.black, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <span style={{ color: C.gold, fontWeight: 800, fontSize: 13 }}>D</span>
           </div>
           <span style={{ fontFamily:'Hind, sans-serif', fontWeight: 700, fontSize: 15, color: C.ink }}>DISHA AI</span>
         </div>
@@ -522,7 +446,7 @@ function Footer() {
         <div style={{ display:'flex', gap: 20 }}>
           {['Privacy','Terms','Contact'].map(l => (
             <a key={l} href="#" style={{ fontSize: 12, color: C.muted, textDecoration:'none', transition:'color 0.2s' }}
-              onMouseOver={e => e.currentTarget.style.color = C.blue}
+              onMouseOver={e => e.currentTarget.style.color = C.gold}
               onMouseOut={e => e.currentTarget.style.color = C.muted}
             >{l}</a>
           ))}
