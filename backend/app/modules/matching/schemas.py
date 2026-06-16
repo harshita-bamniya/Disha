@@ -21,11 +21,16 @@ class JobListItem(BaseModel):
     salary_max: Optional[int]
     required_skills: list[str]
     min_k_score: int
-    match_score: Optional[int]           # null when user has no KRS yet
-    skill_overlap_pct: Optional[int]     # % of required skills user already has
-    semantic_score: Optional[int] = None  # cosine similarity score (0-100); null when embeddings not yet computed
+    match_score: Optional[int]
+    skill_overlap_pct: Optional[int]
+    semantic_score: Optional[int] = None
     expires_at: Optional[datetime]
     created_at: datetime
+    # v2.0 additions
+    is_stretch_goal: bool = False
+    stretch_goal_message: Optional[str] = None
+    match_quality: str = "exploratory"
+    match_reasons: list[str] = []
 
     model_config = {"from_attributes": True}
 
@@ -40,6 +45,11 @@ class JobDetail(JobListItem):
 
 class ApplyRequest(BaseModel):
     cover_note: Optional[str] = Field(None, max_length=1000)
+
+
+class WithdrawRequest(BaseModel):
+    reason: Optional[str] = Field(None, max_length=100)
+    note: Optional[str] = Field(None, max_length=500)
 
 
 class ApplicationOut(BaseModel):

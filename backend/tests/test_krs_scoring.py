@@ -6,6 +6,7 @@ import pytest
 from unittest.mock import MagicMock
 
 from app.modules.krs import scoring, matching
+from app.modules.recommendations.ranker import _skill_overlap_pct
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -111,7 +112,7 @@ class TestRScore:
             highest_qualification="doctorate",
             has_work_experience=True,
             work_experience_years=10,
-            skills=list(scoring.SKILL_WEIGHTS.keys())[:15]
+            skills=[f"Skill {i}" for i in range(15)]
         )
         score = scoring.compute_r_score(profile)
         assert 0 <= score <= 100
@@ -125,9 +126,11 @@ class TestSScore:
         assert scoring.compute_s_score(profile) == 0
 
     def test_high_demand_skills_higher_score(self):
-        high_demand = make_profile(skills=["Analytical Reasoning", "Research & Analysis", "Data Analysis"])
-        low_demand = make_profile(skills=["History", "Geography", "Environment"])
-        assert scoring.compute_s_score(high_demand) > scoring.compute_s_score(low_demand)
+        # Without a DB, compute_s_score falls back to breadth-only scoring.
+        # More skills = higher breadth score.
+        more_skills = make_profile(skills=["Analytical Reasoning", "Research & Analysis", "Data Analysis", "Leadership", "Communication", "Economics", "Ethics & Integrity"])
+        fewer_skills = make_profile(skills=["History"])
+        assert scoring.compute_s_score(more_skills) > scoring.compute_s_score(fewer_skills)
 
     def test_unknown_skill_gets_default_weight(self):
         profile = make_profile(skills=["Some Random Skill"])
@@ -135,7 +138,9 @@ class TestSScore:
         assert 0 <= score <= 100
 
     def test_score_bounded(self):
-        profile = make_profile(skills=list(scoring.SKILL_WEIGHTS.keys()))
+        # Use many skills to exercise the boundary
+        many_skills = [f"Skill {i}" for i in range(20)]
+        profile = make_profile(skills=many_skills)
         score = scoring.compute_s_score(profile)
         assert 0 <= score <= 100
 
@@ -173,27 +178,27 @@ class TestMatching:
     def test_full_overlap(self):
         user_skills = {"Python", "Data Analysis", "Communication"}
         required = ["Python", "Data Analysis", "Communication"]
-        assert matching._skill_overlap_pct(user_skills, required) == 100
+        assert _skill_overlap_pct(user_skills, required) == 100
 
     def test_zero_overlap(self):
         user_skills = {"Python", "JavaScript"}
         required = ["Leadership", "Economics"]
-        assert matching._skill_overlap_pct(user_skills, required) == 0
+        assert _skill_overlap_pct(user_skills, required) == 0
 
     def test_partial_overlap(self):
         user_skills = {"Python", "Communication"}
         required = ["Python", "Communication", "Leadership"]
         # 2/3 matched = 67%
-        assert matching._skill_overlap_pct(user_skills, required) == 67
+        assert _skill_overlap_pct(user_skills, required) == 67
 
     def test_case_insensitive_match(self):
         user_skills = {"PYTHON", "data analysis"}
         required = ["python", "Data Analysis"]
-        assert matching._skill_overlap_pct(user_skills, required) == 100
+        assert _skill_overlap_pct(user_skills, required) == 100
 
     def test_empty_required_returns_100(self):
         user_skills = {"anything"}
-        assert matching._skill_overlap_pct(user_skills, []) == 100
+        assert _skill_overlap_pct(user_skills, []) == 100
 
     def test_krs_fit_above_threshold_full_credit(self):
         fit = matching._krs_fit(k_score=80, min_k=60)

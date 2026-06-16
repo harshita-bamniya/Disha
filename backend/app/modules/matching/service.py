@@ -61,6 +61,10 @@ def _ranked_to_list_item(r: RankedJob) -> JobListItem:
         semantic_score=r.semantic_score,
         expires_at=r.job.expires_at,
         created_at=r.job.created_at,
+        is_stretch_goal=r.is_stretch_goal,
+        stretch_goal_message=r.stretch_goal_message,
+        match_quality=r.match_quality,
+        match_reasons=r.match_reasons,
     )
 
 
@@ -102,10 +106,23 @@ def get_job_recommendations(
     if min_salary is not None:
         sql_filters.append(JobPosting.salary_min >= min_salary)
 
+    # Load application history for collaborative filtering
+    from app.models.mvp3 import Application as AppModel
+    all_apps = db.query(AppModel).all()
+    application_history = [
+        {"user_id": str(a.aspirant_id), "job_id": str(a.job_id)}
+        for a in all_apps
+    ]
+    user_applied_ids = [
+        str(a.job_id) for a in all_apps if str(a.aspirant_id) == str(user.id)
+    ]
+
     page, total = rank_jobs_for_user(
         profile, krs, db,
         extra_sql_filters=sql_filters,
         selected_sectors=_user_selected_sectors(user, db),
+        application_history=application_history,
+        applied_job_ids=user_applied_ids,
         limit=limit,
         offset=offset,
     )
@@ -292,7 +309,10 @@ def get_application_detail(application_id: str, user: User, db: Session) -> Appl
     )
 
 
-def withdraw_application(application_id: str, user: User, db: Session) -> dict:
+def withdraw_application(
+    application_id: str, user: User, db: Session,
+    reason: str | None = None, note: str | None = None,
+) -> dict:
     app = (
         db.query(Application)
         .filter(Application.id == application_id, Application.aspirant_id == user.id)
@@ -305,12 +325,15 @@ def withdraw_application(application_id: str, user: User, db: Session) -> dict:
 
     prev = app.status
     app.status = "withdrawn"
+    history_note = f"Withdrawn by applicant — {reason}" if reason else "Withdrawn by applicant"
+    if note:
+        history_note += f": {note}"
     db.add(ApplicationStatusHistory(
         application_id=app.id,
         from_status=prev,
         to_status="withdrawn",
         changed_by=user.id,
-        note="Withdrawn by applicant",
+        note=history_note,
     ))
     db.commit()
     return {"status": "withdrawn"}

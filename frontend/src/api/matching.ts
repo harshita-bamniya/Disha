@@ -151,8 +151,10 @@ export const getMyApplications = (): Promise<ApplicationOut[]> =>
 export const getApplicationDetail = (id: string): Promise<ApplicationDetailOut> =>
   apiClient.get(`/jobs/applications/${id}`).then((r) => r.data)
 
-export const withdrawApplication = (id: string): Promise<{ status: string }> =>
-  apiClient.post(`/jobs/applications/${id}/withdraw`).then((r) => r.data)
+export const withdrawApplication = (
+  id: string, reason?: string, note?: string,
+): Promise<{ status: string }> =>
+  apiClient.post(`/jobs/applications/${id}/withdraw`, { reason: reason || null, note: note || null }).then((r) => r.data)
 
 // ── Employer: candidate pipeline ──────────────────────────────────────────────
 

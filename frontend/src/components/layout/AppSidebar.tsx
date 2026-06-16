@@ -58,11 +58,12 @@ const NAV_ITEMS: { icon: React.ReactNode; label: string; path: NavPath; section?
   { icon: <MessageSquare size={16} />,   label: 'AI Interview',   path: '/app/interview/setup', section: 'mvp2' },
   { icon: <Brain size={16} />,           label: 'AI Counsellor', path: '/app/counsellor',     section: 'mvp2' },
   // Phase 3 items
-  { icon: <Briefcase size={16} />,       label: 'Jobs',         path: '/app/jobs',            section: 'phase3' },
-  { icon: <Map size={16} />,             label: 'My Roadmap',   path: '/app/roadmap',         section: 'phase3' },
+  { icon: <Briefcase size={16} />,       label: 'Jobs',            path: '/app/jobs',             section: 'phase3' },
+  { icon: <FileText size={16} />,        label: 'My Applications', path: '/app/jobs/applications', section: 'phase3' },
+  { icon: <Map size={16} />,             label: 'My Roadmap',      path: '/app/roadmap',          section: 'phase3' },
 ]
 
-export default function AppSidebar({ activePath }: { activePath: NavPath }) {
+export default function AppSidebar({ activePath }: { activePath?: NavPath }) {
   const navigate = useNavigate()
   const logout = useLogout()
   const { data } = useKrsDashboard()
@@ -148,7 +149,7 @@ export default function AppSidebar({ activePath }: { activePath: NavPath }) {
         {/* MVP2 tools section */}
         <p style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.8px', padding: '0 8px', margin: '14px 0 6px' }}>Tools</p>
         {NAV_ITEMS.filter(i => i.section === 'mvp2').map(item => {
-          const isActive = activePath === item.path || (activePath as string).startsWith(item.path + '/')
+          const isActive = activePath === item.path || (activePath ?? '').startsWith(item.path + '/')
           return (
             <button key={item.path} onClick={() => navigate(item.path)} style={{
               width: '100%', display: 'flex', alignItems: 'center', gap: 10,
@@ -171,7 +172,7 @@ export default function AppSidebar({ activePath }: { activePath: NavPath }) {
         {/* Phase 3 section */}
         <p style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.8px', padding: '0 8px', margin: '14px 0 6px' }}>Career</p>
         {NAV_ITEMS.filter(i => i.section === 'phase3').map(item => {
-          const isActive = activePath === item.path || (activePath as string).startsWith(item.path + '/')
+          const isActive = activePath === item.path
           return (
             <button key={item.path} onClick={() => navigate(item.path)} style={{
               width: '100%', display: 'flex', alignItems: 'center', gap: 10,

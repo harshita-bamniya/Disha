@@ -29,7 +29,7 @@ from app.modules.matching import service
 from app.modules.matching.schemas import (
     ApplyRequest, ApplicationDetailOut, ApplicationOut,
     JobDetail, JobRecommendationsResponse, JobCandidatePipeline,
-    UpdateApplicationStatusRequest,
+    UpdateApplicationStatusRequest, WithdrawRequest,
 )
 from pydantic import BaseModel, Field
 
@@ -166,11 +166,12 @@ def apply_to_job(
 @router.post("/jobs/applications/{application_id}/withdraw", status_code=200)
 def withdraw_application(
     application_id: str,
+    body: WithdrawRequest = WithdrawRequest(),
     current_user: User = Depends(_aspirant),
     db: Session = Depends(get_db),
 ):
     try:
-        return service.withdraw_application(application_id, current_user, db)
+        return service.withdraw_application(application_id, current_user, db, reason=body.reason, note=body.note)
     except (NotFoundException, BadRequestException) as e:
         raise HTTPException(status_code=400, detail=str(e))
 

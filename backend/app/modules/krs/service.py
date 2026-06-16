@@ -213,6 +213,10 @@ def _to_live_response(ranked: "RankedJob") -> LiveJobResponse:  # type: ignore[n
         is_prepared=ranked.is_prepared,
         skills_you_have=ranked.skills_you_have,
         skills_to_develop=ranked.skills_to_develop,
+        is_stretch_goal=ranked.is_stretch_goal,
+        stretch_goal_message=ranked.stretch_goal_message,
+        match_quality=ranked.match_quality,
+        match_reasons=ranked.match_reasons,
     )
 
 
@@ -258,11 +262,24 @@ def get_live_jobs(user: User, db: Session) -> list[LiveJobResponse]:
             or_(JobPosting.salary_max == None, JobPosting.salary_max >= profile.expected_salary_min)
         )
 
+    # Load application history for collaborative filtering
+    from app.models.mvp3 import Application as AppModel
+    all_apps = db.query(AppModel).all()
+    application_history = [
+        {"user_id": str(a.aspirant_id), "job_id": str(a.job_id)}
+        for a in all_apps
+    ]
+    user_applied_ids = [
+        str(a.job_id) for a in all_apps if str(a.aspirant_id) == str(user.id)
+    ]
+
     page, _ = rank_jobs_for_user(
         profile, krs, db,
         extra_sql_filters=sql_filters,
         selected_sectors=_selected_sectors(user.id, db),
         prepared_job_ids=_prepared_ids(user.id, db),
+        application_history=application_history,
+        applied_job_ids=user_applied_ids,
         limit=10,
         offset=0,
     )

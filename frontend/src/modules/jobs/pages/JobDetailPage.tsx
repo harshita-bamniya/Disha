@@ -76,7 +76,7 @@ export default function JobDetailPage() {
   if (isLoading) {
     return (
       <div className="flex min-h-screen bg-gray-50">
-        <AppSidebar />
+        <AppSidebar activePath="/app/jobs" />
         <main className="flex-1 flex items-center justify-center">
           <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </main>
@@ -87,7 +87,7 @@ export default function JobDetailPage() {
   if (isError || !job) {
     return (
       <div className="flex min-h-screen bg-gray-50">
-        <AppSidebar />
+        <AppSidebar activePath="/app/jobs" />
         <main className="flex-1 flex items-center justify-center text-red-600">
           Job not found or no longer active.
         </main>
@@ -102,7 +102,7 @@ export default function JobDetailPage() {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <AppSidebar />
+      <AppSidebar activePath="/app/jobs" />
       <main className="flex-1 p-6 max-w-3xl mx-auto">
         <Link to="/app/jobs" className="text-sm text-primary hover:underline mb-4 block">
           ← Back to Jobs
