@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import {
   Briefcase, ArrowUpRight, Clock, X, AlertTriangle,
-  ChevronRight, FileText,
+  ChevronRight, FileText, ListChecks, Hourglass, Star, TrendingUp,
 } from 'lucide-react'
 import AppSidebar from '@/components/layout/AppSidebar'
 import {
@@ -336,10 +336,12 @@ function DetailDrawer({ app, onClose }: { app: ApplicationOut; onClose: () => vo
             onClick={() => navigate(`/app/jobs/${app.job_id}`)}
             style={{
               width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              fontSize: 13.5, fontWeight: 700, background: 'linear-gradient(135deg, #2D6A4F, #40916C)',
+              fontSize: 13.5, fontWeight: 700, background: '#3B82F6',
               color: '#fff', border: 'none', borderRadius: 11, padding: '11px 0', cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(45,106,79,0.25)',
+              boxShadow: '0 4px 12px rgba(59,130,246,0.25)', transition: 'background 0.2s',
             }}
+            onMouseOver={e => { e.currentTarget.style.background = '#1D4ED8' }}
+            onMouseOut={e => { e.currentTarget.style.background = '#3B82F6' }}
           >
             View Full Job Posting <ArrowUpRight size={14} />
           </button>
@@ -377,18 +379,18 @@ export default function MyApplicationsPage() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#F4F6F9' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'linear-gradient(160deg, #FAF7F1 0%, #FFFFFF 55%, #F1EAE0 100%)' }}>
       <AppSidebar activePath="/app/jobs/applications" />
 
-      <main style={{ flex: 1, minWidth: 0, padding: '26px 30px', overflowX: 'auto' }}>
-        {/* Compact header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 12 }}>
+      <main style={{ flex: 1, minWidth: 0, padding: '28px 30px', overflowX: 'auto' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 12 }}>
           <div>
-            <h1 style={{ fontSize: 20, fontWeight: 800, color: '#0F172A', margin: 0, letterSpacing: '-0.2px' }}>
+            <h1 style={{ fontFamily: 'Hind, sans-serif', fontSize: 22, fontWeight: 900, color: '#15130F', margin: 0, letterSpacing: '-0.3px' }}>
               Application Pipeline
             </h1>
-            <p style={{ fontSize: 12.5, color: '#94A3B8', margin: '3px 0 0' }}>
-              {all.length} total · {inProgress} in progress · {shortlisted} shortlisted · {respRate}% response rate
+            <p style={{ fontSize: 13, color: '#6B7280', margin: '4px 0 0' }}>
+              Track every application from submission to offer.
             </p>
           </div>
           <button
@@ -397,12 +399,37 @@ export default function MyApplicationsPage() {
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               fontSize: 13, fontWeight: 700, color: '#fff',
-              background: '#0F172A', border: 'none', borderRadius: 10,
-              padding: '9px 16px', cursor: 'pointer',
+              background: '#15130F', border: 'none', borderRadius: 10,
+              padding: '10px 18px', cursor: 'pointer', transition: 'background 0.2s',
             }}
+            onMouseOver={e => { e.currentTarget.style.background = '#2B2722' }}
+            onMouseOut={e => { e.currentTarget.style.background = '#15130F' }}
           >
             Browse Jobs <ArrowUpRight size={14} />
           </button>
+        </div>
+
+        {/* Stat cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
+          {[
+            { label: 'Total Applications', value: all.length, Icon: ListChecks },
+            { label: 'In Progress',         value: inProgress, Icon: Hourglass },
+            { label: 'Shortlisted',         value: shortlisted, Icon: Star },
+            { label: 'Response Rate',       value: `${respRate}%`, Icon: TrendingUp },
+          ].map(s => (
+            <div key={s.label} style={{
+              background: 'white', borderRadius: 14, padding: '14px 16px',
+              border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: 12,
+            }}>
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(59,130,246,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <s.Icon size={16} color="#3B82F6" />
+              </div>
+              <div>
+                <p style={{ fontSize: 17, fontWeight: 800, color: '#15130F', margin: 0, fontFamily: 'Hind, sans-serif', lineHeight: 1 }}>{s.value}</p>
+                <p style={{ fontSize: 11, color: '#94A3B8', margin: '2px 0 0' }}>{s.label}</p>
+              </div>
+            </div>
+          ))}
         </div>
 
         {isLoading && (
@@ -418,16 +445,16 @@ export default function MyApplicationsPage() {
         )}
 
         {!isLoading && !isError && all.length === 0 && (
-          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #E8ECF1', padding: '64px 24px', textAlign: 'center' }}>
-            <div style={{ width: 60, height: 60, borderRadius: 18, background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <Briefcase size={26} color="#CBD5E1" />
+          <div style={{ background: '#fff', borderRadius: 18, border: '1px solid #E2E8F0', padding: '64px 24px', textAlign: 'center' }}>
+            <div style={{ width: 60, height: 60, borderRadius: 18, background: 'rgba(59,130,246,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <Briefcase size={26} color="#3B82F6" />
             </div>
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#374151', margin: '0 0 8px' }}>No applications yet</h3>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#15130F', margin: '0 0 8px' }}>No applications yet</h3>
             <p style={{ fontSize: 13, color: '#94A3B8', margin: '0 0 20px' }}>Once you apply to jobs, they'll show up here as a pipeline.</p>
             <button
               type="button"
               onClick={() => navigate('/app/jobs')}
-              style={{ fontSize: 13, fontWeight: 700, color: '#fff', background: '#0F172A', border: 'none', borderRadius: 10, padding: '10px 22px', cursor: 'pointer' }}
+              style={{ fontSize: 13, fontWeight: 700, color: '#fff', background: '#3B82F6', border: 'none', borderRadius: 10, padding: '10px 22px', cursor: 'pointer' }}
             >
               Browse Jobs →
             </button>
@@ -435,35 +462,42 @@ export default function MyApplicationsPage() {
         )}
 
         {!isLoading && !isError && all.length > 0 && (
-          <div style={{ display: 'flex', gap: 16, minWidth: 'max-content' }}>
-            {COLUMNS.map(col => {
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4, minWidth: 'max-content' }}>
+            {COLUMNS.map((col, ci) => {
               const items = byColumn[col.key]
               return (
-                <div key={col.key} style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
-                  {/* Column header */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, padding: '0 4px' }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: col.accent, flexShrink: 0 }} />
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>{col.label}</span>
-                    <span style={{
-                      fontSize: 11, fontWeight: 800, color: '#94A3B8', background: '#EEF1F5',
-                      borderRadius: 20, padding: '1px 8px', marginLeft: 'auto',
-                    }}>
-                      {items.length}
-                    </span>
-                  </div>
+                <div key={col.key} style={{ display: 'flex', alignItems: 'flex-start' }}>
+                  <div style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+                    {/* Column header */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, padding: '0 4px' }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: col.accent, flexShrink: 0 }} />
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#15130F' }}>{col.label}</span>
+                      <span style={{
+                        fontSize: 11, fontWeight: 800, color: '#94A3B8', background: '#F1EAE0',
+                        borderRadius: 20, padding: '1px 8px', marginLeft: 'auto',
+                      }}>
+                        {items.length}
+                      </span>
+                    </div>
 
-                  {/* Column body */}
-                  <div style={{
-                    background: '#EAEDF2', borderRadius: 14, padding: 10, flex: 1,
-                    display: 'flex', flexDirection: 'column', gap: 8, minHeight: 120,
-                  }}>
-                    {items.length === 0
-                      ? <p style={{ fontSize: 12, color: '#A0AEC0', textAlign: 'center', padding: '20px 6px' }}>Nothing here</p>
-                      : items.map(app => (
-                          <PipelineCard key={app.id} app={app} onOpen={() => setActive(app)} />
-                        ))
-                    }
+                    {/* Column body */}
+                    <div style={{
+                      background: '#FAF7F1', border: '1px solid #F1EAE0', borderRadius: 16, padding: 10, flex: 1,
+                      display: 'flex', flexDirection: 'column', gap: 8, minHeight: 120,
+                    }}>
+                      {items.length === 0
+                        ? <p style={{ fontSize: 12, color: '#B0A99A', textAlign: 'center', padding: '20px 6px' }}>Nothing here</p>
+                        : items.map(app => (
+                            <PipelineCard key={app.id} app={app} onOpen={() => setActive(app)} />
+                          ))
+                      }
+                    </div>
                   </div>
+                  {ci < COLUMNS.length - 1 && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 120, marginTop: 36, flexShrink: 0 }}>
+                      <ChevronRight size={16} color="#D6CFC0" />
+                    </div>
+                  )}
                 </div>
               )
             })}

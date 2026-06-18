@@ -10,9 +10,10 @@ import json
 import logging
 import re
 import urllib.parse
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 from app.ai.providers.groq import GroqProvider
+from app.ai.youtube_search import search_youtube
 
 logger = logging.getLogger(__name__)
 
@@ -163,4 +164,69 @@ async def generate_job_plan(
     if "modules" not in plan or not isinstance(plan["modules"], list):
         raise ValueError("AI response missing 'modules' list")
 
+    return plan
+
+
+def count_youtube_resources(plan: dict[str, Any]) -> int:
+    """Total number of youtube-type resources across all modules."""
+    return sum(
+        1
+        for module in plan.get("modules", [])
+        for res in module.get("resources", [])
+        if res.get("type") == "youtube"
+    )
+
+
+def is_plan_stale(plan: dict[str, Any] | None) -> bool:
+    """True if this plan predates real-video enrichment (old hallucinated-link format)."""
+    if not plan:
+        return False
+    for module in plan.get("modules", []):
+        for res in module.get("resources", []):
+            if res.get("type") == "youtube" and not res.get("video_options"):
+                return True
+    return False
+
+
+async def enrich_plan_with_real_videos(
+    plan: dict[str, Any],
+    on_progress: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
+) -> dict[str, Any]:
+    """For every youtube resource, search real videos and attach up to 2 candidates.
+
+    Adds `video_options` (list of real {video_id, title, channel, duration_minutes,
+    thumbnail_url, url}) and `recommended_video_id` (first/best match) to each
+    youtube-type resource. Falls back gracefully — if search finds nothing, the
+    resource keeps its original LLM-suggested search-link `url`.
+
+    If `on_progress` is given, it's awaited after every resource with a live
+    snapshot: {"resources_done": int, "resources_total": int, "current_skill": str,
+    "last_found": str | None} — so callers can report real progress, not a fake step.
+    """
+    total = count_youtube_resources(plan)
+    done = 0
+    for module in plan.get("modules", []):
+        for res in module.get("resources", []):
+            if res.get("type") != "youtube":
+                continue
+            query = res.get("search_query") or res.get("title") or ""
+            found_title: str | None = None
+            if query:
+                candidates = await search_youtube(query, n=2)
+                if candidates:
+                    res["video_options"] = candidates
+                    res["recommended_video_id"] = candidates[0]["video_id"]
+                    # Point the primary url at the recommended real video.
+                    res["url"] = candidates[0]["url"]
+                    if not res.get("duration_minutes"):
+                        res["duration_minutes"] = candidates[0]["duration_minutes"]
+                    found_title = candidates[0]["title"]
+            done += 1
+            if on_progress:
+                await on_progress({
+                    "resources_done": done,
+                    "resources_total": total,
+                    "current_skill": module.get("skill"),
+                    "last_found": found_title,
+                })
     return plan

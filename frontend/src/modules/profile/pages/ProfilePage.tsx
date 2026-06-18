@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Check, ChevronUp, MapPin, RefreshCw, Plus } from 'lucide-react'
+import { Pencil, Check, ChevronUp, MapPin, RefreshCw, Plus, User, GraduationCap, ClipboardList, Briefcase, Zap, Target, Brain, FileText, type LucideIcon } from 'lucide-react'
 import { onboardingApi, type ProfileData } from '@/api/onboarding'
 import { cn } from '@/lib/utils'
 import { getApiError } from '@/api/client'
@@ -54,14 +54,14 @@ const STATES = [
 const PROFILE_KEY = ['onboarding', 'profile']
 
 // ── Section icons map ─────────────────────────────────────────────────────────
-const SECTION_META: Record<string, { emoji: string; color: string; bg: string }> = {
-  'Personal Info':       { emoji: '👤', color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' },
-  'Education':           { emoji: '🎓', color: '#7C3AED', bg: 'rgba(124,58,237,0.08)' },
-  'UPSC Journey':        { emoji: '📋', color: '#0891B2', bg: 'rgba(8,145,178,0.08)' },
-  'Work Experience':     { emoji: '💼', color: '#059669', bg: 'rgba(5,150,105,0.08)' },
-  'Skills':              { emoji: '⚡', color: '#D97706', bg: 'rgba(217,119,6,0.08)' },
-  'Preferences':         { emoji: '🎯', color: '#DC2626', bg: 'rgba(220,38,38,0.08)' },
-  'Mindset Assessment':  { emoji: '🧠', color: '#7C3AED', bg: 'rgba(124,58,237,0.08)' },
+const SECTION_META: Record<string, { Icon: LucideIcon; color: string; bg: string }> = {
+  'Personal Info':       { Icon: User,           color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' },
+  'Education':           { Icon: GraduationCap,  color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' },
+  'UPSC Journey':        { Icon: ClipboardList,  color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' },
+  'Work Experience':     { Icon: Briefcase,      color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' },
+  'Skills':              { Icon: Zap,            color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' },
+  'Preferences':         { Icon: Target,         color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' },
+  'Mindset Assessment':  { Icon: Brain,          color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' },
 }
 
 // ── Premium chip selector ─────────────────────────────────────────────────────
@@ -124,17 +124,16 @@ function Section({
   saving?: boolean
   saved?: boolean
 }) {
-  const meta = SECTION_META[title] ?? { emoji: '📝', color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' }
+  const meta = SECTION_META[title] ?? { Icon: FileText, color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' }
 
   return (
     <div style={{
-      background: isOpen ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.78)',
-      backdropFilter: 'blur(20px)',
+      background: 'white',
       borderRadius: 20,
-      border: isOpen ? '1.5px solid rgba(59,130,246,0.18)' : '1px solid rgba(255,255,255,0.95)',
+      border: isOpen ? '1.5px solid rgba(59,130,246,0.22)' : '1px solid #E2E8F0',
       boxShadow: isOpen
-        ? '0 12px 40px rgba(30,58,95,0.1), 0 2px 8px rgba(30,58,95,0.05)'
-        : '0 4px 16px rgba(30,58,95,0.06)',
+        ? '0 12px 36px rgba(15,23,42,0.10)'
+        : '0 2px 10px rgba(15,23,42,0.04)',
       overflow: 'hidden',
       transition: 'all 0.3s ease',
     }}>
@@ -142,7 +141,7 @@ function Section({
       {isOpen && (
         <div style={{
           height: 3,
-          background: `linear-gradient(90deg, ${meta.color}, #93C5FD)`,
+          background: 'linear-gradient(90deg, #3B82F6, #15130F)',
         }} />
       )}
 
@@ -163,9 +162,8 @@ function Section({
           <div style={{
             width: 40, height: 40, borderRadius: 12, flexShrink: 0,
             background: meta.bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 18,
           }}>
-            {meta.emoji}
+            <meta.Icon size={18} color={meta.color} strokeWidth={1.8} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -803,7 +801,7 @@ export default function ProfilePage() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 26, flexShrink: 0, color: '#3B82F6', fontWeight: 800,
               }}>
-                {profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : '👤'}
+                {profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : <User size={26} />}
               </div>
               <div>
                 <p style={{ fontSize: 12, color: '#94A3B8', fontWeight: 500, marginBottom: 3 }}>Your profile</p>
@@ -838,14 +836,28 @@ export default function ProfilePage() {
           )}
 
           {profile && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <PersonalSection     profile={profile} open={openSection === 'personal'}     onToggle={() => toggle('personal')} />
-              <EducationSection    profile={profile} open={openSection === 'education'}    onToggle={() => toggle('education')} />
-              <UpscSection         profile={profile} open={openSection === 'upsc'}         onToggle={() => toggle('upsc')} />
-              <WorkSection         profile={profile} open={openSection === 'work'}         onToggle={() => toggle('work')} />
-              <SkillsSection       profile={profile} open={openSection === 'skills'}       onToggle={() => toggle('skills')} />
-              <PreferencesSection  profile={profile} open={openSection === 'preferences'}  onToggle={() => toggle('preferences')} />
-              <MindsetSection      profile={profile} open={openSection === 'mindset'}      onToggle={() => toggle('mindset')} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }} className="md:grid-cols-2 grid-cols-1">
+              <div style={{ gridColumn: openSection === 'personal' ? '1 / -1' : undefined }}>
+                <PersonalSection     profile={profile} open={openSection === 'personal'}     onToggle={() => toggle('personal')} />
+              </div>
+              <div style={{ gridColumn: openSection === 'education' ? '1 / -1' : undefined }}>
+                <EducationSection    profile={profile} open={openSection === 'education'}    onToggle={() => toggle('education')} />
+              </div>
+              <div style={{ gridColumn: openSection === 'upsc' ? '1 / -1' : undefined }}>
+                <UpscSection         profile={profile} open={openSection === 'upsc'}         onToggle={() => toggle('upsc')} />
+              </div>
+              <div style={{ gridColumn: openSection === 'work' ? '1 / -1' : undefined }}>
+                <WorkSection         profile={profile} open={openSection === 'work'}         onToggle={() => toggle('work')} />
+              </div>
+              <div style={{ gridColumn: openSection === 'skills' ? '1 / -1' : undefined }}>
+                <SkillsSection       profile={profile} open={openSection === 'skills'}       onToggle={() => toggle('skills')} />
+              </div>
+              <div style={{ gridColumn: openSection === 'preferences' ? '1 / -1' : undefined }}>
+                <PreferencesSection  profile={profile} open={openSection === 'preferences'}  onToggle={() => toggle('preferences')} />
+              </div>
+              <div style={{ gridColumn: openSection === 'mindset' ? '1 / -1' : undefined }}>
+                <MindsetSection      profile={profile} open={openSection === 'mindset'}      onToggle={() => toggle('mindset')} />
+              </div>
             </div>
           )}
         </main>

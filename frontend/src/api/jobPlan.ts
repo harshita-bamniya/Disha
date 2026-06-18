@@ -1,5 +1,14 @@
 import { apiClient } from './client'
 
+export interface VideoOption {
+  video_id: string
+  title: string
+  channel: string
+  duration_minutes: number
+  thumbnail_url: string
+  url: string
+}
+
 export interface PlanResource {
   id: string
   type: 'youtube' | 'article' | 'course'
@@ -9,6 +18,9 @@ export interface PlanResource {
   url: string
   duration_minutes: number
   description: string
+  /** Real searched YouTube candidates (only present for type === 'youtube') */
+  video_options?: VideoOption[]
+  recommended_video_id?: string
 }
 
 export interface PlanModule {
@@ -33,12 +45,27 @@ export interface ResourceProgress {
   done_at: string | null
 }
 
+export type GenerationStep = 'agenda' | 'resources' | 'finalizing'
+
+export interface GenerationDetail {
+  modules_planned?: number
+  resources_done?: number
+  resources_total?: number
+  current_skill?: string | null
+  last_found?: string | null
+}
+
 export interface JobPlanResponse {
   status: 'not_generated' | 'generating' | 'ready' | 'failed'
   plan: JobPlan | null
   progress: Record<string, ResourceProgress>
+  generation_step?: GenerationStep
+  generation_detail?: GenerationDetail
   generated_at: string | null
+  updated_at?: string | null
   error: string | null
+  /** true if a ready plan predates real-video enrichment and should be regenerated */
+  stale?: boolean
 }
 
 export const jobPlanApi = {

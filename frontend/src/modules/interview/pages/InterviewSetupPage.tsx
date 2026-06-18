@@ -135,8 +135,8 @@ function Step2Experience({ level, setLevel, totalQ, setTotalQ, jobDesc, setJobDe
               onClick={() => setLevel(l.value)}
               style={{
                 ...styles.optionCard,
-                border: level === l.value ? '2px solid #2D6A4F' : '2px solid rgba(226,232,240,0.8)',
-                background: level === l.value ? 'rgba(45,106,79,0.05)' : 'white',
+                border: level === l.value ? '2px solid #3B82F6' : '2px solid rgba(226,232,240,0.8)',
+                background: level === l.value ? 'rgba(59,130,246,0.06)' : 'white',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -160,8 +160,8 @@ function Step2Experience({ level, setLevel, totalQ, setTotalQ, jobDesc, setJobDe
               onClick={() => setTotalQ(s.value)}
               style={{
                 flex: 1, padding: '12px 8px', borderRadius: 12, cursor: 'pointer', textAlign: 'center',
-                border: totalQ === s.value ? '2px solid #2D6A4F' : '2px solid rgba(226,232,240,0.8)',
-                background: totalQ === s.value ? 'rgba(45,106,79,0.05)' : 'white',
+                border: totalQ === s.value ? '2px solid #3B82F6' : '2px solid rgba(226,232,240,0.8)',
+                background: totalQ === s.value ? 'rgba(59,130,246,0.06)' : 'white',
               }}
             >
               <div style={{ fontSize: 20, marginBottom: 4 }}>{s.icon}</div>
@@ -196,7 +196,7 @@ function Step2Experience({ level, setLevel, totalQ, setTotalQ, jobDesc, setJobDe
 function Step3Device({ cam, mic, net, videoRef, checkAll }: ReturnType<typeof useDeviceCheck>) {
   const statusIcon = (s: string) => {
     if (s === 'idle') return <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#CBD5E1' }} />
-    if (s === 'checking') return <Loader size={14} color="#6366F1" style={{ animation: 'spin 1s linear infinite' }} />
+    if (s === 'checking') return <Loader size={14} color="#3B82F6" style={{ animation: 'spin 1s linear infinite' }} />
     if (s === 'ok') return <CheckCircle size={14} color="#16A34A" />
     return <AlertCircle size={14} color="#DC2626" />
   }
@@ -219,7 +219,7 @@ function Step3Device({ cam, mic, net, videoRef, checkAll }: ReturnType<typeof us
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
         <div style={{ background: 'white', borderRadius: 14, padding: '16px 20px', border: '1.5px solid rgba(226,232,240,0.8)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <Video size={16} color="#6366F1" />
+            <Video size={16} color="#15130F" />
             <span style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>Camera</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
@@ -242,9 +242,9 @@ function Step3Device({ cam, mic, net, videoRef, checkAll }: ReturnType<typeof us
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {[
-            { icon: <Mic size={16} color="#10B981" />, label: 'Microphone', state: mic, name: 'Mic' },
-            { icon: <Wifi size={16} color="#3B82F6" />, label: 'Connection', state: net, name: 'Network' },
-            { icon: <Monitor size={16} color="#F59E0B" />, label: 'Browser', state: 'ok' as const, name: 'Browser' },
+            { icon: <Mic size={16} color="#15130F" />, label: 'Microphone', state: mic, name: 'Mic' },
+            { icon: <Wifi size={16} color="#15130F" />, label: 'Connection', state: net, name: 'Network' },
+            { icon: <Monitor size={16} color="#15130F" />, label: 'Browser', state: 'ok' as const, name: 'Browser' },
           ].map(item => (
             <div key={item.label} style={{
               background: 'white', borderRadius: 12, padding: '14px 16px',
@@ -268,9 +268,9 @@ function Step3Device({ cam, mic, net, videoRef, checkAll }: ReturnType<typeof us
         onClick={checkAll}
         style={{
           width: '100%', padding: '12px 0', borderRadius: 12,
-          background: allOk ? 'rgba(45,106,79,0.06)' : 'linear-gradient(135deg, #6366F1, #8B5CF6)',
-          border: allOk ? '1.5px solid rgba(45,106,79,0.3)' : 'none',
-          color: allOk ? '#2D6A4F' : 'white',
+          background: allOk ? 'rgba(59,130,246,0.06)' : '#3B82F6',
+          border: allOk ? '1.5px solid rgba(59,130,246,0.3)' : 'none',
+          color: allOk ? '#1D4ED8' : 'white',
           fontSize: 13, fontWeight: 700, cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
         }}
@@ -312,16 +312,16 @@ function Step4Instructions({ role, level, totalQ }: { role: string; level: strin
       <h2 style={styles.stepTitle}>You're almost ready</h2>
 
       <div style={{
-        background: 'linear-gradient(135deg, rgba(45,106,79,0.06), rgba(64,145,108,0.04))',
+        background: '#FAF7F1',
         borderRadius: 16, padding: '20px 24px', marginBottom: 24,
-        border: '1.5px solid rgba(45,106,79,0.15)',
+        border: '1.5px solid #F1EAE0',
       }}>
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
           {[
-            { icon: <Briefcase size={16} color="#2D6A4F" />, label: 'Role', value: role },
-            { icon: <User size={16} color="#2D6A4F" />, label: 'Level', value: level },
-            { icon: <Clock size={16} color="#2D6A4F" />, label: 'Questions', value: `${totalQ} questions` },
-            { icon: <Shield size={16} color="#2D6A4F" />, label: 'Mode', value: 'AI Interview' },
+            { icon: <Briefcase size={16} color="#15130F" />, label: 'Role', value: role },
+            { icon: <User size={16} color="#15130F" />, label: 'Level', value: level },
+            { icon: <Clock size={16} color="#15130F" />, label: 'Questions', value: `${totalQ} questions` },
+            { icon: <Shield size={16} color="#15130F" />, label: 'Mode', value: 'AI Interview' },
           ].map(item => (
             <div key={item.label}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
@@ -342,7 +342,7 @@ function Step4Instructions({ role, level, totalQ }: { role: string; level: strin
           {rules.map((rule, i) => (
             <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <div style={{
-                width: 20, height: 20, borderRadius: '50%', background: 'linear-gradient(135deg, #2D6A4F, #40916C)',
+                width: 20, height: 20, borderRadius: '50%', background: '#15130F',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 fontSize: 9, color: 'white', fontWeight: 800,
               }}>{i + 1}</div>
@@ -354,11 +354,11 @@ function Step4Instructions({ role, level, totalQ }: { role: string; level: strin
 
       <div style={{
         padding: '14px 16px', borderRadius: 12,
-        background: '#FFFBEB', border: '1px solid #FDE68A',
+        background: '#FAF7F1', border: '1px solid #F1EAE0',
         display: 'flex', gap: 10,
       }}>
-        <Volume2 size={16} color="#D97706" style={{ flexShrink: 0, marginTop: 1 }} />
-        <p style={{ fontSize: 12, color: '#92400E', margin: 0 }}>
+        <Volume2 size={16} color="#15130F" style={{ flexShrink: 0, marginTop: 1 }} />
+        <p style={{ fontSize: 12, color: '#4A453D', margin: 0 }}>
           The AI interviewer will speak questions aloud. Ensure your speakers are on.
           You can also read the question in the transcript panel.
         </p>
@@ -427,8 +427,24 @@ export default function InterviewSetupPage() {
   const isLast = step === STEPS.length - 1
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F0F4F8', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #FAF7F1 0%, #FFFFFF 55%, #F1EAE0 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
       <div style={{ width: '100%', maxWidth: 680 }}>
+        {/* Back button */}
+        <button
+          onClick={() => navigate(-1)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: 'white', border: '1.5px solid rgba(226,232,240,0.8)',
+            borderRadius: 10, padding: '8px 14px', marginBottom: 24,
+            fontSize: 13, fontWeight: 600, color: '#6B7280', cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(15,23,42,0.04)', transition: 'all 0.2s',
+          }}
+          onMouseOver={e => { e.currentTarget.style.color = '#15130F'; e.currentTarget.style.borderColor = '#15130F' }}
+          onMouseOut={e => { e.currentTarget.style.color = '#6B7280'; e.currentTarget.style.borderColor = 'rgba(226,232,240,0.8)' }}
+        >
+          <ChevronLeft size={15} /> Back
+        </button>
+
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ fontSize: 28, marginBottom: 8 }}>🎯</div>
@@ -445,12 +461,12 @@ export default function InterviewSetupPage() {
           <div style={{
             display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
             borderRadius: 14, marginBottom: 24,
-            background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.06))',
-            border: '1.5px solid rgba(99,102,241,0.25)',
+            background: '#FAF7F1',
+            border: '1.5px solid #F1EAE0',
           }}>
-            <Sparkles size={16} color="#6366F1" style={{ flexShrink: 0 }} />
+            <Sparkles size={16} color="#15130F" style={{ flexShrink: 0 }} />
             <div style={{ flex: 1 }}>
-              <span style={{ fontSize: 12, fontWeight: 800, color: '#6366F1' }}>Interviewing for your active prep job — </span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: '#15130F' }}>Interviewing for your active prep job — </span>
               <span style={{ fontSize: 12, color: '#374151', fontWeight: 700 }}>{activePrep.job_title}</span>
               <span style={{ fontSize: 12, color: '#64748B' }}> at {activePrep.company_name}</span>
             </div>
@@ -464,19 +480,19 @@ export default function InterviewSetupPage() {
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
                 <div style={{
                   width: 32, height: 32, borderRadius: '50%', marginBottom: 6,
-                  background: i < step ? 'linear-gradient(135deg, #2D6A4F, #40916C)' : i === step ? '#2D6A4F' : '#E2E8F0',
+                  background: i < step ? '#3B82F6' : i === step ? '#3B82F6' : '#E2E8F0',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 12, fontWeight: 800,
                   color: i <= step ? 'white' : '#94A3B8',
                 }}>
                   {i < step ? <CheckCircle size={14} /> : i + 1}
                 </div>
-                <span style={{ fontSize: 10, color: i === step ? '#2D6A4F' : '#94A3B8', fontWeight: i === step ? 700 : 400, whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 10, color: i === step ? '#1D4ED8' : '#94A3B8', fontWeight: i === step ? 700 : 400, whiteSpace: 'nowrap' }}>
                   {s}
                 </span>
               </div>
               {i < STEPS.length - 1 && (
-                <div style={{ height: 2, flex: 1, background: i < step ? '#2D6A4F' : '#E2E8F0', margin: '0 4px', marginBottom: 24 }} />
+                <div style={{ height: 2, flex: 1, background: i < step ? '#3B82F6' : '#E2E8F0', margin: '0 4px', marginBottom: 24 }} />
               )}
             </div>
           ))}
@@ -532,11 +548,7 @@ export default function InterviewSetupPage() {
             style={{
               flex: 3, padding: '13px 0', borderRadius: 12, cursor: canNext ? 'pointer' : 'not-allowed',
               border: 'none',
-              background: canNext
-                ? isLast
-                  ? 'linear-gradient(135deg, #2D6A4F, #40916C)'
-                  : 'linear-gradient(135deg, #6366F1, #8B5CF6)'
-                : '#E2E8F0',
+              background: canNext ? '#3B82F6' : '#E2E8F0',
               color: canNext ? 'white' : '#94A3B8',
               fontSize: 14, fontWeight: 700,
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -553,7 +565,7 @@ export default function InterviewSetupPage() {
         </div>
 
         {createMutation.isPending && (
-          <p style={{ textAlign: 'center', fontSize: 12, color: '#6366F1', marginTop: 12, fontWeight: 600 }}>
+          <p style={{ textAlign: 'center', fontSize: 12, color: '#3B82F6', marginTop: 12, fontWeight: 600 }}>
             AI is building your personalized {role} interview... This takes ~5 seconds.
           </p>
         )}

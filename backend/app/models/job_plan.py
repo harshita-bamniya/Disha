@@ -67,6 +67,12 @@ class JobLearningPlan(Base):
     plan        = Column(JSONB, nullable=False, server_default="{}")
     progress    = Column(JSONB, nullable=False, server_default="{}")
     status      = Column(String(20), nullable=False, default="generating")  # generating | ready | failed
+    # Fine-grained progress while status == "generating":
+    # agenda (LLM drafting modules) -> resources (real YouTube search) -> finalizing (saving)
+    generation_step = Column(String(20), nullable=False, default="agenda")
+    # Live, real counters for the "resources" step — no canned copy:
+    # { "resources_done": int, "resources_total": int, "current_skill": str, "last_found": str }
+    generation_detail = Column(JSONB, nullable=False, server_default="{}")
     error_msg   = Column(Text, nullable=True)
     generated_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at  = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

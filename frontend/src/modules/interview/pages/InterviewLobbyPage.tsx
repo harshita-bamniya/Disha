@@ -269,13 +269,13 @@ export default function InterviewLobbyPage() {
               }}
               style={{
                 width: '100%', padding: '15px 0', borderRadius: 14, cursor: 'pointer',
-                background: 'linear-gradient(135deg, #2D6A4F, #40916C)',
-                border: 'none', color: 'white', fontSize: 15, fontWeight: 800,
+                background: 'white',
+                border: 'none', color: '#15130F', fontSize: 15, fontWeight: 800,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                boxShadow: '0 4px 24px rgba(45,106,79,0.4)',
+                boxShadow: '0 4px 24px rgba(255,255,255,0.2)',
               }}
             >
-              <Play size={16} fill="white" />
+              <Play size={16} fill="#15130F" />
               Begin Interview
             </button>
             <p style={{ textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 10 }}>

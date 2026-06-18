@@ -32,7 +32,7 @@ function MessageBubble({ msg }: { msg: MessageOut | { role: string; content: str
       {!isUser && (
         <div style={{
           width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-          background: 'linear-gradient(135deg, #2D6A4F, #40916C)',
+          background: '#15130F',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 14, color: 'white', fontWeight: 800, marginRight: 10, marginTop: 2,
         }}>D</div>
@@ -73,7 +73,7 @@ function TypingIndicator() {
     <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
       <div style={{
         width: 32, height: 32, borderRadius: '50%',
-        background: 'linear-gradient(135deg, #2D6A4F, #40916C)',
+        background: '#15130F',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 14, color: 'white', fontWeight: 800, marginRight: 10,
       }}>D</div>
@@ -116,20 +116,20 @@ function MemoryPanel() {
   })
 
   return (
-    <div style={{ margin: '0 12px 8px', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 10, overflow: 'hidden' }}>
+    <div style={{ margin: '0 12px 8px', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 10, overflow: 'hidden' }}>
       <button
         onClick={() => setOpen(o => !o)}
         style={{
-          width: '100%', background: 'rgba(99,102,241,0.05)', border: 'none',
+          width: '100%', background: 'rgba(59,130,246,0.05)', border: 'none',
           padding: '8px 10px', cursor: 'pointer',
           display: 'flex', alignItems: 'center', gap: 6,
         }}
       >
-        <Brain size={11} color="#6366F1" />
-        <span style={{ fontSize: 10, fontWeight: 700, color: '#6366F1', flex: 1, textAlign: 'left' }}>
+        <Brain size={11} color="#3B82F6" />
+        <span style={{ fontSize: 10, fontWeight: 700, color: '#3B82F6', flex: 1, textAlign: 'left' }}>
           WHAT DISHA KNOWS
         </span>
-        {open ? <ChevronUp size={11} color="#6366F1" /> : <ChevronDown size={11} color="#6366F1" />}
+        {open ? <ChevronUp size={11} color="#3B82F6" /> : <ChevronDown size={11} color="#3B82F6" />}
       </button>
       {open && (
         <div style={{ padding: '8px 10px', background: 'white', maxHeight: 200, overflowY: 'auto' }}>
@@ -179,19 +179,19 @@ function NudgeBanner() {
   if (dismissed || !nudge?.message) return null
 
   const bgMap: Record<string, string> = {
-    interview: 'rgba(139,92,246,0.07)',
-    learning: 'rgba(59,130,246,0.07)',
-    streak: 'rgba(245,158,11,0.07)',
+    interview: '#FAF7F1',
+    learning: '#FAF7F1',
+    streak: '#FAF7F1',
   }
   const borderMap: Record<string, string> = {
-    interview: 'rgba(139,92,246,0.25)',
-    learning: 'rgba(59,130,246,0.25)',
-    streak: 'rgba(245,158,11,0.25)',
+    interview: '#F1EAE0',
+    learning: '#F1EAE0',
+    streak: '#F1EAE0',
   }
   const colorMap: Record<string, string> = {
-    interview: '#7C3AED',
-    learning: '#2563EB',
-    streak: '#D97706',
+    interview: '#3B82F6',
+    learning: '#3B82F6',
+    streak: '#3B82F6',
   }
   const t = nudge.type ?? 'interview'
 
@@ -374,7 +374,7 @@ export default function CounsellorPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F0F4F8', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #FAF7F1 0%, #FFFFFF 55%, #F1EAE0 100%)', display: 'flex' }}>
       <AppSidebar activePath="/app/counsellor" />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
@@ -390,7 +390,7 @@ export default function CounsellorPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
               width: 36, height: 36, borderRadius: '50%',
-              background: 'linear-gradient(135deg, #2D6A4F, #40916C)',
+              background: '#15130F',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 16, color: 'white', fontWeight: 800,
             }}>D</div>
@@ -419,11 +419,11 @@ export default function CounsellorPage() {
                 disabled={createConvMutation.isPending}
                 style={{
                   width: '100%', height: 38, borderRadius: 10,
-                  background: 'linear-gradient(135deg, #2D6A4F, #40916C)',
+                  background: '#3B82F6',
                   color: 'white', border: 'none', cursor: 'pointer',
                   fontSize: 13, fontWeight: 700,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                  boxShadow: '0 3px 10px rgba(45,106,79,0.3)',
+                  boxShadow: '0 3px 10px rgba(59,130,246,0.3)',
                 }}
               >
                 <Plus size={14} /> New conversation
@@ -431,12 +431,12 @@ export default function CounsellorPage() {
               {activePrep && (
                 <div style={{
                   display: 'flex', alignItems: 'flex-start', gap: 7,
-                  background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)',
+                  background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.2)',
                   borderRadius: 10, padding: '8px 10px',
                 }}>
-                  <Briefcase size={12} color="#6366F1" style={{ marginTop: 1, flexShrink: 0 }} />
+                  <Briefcase size={12} color="#3B82F6" style={{ marginTop: 1, flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 10, fontWeight: 700, color: '#6366F1', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>Active prep</p>
+                    <p style={{ fontSize: 10, fontWeight: 700, color: '#3B82F6', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>Active prep</p>
                     <p style={{ fontSize: 11, fontWeight: 600, color: '#0F172A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activePrep.job_title}</p>
                     <p style={{ fontSize: 10, color: '#94A3B8' }}>{activePrep.company_name}</p>
                   </div>
@@ -463,8 +463,8 @@ export default function CounsellorPage() {
                     onClick={() => setActiveConvId(conv.id)}
                     style={{
                       width: '100%', padding: '10px 12px', borderRadius: 10, marginBottom: 4,
-                      background: activeConvId === conv.id ? 'rgba(45,106,79,0.08)' : 'transparent',
-                      border: activeConvId === conv.id ? '1px solid rgba(45,106,79,0.2)' : '1px solid transparent',
+                      background: activeConvId === conv.id ? 'rgba(59,130,246,0.08)' : 'transparent',
+                      border: activeConvId === conv.id ? '1px solid rgba(59,130,246,0.2)' : '1px solid transparent',
                       cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s', paddingRight: 30,
                     }}
                     onMouseOver={e => { if (activeConvId !== conv.id) e.currentTarget.style.background = '#F8FAFC' }}
@@ -472,13 +472,13 @@ export default function CounsellorPage() {
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                       {conv.context_type === 'skill_learning'
-                        ? <BrainCircuit size={13} color={activeConvId === conv.id ? '#EA580C' : '#F97316'} />
-                        : <MessageCircle size={13} color={activeConvId === conv.id ? '#2D6A4F' : '#94A3B8'} />
+                        ? <BrainCircuit size={13} color={activeConvId === conv.id ? '#15130F' : '#94A3B8'} />
+                        : <MessageCircle size={13} color={activeConvId === conv.id ? '#3B82F6' : '#94A3B8'} />
                       }
                       <p style={{
                         fontSize: 12, fontWeight: 600,
                         color: activeConvId === conv.id
-                          ? (conv.context_type === 'skill_learning' ? '#EA580C' : '#2D6A4F')
+                          ? (conv.context_type === 'skill_learning' ? '#15130F' : '#3B82F6')
                           : '#374151',
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                         userSelect: 'none', pointerEvents: 'none',
@@ -551,10 +551,10 @@ export default function CounsellorPage() {
               }}>
                 <div style={{
                   width: 72, height: 72, borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #2D6A4F, #40916C)',
+                  background: '#15130F',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 28, color: 'white', fontWeight: 800, marginBottom: 20,
-                  boxShadow: '0 8px 24px rgba(45,106,79,0.3)',
+                  boxShadow: '0 8px 24px rgba(59,130,246,0.3)',
                 }}>D</div>
                 <h2 style={{ fontSize: 22, fontWeight: 900, color: '#0F172A', fontFamily: 'Hind, sans-serif', marginBottom: 8 }}>
                   Hi, I'm DISHA
@@ -587,7 +587,7 @@ export default function CounsellorPage() {
                         boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
                         transition: 'all 0.15s', lineHeight: 1.5,
                       }}
-                      onMouseOver={e => { e.currentTarget.style.borderColor = '#2D6A4F'; e.currentTarget.style.color = '#2D6A4F' }}
+                      onMouseOver={e => { e.currentTarget.style.borderColor = '#3B82F6'; e.currentTarget.style.color = '#3B82F6' }}
                       onMouseOut={e => { e.currentTarget.style.borderColor = 'rgba(226,232,240,0.8)'; e.currentTarget.style.color = '#374151' }}
                     >
                       {prompt}
@@ -601,7 +601,7 @@ export default function CounsellorPage() {
                 <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
                   {loadingConv && (
                     <div style={{ display: 'flex', justifyContent: 'center', padding: 20 }}>
-                      <div style={{ width: 20, height: 20, border: '2px solid rgba(45,106,79,0.2)', borderTopColor: '#2D6A4F', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                      <div style={{ width: 20, height: 20, border: '2px solid rgba(59,130,246,0.2)', borderTopColor: '#3B82F6', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
                     </div>
                   )}
                   {messages.map(m => (
@@ -635,7 +635,7 @@ export default function CounsellorPage() {
                     transition: 'border-color 0.2s',
                     width: '100%',
                   }}
-                    onFocus={e => { e.currentTarget.style.borderColor = '#2D6A4F' }}
+                    onFocus={e => { e.currentTarget.style.borderColor = '#3B82F6' }}
                     onBlur={e => { e.currentTarget.style.borderColor = 'rgba(226,232,240,0.9)' }}
                   >
                     <textarea
@@ -668,12 +668,12 @@ export default function CounsellorPage() {
                       style={{
                         width: 36, height: 36, borderRadius: 10, flexShrink: 0,
                         background: input.trim() && !isStreaming
-                          ? 'linear-gradient(135deg, #2D6A4F, #40916C)'
+                          ? '#3B82F6'
                           : '#E2E8F0',
                         border: 'none', cursor: input.trim() && !isStreaming ? 'pointer' : 'not-allowed',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         transition: 'all 0.2s',
-                        boxShadow: input.trim() && !isStreaming ? '0 3px 10px rgba(45,106,79,0.3)' : 'none',
+                        boxShadow: input.trim() && !isStreaming ? '0 3px 10px rgba(59,130,246,0.3)' : 'none',
                       }}
                     >
                       <Send size={15} color={input.trim() && !isStreaming ? 'white' : '#94A3B8'} />

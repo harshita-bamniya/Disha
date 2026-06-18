@@ -11,7 +11,7 @@ from app.core.rbac import get_current_aspirant
 from app.database import get_db
 from app.models.job_plan import JobLearningPlan
 from app.models.user import AspirantProfile, JobPosting, User
-from app.modules.jobs.plan_generator import generate_job_plan
+from app.modules.jobs.plan_generator import enrich_plan_with_real_videos, generate_job_plan, is_plan_stale
 
 logger = logging.getLogger(__name__)
 
@@ -31,30 +31,6 @@ def _get_plan(user_id, job_id, db: Session) -> JobLearningPlan | None:
         .filter(JobLearningPlan.user_id == user_id, JobLearningPlan.job_id == job_id)
         .first()
     )
-
-
-async def _run_generation(plan_id: str, job: JobPosting, user_skills: list[str], gap_skills: list[str], db: Session):
-    """Background task: call AI, update plan row."""
-    plan = db.query(JobLearningPlan).filter(JobLearningPlan.id == plan_id).first()
-    if not plan:
-        return
-    try:
-        result = await generate_job_plan(
-            job_title=job.title,
-            company=job.employer.company_name if job.employer else "the company",
-            sector=job.sector,
-            description=job.description,
-            required_skills=job.required_skills or [],
-            user_skills=user_skills,
-            gap_skills=gap_skills,
-        )
-        plan.plan = result
-        plan.status = "ready"
-    except Exception as exc:
-        logger.error("Job plan generation failed for plan %s: %s", plan_id, exc, exc_info=True)
-        plan.status = "failed"
-        plan.error_msg = str(exc)
-    db.commit()
 
 
 @router.post("/{job_id}/learning-plan", status_code=202)
@@ -84,6 +60,7 @@ async def generate_plan(
     if plan:
         # Regenerate: reset to generating state
         plan.status = "generating"
+        plan.generation_step = "agenda"
         plan.plan = {}
         plan.error_msg = None
         plan.generated_at = datetime.now(timezone.utc)
@@ -94,6 +71,7 @@ async def generate_plan(
             user_id=user.id,
             job_id=job_id,
             status="generating",
+            generation_step="agenda",
         )
         db.add(plan)
         db.commit()
@@ -111,14 +89,23 @@ async def generate_plan(
     }
 
     async def _bg(pid=plan_id, js=job_snapshot, us=user_skills, gs=gap_skills):
-        import asyncio
         from app.database import SessionLocal
         bg_db = SessionLocal()
+
+        def _set_step(step: str, detail: dict | None = None):
+            values = {"generation_step": step}
+            if detail is not None:
+                values["generation_detail"] = detail
+            bg_db.query(JobLearningPlan).filter(JobLearningPlan.id == pid).update(values)
+            bg_db.commit()
+
         try:
             bg_plan = bg_db.query(JobLearningPlan).filter(JobLearningPlan.id == pid).first()
             if not bg_plan:
                 return
             try:
+                # Step 1: ask the LLM to draft the module/resource structure.
+                _set_step("agenda", {})
                 result = await generate_job_plan(
                     job_title=js["title"],
                     company=js["company"],
@@ -128,13 +115,34 @@ async def generate_plan(
                     user_skills=us,
                     gap_skills=gs,
                 )
+
+                # Step 2: replace hallucinated YouTube links with real searched videos,
+                # reporting real per-resource progress as it happens (no canned copy).
+                _set_step("resources", {
+                    "modules_planned": len(result.get("modules", [])),
+                    "resources_done": 0,
+                    "resources_total": 0,
+                    "current_skill": None,
+                    "last_found": None,
+                })
+
+                async def _on_progress(detail: dict):
+                    _set_step("resources", detail)
+
+                result = await enrich_plan_with_real_videos(result, on_progress=_on_progress)
+
+                # Step 3: finalize and persist.
+                _set_step("finalizing", {"modules_planned": len(result.get("modules", []))})
+                bg_plan = bg_db.query(JobLearningPlan).filter(JobLearningPlan.id == pid).first()
                 bg_plan.plan = result
                 bg_plan.status = "ready"
+                bg_db.commit()
             except Exception as exc:
                 logger.error("Plan gen failed %s: %s", pid, exc, exc_info=True)
+                bg_plan = bg_db.query(JobLearningPlan).filter(JobLearningPlan.id == pid).first()
                 bg_plan.status = "failed"
                 bg_plan.error_msg = str(exc)
-            bg_db.commit()
+                bg_db.commit()
         finally:
             bg_db.close()
 
@@ -155,12 +163,19 @@ def get_plan(
     if not plan:
         return {"status": "not_generated", "plan": None, "progress": {}}
 
+    ready_plan = plan.plan if plan.status == "ready" else None
     return {
         "status": plan.status,
-        "plan": plan.plan if plan.status == "ready" else None,
+        "plan": ready_plan,
         "progress": plan.progress or {},
+        "generation_step": plan.generation_step,
+        "generation_detail": plan.generation_detail or {},
         "generated_at": plan.generated_at.isoformat() if plan.generated_at else None,
+        "updated_at": plan.updated_at.isoformat() if plan.updated_at else None,
         "error": plan.error_msg if plan.status == "failed" else None,
+        # True if this is an old plan generated before real-video enrichment existed —
+        # the frontend can use this to prompt/auto-trigger a one-time regeneration.
+        "stale": is_plan_stale(ready_plan),
     }
 
 

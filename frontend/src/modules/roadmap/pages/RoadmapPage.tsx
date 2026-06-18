@@ -4,8 +4,6 @@ import { useNavigate } from 'react-router-dom'
 import { roadmapApi, type RoadmapOut, type StageStatus, type NarrativeFeedback, type TicketTemplate, type TicketSubmission } from '@/api/roadmap'
 import AppSidebar from '@/components/layout/AppSidebar'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
-import JobReadinessMeter from '../components/JobReadinessMeter'
-import DailyMissionCard from '../components/DailyMissionCard'
 import ExercisePanel from '../components/ExercisePanel'
 import LearningPathsPanel from '../components/LearningPathsPanel'
 import JobLearningPlanPanel from '../components/JobLearningPlanPanel'
@@ -20,8 +18,8 @@ import {
 // ── Stage icons ───────────────────────────────────────────────────────────────
 const STAGE_ICONS = [Sparkles, TrendingUp, Briefcase, FileText, Mic, Map]
 const STAGE_COLORS: Record<StageStatus['status'], string> = {
-  passed:  '#10B981',
-  active:  '#2D6A4F',
+  passed:  '#059669',
+  active:  '#15130F',
   pending: '#94A3B8',
 }
 
@@ -82,7 +80,7 @@ function NarrativePanel({ roadmap }: { roadmap: RoadmapOut }) {
               disabled={loading || text.trim().length < 100}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
-                background: loading || text.trim().length < 100 ? '#E2E8F0' : 'linear-gradient(135deg, #2D6A4F, #40916C)',
+                background: loading || text.trim().length < 100 ? '#E2E8F0' : 'linear-gradient(135deg, #15130F 0%, #1E3A5F 55%, #2563EB 100%)',
                 color: loading || text.trim().length < 100 ? '#94A3B8' : 'white',
                 border: 'none', borderRadius: 10, padding: '10px 20px',
                 fontSize: 13, fontWeight: 700, cursor: loading || text.trim().length < 100 ? 'not-allowed' : 'pointer',
@@ -108,7 +106,7 @@ function NarrativePanel({ roadmap }: { roadmap: RoadmapOut }) {
               <p style={{ fontSize: 12, color: '#64748B', margin: '3px 0 0' }}>
                 {feedback.commercial_language_pct}% commercial language · {feedback.upsc_jargon_found.length} jargon phrases found
               </p>
-              <p style={{ fontSize: 12, color: '#2D6A4F', fontWeight: 600, marginTop: 4 }}>{feedback.coaching_note}</p>
+              <p style={{ fontSize: 12, color: '#15130F', fontWeight: 600, marginTop: 4 }}>{feedback.coaching_note}</p>
             </div>
           </div>
 
@@ -265,7 +263,7 @@ function TicketPanel({ roadmap }: { roadmap: RoadmapOut }) {
                 style={{
                   background: selectedTicket?.id === ticket.id ? '#F0FDF4' : 'white',
                   borderRadius: 14, padding: '16px 18px', cursor: 'pointer',
-                  border: selectedTicket?.id === ticket.id ? '1.5px solid #2D6A4F' : '1.5px solid rgba(226,232,240,0.8)',
+                  border: selectedTicket?.id === ticket.id ? '1.5px solid #15130F' : '1.5px solid rgba(226,232,240,0.8)',
                   boxShadow: '0 2px 8px rgba(15,23,42,0.05)', transition: 'all 0.15s',
                 }}
               >
@@ -308,7 +306,7 @@ function TicketPanel({ roadmap }: { roadmap: RoadmapOut }) {
             <button
               onClick={handleSubmit}
               disabled={submitting || submissionText.trim().length < 50}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px', border: 'none', borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: submitting || submissionText.trim().length < 50 ? 'not-allowed' : 'pointer', background: submitting || submissionText.trim().length < 50 ? '#E2E8F0' : 'linear-gradient(135deg, #2D6A4F, #40916C)', color: submitting || submissionText.trim().length < 50 ? '#94A3B8' : 'white' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 20px', border: 'none', borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: submitting || submissionText.trim().length < 50 ? 'not-allowed' : 'pointer', background: submitting || submissionText.trim().length < 50 ? '#E2E8F0' : 'linear-gradient(135deg, #15130F 0%, #1E3A5F 55%, #2563EB 100%)', color: submitting || submissionText.trim().length < 50 ? '#94A3B8' : 'white' }}
             >
               {submitting ? <><Loader2 size={13} style={{ animation: 'spin 0.8s linear infinite' }} /> Submitting...</> : <><Send size={13} /> Submit</>}
             </button>
@@ -432,7 +430,7 @@ function StageCard({ stage, roadmap, isExpanded, onToggle }: {
                     borderRadius: 10, padding: '12px 14px', marginBottom: 14,
                   }}>
                     <span style={{ fontSize: 12, color: '#92400E', lineHeight: 1.5 }}>
-                      <strong>Tip:</strong> Go to <a href="/app/jobs" style={{ color: '#2D6A4F', fontWeight: 700 }}>Jobs</a>, open a job you want to target,
+                      <strong>Tip:</strong> Go to <a href="/app/jobs" style={{ color: '#15130F', fontWeight: 700 }}>Jobs</a>, open a job you want to target,
                       and click <strong>"Set as Active Prep Job"</strong> to get a personalised AI roadmap for that role.
                     </span>
                   </div>
@@ -444,7 +442,7 @@ function StageCard({ stage, roadmap, isExpanded, onToggle }: {
           {stage.stage_number === 4 && <TicketPanel roadmap={roadmap} />}
           {stage.stage_number === 5 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <button onClick={() => navigate('/app/resume')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'white', color: '#2D6A4F', border: '1.5px solid #2D6A4F', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              <button onClick={() => navigate('/app/resume')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'white', color: '#15130F', border: '1.5px solid #15130F', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
                 <FileText size={14} /> Optimise Resume <ArrowRight size={13} />
               </button>
               <button onClick={() => navigate('/app/interview/structured')} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)', color: 'white', border: 'none', borderRadius: 10, padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
@@ -492,7 +490,7 @@ function StageCard({ stage, roadmap, isExpanded, onToggle }: {
                     <button
                       onClick={() => advanceMutation.mutate()}
                       disabled={advanceMutation.isPending}
-                      style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(135deg, #2D6A4F, #40916C)', color: 'white', border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+                      style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 6, background: 'linear-gradient(135deg, #15130F 0%, #1E3A5F 55%, #2563EB 100%)', color: 'white', border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
                     >
                       {advanceMutation.isPending ? 'Advancing...' : <>Advance to Stage {stage.stage_number + 1} <ArrowRight size={13} /></>}
                     </button>
@@ -514,8 +512,8 @@ function GeneratePrompt() {
   const navigate = useNavigate()
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 400, textAlign: 'center', padding: 40 }}>
-      <div style={{ width: 72, height: 72, borderRadius: 20, background: 'linear-gradient(135deg, #DCFCE7, #BBF7D0)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-        <Map size={36} color="#2D6A4F" />
+      <div style={{ width: 72, height: 72, borderRadius: 20, background: '#15130F', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+        <Map size={36} color="white" />
       </div>
       <h2 style={{ fontSize: 22, fontWeight: 900, color: '#0F172A', marginBottom: 10, fontFamily: 'Hind, sans-serif' }}>Your Roadmap Awaits</h2>
       <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.6, maxWidth: 400, marginBottom: 28 }}>
@@ -523,7 +521,7 @@ function GeneratePrompt() {
       </p>
       <button
         onClick={() => navigate('/app/careers/explore')}
-        style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg, #2D6A4F, #40916C)', color: 'white', border: 'none', borderRadius: 14, padding: '14px 28px', fontSize: 14, fontWeight: 800, cursor: 'pointer', boxShadow: '0 4px 16px rgba(45,106,79,0.3)' }}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg, #15130F 0%, #1E3A5F 55%, #2563EB 100%)', color: 'white', border: 'none', borderRadius: 14, padding: '14px 28px', fontSize: 14, fontWeight: 800, cursor: 'pointer', boxShadow: '0 4px 16px rgba(21,19,15,0.22)' }}
       >
         Choose a Career Track <ArrowRight size={16} />
       </button>
@@ -570,64 +568,68 @@ export default function RoadmapPage() {
   const showJobPlanOnly = !roadmapLoading && !roadmap && !!activePrep
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F0F4F8', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #FAF7F1 0%, #FFFFFF 55%, #F1EAE0 100%)', display: 'flex' }}>
       <AppSidebar activePath="/app/roadmap" />
 
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+
         {/* Header */}
-        <header style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(226,232,240,0.8)', padding: '0 28px', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Map size={18} color="#2D6A4F" />
-            <span style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', fontFamily: 'Hind, sans-serif' }}>My Roadmap</span>
-            {roadmap && (
-              <span style={{ fontSize: 12, color: '#94A3B8', fontWeight: 500 }}>· {roadmap.career_track_name}</span>
-            )}
-            {showJobPlanOnly && (
-              <span style={{ fontSize: 12, color: '#94A3B8', fontWeight: 500 }}>· {activePrep.job_title}</span>
-            )}
+        <header style={{
+          background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(20px)',
+          borderBottom: '1px solid rgba(226,232,240,0.8)',
+          padding: '0 28px', height: 60,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          position: 'sticky', top: 0, zIndex: 20,
+          boxShadow: '0 1px 8px rgba(15,23,42,0.05)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#15130F', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Map size={13} color="white" />
+            </div>
+            <span style={{ fontFamily: 'Hind, sans-serif', fontSize: 15, fontWeight: 800, color: '#0F172A' }}>My Roadmap</span>
+            {roadmap && <span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 500 }}>· {roadmap.career_track_name}</span>}
+            {showJobPlanOnly && <span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 500 }}>· {activePrep.job_title}</span>}
           </div>
           {roadmap && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(45,106,79,0.08)', border: '1px solid rgba(45,106,79,0.2)', borderRadius: 20, padding: '6px 14px' }}>
-              <TrendingUp size={13} color="#2D6A4F" />
-              <span style={{ fontSize: 13, fontWeight: 800, color: '#2D6A4F', fontFamily: 'Hind, sans-serif' }}>
-                JRS: {roadmap.job_readiness_score}
-              </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FAF7F1', border: '1.5px solid #F1EAE0', borderRadius: 20, padding: '6px 14px' }}>
+              <TrendingUp size={12} color="#15130F" />
+              <span style={{ fontSize: 12, fontWeight: 800, color: '#15130F' }}>JRS: {roadmap.job_readiness_score}</span>
             </div>
           )}
         </header>
 
-        <main style={{ padding: '24px 28px', display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24, alignItems: 'start' }}>
+        <main style={{ padding: '24px 28px', display: 'grid', gridTemplateColumns: '1fr 280px', gap: 22, alignItems: 'start', flex: 1 }}>
+
           {/* Left: stages */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {isLoading && (
               <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
-                <Loader2 size={28} color="#2D6A4F" style={{ animation: 'spin 0.8s linear infinite' }} />
+                <Loader2 size={28} color="#15130F" style={{ animation: 'spin 0.8s linear infinite' }} />
               </div>
             )}
 
-            {/* Job-focused mode: active prep job but no career-track roadmap yet */}
+            {/* Job-focused mode */}
             {showJobPlanOnly && (
-              <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #E2E8F0', padding: '20px 22px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg,#2D6A4F,#40916C)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Briefcase size={18} color="white" />
-                  </div>
-                  <div>
-                    <p style={{ fontSize: 15, fontWeight: 800, color: '#111827', margin: 0 }}>
-                      {activePrep.job_title}
-                    </p>
-                    <p style={{ fontSize: 12, color: '#6B7280', margin: 0 }}>{activePrep.company_name}</p>
+              <div style={{ background: 'white', borderRadius: 20, border: '1.5px solid rgba(226,232,240,0.8)', overflow: 'hidden', boxShadow: '0 4px 16px rgba(15,23,42,0.05)' }}>
+                <div style={{ background: 'linear-gradient(135deg, #15130F 0%, #1E3A5F 55%, #2563EB 100%)', padding: '20px 22px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Briefcase size={18} color="white" />
+                    </div>
+                    <div>
+                      <p style={{ fontSize: 15, fontWeight: 800, color: 'white', margin: 0 }}>{activePrep.job_title}</p>
+                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: 0 }}>{activePrep.company_name}</p>
+                    </div>
                   </div>
                 </div>
-                <p style={{ fontSize: 12, color: '#94A3B8', margin: '0 0 16px' }}>
-                  Your personalised learning roadmap for this role
-                </p>
-                <JobLearningPlanPanel
-                  roadmap={{ gap_skills: [], active_prep_job_id: String(activePrep.job_id), active_prep_job_title: activePrep.job_title, active_prep_job_company: activePrep.company_name } as any}
-                  activeJobId={String(activePrep.job_id)}
-                  activeJobTitle={activePrep.job_title}
-                  activeCompany={activePrep.company_name}
-                />
+                <div style={{ padding: '20px 22px' }}>
+                  <JobLearningPlanPanel
+                    roadmap={{ gap_skills: [], active_prep_job_id: String(activePrep.job_id), active_prep_job_title: activePrep.job_title, active_prep_job_company: activePrep.company_name } as any}
+                    activeJobId={String(activePrep.job_id)}
+                    activeJobTitle={activePrep.job_title}
+                    activeCompany={activePrep.company_name}
+                  />
+                </div>
               </div>
             )}
 
@@ -644,44 +646,47 @@ export default function RoadmapPage() {
             ))}
           </div>
 
-          {/* Right: JRS meter + daily mission + gap skills + cohort */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16, position: 'sticky', top: 76 }}>
-            <JobReadinessMeter />
+          {/* Right sidebar */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, position: 'sticky', top: 76 }}>
 
-            {/* Daily Mission */}
-            <DailyMissionCard />
-
+            {/* Top Skills to Build */}
             {roadmap && roadmap.gap_skills.length > 0 && (
-              <div style={{ background: 'white', borderRadius: 20, padding: '20px', border: '1.5px solid rgba(226,232,240,0.8)', boxShadow: '0 2px 10px rgba(15,23,42,0.05)' }}>
-                <p style={{ fontSize: 13, fontWeight: 800, color: '#0F172A', marginBottom: 14 }}>Top Skills to Build</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ background: 'white', borderRadius: 20, overflow: 'hidden', border: '1.5px solid rgba(226,232,240,0.8)', boxShadow: '0 4px 16px rgba(15,23,42,0.05)' }}>
+                <div style={{ background: 'linear-gradient(135deg, #15130F 0%, #1E3A5F 55%, #2563EB 100%)', padding: '16px 18px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 26, height: 26, borderRadius: 7, background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <TrendingUp size={12} color="white" />
+                    </div>
+                    <p style={{ fontSize: 12, fontWeight: 800, color: 'white', margin: 0 }}>Skills to Build</p>
+                  </div>
+                </div>
+                <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {roadmap.gap_skills.slice(0, 8).map((skill, i) => (
                     <div key={skill} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', width: 16, textAlign: 'right' as const }}>{i + 1}</span>
+                      <span style={{ width: 20, height: 20, borderRadius: 6, background: '#FAF7F1', border: '1px solid #F1EAE0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#15130F', flexShrink: 0 }}>{i + 1}</span>
                       <span style={{ fontSize: 12, color: '#374151', fontWeight: 600, flex: 1 }}>{skill}</span>
                     </div>
                   ))}
                   {roadmap.gap_skills.length > 8 && (
-                    <p style={{ fontSize: 11, color: '#94A3B8', margin: '4px 0 0' }}>+{roadmap.gap_skills.length - 8} more skills</p>
+                    <p style={{ fontSize: 11, color: '#94A3B8', margin: '4px 0 0' }}>+{roadmap.gap_skills.length - 8} more</p>
                   )}
                 </div>
               </div>
             )}
 
-            {/* Cohort social proof signals */}
+            {/* Cohort signals */}
             {cohortData?.signals && cohortData.signals.length > 0 && (
-              <div style={{ background: 'white', borderRadius: 20, padding: '18px 20px', border: '1.5px solid rgba(226,232,240,0.8)', boxShadow: '0 2px 10px rgba(15,23,42,0.05)' }}>
+              <div style={{ background: 'white', borderRadius: 20, padding: '18px', border: '1.5px solid rgba(226,232,240,0.8)', boxShadow: '0 4px 16px rgba(15,23,42,0.05)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 12 }}>
-                  <Users size={13} color="#6B7280" />
-                  <p style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>This Week in Your Cohort</p>
+                  <Users size={12} color="#15130F" />
+                  <p style={{ fontSize: 12, fontWeight: 800, color: '#0F172A', margin: 0 }}>This Week in Your Cohort</p>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {cohortData.signals.map((signal, i) => (
                     <p key={i} style={{
-                      fontSize: 12, color: signal.count > 0 ? '#2D6A4F' : '#94A3B8',
-                      lineHeight: 1.5, margin: 0,
-                      paddingLeft: 12,
-                      borderLeft: `3px solid ${signal.count > 0 ? '#2D6A4F' : '#E5E7EB'}`,
+                      fontSize: 11, color: signal.count > 0 ? '#15130F' : '#94A3B8',
+                      lineHeight: 1.5, margin: 0, paddingLeft: 10,
+                      borderLeft: `2.5px solid ${signal.count > 0 ? '#15130F' : '#E5E7EB'}`,
                     }}>
                       {signal.message}
                     </p>
@@ -691,29 +696,26 @@ export default function RoadmapPage() {
             )}
 
             {/* Career Coach CTA */}
-            <div style={{
-              background: 'linear-gradient(135deg, rgba(59,130,246,0.07), rgba(29,78,216,0.04))',
-              border: '1px solid rgba(59,130,246,0.18)',
-              borderRadius: 16, padding: '16px 18px',
-            }}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: '#1E3A5F', marginBottom: 6 }}>
-                Stuck on your job search?
-              </p>
-              <p style={{ fontSize: 12, color: '#6B7280', lineHeight: 1.5, marginBottom: 12 }}>
-                Get tactical, specific career coaching from DISHA — resume strategy, interview prep, networking plays.
-              </p>
-              <a
-                href="/app/counsellor"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 5,
-                  padding: '8px 14px', borderRadius: 10,
-                  background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
-                  color: 'white', fontSize: 12, fontWeight: 700, textDecoration: 'none',
-                }}
-              >
-                Start Career Coaching →
-              </a>
+            <div style={{ background: 'white', borderRadius: 20, overflow: 'hidden', border: '1.5px solid rgba(226,232,240,0.8)', boxShadow: '0 4px 16px rgba(15,23,42,0.05)' }}>
+              <div style={{ background: 'linear-gradient(135deg, #15130F 0%, #1E3A5F 55%, #2563EB 100%)', padding: '16px 18px' }}>
+                <p style={{ fontSize: 13, fontWeight: 800, color: 'white', margin: 0 }}>Stuck on your job search?</p>
+              </div>
+              <div style={{ padding: '14px 18px' }}>
+                <p style={{ fontSize: 12, color: '#64748B', lineHeight: 1.6, marginBottom: 12 }}>
+                  Get tactical career coaching from DISHA — resume strategy, interview prep, networking plays.
+                </p>
+                <a href="/app/counsellor" style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                  padding: '9px 14px', borderRadius: 10,
+                  background: '#3B82F6', color: 'white',
+                  fontSize: 12, fontWeight: 700, textDecoration: 'none',
+                  boxShadow: '0 4px 12px rgba(59,130,246,0.28)',
+                }}>
+                  Start Career Coaching →
+                </a>
+              </div>
             </div>
+
           </div>
         </main>
       </div>

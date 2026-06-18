@@ -1,94 +1,100 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Briefcase, MapPin, Wifi, AlertCircle, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react'
+import { Briefcase, MapPin, Wifi, AlertCircle, ChevronLeft, ChevronRight, SlidersHorizontal, ArrowUpRight } from 'lucide-react'
 import AppSidebar from '@/components/layout/AppSidebar'
 import { getJobs, type JobListItem } from '@/api/matching'
 
 const SECTORS = ['Policy', 'ESG', 'EdTech', 'NGO', 'Consulting', 'Public Affairs', 'Research']
 const JOB_TYPES = ['remote', 'pan_india', 'hybrid', 'onsite']
 
-function matchColor(score: number): { bg: string; text: string } {
-  if (score >= 70) return { bg: '#DCFCE7', text: '#166534' }
-  if (score >= 40) return { bg: '#FEF9C3', text: '#854D0E' }
-  return { bg: '#FEE2E2', text: '#991B1B' }
+function matchColor(_score: number): { bg: string; text: string } {
+  return { bg: 'rgba(59,130,246,0.10)', text: '#1D4ED8' }
 }
 
 function JobCard({ job }: { job: JobListItem }) {
   const mc = job.match_score !== null ? matchColor(job.match_score) : null
+  const [hov, setHov] = useState(false)
 
   return (
-    <div style={{
-      background: '#fff', borderRadius: 14, border: '1px solid #E2E8F0',
-      padding: '18px 20px', transition: 'box-shadow 0.15s',
-    }}
-      onMouseOver={e => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.08)' }}
-      onMouseOut={e => { e.currentTarget.style.boxShadow = 'none' }}
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        background: '#fff', borderRadius: 18, border: '1.5px solid #E2E8F0', overflow: 'hidden',
+        boxShadow: hov ? '0 16px 36px rgba(15,23,42,0.10)' : '0 2px 10px rgba(15,23,42,0.04)',
+        transform: hov ? 'translateY(-4px)' : 'translateY(0)',
+        transition: 'all 0.25s cubic-bezier(0.34,1.1,0.64,1)',
+      }}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <h3 style={{ fontWeight: 700, color: '#111827', fontSize: 15, margin: 0 }}>{job.title}</h3>
-            {mc && (
-              <span style={{
-                fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-                background: mc.bg, color: mc.text,
-              }}>
-                {job.match_score}% match
-              </span>
+      <div style={{ height: 3, background: 'linear-gradient(90deg, #3B82F6, #15130F)' }} />
+      <div style={{ padding: '18px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <h3 style={{ fontWeight: 700, color: '#111827', fontSize: 15, margin: 0 }}>{job.title}</h3>
+              {mc && (
+                <span style={{
+                  fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                  background: mc.bg, color: mc.text,
+                }}>
+                  {job.match_score}% match
+                </span>
+              )}
+            </div>
+            <p style={{ fontSize: 13, color: '#6B7280', margin: '3px 0 0' }}>{job.company_name}</p>
+
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+              {job.sector && (
+                <span style={{ fontSize: 11, background: 'rgba(59,130,246,0.08)', color: '#1D4ED8', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>
+                  {job.sector}
+                </span>
+              )}
+              {job.location && (
+                <span style={{ fontSize: 11, background: '#F1F5F9', color: '#475569', padding: '2px 8px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <MapPin size={10} /> {job.location}
+                </span>
+              )}
+              {job.job_type && (
+                <span style={{ fontSize: 11, background: '#F1F5F9', color: '#475569', padding: '2px 8px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <Wifi size={10} /> {job.job_type.replace('_', ' ')}
+                </span>
+              )}
+              {job.employment_type && (
+                <span style={{ fontSize: 11, background: '#F1F5F9', color: '#475569', padding: '2px 8px', borderRadius: 20 }}>
+                  {job.employment_type.replace('_', ' ')}
+                </span>
+              )}
+            </div>
+
+            {(job.salary_min || job.salary_max) && (
+              <p style={{ fontSize: 13, color: '#374151', marginTop: 8, fontWeight: 600 }}>
+                ₹{job.salary_min ?? '?'}–{job.salary_max ?? '?'} LPA
+              </p>
+            )}
+            {job.skill_overlap_pct !== null && (
+              <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>
+                You have {job.skill_overlap_pct}% of required skills
+              </p>
             )}
           </div>
-          <p style={{ fontSize: 13, color: '#6B7280', margin: '3px 0 0' }}>{job.company_name}</p>
-
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-            {job.sector && (
-              <span style={{ fontSize: 11, background: '#EFF6FF', color: '#1D4ED8', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>
-                {job.sector}
-              </span>
-            )}
-            {job.location && (
-              <span style={{ fontSize: 11, background: '#F1F5F9', color: '#475569', padding: '2px 8px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 3 }}>
-                <MapPin size={10} /> {job.location}
-              </span>
-            )}
-            {job.job_type && (
-              <span style={{ fontSize: 11, background: '#F1F5F9', color: '#475569', padding: '2px 8px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 3 }}>
-                <Wifi size={10} /> {job.job_type.replace('_', ' ')}
-              </span>
-            )}
-            {job.employment_type && (
-              <span style={{ fontSize: 11, background: '#F1F5F9', color: '#475569', padding: '2px 8px', borderRadius: 20 }}>
-                {job.employment_type.replace('_', ' ')}
-              </span>
-            )}
-          </div>
-
-          {(job.salary_min || job.salary_max) && (
-            <p style={{ fontSize: 13, color: '#374151', marginTop: 8, fontWeight: 600 }}>
-              ₹{job.salary_min ?? '?'}–{job.salary_max ?? '?'} LPA
-            </p>
-          )}
-          {job.skill_overlap_pct !== null && (
-            <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>
-              You have {job.skill_overlap_pct}% of required skills
-            </p>
-          )}
         </div>
-      </div>
 
-      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-        <Link
-          to={`/app/jobs/${job.id}`}
-          style={{
-            flex: 1, textAlign: 'center', fontSize: 13, fontWeight: 600,
-            color: '#2D6A4F', border: '1px solid #2D6A4F', borderRadius: 9,
-            padding: '8px 0', textDecoration: 'none', transition: 'background 0.15s',
-          }}
-          onMouseOver={e => { (e.currentTarget as HTMLAnchorElement).style.background = '#F0FDF4' }}
-          onMouseOut={e => { (e.currentTarget as HTMLAnchorElement).style.background = 'transparent' }}
-        >
-          View Details
-        </Link>
+        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+          <Link
+            to={`/app/jobs/${job.id}`}
+            style={{
+              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              textAlign: 'center', fontSize: 13, fontWeight: 700,
+              color: 'white', background: '#3B82F6', borderRadius: 10,
+              padding: '9px 0', textDecoration: 'none', transition: 'background 0.15s',
+            }}
+            onMouseOver={e => { (e.currentTarget as HTMLAnchorElement).style.background = '#1D4ED8' }}
+            onMouseOut={e => { (e.currentTarget as HTMLAnchorElement).style.background = '#3B82F6' }}
+          >
+            View Details <ArrowUpRight size={13} />
+          </Link>
+        </div>
       </div>
     </div>
   )
@@ -99,24 +105,25 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center',
       justifyContent: 'center', padding: '60px 24px', textAlign: 'center',
+      background: 'white', borderRadius: 20, border: '1px solid #E2E8F0',
     }}>
       <div style={{
-        width: 56, height: 56, borderRadius: 16, background: '#F1F5F9',
+        width: 56, height: 56, borderRadius: 16, background: 'rgba(59,130,246,0.08)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
       }}>
-        <Briefcase size={24} color="#94A3B8" />
+        <Briefcase size={24} color="#3B82F6" />
       </div>
-      <h3 style={{ fontSize: 16, fontWeight: 700, color: '#374151', margin: '0 0 8px' }}>
+      <h3 style={{ fontSize: 16, fontWeight: 700, color: '#111827', margin: '0 0 8px' }}>
         {hasFilters ? 'No jobs match these filters' : 'No jobs available yet'}
       </h3>
       {!hasFilters && (
         <div style={{
           display: 'flex', alignItems: 'flex-start', gap: 10,
-          background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10,
+          background: '#FAF7F1', border: '1px solid #F1EAE0', borderRadius: 10,
           padding: '12px 16px', marginTop: 12, maxWidth: 420, textAlign: 'left',
         }}>
-          <AlertCircle size={16} color="#D97706" style={{ marginTop: 1, flexShrink: 0 }} />
-          <p style={{ fontSize: 13, color: '#92400E', margin: 0, lineHeight: 1.5 }}>
+          <AlertCircle size={16} color="#3B82F6" style={{ marginTop: 1, flexShrink: 0 }} />
+          <p style={{ fontSize: 13, color: '#475569', margin: 0, lineHeight: 1.5 }}>
             Jobs are only shown after an employer account is approved by an admin.
             If you're testing, ask an admin to approve an employer in the admin panel.
           </p>
@@ -144,26 +151,29 @@ export default function JobsPage() {
   })
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#F8FAFC' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'linear-gradient(160deg, #F0F7FF 0%, #FFFFFF 55%, #EFF6FF 100%)' }}>
       <AppSidebar activePath="/app/jobs" />
       <main style={{ flex: 1, padding: '32px 28px', maxWidth: 900, margin: '0 auto' }}>
 
         {/* Header */}
         <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#111827', margin: 0 }}>Job Opportunities</h1>
+          <h1 style={{ fontFamily: 'Hind, sans-serif', fontSize: 24, fontWeight: 900, color: '#1E3A5F', margin: 0, letterSpacing: '-0.4px' }}>Job Opportunities</h1>
           <p style={{ fontSize: 13, color: '#6B7280', marginTop: 4 }}>
             Ranked by your DISHA profile match score
           </p>
         </div>
 
         {/* Filters */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 24, alignItems: 'center' }}>
-          <SlidersHorizontal size={15} color="#94A3B8" />
+        <div style={{
+          display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 24, alignItems: 'center',
+          background: 'white', border: '1px solid #E2E8F0', borderRadius: 14, padding: '12px 16px',
+        }}>
+          <SlidersHorizontal size={15} color="#3B82F6" />
           <select
             value={sector}
             onChange={e => { setSector(e.target.value); setPage(0) }}
             style={{
-              border: '1px solid #E2E8F0', borderRadius: 8, padding: '7px 12px',
+              border: '1px solid #E2E8F0', borderRadius: 9, padding: '7px 12px',
               fontSize: 13, background: '#fff', color: '#374151', cursor: 'pointer', outline: 'none',
             }}
           >
@@ -174,7 +184,7 @@ export default function JobsPage() {
             value={jobType}
             onChange={e => { setJobType(e.target.value); setPage(0) }}
             style={{
-              border: '1px solid #E2E8F0', borderRadius: 8, padding: '7px 12px',
+              border: '1px solid #E2E8F0', borderRadius: 9, padding: '7px 12px',
               fontSize: 13, background: '#fff', color: '#374151', cursor: 'pointer', outline: 'none',
             }}
           >
@@ -186,7 +196,7 @@ export default function JobsPage() {
               onClick={() => { setSector(''); setJobType(''); setPage(0) }}
               style={{
                 fontSize: 12, color: '#6B7280', background: 'none', border: '1px solid #E2E8F0',
-                borderRadius: 8, padding: '7px 12px', cursor: 'pointer',
+                borderRadius: 9, padding: '7px 12px', cursor: 'pointer',
               }}
             >
               Clear filters
@@ -198,7 +208,7 @@ export default function JobsPage() {
         {isLoading && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '64px 0' }}>
             <div style={{
-              width: 32, height: 32, border: '2px solid #2D6A4F',
+              width: 32, height: 32, border: '2px solid #3B82F6',
               borderTopColor: 'transparent', borderRadius: '50%',
               animation: 'spin 0.7s linear infinite',
             }} />
@@ -243,7 +253,7 @@ export default function JobsPage() {
                   style={{
                     display: 'flex', alignItems: 'center', gap: 4,
                     padding: '8px 14px', fontSize: 13, border: '1px solid #E2E8F0',
-                    borderRadius: 8, background: '#fff', cursor: page === 0 ? 'not-allowed' : 'pointer',
+                    borderRadius: 9, background: '#fff', cursor: page === 0 ? 'not-allowed' : 'pointer',
                     opacity: page === 0 ? 0.4 : 1, color: '#374151',
                   }}
                 >
@@ -258,7 +268,7 @@ export default function JobsPage() {
                   style={{
                     display: 'flex', alignItems: 'center', gap: 4,
                     padding: '8px 14px', fontSize: 13, border: '1px solid #E2E8F0',
-                    borderRadius: 8, background: '#fff',
+                    borderRadius: 9, background: '#fff',
                     cursor: (page + 1) * limit >= data.total ? 'not-allowed' : 'pointer',
                     opacity: (page + 1) * limit >= data.total ? 0.4 : 1, color: '#374151',
                   }}

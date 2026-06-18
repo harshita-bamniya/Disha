@@ -36,6 +36,9 @@ httpx==0.28.1
 anthropic==0.40.0
 openai==1.57.4
 
+# YouTube search (no API key needed — used for real video curation in learning plans)
+yt-dlp==2026.6.9
+
 # Embeddings (fastembed — ONNX-based, no API key, ~50 MB vs ~800 MB for PyTorch)
 fastembed==0.4.2
 numpy>=1.24.0
