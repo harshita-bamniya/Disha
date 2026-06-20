@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from sqlalchemy import (
     Boolean, Column, Date, DateTime, Enum, ForeignKey,
-    Integer, String, Text, UniqueConstraint
+    Integer, String, Text, UniqueConstraint, CheckConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID, INET, JSONB
 from sqlalchemy.orm import relationship
@@ -29,11 +29,17 @@ def utcnow():
 
 
 class Role(Base):
+    """Master lookup table for roles. Adding a new role = one INSERT, no schema change.
+
+    Scalability pattern: each role gets its own profile table (aspirant_profiles,
+    employer_profiles, etc.) linked via user_id FK. The users table stays generic.
+    """
     __tablename__ = "roles"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String(50), unique=True, nullable=False)
+    name = Column(String(50), unique=True, nullable=False, index=True)
     description = Column(Text)
+    is_system = Column(Boolean, nullable=False, default=False)  # system roles cannot be deleted via admin UI
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     users = relationship("User", back_populates="role")
@@ -163,7 +169,7 @@ class AspirantProfile(Base):
 
     # ── Step 1: Personal ──────────────────────────────────────────────────────
     full_name = Column(String(150), nullable=True)
-    date_of_birth = Column(String(10), nullable=True)      # stored as YYYY-MM-DD string
+    date_of_birth = Column(Date, nullable=True)
     gender = Column(GENDER_ENUM, nullable=True)
     city = Column(String(100), nullable=True)
     state = Column(String(100), nullable=True)
@@ -328,6 +334,13 @@ class KrsScore(Base):
 
     user = relationship("User", back_populates="krs_score")
 
+    __table_args__ = (
+        CheckConstraint("k_score BETWEEN 0 AND 100", name="ck_krs_k_score"),
+        CheckConstraint("r_score BETWEEN 0 AND 100", name="ck_krs_r_score"),
+        CheckConstraint("s_score BETWEEN 0 AND 100", name="ck_krs_s_score"),
+        CheckConstraint("composite BETWEEN 0 AND 100", name="ck_krs_composite"),
+    )
+
 
 class CareerMatch(Base):
     """Top career track matches for an aspirant, scored 0-100."""
@@ -343,7 +356,11 @@ class CareerMatch(Base):
     user = relationship("User", back_populates="career_matches")
     track = relationship("CareerTrack", back_populates="matches")
 
-    __table_args__ = (UniqueConstraint("user_id", "track_id", name="uq_career_match_user_track"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "track_id", name="uq_career_match_user_track"),
+        CheckConstraint("match_score BETWEEN 0 AND 100", name="ck_career_match_score"),
+        CheckConstraint("skill_overlap BETWEEN 0 AND 100", name="ck_career_skill_overlap"),
+    )
 
 
 # ── Module 04 prep: Employer Job Postings ────────────────────────────────────
