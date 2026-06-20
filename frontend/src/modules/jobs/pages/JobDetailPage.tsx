@@ -339,7 +339,8 @@ export default function JobDetailPage() {
             {!showApplyForm ? (
               <button
                 onClick={() => setShowApplyForm(true)}
-                className="w-full bg-primary text-white font-semibold rounded-lg py-3 hover:bg-primary/90 transition-colors"
+                className="w-full text-white font-semibold rounded-lg py-3 transition-opacity hover:opacity-90"
+                style={{ background: 'linear-gradient(135deg, #1E3A6B 0%, #0B1424 100%)' }}
               >
                 Apply Now
               </button>
@@ -365,7 +366,8 @@ export default function JobDetailPage() {
                   <button
                     onClick={() => applyMutation.mutate()}
                     disabled={applyMutation.isPending}
-                    className="flex-1 bg-primary text-white rounded-lg py-2 text-sm font-semibold disabled:opacity-60"
+                    className="flex-1 text-white rounded-lg py-2 text-sm font-semibold disabled:opacity-60"
+                    style={{ background: 'linear-gradient(135deg, #1E3A6B 0%, #0B1424 100%)' }}
                   >
                     {applyMutation.isPending ? 'Submitting...' : 'Submit Application'}
                   </button>
