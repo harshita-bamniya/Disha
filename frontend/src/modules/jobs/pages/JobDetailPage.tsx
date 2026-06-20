@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { MapPin, Wifi, Briefcase, Target, Sparkles, Mic, Check } from 'lucide-react'
 import AppSidebar from '@/components/layout/AppSidebar'
 import { getJobDetail, applyToJob } from '@/api/matching'
 import { resumeApi } from '@/api/resume'
@@ -95,10 +96,7 @@ export default function JobDetailPage() {
     )
   }
 
-  const matchColor =
-    (job.match_score ?? 0) >= 70 ? 'text-green-700' :
-    (job.match_score ?? 0) >= 40 ? 'text-yellow-700' :
-    'text-red-700'
+  const companyInitial = (job.company_name || '?').charAt(0).toUpperCase()
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -108,177 +106,186 @@ export default function JobDetailPage() {
           ← Back to Jobs
         </Link>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">{job.title}</h1>
-              <p className="text-gray-600 mt-1">{job.company_name}</p>
+        {/* ── Hero header + salary/skill-overlap ── */}
+        <div className="rounded-2xl border border-gray-200 overflow-hidden mb-4 shadow-sm">
+          <div
+            className="relative px-7 py-7"
+            style={{ background: 'linear-gradient(135deg, #1E3A6B 0%, #0B1424 100%)' }}
+          >
+            <div
+              className="absolute -top-10 -right-10 w-48 h-48 rounded-full pointer-events-none"
+              style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.25), transparent 70%)' }}
+            />
+            <div className="relative flex items-start justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="w-14 h-14 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center text-2xl font-bold text-white shrink-0">
+                  {companyInitial}
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-white leading-tight">{job.title}</h1>
+                  <p className="text-blue-200/80 mt-1">{job.company_name}</p>
+                </div>
+              </div>
+              {job.match_score !== null && (
+                <div className="text-center shrink-0 bg-black/25 rounded-2xl px-4 py-2">
+                  <div className="text-2xl font-bold text-white">{job.match_score}%</div>
+                  <div className="text-[10px] font-semibold tracking-widest text-gray-300">MATCH</div>
+                </div>
+              )}
             </div>
-            {job.match_score !== null && (
-              <div className="text-center shrink-0">
-                <div className={`text-3xl font-bold ${matchColor}`}>{job.match_score}%</div>
-                <div className="text-xs text-gray-500">match</div>
+
+            <div className="relative flex flex-wrap gap-2 mt-4">
+              {job.sector && (
+                <span className="text-xs bg-white/15 text-white font-semibold px-3 py-1.5 rounded-full">{job.sector}</span>
+              )}
+              {job.location && (
+                <span className="text-xs bg-white/15 text-white font-semibold px-3 py-1.5 rounded-full flex items-center gap-1">
+                  <MapPin size={12} /> {job.location}
+                </span>
+              )}
+              {job.job_type && (
+                <span className="text-xs bg-white/15 text-white font-semibold px-3 py-1.5 rounded-full capitalize flex items-center gap-1">
+                  <Wifi size={12} /> {job.job_type.replace('_', ' ')}
+                </span>
+              )}
+              {job.employment_type && (
+                <span className="text-xs bg-white/15 text-white font-semibold px-3 py-1.5 rounded-full capitalize flex items-center gap-1">
+                  <Briefcase size={12} /> {job.employment_type.replace('_', ' ')}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white px-7 py-5">
+            {(job.salary_min || job.salary_max) && (
+              <p className="text-lg font-bold text-gray-900">
+                ₹{job.salary_min || '?'}–{job.salary_max || '?'} LPA
+              </p>
+            )}
+
+            {job.skill_overlap_pct !== null && (
+              <div className="mt-4">
+                <div className="flex justify-between text-sm font-semibold text-gray-700 mb-2">
+                  <span>Skill overlap</span>
+                  <span>{job.skill_overlap_pct}%</span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary rounded-full transition-all"
+                    style={{ width: `${job.skill_overlap_pct}%` }}
+                  />
+                </div>
               </div>
             )}
           </div>
-
-          <div className="flex flex-wrap gap-2 mt-3">
-            {job.sector && <span className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">{job.sector}</span>}
-            {job.location && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">📍 {job.location}</span>}
-            {job.job_type && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full capitalize">{job.job_type.replace('_', ' ')}</span>}
-            {job.employment_type && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full capitalize">{job.employment_type.replace('_', ' ')}</span>}
-          </div>
-
-          {(job.salary_min || job.salary_max) && (
-            <p className="text-sm text-gray-700 mt-3">
-              <span className="font-medium">Salary:</span>{' '}
-              ₹{job.salary_min || '?'}–{job.salary_max || '?'} LPA
-            </p>
-          )}
-
-          {job.skill_overlap_pct !== null && (
-            <div className="mt-4">
-              <div className="flex justify-between text-xs text-gray-600 mb-1">
-                <span>Skill overlap</span>
-                <span>{job.skill_overlap_pct}%</span>
-              </div>
-              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary rounded-full transition-all"
-                  style={{ width: `${job.skill_overlap_pct}%` }}
-                />
-              </div>
-            </div>
-          )}
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
-          <h2 className="font-semibold text-gray-900 mb-3">About this role</h2>
-          <p className="text-sm text-gray-700 whitespace-pre-line">{job.description}</p>
+        <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-4">
+          <h2 className="text-xs font-bold tracking-widest text-gray-400 mb-3">ABOUT THIS ROLE</h2>
+          <p className="text-gray-700 leading-relaxed whitespace-pre-line">{job.description}</p>
         </div>
 
         {job.required_skills.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-4">
-            <h2 className="font-semibold text-gray-900 mb-3">Required Skills</h2>
-            <div className="flex flex-wrap gap-2">
+          <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-4">
+            <h2 className="text-xs font-bold tracking-widest text-gray-400 mb-3">REQUIRED SKILLS</h2>
+            <div className="flex flex-wrap gap-2.5">
               {job.required_skills.map((s) => (
-                <span key={s} className="text-xs bg-green-50 text-green-800 px-2 py-1 rounded-full">{s}</span>
+                <span
+                  key={s}
+                  className="text-sm font-semibold px-4 py-2 rounded-full"
+                  style={{ background: '#F3E9D8', color: '#1F2937' }}
+                >
+                  {s}
+                </span>
               ))}
             </div>
           </div>
         )}
 
-        {/* ── Active Prep Job CTA ── */}
-        <div style={{
-          background: isActivePrepJob
-            ? 'linear-gradient(135deg, #F0FDF4, #ECFDF5)'
-            : 'linear-gradient(135deg, #F8FAFC, #F1F5F9)',
-          border: isActivePrepJob ? '1.5px solid #86EFAC' : '1.5px solid #E2E8F0',
-          borderRadius: 14, padding: '16px 18px', marginBottom: 16,
-          display: 'flex', alignItems: 'center', gap: 14,
-        }}>
-          <div style={{
-            width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-            background: isActivePrepJob ? 'linear-gradient(135deg,#22C55E,#16A34A)' : 'linear-gradient(135deg,#2D6A4F,#40916C)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 22,
-          }}>
-            {isActivePrepJob ? '✓' : '🎯'}
-          </div>
-          <div style={{ flex: 1 }}>
-            <p style={{ fontSize: 14, fontWeight: 800, color: '#111827', margin: 0 }}>
-              {isActivePrepJob ? 'This is your active prep job' : 'Set as Active Prep Job'}
-            </p>
-            <p style={{ fontSize: 12, color: '#6B7280', margin: '3px 0 0', lineHeight: 1.4 }}>
+        {/* ── Action cards: Prep Job / Tailored Resume / Mock Interview ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+          {/* Set as Active Prep Job */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-5 flex flex-col">
+            <div className="w-11 h-11 rounded-xl bg-black flex items-center justify-center mb-4">
+              {isActivePrepJob ? <Check size={20} className="text-white" /> : <Target size={20} className="text-white" />}
+            </div>
+            <h3 className="font-bold text-gray-900 text-sm">
+              {isActivePrepJob ? 'Active Prep Job' : 'Set as Active Prep Job'}
+            </h3>
+            <p className="text-xs text-gray-500 mt-1.5 leading-relaxed flex-1">
               {isActivePrepJob
-                ? 'DISHA AI is building your personalised learning roadmap. View it in My Roadmap → Stage 2.'
-                : 'Get a personalised AI learning roadmap, YouTube course suggestions, and skill-gap tracking tailored to this role.'
-              }
+                ? 'DISHA AI is building your roadmap for this role.'
+                : 'Personalised roadmap, course suggestions, and skill tracking.'}
             </p>
-          </div>
-          {isActivePrepJob ? (
-            <button
-              onClick={() => clearPrep()}
-              disabled={isClearingPrep}
-              style={{
-                flexShrink: 0, background: 'none', border: '1px solid #E2E8F0',
-                borderRadius: 8, padding: '7px 14px', fontSize: 12, fontWeight: 600,
-                color: '#6B7280', cursor: isClearingPrep ? 'wait' : 'pointer',
-              }}
-            >
-              {isClearingPrep ? 'Clearing…' : 'Clear'}
-            </button>
-          ) : (
-            <button
-              onClick={() => {
-                startPrep(jobId!)
-                qc.invalidateQueries({ queryKey: ['roadmap'] })
-              }}
-              disabled={isStartingPrep}
-              style={{
-                flexShrink: 0,
-                background: 'linear-gradient(135deg,#2D6A4F,#40916C)', color: 'white',
-                border: 'none', borderRadius: 8, padding: '9px 18px',
-                fontSize: 13, fontWeight: 700, cursor: isStartingPrep ? 'wait' : 'pointer',
-                opacity: isStartingPrep ? 0.7 : 1, whiteSpace: 'nowrap',
-              }}
-            >
-              {isStartingPrep ? 'Setting…' : 'Set as Prep Job'}
-            </button>
-          )}
-        </div>
-
-        {/* Generate Resume for This Job */}
-        <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-xl border border-indigo-200 p-5 mb-4">
-          <div className="flex items-start gap-3">
-            <div className="text-2xl mt-0.5">✨</div>
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-indigo-900 text-sm">Generate a Tailored Resume</h3>
-              <p className="text-xs text-indigo-700 mt-0.5 leading-relaxed">
-                AI will write a resume optimised for <span className="font-medium">{job.title}</span> at {job.company_name},
-                highlighting your most relevant skills and UPSC experience.
-              </p>
-              {resumeError && (
-                <p className="text-xs text-red-600 mt-1">{resumeError}</p>
-              )}
-            </div>
-          </div>
-          <button
-            onClick={handleGenerateResume}
-            disabled={generatingResume}
-            className="mt-3 w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-semibold rounded-lg py-2.5 text-sm transition-colors"
-          >
-            {generatingResume ? (
-              <>
-                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                </svg>
-                Generating your resume…
-              </>
+            {isActivePrepJob ? (
+              <button
+                onClick={() => clearPrep()}
+                disabled={isClearingPrep}
+                className="mt-4 w-full flex items-center justify-center gap-2 border border-gray-300 text-gray-600 font-semibold rounded-xl py-2.5 text-sm hover:bg-gray-50 transition-colors disabled:opacity-60"
+              >
+                {isClearingPrep ? 'Clearing…' : 'Clear Prep Job'}
+              </button>
             ) : (
-              '✨ Generate Resume for This Job'
+              <button
+                onClick={() => {
+                  startPrep(jobId!)
+                  qc.invalidateQueries({ queryKey: ['roadmap'] })
+                }}
+                disabled={isStartingPrep}
+                className="mt-4 w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-60 text-white font-semibold rounded-xl py-2.5 text-sm transition-colors"
+              >
+                {isStartingPrep ? 'Setting…' : 'Set as Prep Job'}
+              </button>
             )}
-          </button>
-        </div>
-
-        {/* Mock Interview CTA */}
-        <div className="bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl border border-violet-200 p-5 mb-4">
-          <div className="flex items-start gap-3">
-            <div className="text-2xl mt-0.5">🎯</div>
-            <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-violet-900 text-sm">Practice Mock Interview</h3>
-              <p className="text-xs text-violet-700 mt-0.5 leading-relaxed">
-                AI will roleplay as a real interviewer — HR, Technical, or Stress round — tailored to <span className="font-medium">{job.title}</span> at {job.company_name}. Get a detailed scorecard after.
-              </p>
-            </div>
           </div>
-          <button
-            onClick={() => navigate(`/app/mock-interview/${job.id}`)}
-            className="mt-3 w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-lg py-2.5 text-sm transition-colors"
-          >
-            🎯 Start Mock Interview
-          </button>
+
+          {/* Tailored Resume */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-5 flex flex-col">
+            <div className="w-11 h-11 rounded-xl bg-black flex items-center justify-center mb-4">
+              <Sparkles size={20} className="text-white" />
+            </div>
+            <h3 className="font-bold text-gray-900 text-sm">Tailored Resume</h3>
+            <p className="text-xs text-gray-500 mt-1.5 leading-relaxed flex-1">
+              AI resume optimised for this role's required skills.
+            </p>
+            {resumeError && <p className="text-xs text-red-600 mt-1">{resumeError}</p>}
+            <button
+              onClick={handleGenerateResume}
+              disabled={generatingResume}
+              className="mt-4 w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-60 text-white font-semibold rounded-xl py-2.5 text-sm transition-colors"
+            >
+              {generatingResume ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  </svg>
+                  Generating…
+                </>
+              ) : (
+                <>
+                  <Sparkles size={14} /> Generate
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Mock Interview */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-5 flex flex-col">
+            <div className="w-11 h-11 rounded-xl bg-black flex items-center justify-center mb-4">
+              <Mic size={20} className="text-white" />
+            </div>
+            <h3 className="font-bold text-gray-900 text-sm">Mock Interview</h3>
+            <p className="text-xs text-gray-500 mt-1.5 leading-relaxed flex-1">
+              AI interviewer roleplay with a detailed scorecard.
+            </p>
+            <button
+              onClick={() => navigate(`/app/mock-interview/${job.id}`)}
+              className="mt-4 w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl py-2.5 text-sm transition-colors"
+            >
+              <Mic size={14} /> Start
+            </button>
+          </div>
         </div>
 
         {/* Prep Checklist — only shown when this is the active prep job */}
