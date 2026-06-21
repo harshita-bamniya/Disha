@@ -13,7 +13,7 @@ from app.core.rbac import get_current_user
 from app.modules.roadmap import service
 from app.modules.roadmap.schemas import (
     GapSkillOut, GateCheckOut, JRSBreakdown, NarrativeFeedbackOut,
-    NarrativeSubmitRequest, RoadmapOut, SkillCompetenceOut,
+    NarrativeSubmitRequest, RoadmapOut, RoadmapSummaryOut, SkillCompetenceOut,
     TicketSubmitRequest, TicketSubmissionOut, TicketTemplateOut,
 )
 
@@ -44,6 +44,15 @@ def generate_roadmap(
         return service.get_roadmap_out(roadmap, db)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/all", response_model=list[RoadmapSummaryOut])
+def get_all_roadmaps(
+    user: User = Depends(_require_aspirant),
+    db: Session = Depends(get_db),
+):
+    """Return every roadmap the user has generated, for the history page."""
+    return service.get_all_roadmaps_out(user, db)
 
 
 @router.get("/mine", response_model=RoadmapOut)
@@ -273,3 +282,20 @@ def get_skill_competence(
 ):
     """Return all skill competence records for the user."""
     return service.get_skill_competence(user, db)
+
+
+# ── Fetch a specific historical roadmap ───────────────────────────────────────
+# Registered last — must not shadow the literal single-segment routes above.
+
+@router.get("/{roadmap_id}", response_model=RoadmapOut)
+def get_roadmap_by_id(
+    roadmap_id: str,
+    user: User = Depends(_require_aspirant),
+    db: Session = Depends(get_db),
+):
+    """Fetch any roadmap (active or past) owned by the user, to resume where they left off."""
+    try:
+        roadmap = service.get_roadmap_by_id(roadmap_id, user, db)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Roadmap not found.")
+    return service.get_roadmap_out(roadmap, db)

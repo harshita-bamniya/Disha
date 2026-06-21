@@ -36,8 +36,8 @@ from app.models.mvp2 import (
 )
 from app.modules.krs.skill_gap import compute_gap
 from app.modules.roadmap.schemas import (
-    GapSkillOut, GateCheckOut, JRSBreakdown, RoadmapOut,
-    SkillCompetenceOut, StageStatus, TicketSubmissionOut, TicketTemplateOut,
+    GapSkillOut, GateCheckOut, JRSBreakdown, RoadmapOut, RoadmapSummaryOut,
+    SkillCompetenceOut, StageStatus, SubtopicOut, TicketSubmissionOut, TicketTemplateOut,
 )
 
 logger = logging.getLogger(__name__)
@@ -212,6 +212,53 @@ def get_roadmap(career_track_id: str | None, user: User, db: Session) -> UserRoa
     else:
         q = q.order_by(UserRoadmap.generated_at.desc())
     return q.first()
+
+
+def get_all_roadmaps(user: User, db: Session) -> list[UserRoadmap]:
+    """Return every roadmap the user has ever generated, most recent first."""
+    return (
+        db.query(UserRoadmap)
+        .filter(UserRoadmap.user_id == user.id)
+        .order_by(UserRoadmap.generated_at.desc())
+        .all()
+    )
+
+
+def get_roadmap_by_id(roadmap_id: str, user: User, db: Session) -> UserRoadmap:
+    """Fetch a specific roadmap owned by the user (active or historical)."""
+    return _get_owned_roadmap(roadmap_id, user, db)
+
+
+def get_all_roadmaps_out(user: User, db: Session) -> list[RoadmapSummaryOut]:
+    """Build summary cards for the roadmap history page — one entry per career track."""
+    all_roadmaps = get_all_roadmaps(user, db)  # already sorted newest-first
+    seen_tracks: set[str | None] = set()
+    roadmaps = []
+    for r in all_roadmaps:
+        key = str(r.career_track_id) if r.career_track_id else r.id
+        if key in seen_tracks:
+            continue
+        seen_tracks.add(key)
+        roadmaps.append(r)
+
+    track_ids = {str(r.career_track_id) for r in roadmaps if r.career_track_id}
+    tracks = {
+        str(t.id): t.title
+        for t in db.query(CareerTrack).filter(CareerTrack.id.in_(track_ids)).all()
+    } if track_ids else {}
+    return [
+        RoadmapSummaryOut(
+            id=str(r.id),
+            career_track_id=str(r.career_track_id) if r.career_track_id else None,
+            career_track_name=tracks.get(str(r.career_track_id)) if r.career_track_id else None,
+            current_stage=r.current_stage,
+            job_readiness_score=r.job_readiness_score,
+            generated_at=r.generated_at,
+            last_recalibrated=r.last_recalibrated,
+            is_active=r.is_active,
+        )
+        for r in roadmaps
+    ]
 
 
 def get_roadmap_out(roadmap: UserRoadmap, db: Session) -> RoadmapOut:
@@ -954,7 +1001,121 @@ def _build_stage_status(stage_num: int, roadmap: UserRoadmap, db: Session) -> St
         estimated_days=meta["estimated_days"],
         progress_pct=progress_pct,
         gate=cfg.get("gate"),
+        subtopics=_build_subtopics(stage_num, roadmap, cfg, db),
     )
+
+
+def _build_subtopics(stage_num: int, roadmap: UserRoadmap, cfg: dict, db: Session) -> list[SubtopicOut]:
+    """Reshape a stage's content into curriculum-style subtopic rows."""
+    user_id = roadmap.user_id
+
+    if stage_num == 1:
+        return [
+            SubtopicOut(
+                id=f"{roadmap.id}-1-1", title="Draft your narrative",
+                description="Write a 150-200 word story reframing your background for private-sector hiring managers.",
+                is_completed=bool(roadmap.narrative_text),
+                resource_label="View Resources", resource_kind="narrative",
+            ),
+            SubtopicOut(
+                id=f"{roadmap.id}-1-2", title="Get AI feedback & refine",
+                description="Submit your draft for AI coaching and revise based on the feedback.",
+                is_completed=roadmap.narrative_score is not None,
+                resource_label="View Resources", resource_kind="narrative",
+            ),
+        ]
+
+    if stage_num == 2:
+        gap_skills = cfg.get("gap_skills_focus", [])[:8]
+        if not gap_skills:
+            return []
+        recs = (
+            db.query(UserSkillCompetence)
+            .filter(
+                UserSkillCompetence.user_id == user_id,
+                UserSkillCompetence.skill_text.in_([s.lower().strip() for s in gap_skills]),
+            )
+            .all()
+        )
+        competence_map = {r.skill_text: r.competence_score for r in recs}
+        return [
+            SubtopicOut(
+                id=f"{roadmap.id}-2-{i}", title=skill,
+                description=f"Build proficiency in {skill} through curated lessons and exercises.",
+                is_completed=competence_map.get(skill.lower().strip(), 0) >= 60,
+                resource_label="View Resources", resource_kind="learning",
+            )
+            for i, skill in enumerate(gap_skills)
+        ]
+
+    if stage_num == 3:
+        target = cfg.get("exercises_target", 5)
+        from app.models.mvp2 import Lesson, LessonCompletion
+        done = (
+            db.query(LessonCompletion)
+            .join(Lesson, LessonCompletion.lesson_id == Lesson.id)
+            .filter(LessonCompletion.user_id == user_id, Lesson.content_type == "exercise")
+            .count()
+        )
+        return [
+            SubtopicOut(
+                id=f"{roadmap.id}-3-1", title=f"Practice Exercises ({min(done, target)}/{target})",
+                description="Apply your new skills through hands-on case studies and exercises.",
+                is_completed=done >= target,
+                resource_label="View Resources", resource_kind="exercise",
+            ),
+        ]
+
+    if stage_num == 4:
+        target = cfg.get("tickets_target", 2)
+        done = db.query(TicketSubmission).filter(
+            TicketSubmission.roadmap_id == roadmap.id,
+            TicketSubmission.review_status == "done",
+        ).count()
+        return [
+            SubtopicOut(
+                id=f"{roadmap.id}-4-{i}", title=f"Work Ticket {i + 1}",
+                description="Complete a real-world work simulation ticket and get AI review.",
+                is_completed=done > i,
+                resource_label="View Resources", resource_kind="ticket",
+            )
+            for i in range(target)
+        ]
+
+    if stage_num == 5:
+        best_ats = db.query(func.max(Resume.ats_score)).filter(
+            Resume.user_id == user_id, Resume.deleted_at == None
+        ).scalar()
+        interview_target = cfg.get("interview_rounds_target", 3)
+        sessions_done = db.query(InterviewSession).filter(
+            InterviewSession.user_id == user_id, InterviewSession.status == "completed",
+        ).count()
+        return [
+            SubtopicOut(
+                id=f"{roadmap.id}-5-1", title="Optimise Resume",
+                description="Polish your resume until it scores at least 70 on the ATS checker.",
+                is_completed=(best_ats or 0) >= 70,
+                resource_label="View Resources", resource_kind="resume",
+            ),
+            SubtopicOut(
+                id=f"{roadmap.id}-5-2", title=f"Mock Interviews ({min(sessions_done, interview_target)}/{interview_target})",
+                description="Complete mock interview rounds to sharpen your answers.",
+                is_completed=sessions_done >= interview_target,
+                resource_label="View Resources", resource_kind="interview",
+            ),
+        ]
+
+    if stage_num == 6:
+        return [
+            SubtopicOut(
+                id=f"{roadmap.id}-6-1", title="Apply to Target Roles",
+                description="Apply, track, and iterate on target job listings until you land an offer.",
+                is_completed=False,
+                resource_label="View Resources", resource_kind="jobs",
+            ),
+        ]
+
+    return []
 
 
 def _stage_progress_pct(stage_num: int, roadmap: UserRoadmap, db: Session) -> int:

@@ -48,6 +48,27 @@ Stay strictly focused on {skill_focus} for this job. If the user drifts to other
 Do NOT give generic career advice — every response must relate to teaching {skill_focus} for {job_title}."""
 
 
+_JOB_ROADMAP_SYSTEM = """You are DISHA, an expert career coach, embedded directly inside this user's roadmap page
+for one specific job. Your only job in this conversation is to help with THIS job's prep:
+
+TARGET JOB: {job_title} at {company} ({sector} sector)
+
+WHAT YOU HELP WITH (only about this job):
+- Their skill gap and which skill in the roadmap to focus on next, and why
+- Explaining any module, resource, or quiz topic in the roadmap
+- Interview expectations and prep strategy specific to this role
+- Reordering priorities if they're stuck or short on time
+- Encouragement and honest feedback on their progress for this job
+
+Talk like a sharp, direct coach who already knows their roadmap — not a generic FAQ bot. Give
+concrete, specific answers grounded in {job_title} at {company}. Skip disclaimers and Socratic
+back-and-forth; if they ask a question, answer it, then offer one next step.
+
+Stay strictly scoped to this job. If they ask about something unrelated to {job_title} or their
+prep for it, briefly redirect: "That's outside what I can help with here — but happy to dig into
+anything about your {job_title} prep.\""""
+
+
 _CAREER_COACHING_SYSTEM = """You are DISHA, an expert career strategist specialising in helping UPSC aspirants transition into the private sector.
 
 USER PROFILE:
@@ -333,6 +354,15 @@ async def handle_message(
     elif conversation.context_type == "career_coaching":
         system_prompt = _CAREER_COACHING_SYSTEM.format(user_context=user_context)
 
+    # Job roadmap Q&A — docked in the Roadmap page, scoped to one specific job's prep
+    elif conversation.context_type == "job_roadmap":
+        job_ctx = conversation.job_context or {}
+        system_prompt = _JOB_ROADMAP_SYSTEM.format(
+            job_title=job_ctx.get("job_title", "your target job"),
+            company=job_ctx.get("company", "the company"),
+            sector=job_ctx.get("sector", "the sector"),
+        )
+
     # Skill-learning conversations use a focused teaching prompt, not the general counsellor prompt
     elif conversation.context_type == "skill_learning" and conversation.skill_focus:
         job_ctx = conversation.job_context or {}
@@ -372,9 +402,10 @@ async def handle_message(
 
     except Exception as exc:
         logger.error(f"[COUNSELLOR] AI call failed: {exc}")
+        from app.ai.providers.groq import RateLimitedError
         fallback = (
-            "I'm having a moment — my connection seems unstable. "
-            "Could you try again in a moment?"
+            str(exc) if isinstance(exc, RateLimitedError) else
+            "I'm having a moment — my connection seems unstable. Could you try again in a moment?"
         )
         full_response = fallback
         yield fallback

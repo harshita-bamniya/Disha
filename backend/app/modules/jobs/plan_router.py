@@ -11,7 +11,10 @@ from app.core.rbac import get_current_aspirant
 from app.database import get_db
 from app.models.job_plan import JobLearningPlan
 from app.models.user import AspirantProfile, JobPosting, User
-from app.modules.jobs.plan_generator import enrich_plan_with_real_videos, generate_job_plan, is_plan_stale
+from app.modules.jobs.plan_generator import (
+    enrich_plan_with_real_videos, generate_job_plan, generate_module_quiz,
+    is_plan_stale, redact_quiz_answers,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +34,54 @@ def _get_plan(user_id, job_id, db: Session) -> JobLearningPlan | None:
         .filter(JobLearningPlan.user_id == user_id, JobLearningPlan.job_id == job_id)
         .first()
     )
+
+
+def _plan_progress_pct(plan: JobLearningPlan) -> int:
+    if plan.status != "ready" or not plan.plan:
+        return 0
+    resources = [r for m in plan.plan.get("modules", []) for r in m.get("resources", [])]
+    if not resources:
+        return 0
+    done = sum(1 for r in resources if (plan.progress or {}).get(r["id"], {}).get("done"))
+    return round((done / len(resources)) * 100)
+
+
+@router.get("/learning-plans/mine")
+def get_my_learning_plans(
+    user: User = Depends(get_current_aspirant),
+    db: Session = Depends(get_db),
+):
+    """List every job-specific AI plan the user has ever generated — the per-job
+    equivalent of /roadmap/all, so switching to a new active job doesn't bury
+    the plans generated for previous ones."""
+    from app.models.user import EmployerProfile
+
+    profile = db.query(AspirantProfile).filter(AspirantProfile.user_id == user.id).first()
+    active_job_id = str(profile.active_prep_job_id) if profile and profile.active_prep_job_id else None
+
+    plans = (
+        db.query(JobLearningPlan)
+        .filter(JobLearningPlan.user_id == user.id)
+        .order_by(JobLearningPlan.updated_at.desc())
+        .all()
+    )
+    out = []
+    for p in plans:
+        job = db.query(JobPosting).filter(JobPosting.id == p.job_id).first()
+        if not job:
+            continue
+        employer = db.query(EmployerProfile).filter(EmployerProfile.id == job.employer_id).first()
+        out.append({
+            "job_id": str(p.job_id),
+            "job_title": job.title,
+            "company_name": employer.company_name if employer else "Company",
+            "status": p.status,
+            "progress_pct": _plan_progress_pct(p),
+            "generated_at": p.generated_at.isoformat() if p.generated_at else None,
+            "updated_at": p.updated_at.isoformat() if p.updated_at else None,
+            "is_active": str(p.job_id) == active_job_id,
+        })
+    return out
 
 
 @router.post("/{job_id}/learning-plan", status_code=202)
@@ -166,17 +217,110 @@ def get_plan(
     ready_plan = plan.plan if plan.status == "ready" else None
     return {
         "status": plan.status,
-        "plan": ready_plan,
+        "plan": redact_quiz_answers(ready_plan),
         "progress": plan.progress or {},
         "generation_step": plan.generation_step,
         "generation_detail": plan.generation_detail or {},
         "generated_at": plan.generated_at.isoformat() if plan.generated_at else None,
         "updated_at": plan.updated_at.isoformat() if plan.updated_at else None,
         "error": plan.error_msg if plan.status == "failed" else None,
-        # True if this is an old plan generated before real-video enrichment existed —
-        # the frontend can use this to prompt/auto-trigger a one-time regeneration.
+        # True if this is an old plan generated before real-video enrichment or quizzes
+        # existed — the frontend can use this to prompt/auto-trigger a one-time regeneration.
         "stale": is_plan_stale(ready_plan),
     }
+
+
+@router.post("/{job_id}/learning-plan/modules/{module_id}/quiz/generate")
+async def generate_module_quiz_endpoint(
+    job_id: str,
+    module_id: str,
+    user: User = Depends(get_current_aspirant),
+    db: Session = Depends(get_db),
+):
+    """Generate a quiz for ONE module, on demand — only when the user clicks the
+    button, scoped to just that module's skill context (not the whole plan)."""
+    plan = _get_plan(user.id, job_id, db)
+    if not plan or plan.status != "ready":
+        raise HTTPException(status_code=404, detail="Plan not ready.")
+    job = _get_job_or_404(job_id, db)
+
+    modules = plan.plan.get("modules", [])
+    module = next((m for m in modules if m.get("id") == module_id), None)
+    if not module:
+        raise HTTPException(status_code=404, detail="Module not found.")
+
+    try:
+        quiz = await generate_module_quiz(
+            job_title=plan.plan.get("job_title", "this role"),
+            sector=job.sector or "",
+            skill=module.get("skill", ""),
+            why_important=module.get("why_important", ""),
+            resources=module.get("resources", []),
+        )
+    except Exception as exc:
+        logger.error("Quiz generation failed for module %s: %s", module_id, exc, exc_info=True)
+        raise HTTPException(status_code=502, detail=f"Quiz generation failed: {exc}")
+
+    # Reassign plan.plan (new dict) so SQLAlchemy detects the JSONB change.
+    new_modules = [
+        {**m, "quiz": quiz} if m.get("id") == module_id else m
+        for m in modules
+    ]
+    plan.plan = {**plan.plan, "modules": new_modules}
+    db.commit()
+
+    return redact_quiz_answers({"modules": [m for m in new_modules if m.get("id") == module_id]})["modules"][0]["quiz"]
+
+
+@router.post("/{job_id}/learning-plan/modules/{module_id}/quiz/submit")
+def submit_quiz(
+    job_id: str,
+    module_id: str,
+    body: dict,
+    user: User = Depends(get_current_aspirant),
+    db: Session = Depends(get_db),
+):
+    """Grade a module's quiz. Body: { "answers": [{"question_id", "selected_option_id"}] }."""
+    plan = _get_plan(user.id, job_id, db)
+    if not plan or plan.status != "ready":
+        raise HTTPException(status_code=404, detail="Plan not ready.")
+
+    module = next((m for m in plan.plan.get("modules", []) if m.get("id") == module_id), None)
+    if not module:
+        raise HTTPException(status_code=404, detail="Module not found.")
+    questions = module.get("quiz", {}).get("questions", [])
+    if not questions:
+        raise HTTPException(status_code=400, detail="This module has no quiz.")
+
+    answers = {a["question_id"]: a["selected_option_id"] for a in body.get("answers", [])}
+    results = []
+    correct_count = 0
+    for q in questions:
+        selected = answers.get(q["id"])
+        is_correct = selected == q["correct_option_id"]
+        if is_correct:
+            correct_count += 1
+        results.append({
+            "question_id": q["id"],
+            "selected_option_id": selected,
+            "correct_option_id": q["correct_option_id"],
+            "is_correct": is_correct,
+            "explanation": q.get("explanation", ""),
+        })
+
+    score_pct = round((correct_count / len(questions)) * 100)
+    passed = score_pct >= 70
+
+    progress = dict(plan.progress or {})
+    progress[f"quiz_{module_id}"] = {
+        "score_pct": score_pct,
+        "passed": passed,
+        "submitted_at": datetime.now(timezone.utc).isoformat(),
+    }
+    plan.progress = progress
+    db.commit()
+
+    return {"score_pct": score_pct, "passed": passed, "results": results}
 
 
 @router.patch("/{job_id}/learning-plan/progress")

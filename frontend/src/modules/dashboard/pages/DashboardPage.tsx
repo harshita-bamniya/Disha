@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useKrsDashboard, useLiveJobs, usePrepareJob, useUnprepareJob } from '../hooks/useKrs'
-import { MapPin, Map, BookOpen, ExternalLink, X, CheckCircle2, TrendingUp, Zap, Target, ArrowUpRight, Sparkles, BriefcaseBusiness, ChevronRight, Bell, Wifi, Mic } from 'lucide-react'
+import { MapPin, Map, BookOpen, ExternalLink, X, CheckCircle2, TrendingUp, Zap, Target, ArrowUpRight, Sparkles, BriefcaseBusiness, ChevronRight, Bell, Wifi, Mic, FileText } from 'lucide-react'
 import type { LiveJob } from '@/api/krs'
 import { formatSalary } from '@/api/jobs'
 import AppSidebar from '@/components/layout/AppSidebar'
@@ -10,6 +10,7 @@ import { resumeApi } from '@/api/resume'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { applyToJob, getMyApplications } from '@/api/matching'
+import { jobPlanApi } from '@/api/jobPlan'
 
 function greeting() {
   const h = new Date().getHours()
@@ -84,9 +85,9 @@ function ScoreRing({ value, label, color, size = 72, run }: {
 }
 
 // ── Job spotlight (single large card, one job at a time) ──────────────────────
-function JobSpotlight({ job, onOpen, onApply, onPrepare, onGenerateResume, onMockInterview, isPreparing, isApplied }: {
+function JobSpotlight({ job, onOpen, onApply, onPrepare, onGenerateResume, onMockInterview, onOpenResume, isPreparing, isApplied }: {
   job: LiveJob; onOpen: () => void; onApply: () => void; onPrepare: () => void
-  onGenerateResume: () => void; onMockInterview: () => void
+  onGenerateResume: () => void; onMockInterview: () => void; onOpenResume: () => void
   isPreparing?: boolean; isApplied?: boolean
 }) {
   const [c1, c2] = sectorColor(job.sector)
@@ -165,24 +166,21 @@ function JobSpotlight({ job, onOpen, onApply, onPrepare, onGenerateResume, onMoc
 
       {/* ── Three action cards ── */}
       <div style={{ padding: '18px 28px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, borderBottom: '1px solid #F1F5F9' }}>
-        {/* Set as Prep Job */}
-        <div style={{ background: '#FAF7F1', border: job.is_prepared ? '1.5px solid #15130F' : '1.5px solid #F1EAE0', borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {/* Resume */}
+        <div style={{ background: '#FAF7F1', border: '1.5px solid #F1EAE0', borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ width: 32, height: 32, borderRadius: 9, background: '#15130F', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-            <Target size={14} />
+            <FileText size={14} />
           </div>
           <div>
-            <p style={{ fontSize: 12, fontWeight: 800, color: '#15130F', margin: 0 }}>Set as Active Prep Job</p>
-            <p style={{ fontSize: 11, color: '#4A453D', margin: '3px 0 0', lineHeight: 1.5 }}>Personalised roadmap, course suggestions, and skill tracking.</p>
+            <p style={{ fontSize: 12, fontWeight: 800, color: '#15130F', margin: 0 }}>Resume</p>
+            <p style={{ fontSize: 11, color: '#4A453D', margin: '3px 0 0', lineHeight: 1.5 }}>Tailor and optimise your resume for this role.</p>
           </div>
-          <button onClick={onPrepare} disabled={isPreparing} style={{
+          <button onClick={onOpenResume} style={{
             marginTop: 'auto', height: 34, borderRadius: 9, border: 'none',
-            background: job.is_prepared ? 'white' : '#3B82F6', color: job.is_prepared ? '#6B7280' : 'white',
-            ...(job.is_prepared ? { border: '1px solid #E2E8F0' } : {}),
-            fontSize: 11, fontWeight: 700, cursor: isPreparing ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+            background: '#3B82F6', color: 'white',
+            fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
           }}>
-            {isPreparing
-              ? <div style={{ width: 10, height: 10, border: '2px solid #3B82F6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-              : job.is_prepared ? 'Saved' : 'Set as Prep Job'}
+            <FileText size={11} /> Open Resume
           </button>
         </div>
 
@@ -494,13 +492,22 @@ export default function DashboardPage() {
     setPreparingJobId(job.id)
     try {
       if (job.is_prepared) await unprepareJob.mutateAsync(job.id)
-      else { await prepareJob.mutateAsync(job.id); navigate('/app/careers/explore') }
+      else await prepareJob.mutateAsync(job.id)
     } finally { setPreparingJobId(null) }
   }
 
   const handleGenerateResume = (job: LiveJob) => {
     setSelectedJob(null)
-    startPrep(job.id, { onSuccess: () => navigate('/app/roadmap') })
+    startPrep(job.id, {
+      onSuccess: () => {
+        // Kick off the job-specific learning plan — previously this just set the active
+        // job and navigated, landing the user on whatever old roadmap already existed with
+        // nothing new generated. RoadmapPage's JobLearningPlanPanel picks up the
+        // "generating" status and shows live progress.
+        jobPlanApi.generate(job.id).catch(() => {})
+        navigate('/app/roadmap')
+      },
+    })
   }
 
   const gapFreq: Record<string, number> = {}
@@ -639,7 +646,7 @@ export default function DashboardPage() {
                         {data.skills.length} skills · {liveJobs?.length ?? 0} personalised job matches
                       </p>
                       <div style={{ display: 'flex', gap: 10 }}>
-                        <button onClick={() => navigate('/app/careers/explore')} style={{
+                        <button onClick={() => navigate('/app/jobs')} style={{
                           display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px',
                           borderRadius: 11, background: '#1D4ED8', border: 'none',
                           color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer',
@@ -648,9 +655,9 @@ export default function DashboardPage() {
                           onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(29,78,216,0.36)' }}
                           onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(29,78,216,0.28)' }}
                         >
-                          <BookOpen size={12} /> Prep List
+                          <BookOpen size={12} /> Browse Jobs
                         </button>
-                        <button onClick={() => navigate('/app/careers')} style={{
+                        <button onClick={() => navigate('/app/roadmap/history')} style={{
                           display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px',
                           borderRadius: 11, background: 'rgba(219,234,254,0.7)',
                           border: '1.5px solid rgba(59,130,246,0.3)',
@@ -660,7 +667,7 @@ export default function DashboardPage() {
                           onMouseOver={e => { e.currentTarget.style.borderColor = '#1D4ED8'; e.currentTarget.style.transform = 'translateY(-1px)' }}
                           onMouseOut={e => { e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)'; e.currentTarget.style.transform = 'translateY(0)' }}
                         >
-                          <Target size={12} /> Career Paths
+                          <Target size={12} /> My Roadmap
                         </button>
                       </div>
                     </div>
@@ -698,9 +705,8 @@ export default function DashboardPage() {
                   <div style={{ width: 4, height: 16, background: '#15130F', borderRadius: 4 }} />
                   <span style={{ fontSize: 13, fontWeight: 800, color: '#0F172A', letterSpacing: '-0.2px' }}>Your Tools</span>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
                   {[
-                    { icon: '🎓', label: 'Learning', desc: 'Courses & resources', path: '/app/learn', color: '#3B82F6' },
                     { icon: '📄', label: 'Resume', desc: 'AI resume builder', path: '/app/resume', color: '#7C3AED' },
                     { icon: '🎙️', label: 'AI Interview', desc: 'Mock interview prep', path: '/app/interview/setup', color: '#0EA5E9' },
                     { icon: '🧠', label: 'AI Counsellor', desc: 'Career coaching', path: '/app/counsellor', color: '#F59E0B' },
@@ -764,6 +770,7 @@ export default function DashboardPage() {
                           onPrepare={() => handlePrepare(job)}
                           onGenerateResume={() => handleGenerateResume(job)}
                           onMockInterview={() => startPrep(job.id, { onSuccess: () => navigate('/app/interview/setup') })}
+                          onOpenResume={() => startPrep(job.id, { onSuccess: () => navigate('/app/resume') })}
                           isPreparing={preparingJobId === job.id}
                           isApplied={appliedJobIds.has(job.id)}
                         />

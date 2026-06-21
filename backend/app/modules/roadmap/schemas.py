@@ -9,6 +9,15 @@ from pydantic import BaseModel, Field
 
 # ── Stage config (per-stage summary returned to frontend) ─────────────────────
 
+class SubtopicOut(BaseModel):
+    id: str
+    title: str
+    description: str
+    is_completed: bool
+    resource_label: str
+    resource_kind: str    # narrative | learning | exercise | ticket | resume | interview | jobs
+
+
 class StageStatus(BaseModel):
     stage_number: int
     title: str
@@ -16,7 +25,8 @@ class StageStatus(BaseModel):
     status: str                          # pending | active | passed
     estimated_days: int | None
     progress_pct: int = 0                # 0-100 within the stage
-    gate: dict[str, Any] | None = None  # gate criteria + current values
+    gate: list[dict[str, Any]] | None = None  # gate criteria + current values
+    subtopics: list[SubtopicOut] = []
 
 
 # ── Roadmap responses ──────────────────────────────────────────────────────────
@@ -37,6 +47,20 @@ class RoadmapOut(BaseModel):
     active_prep_job_id: str | None = None
     active_prep_job_title: str | None = None
     active_prep_job_company: str | None = None
+
+    class Config:
+        from_attributes = True
+
+
+class RoadmapSummaryOut(BaseModel):
+    id: str
+    career_track_id: str | None
+    career_track_name: str | None
+    current_stage: int
+    job_readiness_score: int
+    generated_at: datetime
+    last_recalibrated: datetime
+    is_active: bool
 
     class Config:
         from_attributes = True

@@ -98,3 +98,11 @@ class AIGenerateResumeResponse(BaseModel):
     message: str
     sections_created: int
     ats_score: Optional[int]
+
+
+class AIGenerateStreamRequest(BaseModel):
+    job_title: Optional[str] = None
+    company_name: Optional[str] = None
+    required_skills: Optional[list[str]] = None
+    job_description: Optional[str] = None
+    answers: dict[str, str] = {}

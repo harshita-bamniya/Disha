@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Compass, LogOut, BarChart2, FileText, Briefcase, Map, Zap, ChevronLeft, ChevronRight, GraduationCap, MessageSquare, Brain } from 'lucide-react'
+import { LayoutDashboard, LogOut, BarChart2, FileText, Briefcase, Map, Zap, ChevronLeft, ChevronRight, MessageSquare, Brain, Heart } from 'lucide-react'
 import { useKrsDashboard } from '@/modules/dashboard/hooks/useKrs'
 import { useLogout } from '@/modules/auth/hooks/useAuth'
 import { useQuery } from '@tanstack/react-query'
@@ -8,11 +8,8 @@ import { xpApi } from '@/api/xp'
 
 type NavPath =
   | '/app/dashboard'
-  | '/app/careers/explore'
   | '/app/profile'
-  | '/app/careers'
   | '/app/skills/report'
-  | '/app/learn'
   | '/app/resume'
   | '/app/interview'
   | '/app/mock-interview'
@@ -21,15 +18,17 @@ type NavPath =
   | '/app/jobs'
   | '/app/jobs/applications'
   | '/app/roadmap'
+  | '/app/roadmap/history'
+  | '/app/companion'
 
 // Main app navigation — shown everywhere except inside the Roadmap's tool pages.
 const MAIN_NAV_ITEMS: { icon: React.ReactNode; label: string; path: NavPath }[] = [
   { icon: <LayoutDashboard size={16} />, label: 'Dashboard',       path: '/app/dashboard'          },
   { icon: <BarChart2 size={16} />,       label: 'Skill Report',    path: '/app/skills/report'      },
-  { icon: <Compass size={16} />,         label: 'Career Paths',    path: '/app/careers'             },
   { icon: <Briefcase size={16} />,       label: 'Jobs',            path: '/app/jobs'                },
-  { icon: <Map size={16} />,             label: 'My Roadmap',      path: '/app/roadmap'             },
+  { icon: <Map size={16} />,             label: 'My Roadmap',      path: '/app/roadmap/history'     },
   { icon: <FileText size={16} />,        label: 'My Applications', path: '/app/jobs/applications'   },
+  { icon: <Heart size={16} />,           label: 'Your Companion',  path: '/app/companion'           },
 ]
 
 
@@ -134,7 +133,7 @@ export default function AppSidebar({ activePath }: { activePath?: NavPath }) {
         )}
         {navItems.map(item => {
           const isActive = activePath === item.path ||
-            (activePath === '/app/careers' && item.path === '/app/careers')
+            (item.path === '/app/roadmap/history' && !!activePath?.startsWith('/app/roadmap'))
           return (
             <button
               key={item.path}
@@ -169,7 +168,6 @@ export default function AppSidebar({ activePath }: { activePath?: NavPath }) {
         )}
         {collapsed && <div style={{ height: 1, background: 'rgba(59,130,246,0.07)', margin: '8px 0' }} />}
         {[
-          { icon: <GraduationCap size={16} />, label: 'Learning',      path: '/app/learn' },
           { icon: <FileText size={16} />,      label: 'Resume',        path: '/app/resume' },
           { icon: <MessageSquare size={16} />, label: 'AI Interview',  path: '/app/interview/setup' },
           { icon: <Brain size={16} />,         label: 'AI Counsellor', path: '/app/counsellor' },

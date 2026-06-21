@@ -17,7 +17,6 @@ from app.modules.krs.router import router as krs_router
 from app.modules.jobs.router import router as jobs_router
 from app.modules.admin.router import router as admin_router
 from app.modules.careers.router import router as careers_router
-from app.modules.learning.router import router as learning_router
 from app.modules.resume.router import router as resume_router
 from app.modules.interview.router import router as interview_router
 from app.modules.counsellor.router import router as counsellor_router
@@ -26,6 +25,7 @@ from app.modules.matching.router import router as matching_router
 from app.modules.admin.platform_router import router as platform_router
 from app.modules.roadmap.router import router as roadmap_router
 from app.modules.jobs.plan_router import router as job_plan_router
+from app.modules.companion.router import router as companion_router
 
 settings = get_settings()
 logger = logging.getLogger(__name__)
@@ -165,7 +165,6 @@ app.include_router(krs_router, prefix="/api")
 app.include_router(jobs_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(careers_router, prefix="/api")
-app.include_router(learning_router, prefix="/api")
 app.include_router(resume_router, prefix="/api")
 app.include_router(interview_router, prefix="/api")
 app.include_router(counsellor_router, prefix="/api")
@@ -174,6 +173,7 @@ app.include_router(matching_router, prefix="/api")
 app.include_router(platform_router, prefix="/api")
 app.include_router(roadmap_router, prefix="/api")
 app.include_router(job_plan_router, prefix="/api")
+app.include_router(companion_router, prefix="/api")
 
 
 # ── Health ────────────────────────────────────────────────────────────────────

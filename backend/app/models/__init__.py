@@ -25,3 +25,4 @@ from app.models.roadmap import (  # noqa: F401
 )
 from app.models.xp import UserXP, XPTransaction  # noqa: F401
 from app.models.job_plan import JobLearningPlan  # noqa: F401
+from app.models.companion import CompanionMoodEntry, CompanionMilestone  # noqa: F401

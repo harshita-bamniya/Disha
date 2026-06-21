@@ -61,6 +61,20 @@ export const counsellorApi = {
       sector: params.sector,
     }).then(r => r.data),
 
+  createJobRoadmapConversation: (params: {
+    jobId: string
+    jobTitle?: string
+    company?: string
+    sector?: string
+  }) =>
+    apiClient.post<ConversationSummary>('/counsellor/conversations', {
+      context_type: 'job_roadmap',
+      job_id: params.jobId,
+      job_title: params.jobTitle,
+      company: params.company,
+      sector: params.sector,
+    }).then(r => r.data),
+
   createInterviewConversation: (params: {
     interviewType: 'hr' | 'technical' | 'stress'
     jobId?: string

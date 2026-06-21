@@ -3,10 +3,10 @@
 @source "../index.html";
 
 @theme {
-  /* ── Calm Blue palette (Reflectly-inspired) ── */
-  --color-primary:       #3B82F6;   /* medium sky blue   */
-  --color-primary-light: #93C5FD;   /* very soft blue    */
-  --color-primary-dark:  #1D4ED8;   /* slightly deeper   */
+  /* ── Navy palette (matches the job hero banner gradient) ── */
+  --color-primary:       #1E3A6B;   /* navy — matches banner gradient start */
+  --color-primary-light: #3B5A8F;   /* lighter navy for hover/soft accents */
+  --color-primary-dark:  #0B1424;   /* near-black — matches banner gradient end */
 
   --color-secondary:       #60A5FA;
   --color-secondary-light: #BFDBFE;

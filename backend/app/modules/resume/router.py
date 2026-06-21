@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 
@@ -11,9 +12,9 @@ from app.database import get_db
 from app.models.user import AspirantProfile, User
 from app.modules.resume import service, pdf_service
 from app.modules.resume.schemas import (
-    AIGenerateResumeResponse, AIImproveSectionRequest, AIImproveSectionResponse,
-    CreateResumeRequest, ResumeDetail, ResumeSummary, ResumeTemplateOut,
-    ResumeSectionOut, UpdateResumeRequest, UpsertSectionRequest,
+    AIGenerateResumeResponse, AIGenerateStreamRequest, AIImproveSectionRequest,
+    AIImproveSectionResponse, CreateResumeRequest, ResumeDetail, ResumeSummary,
+    ResumeTemplateOut, ResumeSectionOut, UpdateResumeRequest, UpsertSectionRequest,
 )
 
 router = APIRouter(prefix="/resume", tags=["Resume Builder"])
@@ -129,6 +130,44 @@ async def ai_generate(
         return await service.ai_generate_resume(resume_id, user, db, job_context=body)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{resume_id}/ai-generate-stream")
+async def ai_generate_stream(
+    resume_id: str,
+    body: AIGenerateStreamRequest | None = None,
+    user: User = Depends(get_current_aspirant),
+    db: Session = Depends(get_db),
+):
+    """
+    Interactive resume co-pilot — streams generation progress via Server-Sent
+    Events. Pauses with a 'question' event when critical info is missing;
+    the frontend resends the same request with 'answers' filled in to resume.
+    """
+    body = body or AIGenerateStreamRequest()
+    job_context = service.AiGenerateJobContext(
+        job_title=body.job_title,
+        company_name=body.company_name,
+        required_skills=body.required_skills,
+        job_description=body.job_description,
+    )
+
+    async def event_stream():
+        async for event in service.ai_generate_resume_stream(
+            resume_id, user, db, job_context=job_context, answers=body.answers,
+        ):
+            yield f"data: {json.dumps(event)}\n\n"
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/{resume_id}/versions")

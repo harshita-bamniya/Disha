@@ -380,7 +380,7 @@ class Conversation(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "context_type IN ('career','emotional','learning','resume','general','skill_learning','mock_interview')",
+            "context_type IN ('career','emotional','learning','resume','general','skill_learning','mock_interview','job_roadmap')",
             name="ck_conv_context_type"
         ),
         CheckConstraint("status IN ('active','archived')", name="ck_conv_status"),

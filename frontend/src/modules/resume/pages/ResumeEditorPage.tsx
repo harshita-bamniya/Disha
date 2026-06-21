@@ -5,6 +5,7 @@ import { resumeApi, type ResumeSection, type ResumeDetail } from '@/api/resume'
 import AppSidebar from '@/components/layout/AppSidebar'
 import { ActivePrepBanner } from '@/components/ActivePrepBanner'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
+import ResumeCopilotPanel from '@/modules/resume/components/ResumeCopilotPanel'
 import {
   ArrowLeft, Wand2, BarChart2, FileText, Plus, Eye, Edit3,
   Download, Trash2, GripVertical, ChevronDown, ChevronUp, X,
@@ -599,7 +600,7 @@ export default function ResumeEditorPage() {
   const { resumeId } = useParams<{ resumeId: string }>()
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const [generating, setGenerating] = useState(false)
+  const [copilotOpen, setCopilotOpen] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [addSection, setAddSection] = useState(false)
   const [newSectionType, setNewSectionType] = useState('skills')
@@ -659,22 +660,6 @@ export default function ResumeEditorPage() {
       })
     }
   }, [resume])
-
-  const generateMutation = useMutation({
-    mutationFn: async () => {
-      setGenerating(true)
-      return resumeApi.aiGenerateResume(resumeId!, {
-        job_title: activePrep?.job_title,
-        company_name: activePrep?.company_name,
-        required_skills: activePrep?.required_skills,
-        job_description: activePrep
-          ? `${activePrep.job_title} at ${activePrep.company_name} in ${activePrep.sector}. Required skills: ${activePrep.required_skills.join(', ')}`
-          : undefined,
-      })
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['resume', resumeId] }); setActiveTab('preview') },
-    onSettled: () => setGenerating(false),
-  })
 
   const deleteSectionMutation = useMutation({
     mutationFn: (sectionId: string) => resumeApi.deleteSection(resumeId!, sectionId),
@@ -762,15 +747,14 @@ export default function ResumeEditorPage() {
                 <span style={{ fontSize: 12, fontWeight: 800, color: atsColor(resume.ats_score) }}>ATS {resume.ats_score}</span>
               </div>
             )}
-            <button onClick={() => generateMutation.mutate()} disabled={generating} style={{
+            <button onClick={() => setCopilotOpen(true)} style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10,
-              background: generating ? 'rgba(124,58,237,0.08)' : 'linear-gradient(135deg, #7C3AED, #6D28D9)',
-              color: generating ? '#7C3AED' : 'white',
-              border: generating ? '1px solid rgba(124,58,237,0.3)' : 'none',
-              cursor: generating ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 700,
-              boxShadow: generating ? 'none' : '0 3px 10px rgba(124,58,237,0.3)',
+              background: 'linear-gradient(135deg, #7C3AED, #6D28D9)',
+              color: 'white', border: 'none',
+              cursor: 'pointer', fontSize: 12, fontWeight: 700,
+              boxShadow: '0 3px 10px rgba(124,58,237,0.3)',
             }}>
-              <Wand2 size={13} />{generating ? 'Generating…' : 'AI Generate'}
+              <Wand2 size={13} />AI Generate
             </button>
           </div>
         </header>
@@ -789,13 +773,6 @@ export default function ResumeEditorPage() {
             background: '#F8FAFC',
           }}>
             <ActivePrepBanner showSwitch />
-
-            {generating && (
-              <div style={{ background: 'linear-gradient(135deg,rgba(124,58,237,0.06),rgba(109,40,217,0.04))', border: '1px solid rgba(124,58,237,0.15)', borderRadius: 12, padding: '11px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 13, height: 13, border: '2px solid rgba(124,58,237,0.3)', borderTopColor: '#7C3AED', borderRadius: '50%', animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />
-                <span style={{ fontSize: 12, color: '#7C3AED', fontWeight: 600 }}>AI is writing your resume… 30–60 seconds.</span>
-              </div>
-            )}
 
             {sections.length > 0 ? (
               <>
@@ -879,6 +856,26 @@ export default function ResumeEditorPage() {
           .resume-paper { display: block !important; position: fixed; top: 0; left: 0; width: 100%; }
         }
       `}</style>
+
+      {copilotOpen && (
+        <ResumeCopilotPanel
+          resumeId={resumeId!}
+          jobContext={{
+            job_title: activePrep?.job_title,
+            company_name: activePrep?.company_name,
+            required_skills: activePrep?.required_skills,
+            job_description: activePrep
+              ? `${activePrep.job_title} at ${activePrep.company_name} in ${activePrep.sector}. Required skills: ${activePrep.required_skills.join(', ')}`
+              : undefined,
+          }}
+          onClose={() => setCopilotOpen(false)}
+          onComplete={() => {
+            setCopilotOpen(false)
+            qc.invalidateQueries({ queryKey: ['resume', resumeId] })
+            setActiveTab('preview')
+          }}
+        />
+      )}
     </div>
   )
 }

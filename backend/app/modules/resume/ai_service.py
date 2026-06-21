@@ -48,6 +48,55 @@ def compute_ats_score(sections: list[dict]) -> int:
     return min(100, section_score + verb_score + quant_score + length_score)
 
 
+# ─── Interactive co-pilot: missing-info detection ─────────────────────────────
+
+def get_next_question(
+    profile: AspirantProfile | None,
+    career_track: CareerTrack | None,
+    job_context=None,
+    answers: dict | None = None,
+) -> dict | None:
+    """
+    Deterministically decide the next clarifying question to ask before
+    generating the resume, or None if we have enough to proceed.
+
+    Only asks about information that materially changes resume quality —
+    target role, work-experience specifics, and a project to showcase.
+    """
+    answers = answers or {}
+
+    has_target = bool(job_context and job_context.job_title) or bool(career_track)
+    if not has_target and not answers.get("target_role"):
+        return {
+            "id": "target_role",
+            "section": "summary",
+            "question": "Which role are you applying for, and which industry are you targeting? "
+                         "(e.g. \"Data Analyst in fintech\")",
+        }
+
+    if profile and profile.has_work_experience and not answers.get("work_experience_detail"):
+        role = profile.last_designation or "a professional"
+        domain = profile.work_experience_domain or "your previous role"
+        return {
+            "id": "work_experience_detail",
+            "section": "experience",
+            "question": f"While building your experience section — what were your primary "
+                        f"responsibilities, key achievements, and technologies used as {role} "
+                        f"in {domain}?",
+        }
+
+    if not answers.get("project_detail") and not answers.get("project_detail_skip"):
+        return {
+            "id": "project_detail",
+            "section": "projects",
+            "question": "Do you have a project you'd like to showcase? Tell me the tech stack, "
+                        "the problem it solved, and the outcome — or reply \"skip\" if you don't "
+                        "have one.",
+        }
+
+    return None
+
+
 # ─── AI resume generation ─────────────────────────────────────────────────────
 
 _SYSTEM_PROMPT = """\
@@ -73,8 +122,10 @@ def build_generation_prompt(
     profile: AspirantProfile | None,
     career_track: CareerTrack | None,
     job_context=None,  # AiGenerateJobContext | None — avoids circular import
+    answers: dict | None = None,
 ) -> tuple[str, str]:
     """Build system + user prompt for full resume generation."""
+    answers = answers or {}
 
     # ── Candidate facts ────────────────────────────────────────────────────────
     name            = (profile.full_name          if profile else None) or "Candidate"
@@ -95,9 +146,17 @@ def build_generation_prompt(
             f"{profile.last_designation or 'professional'} in "
             f"{profile.work_experience_domain or 'unspecified domain'}"
         )
+    if answers.get("work_experience_detail"):
+        work_exp_str += f". Candidate's own description: {answers['work_experience_detail']}"
+
+    project_str = ""
+    if answers.get("project_detail"):
+        project_str = f"\n\nPROJECT TO INCLUDE (candidate's own description): {answers['project_detail']}"
 
     # ── Target role ────────────────────────────────────────────────────────────
-    if job_context and job_context.job_title:
+    if answers.get("target_role"):
+        target_role = answers["target_role"]
+    elif job_context and job_context.job_title:
         target_role = f"{job_context.job_title} at {job_context.company_name or 'the company'}"
     else:
         target_role = career_track.title if career_track else "private sector"
@@ -126,7 +185,7 @@ Optional Subject: {optional_subj}
 Work Experience: {work_exp_str}
 Skills: {skills_str}
 Target Role: {target_role}
-{jd_hint}
+{jd_hint}{project_str}
 
 === OUTPUT FORMAT (return this exact JSON structure, fully filled) ===
 {{
@@ -175,7 +234,7 @@ Target Role: {target_role}
       "<Third-person factual statement: Cleared UPSC {stage} — add percentile or competitive context e.g. top X% of Y lakh candidates>",
       "<Third-person factual statement: one concrete achievement from their study or work — NO first-person 'me/my/I', NO 'making me an ideal candidate' phrases>"
     ]
-  }}
+  }}{",\n  \"projects\": {{\n    \"items\": [\n      {{\n        \"name\": \"<short project name based on the candidate's description below>\",\n        \"description\": \"<1-2 sentences: the problem it solved, using the candidate's own description>\",\n        \"technologies\": [<tech stack mentioned by the candidate>],\n        \"url\": \"\"\n      }}\n    ]\n  }}" if project_str else ""}
 }}
 
 CRITICAL: Replace every <…> placeholder with real personalised content. \
@@ -213,6 +272,7 @@ def ai_response_to_sections(parsed: dict) -> list[dict]:
         "education":    "education",
         "skills":       "skills",
         "achievements": "achievements",
+        "projects":     "projects",
     }
 
     for key, sec_type in section_map.items():

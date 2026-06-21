@@ -53,8 +53,6 @@ import DashboardPage from '@/modules/dashboard/pages/DashboardPage'
 import DishaLanding from '@/pages/DishaLanding'
 import ProfilePage from '@/modules/profile/pages/ProfilePage'
 import EmployerDashboardPage from '@/modules/employer/pages/EmployerDashboardPage'
-import CareerExplorePage from '@/modules/careers/pages/CareerExplorePage'
-import CareerTrackPage from '@/modules/careers/pages/CareerTrackPage'
 import ForgotPasswordPage from '@/modules/auth/pages/ForgotPasswordPage'
 
 // Lazy-loaded pages
@@ -68,9 +66,6 @@ const MyApplicationsPage    = lazy(() => import('@/modules/jobs/pages/MyApplicat
 const CandidatePipelinePage = lazy(() => import('@/modules/employer/pages/CandidatePipelinePage'))
 
 // MVP2 lazy pages
-const LearningDashboardPage = lazy(() => import('@/modules/learning/pages/LearningDashboardPage'))
-const PathDetailPage        = lazy(() => import('@/modules/learning/pages/PathDetailPage'))
-const LessonViewerPage      = lazy(() => import('@/modules/learning/pages/LessonViewerPage'))
 const ResumeListPage        = lazy(() => import('@/modules/resume/pages/ResumeListPage'))
 const ResumeEditorPage      = lazy(() => import('@/modules/resume/pages/ResumeEditorPage'))
 const CounsellorPage        = lazy(() => import('@/modules/counsellor/pages/CounsellorPage'))
@@ -81,6 +76,9 @@ const InterviewLobbyPage      = lazy(() => import('@/modules/interview/pages/Int
 const InterviewRoomPage       = lazy(() => import('@/modules/interview/pages/InterviewRoomPage'))
 const InterviewReportPage     = lazy(() => import('@/modules/interview/pages/InterviewReportPage'))
 const RoadmapPage             = lazy(() => import('@/modules/roadmap/pages/RoadmapPage'))
+const RoadmapHistoryPage      = lazy(() => import('@/modules/roadmap/pages/RoadmapHistoryPage'))
+const QuizPage                = lazy(() => import('@/modules/roadmap/pages/QuizPage'))
+const CompanionPage           = lazy(() => import('@/modules/companion/pages/CompanionPage'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -197,30 +195,6 @@ function App() {
             </OnboardingGate>
           } />
 
-          {/* Career mapping (Module 04) */}
-          <Route path="/app/careers" element={<Navigate to="/app/careers/explore" replace />} />
-          <Route path="/app/careers/recommended" element={<Navigate to="/app/careers/explore" replace />} />
-          <Route
-            path="/app/careers/explore"
-            element={
-              <OnboardingGate>
-                <CareerExplorePage />
-              </OnboardingGate>
-            }
-          />
-          <Route
-            path="/app/careers/:slug"
-            element={
-              <OnboardingGate>
-                <CareerTrackPage />
-              </OnboardingGate>
-            }
-          />
-
-          {/* MVP2: Learning */}
-          <Route path="/app/learn" element={<OnboardingGate><Suspense fallback={null}><LearningDashboardPage /></Suspense></OnboardingGate>} />
-          <Route path="/app/learn/:pathId" element={<OnboardingGate><Suspense fallback={null}><PathDetailPage /></Suspense></OnboardingGate>} />
-          <Route path="/app/learn/:pathId/lessons/:lessonId" element={<OnboardingGate><Suspense fallback={null}><LessonViewerPage /></Suspense></OnboardingGate>} />
 
           {/* MVP2: Resume Builder */}
           <Route path="/app/resume" element={<OnboardingGate><Suspense fallback={null}><ResumeListPage /></Suspense></OnboardingGate>} />
@@ -269,10 +243,15 @@ function App() {
 
           {/* Roadmap — 6-stage job-readiness system */}
           <Route path="/app/roadmap" element={<OnboardingGate><Suspense fallback={null}><RoadmapPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/roadmap/history" element={<OnboardingGate><Suspense fallback={null}><RoadmapHistoryPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/quiz/:jobId/:moduleId" element={<OnboardingGate><Suspense fallback={null}><QuizPage /></Suspense></OnboardingGate>} />
 
           {/* MVP2: AI Counsellor */}
           <Route path="/app/counsellor" element={<OnboardingGate><Suspense fallback={null}><CounsellorPage /></Suspense></OnboardingGate>} />
           <Route path="/app/counsellor/:convId" element={<OnboardingGate><Suspense fallback={null}><CounsellorPage /></Suspense></OnboardingGate>} />
+
+          {/* Your Companion — emotional support companion */}
+          <Route path="/app/companion" element={<OnboardingGate><Suspense fallback={null}><CompanionPage /></Suspense></OnboardingGate>} />
 
           {/* Admin dashboard */}
           <Route path="/admin" element={

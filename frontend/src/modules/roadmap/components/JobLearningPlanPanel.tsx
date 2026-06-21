@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   PlayCircle, BookOpen, ExternalLink, CheckCircle2, Circle,
   Clock, Zap, RefreshCw, Loader2, AlertCircle, ChevronDown,
-  ChevronUp, Briefcase, Target, Save, Check,
+  ChevronUp, Briefcase, Target, Save, Check, Sparkles,
 } from 'lucide-react'
-import { jobPlanApi, type GenerationDetail, type GenerationStep, type PlanModule, type PlanResource } from '@/api/jobPlan'
+import { jobPlanApi, type GenerationDetail, type GenerationStep, type ModuleQuiz, type PlanModule, type PlanResource, type QuizProgress, type QuizSubmitResponse } from '@/api/jobPlan'
 import type { RoadmapOut } from '@/api/roadmap'
 
 interface Props {
@@ -14,6 +15,29 @@ interface Props {
   activeJobId: string
   activeJobTitle?: string
   activeCompany?: string
+  /** When set, auto-expand and scroll to the module covering this skill */
+  highlightSkill?: string | null
+  /** When true (used in per-subtopic nesting), render only the matching module, not the whole plan */
+  onlyMatching?: boolean
+  /** Fired with a ready-to-send, topic-grounded prompt when the user clicks "Ask AI" on a module */
+  onAskAI?: (prompt: string) => void
+}
+
+/** Builds a context-rich prompt for a module so the docked counsellor answers about the exact material shown, not just the topic name. */
+function buildAskAIPrompt(mod: PlanModule, jobTitle?: string): string {
+  const resourceTitles = mod.resources.slice(0, 4).map(r => r.title).filter(Boolean)
+  let prompt = `I'm a bit confused about "${mod.skill}"`
+  if (jobTitle) prompt += ` for the ${jobTitle} role`
+  prompt += `. ${mod.why_important}`
+  if (resourceTitles.length) {
+    prompt += ` The material covers: ${resourceTitles.join(', ')}.`
+  }
+  prompt += ` Can you explain this simply and tell me what to focus on first?`
+  return prompt
+}
+
+function skillKey(s: string) {
+  return s.toLowerCase().trim()
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────────
@@ -488,26 +512,38 @@ function ResourceCard({
 }
 
 function ModuleCard({
-  mod, progress, onToggleResource, togglingId,
+  mod, progress, onToggleResource, togglingId, forceOpen, highlighted, jobId, quizProgress, jobTitle, onAskAI,
 }: {
   mod: PlanModule
   progress: Record<string, { done: boolean }>
   onToggleResource: (resourceId: string, done: boolean) => void
   togglingId: string | null
+  forceOpen?: boolean
+  highlighted?: boolean
+  jobId: string
+  quizProgress?: QuizProgress
+  jobTitle?: string
+  onAskAI?: (prompt: string) => void
 }) {
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+  useEffect(() => {
+    if (forceOpen) setOpen(true)
+  }, [forceOpen])
   const pct = moduleProgress(mod, progress)
   const donePct = Math.round(pct)
   const doneCount = mod.resources.filter(r => progress[r.id]?.done).length
 
   return (
-    <div style={{
-      borderRadius: 16, overflow: 'hidden',
-      border: pct === 100 ? '1.5px solid rgba(5,150,105,0.25)' : '1.5px solid rgba(226,232,240,0.8)',
-      background: 'white',
-      boxShadow: open ? '0 6px 24px rgba(15,23,42,0.07)' : '0 2px 8px rgba(15,23,42,0.04)',
-      transition: 'box-shadow 0.2s',
-    }}>
+    <div
+      id={`job-module-${skillKey(mod.skill)}`}
+      style={{
+        borderRadius: 16, overflow: 'hidden',
+        border: highlighted ? '2px solid #2563EB' : pct === 100 ? '1.5px solid rgba(5,150,105,0.25)' : '1.5px solid rgba(226,232,240,0.8)',
+        background: 'white',
+        boxShadow: highlighted ? '0 6px 24px rgba(37,99,235,0.18)' : open ? '0 6px 24px rgba(15,23,42,0.07)' : '0 2px 8px rgba(15,23,42,0.04)',
+        transition: 'box-shadow 0.2s, border-color 0.2s',
+      }}>
       {/* Module header */}
       <button
         onClick={() => setOpen(o => !o)}
@@ -585,6 +621,38 @@ function ModuleCard({
               onToggle={() => onToggleResource(res.id, !progress[res.id]?.done)}
             />
           ))}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button
+              onClick={() => navigate(`/app/quiz/${jobId}/${mod.id}`)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+                background: quizProgress?.passed ? '#F0FDF4' : 'white',
+                border: `1.5px solid ${quizProgress?.passed ? '#BBF7D0' : '#15130F30'}`, borderRadius: 10,
+                padding: '8px 16px', fontSize: 12, fontWeight: 700,
+                color: quizProgress?.passed ? '#16A34A' : '#15130F', cursor: 'pointer',
+              }}
+            >
+              {quizProgress?.passed
+                ? <><CheckCircle2 size={13} color="#16A34A" /> Quiz passed — {quizProgress.score_pct}%</>
+                : mod.quiz?.questions?.length
+                  ? <><Zap size={13} /> Take Quiz</>
+                  : <><Zap size={13} /> Generate Quiz</>}
+            </button>
+            {onAskAI && (
+              <button
+                onClick={() => onAskAI(buildAskAIPrompt(mod, jobTitle))}
+                title="Ask DISHA to explain this topic"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+                  background: 'white', border: '1.5px solid rgba(37,99,235,0.3)', borderRadius: 10,
+                  padding: '8px 16px', fontSize: 12, fontWeight: 700,
+                  color: '#2563EB', cursor: 'pointer',
+                }}
+              >
+                <Sparkles size={13} /> Ask AI
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -593,10 +661,21 @@ function ModuleCard({
 
 // ── Main panel ─────────────────────────────────────────────────────────────────
 
-export default function JobLearningPlanPanel({ activeJobId, activeJobTitle, activeCompany }: Props) {
+export default function JobLearningPlanPanel({ activeJobId, activeJobTitle, activeCompany, highlightSkill, onlyMatching, onAskAI }: Props) {
   const qc = useQueryClient()
   const [pollingActive, setPollingActive] = useState(false)
   const [togglingId, setTogglingId] = useState<string | null>(null)
+
+  // Scroll to (and visually highlight) the module matching the selected skill subtopic —
+  // not needed when nested inline per-subtopic (onlyMatching), since there's nothing to scroll past.
+  useEffect(() => {
+    if (!highlightSkill || onlyMatching) return
+    const el = document.getElementById(`job-module-${skillKey(highlightSkill)}`)
+    if (el) {
+      const t = setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80)
+      return () => clearTimeout(t)
+    }
+  }, [highlightSkill, onlyMatching])
 
   const { data, isLoading } = useQuery({
     queryKey: ['job-learning-plan', activeJobId],
@@ -604,8 +683,14 @@ export default function JobLearningPlanPanel({ activeJobId, activeJobTitle, acti
     refetchInterval: pollingActive ? 3000 : false,
   })
 
-  // Stop polling once ready or failed
+  // Keep polling in sync with the plan's actual status — needed both when our own
+  // mutation kicks off generation AND when generation was triggered elsewhere (e.g.
+  // the Dashboard "Generate Roadmap" button), in which case we only discover
+  // status === 'generating' from this query itself, not from a local mutation.
   useEffect(() => {
+    if (data?.status === 'generating') {
+      setPollingActive(true)
+    }
     if (data?.status === 'ready' || data?.status === 'failed') {
       setPollingActive(false)
     }
@@ -771,6 +856,34 @@ export default function JobLearningPlanPanel({ activeJobId, activeJobTitle, acti
   const progress = data.progress ?? {}
   const { done, total, pct } = totalProgress(plan.modules, progress)
 
+  const skillKeyFilter = highlightSkill ? skillKey(highlightSkill) : null
+  const matchingModule = skillKeyFilter ? plan.modules.find(m => skillKey(m.skill) === skillKeyFilter) : null
+
+  if (onlyMatching) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {matchingModule ? (
+          <ModuleCard
+            mod={matchingModule}
+            progress={progress}
+            togglingId={togglingId}
+            forceOpen
+            highlighted={false}
+            jobId={activeJobId}
+            jobTitle={activeJobTitle}
+            quizProgress={progress[`quiz_${matchingModule.id}`] as any}
+            onToggleResource={(resourceId, done) => progressMutation.mutate({ resourceId, done })}
+            onAskAI={onAskAI}
+          />
+        ) : (
+          <p style={{ fontSize: 12, color: '#94A3B8' }}>
+            This skill isn't part of your generated learning plan yet — try regenerating the plan after your profile updates.
+          </p>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
@@ -817,17 +930,26 @@ export default function JobLearningPlanPanel({ activeJobId, activeJobTitle, acti
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {plan.modules
           .sort((a, b) => a.priority - b.priority)
-          .map(mod => (
-            <ModuleCard
-              key={mod.id}
-              mod={mod}
-              progress={progress}
-              togglingId={togglingId}
-              onToggleResource={(resourceId, done) =>
-                progressMutation.mutate({ resourceId, done })
-              }
-            />
-          ))
+          .map(mod => {
+            const isHighlighted = !!highlightSkill && skillKey(mod.skill) === skillKey(highlightSkill)
+            return (
+              <ModuleCard
+                key={mod.id}
+                mod={mod}
+                progress={progress}
+                togglingId={togglingId}
+                forceOpen={isHighlighted}
+                highlighted={isHighlighted}
+                jobId={activeJobId}
+                jobTitle={activeJobTitle}
+                quizProgress={progress[`quiz_${mod.id}`] as any}
+                    onToggleResource={(resourceId, done) =>
+                  progressMutation.mutate({ resourceId, done })
+                }
+                onAskAI={onAskAI}
+              />
+            )
+          })
         }
       </div>
     </div>

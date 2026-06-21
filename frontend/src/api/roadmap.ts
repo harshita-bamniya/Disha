@@ -2,6 +2,15 @@ import { apiClient } from './client'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
+export interface Subtopic {
+  id: string
+  title: string
+  description: string
+  is_completed: boolean
+  resource_label: string
+  resource_kind: 'narrative' | 'learning' | 'exercise' | 'ticket' | 'resume' | 'interview' | 'jobs'
+}
+
 export interface StageStatus {
   stage_number: number
   title: string
@@ -10,6 +19,7 @@ export interface StageStatus {
   estimated_days: number | null
   progress_pct: number
   gate: GateCriterion[] | null
+  subtopics: Subtopic[]
 }
 
 export interface GateCriterion {
@@ -105,6 +115,17 @@ export interface GapSkill {
   competence_score: number | null
 }
 
+export interface RoadmapSummary {
+  id: string
+  career_track_id: string | null
+  career_track_name: string | null
+  current_stage: number
+  job_readiness_score: number
+  generated_at: string
+  last_recalibrated: string
+  is_active: boolean
+}
+
 export interface SkillCompetence {
   skill_text: string
   competence_score: number
@@ -124,6 +145,12 @@ export const roadmapApi = {
     apiClient.get<RoadmapOut>('/roadmap/mine', {
       params: careerTrackId ? { career_track_id: careerTrackId } : undefined,
     }).then(r => r.data),
+
+  getAll: () =>
+    apiClient.get<RoadmapSummary[]>('/roadmap/all').then(r => r.data),
+
+  getById: (roadmapId: string) =>
+    apiClient.get<RoadmapOut>(`/roadmap/${roadmapId}`).then(r => r.data),
 
   getJRS: () =>
     apiClient.get<JRSBreakdown>('/roadmap/jrs').then(r => r.data),

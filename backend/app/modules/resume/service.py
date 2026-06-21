@@ -400,3 +400,113 @@ async def ai_generate_resume(
         db.rollback()
         logger.error(f"[RESUME AI] Generation failed for user={user.id}: {exc}")
         raise ValueError(f"AI generation failed: {exc}")
+
+
+async def ai_generate_resume_stream(
+    resume_id: str,
+    user: User,
+    db: Session,
+    job_context: AiGenerateJobContext | None = None,
+    answers: dict[str, str] | None = None,
+):
+    """
+    Interactive resume co-pilot: emits step/question/section/error/complete events
+    so the frontend can show real-time progress and pause for clarification.
+
+    Yields plain dicts — the router serialises them as SSE 'data:' JSON lines.
+    """
+    import asyncio
+
+    answers = answers or {}
+
+    resume = (
+        db.query(Resume)
+        .options(joinedload(Resume.career_track), joinedload(Resume.sections))
+        .filter(Resume.id == resume_id, Resume.user_id == user.id, Resume.deleted_at == None)
+        .first()
+    )
+    if not resume:
+        yield {"type": "error", "message": "Resume not found."}
+        return
+
+    profile = db.query(AspirantProfile).filter(AspirantProfile.user_id == user.id).first()
+    if not profile:
+        yield {"type": "error", "message": "Aspirant profile not found. Complete onboarding first."}
+        return
+
+    career_track = resume.career_track
+    if not career_track and resume.career_track_id:
+        career_track = db.query(CareerTrack).filter(CareerTrack.id == resume.career_track_id).first()
+
+    yield {"type": "step", "label": "Analysing your profile..."}
+    await asyncio.sleep(0.2)
+
+    question = ai_service.get_next_question(profile, career_track, job_context, answers)
+    if question:
+        yield {"type": "question", **question}
+        return
+
+    yield {"type": "step", "label": "Understanding your target role..."}
+    await asyncio.sleep(0.2)
+    yield {"type": "step", "label": "Generating resume content..."}
+
+    if resume.sections:
+        _snapshot_version(resume, db, ai_generated=False)
+        db.query(ResumeSection).filter(ResumeSection.resume_id == resume_id).delete()
+
+    try:
+        from app.ai.providers.groq import GroqProvider
+        provider = GroqProvider()
+        system_prompt, user_prompt = ai_service.build_generation_prompt(
+            profile, career_track, job_context=job_context, answers=answers,
+        )
+        response = await provider.complete(
+            system_prompt,
+            [{"role": "user", "content": user_prompt}],
+            max_tokens=3000,
+            temperature=0.3,
+        )
+        parsed = ai_service.parse_ai_resume_response(response.content)
+        section_data = ai_service.ai_response_to_sections(parsed)
+
+        section_labels = {
+            "summary": "Professional Summary",
+            "experience": "Experience",
+            "education": "Education",
+            "skills": "Skills",
+            "achievements": "Achievements",
+            "projects": "Projects",
+        }
+
+        for sec_info in section_data:
+            db.add(ResumeSection(resume_id=resume_id, **sec_info))
+            db.flush()
+            yield {
+                "type": "section_done",
+                "section_type": sec_info["section_type"],
+                "label": section_labels.get(sec_info["section_type"], sec_info["section_type"]),
+                "content": sec_info["content"],
+            }
+            await asyncio.sleep(0.25)
+
+        all_sections = db.query(ResumeSection).filter(ResumeSection.resume_id == resume_id).all()
+        sections_raw = [{"section_type": s.section_type, "content": s.content} for s in all_sections]
+        ats = ai_service.compute_ats_score(sections_raw)
+        resume.ats_score = ats
+        resume.updated_at = datetime.now(timezone.utc)
+
+        db.flush()
+        _snapshot_version(resume, db, ai_generated=True)
+        db.commit()
+
+        yield {
+            "type": "complete",
+            "message": "Resume generated successfully.",
+            "sections_created": len(section_data),
+            "ats_score": ats,
+        }
+
+    except Exception as exc:
+        db.rollback()
+        logger.error(f"[RESUME AI] Stream generation failed for user={user.id}: {exc}")
+        yield {"type": "error", "message": f"AI generation failed: {exc}"}

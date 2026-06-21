@@ -80,6 +80,41 @@ def create_conversation(
     elif body.context_type == "career_coaching":
         title = "Career Coaching Session"
 
+    elif body.context_type == "job_roadmap":
+        job_ctx = {
+            "job_id":    body.job_id,
+            "job_title": body.job_title,
+            "company":   body.company,
+            "sector":    body.sector,
+        }
+        title = f"Roadmap Q&A — {body.job_title or 'Job Prep'}"
+
+        # One continuous thread per job, not a new one on every page visit.
+        existing = (
+            db.query(Conversation)
+            .filter(
+                Conversation.user_id == user.id,
+                Conversation.context_type == "job_roadmap",
+                Conversation.status == "active",
+                Conversation.job_context["job_id"].astext == str(body.job_id),
+            )
+            .order_by(Conversation.updated_at.desc())
+            .first()
+        )
+        if existing:
+            return ConversationSummary(
+                id=str(existing.id),
+                title=existing.title,
+                context_type=existing.context_type,
+                status=existing.status,
+                message_count=existing.message_count,
+                skill_focus=existing.skill_focus,
+                job_context=existing.job_context,
+                interview_config=existing.interview_config,
+                created_at=existing.created_at,
+                updated_at=existing.updated_at,
+            )
+
     conv = Conversation(
         user_id=user.id,
         title=title,
