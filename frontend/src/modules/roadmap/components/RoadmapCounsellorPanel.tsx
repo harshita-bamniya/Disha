@@ -71,7 +71,9 @@ export default function RoadmapCounsellorPanel({ jobId, jobTitle, company, secto
   })
 
   useEffect(() => {
-    if (convDetail) setMessages(convDetail.messages)
+    if (convDetail) {
+      setMessages(convDetail.messages.filter((m): m is typeof m & { role: 'user' | 'assistant' } => m.role !== 'system'))
+    }
   }, [convDetail])
 
   const sendMessage = useCallback(async (overrideText?: string) => {
@@ -121,55 +123,55 @@ export default function RoadmapCounsellorPanel({ jobId, jobTitle, company, secto
 
   return (
     <div style={{
-      width: '42%', flexShrink: 0, display: 'flex', flexDirection: 'column',
-      borderLeft: '1px solid rgba(226,232,240,0.8)', background: 'white',
-      position: 'sticky', top: 60, height: 'calc(100vh - 60px)',
+      width: '38%', flexShrink: 0, display: 'flex', flexDirection: 'column',
+      background: 'white', borderLeft: '1px solid #F1F5F9',
+      position: 'sticky', top: 0, height: '100vh',
     }}>
       {/* Header */}
       <div style={{
-        background: 'linear-gradient(135deg, #15130F 0%, #1E3A5F 55%, #2563EB 100%)',
-        padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0,
+        padding: '18px 24px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0,
+        borderBottom: '1px solid #F1F5F9',
       }}>
         <div style={{
-          width: 32, height: 32, borderRadius: 9, background: 'rgba(255,255,255,0.15)',
-          border: '1.5px solid rgba(255,255,255,0.25)',
+          width: 30, height: 30, borderRadius: '50%',
+          background: 'linear-gradient(135deg, #818CF8, #6366F1)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <Sparkles size={15} color="white" />
+          <Sparkles size={14} color="white" />
         </div>
         <div>
-          <p style={{ fontSize: 13.5, fontWeight: 800, color: 'white', margin: 0 }}>Ask DISHA</p>
-          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', margin: 0 }}>
+          <p style={{ fontSize: 14, fontWeight: 700, color: '#111827', margin: 0 }}>Ask DISHA</p>
+          <p style={{ fontSize: 11.5, color: '#9CA3AF', margin: 0 }}>
             About {jobTitle ?? 'this role'} only
           </p>
         </div>
       </div>
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
         {loadingHistory && messages.length === 0 && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 30 }}>
-            <Loader2 size={20} color="#94A3B8" style={{ animation: 'spin 0.8s linear infinite' }} />
+            <Loader2 size={18} color="#9CA3AF" style={{ animation: 'spin 0.8s linear infinite' }} />
           </div>
         )}
         {!loadingHistory && messages.length === 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '30px 12px', color: '#94A3B8' }}>
-            <MessageSquare size={28} style={{ marginBottom: 10 }} />
-            <p style={{ fontSize: 13, lineHeight: 1.6, margin: '0 0 18px', maxWidth: 280 }}>
-              Ask me anything about your roadmap for <strong style={{ color: '#475569' }}>{jobTitle ?? 'this job'}</strong> — skills, modules, interview prep, or what to focus on next.
+          <div style={{ padding: '8px 0 24px' }}>
+            <MessageSquare size={22} color="#CBD5E1" style={{ marginBottom: 10 }} />
+            <p style={{ fontSize: 13.5, lineHeight: 1.7, color: '#6B7280', margin: '0 0 18px', maxWidth: 320 }}>
+              Ask me anything about your roadmap for <strong style={{ color: '#374151' }}>{jobTitle ?? 'this job'}</strong> — skills, modules, interview prep, or what to focus on next.
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
               {SUGGESTIONS(jobTitle).map((s, i) => (
                 <button
                   key={i}
                   onClick={() => sendMessage(s)}
                   style={{
-                    padding: '10px 14px', borderRadius: 10, textAlign: 'left',
-                    background: '#F8FAFC', border: '1px solid rgba(226,232,240,0.9)',
-                    cursor: 'pointer', fontSize: 12.5, color: '#374151', lineHeight: 1.5,
+                    padding: '11px 0', textAlign: 'left',
+                    background: 'none', border: 'none', borderTop: i > 0 ? '1px solid #F1F5F9' : 'none',
+                    cursor: 'pointer', fontSize: 13, color: '#4B5563', lineHeight: 1.5,
                   }}
-                  onMouseOver={e => { e.currentTarget.style.borderColor = '#2563EB'; e.currentTarget.style.color = '#2563EB' }}
-                  onMouseOut={e => { e.currentTarget.style.borderColor = 'rgba(226,232,240,0.9)'; e.currentTarget.style.color = '#374151' }}
+                  onMouseOver={e => { e.currentTarget.style.color = '#6366F1' }}
+                  onMouseOut={e => { e.currentTarget.style.color = '#4B5563' }}
                 >
                   {s}
                 </button>
@@ -177,50 +179,65 @@ export default function RoadmapCounsellorPanel({ jobId, jobTitle, company, secto
             </div>
           </div>
         )}
-        {messages.map(m => (
+        {messages.map((m, i) => (
           <div key={m.id} style={{
-            alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
-            maxWidth: '88%',
-            background: m.role === 'user' ? '#15130F' : '#F1F5F9',
-            color: m.role === 'user' ? 'white' : '#0F172A',
-            borderRadius: 12, padding: '10px 14px', fontSize: 13, lineHeight: 1.6,
-            whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+            display: 'flex', gap: 10,
+            padding: '14px 0',
+            borderTop: i > 0 ? '1px solid #F1F5F9' : 'none',
           }}>
-            {m.content}
-            {m.streaming && !m.content && (
-              <span style={{ display: 'inline-flex', gap: 4 }}>
-                {[0, 1, 2].map(i => (
-                  <span key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: '#94A3B8', animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite` }} />
-                ))}
-              </span>
-            )}
+            <div style={{
+              width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+              background: m.role === 'user' ? '#F97316' : 'linear-gradient(135deg, #818CF8, #6366F1)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 11, fontWeight: 700, color: 'white',
+            }}>
+              {m.role === 'user' ? 'Y' : 'D'}
+            </div>
+            <p style={{
+              flex: 1, margin: 0, fontSize: 13.5, lineHeight: 1.65, color: '#1F2937',
+              whiteSpace: 'pre-wrap', wordBreak: 'break-word', paddingTop: 2,
+            }}>
+              {m.content}
+              {m.streaming && !m.content && (
+                <span style={{ display: 'inline-flex', gap: 4 }}>
+                  {[0, 1, 2].map(i => (
+                    <span key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: '#CBD5E1', animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite` }} />
+                  ))}
+                </span>
+              )}
+            </p>
           </div>
         ))}
         <div ref={bottomRef} />
       </div>
 
       {/* Input */}
-      <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(226,232,240,0.8)', display: 'flex', gap: 8, flexShrink: 0 }}>
-        <input
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
-          placeholder={`Ask about ${jobTitle ?? 'this job'}...`}
-          disabled={isStreaming}
-          style={{ flex: 1, border: '1.5px solid #E2E8F0', borderRadius: 10, padding: '10px 14px', fontSize: 13, outline: 'none' }}
-        />
-        <button
-          onClick={() => sendMessage()}
-          disabled={isStreaming || !input.trim()}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-            background: isStreaming || !input.trim() ? '#E2E8F0' : '#15130F',
-            color: 'white', border: 'none', cursor: isStreaming || !input.trim() ? 'not-allowed' : 'pointer',
-          }}
-        >
-          <Send size={15} />
-        </button>
+      <div style={{ padding: '16px 24px 20px', flexShrink: 0 }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          background: '#F3F4F6', borderRadius: 24, padding: '6px 6px 6px 18px',
+        }}>
+          <input
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
+            placeholder="Type your message..."
+            disabled={isStreaming}
+            style={{ flex: 1, border: 'none', background: 'none', padding: '8px 0', fontSize: 13.5, outline: 'none', color: '#111827' }}
+          />
+          <button
+            onClick={() => sendMessage()}
+            disabled={isStreaming || !input.trim()}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+              background: isStreaming || !input.trim() ? '#E5E7EB' : '#6366F1',
+              color: 'white', border: 'none', cursor: isStreaming || !input.trim() ? 'not-allowed' : 'pointer',
+            }}
+          >
+            <Send size={14} />
+          </button>
+        </div>
       </div>
 
       <style>{`

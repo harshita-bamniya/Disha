@@ -23,7 +23,13 @@ def list_conversations(
 ):
     convs = (
         db.query(Conversation)
-        .filter(Conversation.user_id == user.id)
+        .filter(
+            Conversation.user_id == user.id,
+            # "emotional" belongs to Your Companion, which has its own dedicated UI —
+            # keep it out of the general AI Counsellor's conversation list. Roadmap
+            # ("job_roadmap") chats stay visible here too, alongside the rest.
+            Conversation.context_type != "emotional",
+        )
         .order_by(Conversation.updated_at.desc())
         .limit(20)
         .all()

@@ -7,9 +7,9 @@ import AppSidebar from '@/components/layout/AppSidebar'
 import { Map, ChevronRight, TrendingUp, Loader2, ArrowRight, Briefcase } from 'lucide-react'
 
 function statusBadge(status: 'generating' | 'ready' | 'failed') {
-  if (status === 'generating') return { bg: '#FEF3C7', color: '#92400E', label: 'Generating…' }
-  if (status === 'failed') return { bg: '#FEE2E2', color: '#991B1B', label: 'Failed' }
-  return { bg: '#DCFCE7', color: '#16A34A', label: 'Ready' }
+  if (status === 'generating') return { color: '#D97706', label: 'Generating…' }
+  if (status === 'failed') return { color: '#DC2626', label: 'Failed' }
+  return { color: '#16A34A', label: 'Ready' }
 }
 
 export default function RoadmapHistoryPage() {
@@ -33,96 +33,91 @@ export default function RoadmapHistoryPage() {
   const isEmpty = !isLoadingAny && jobPlans.length === 0
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #FAF7F1 0%, #FFFFFF 55%, #F1EAE0 100%)', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
       <AppSidebar activePath="/app/roadmap" />
 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <header style={{
-          background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(20px)',
-          borderBottom: '1px solid rgba(226,232,240,0.8)',
-          padding: '0 28px', height: 60,
+          background: 'white',
+          borderBottom: '1px solid #F1F5F9',
+          padding: '0 28px', height: 64,
           display: 'flex', alignItems: 'center', gap: 10,
           position: 'sticky', top: 0, zIndex: 20,
-          boxShadow: '0 1px 8px rgba(15,23,42,0.05)',
         }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, background: '#15130F', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Map size={13} color="white" />
+          <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #818CF8, #6366F1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Map size={14} color="white" />
           </div>
-          <span style={{ fontFamily: 'Hind, sans-serif', fontSize: 15, fontWeight: 800, color: '#0F172A' }}>My Roadmaps</span>
+          <span style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>My Roadmaps</span>
         </header>
 
-        <main style={{ padding: '24px 28px', flex: 1 }}>
+        <main style={{ padding: '32px 36px', flex: 1 }}>
           {isLoadingAny && (
             <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
-              <Loader2 size={28} color="#15130F" style={{ animation: 'spin 0.8s linear infinite' }} />
+              <Loader2 size={26} color="#6366F1" style={{ animation: 'spin 0.8s linear infinite' }} />
             </div>
           )}
 
           {isEmpty && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 400, textAlign: 'center', padding: 40 }}>
-              <div style={{ width: 72, height: 72, borderRadius: 20, background: '#15130F', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-                <Map size={36} color="white" />
-              </div>
-              <h2 style={{ fontSize: 22, fontWeight: 900, color: '#0F172A', marginBottom: 10, fontFamily: 'Hind, sans-serif' }}>No Roadmaps Yet</h2>
-              <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.6, maxWidth: 400, marginBottom: 28 }}>
+              <div style={{ fontSize: 40, marginBottom: 16 }}>🗺️</div>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: '#111827', marginBottom: 8 }}>No Roadmaps Yet</h2>
+              <p style={{ fontSize: 13.5, color: '#9CA3AF', lineHeight: 1.6, maxWidth: 380, marginBottom: 22 }}>
                 Pick a job from your matches and click "Generate Roadmap" to build your first personalised roadmap.
               </p>
               <button
                 onClick={() => navigate('/app/jobs')}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg, #15130F 0%, #1E3A5F 55%, #2563EB 100%)', color: 'white', border: 'none', borderRadius: 14, padding: '14px 28px', fontSize: 14, fontWeight: 800, cursor: 'pointer', boxShadow: '0 4px 16px rgba(21,19,15,0.22)' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 7, background: '#6366F1', color: 'white', border: 'none', borderRadius: 10, padding: '11px 22px', fontSize: 13.5, fontWeight: 700, cursor: 'pointer' }}
               >
-                Browse Jobs <ArrowRight size={16} />
+                Browse Jobs <ArrowRight size={14} />
               </button>
             </div>
           )}
 
           {!isLoadingAny && jobPlans.length > 0 && (
-            <div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 720 }}>
-                {jobPlans.map(p => {
-                  const badge = statusBadge(p.status)
-                  const isOpening = openingJobId === p.job_id
-                  return (
-                    <div
-                      key={p.job_id}
-                      onClick={() => !isOpening && openJobPlan(p.job_id)}
-                      style={{
-                        background: 'white', borderRadius: 16, padding: '18px 22px',
-                        border: p.is_active ? '1.5px solid #15130F' : '1.5px solid rgba(226,232,240,0.8)',
-                        boxShadow: '0 2px 8px rgba(15,23,42,0.05)', cursor: isOpening ? 'wait' : 'pointer',
-                        display: 'flex', alignItems: 'center', gap: 16, opacity: isOpening ? 0.7 : 1,
-                      }}
-                    >
-                      <div style={{ width: 44, height: 44, borderRadius: 14, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#EFF6FF' }}>
-                        <Briefcase size={20} color="#2563EB" />
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <p style={{ fontSize: 14, fontWeight: 800, color: '#0F172A', margin: 0, fontFamily: 'Hind, sans-serif' }}>
-                            {p.job_title}
-                          </p>
-                          {p.is_active && (
-                            <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: '#DCFCE7', color: '#16A34A' }}>Active</span>
-                          )}
-                        </div>
-                        <p style={{ fontSize: 12, color: '#94A3B8', margin: '3px 0 0' }}>
-                          {p.company_name} · {p.generated_at ? `Generated ${new Date(p.generated_at).toLocaleDateString()}` : 'Not generated yet'}
-                        </p>
-                      </div>
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, background: badge.bg, color: badge.color }}>
-                        {badge.label}
-                      </span>
-                      {p.status === 'ready' && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#FAF7F1', border: '1.5px solid #F1EAE0', borderRadius: 20, padding: '6px 14px' }}>
-                          <TrendingUp size={12} color="#15130F" />
-                          <span style={{ fontSize: 12, fontWeight: 800, color: '#15130F' }}>{p.progress_pct}%</span>
-                        </div>
-                      )}
-                      {isOpening ? <Loader2 size={16} color="#94A3B8" style={{ animation: 'spin 0.8s linear infinite' }} /> : <ChevronRight size={16} color="#94A3B8" />}
+            <div style={{ maxWidth: 760 }}>
+              {jobPlans.map((p, i) => {
+                const badge = statusBadge(p.status)
+                const isOpening = openingJobId === p.job_id
+                return (
+                  <div
+                    key={p.job_id}
+                    onClick={() => !isOpening && openJobPlan(p.job_id)}
+                    style={{
+                      padding: '16px 0',
+                      borderTop: i > 0 ? '1px solid #F1F5F9' : 'none',
+                      cursor: isOpening ? 'wait' : 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 16, opacity: isOpening ? 0.6 : 1,
+                    }}
+                  >
+                    <div style={{ width: 38, height: 38, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#EEF2FF' }}>
+                      <Briefcase size={17} color="#6366F1" />
                     </div>
-                  )
-                })}
-              </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <p style={{ fontSize: 14, fontWeight: 700, color: '#111827', margin: 0 }}>
+                          {p.job_title}
+                        </p>
+                        {p.is_active && (
+                          <span style={{ fontSize: 10, fontWeight: 700, color: '#16A34A' }}>Active</span>
+                        )}
+                      </div>
+                      <p style={{ fontSize: 12, color: '#9CA3AF', margin: '3px 0 0' }}>
+                        {p.company_name} · {p.generated_at ? `Generated ${new Date(p.generated_at).toLocaleDateString()}` : 'Not generated yet'}
+                      </p>
+                    </div>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: badge.color, flexShrink: 0 }}>
+                      {badge.label}
+                    </span>
+                    {p.status === 'ready' && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+                        <TrendingUp size={12} color="#9CA3AF" />
+                        <span style={{ fontSize: 12.5, fontWeight: 700, color: '#4B5563' }}>{p.progress_pct}%</span>
+                      </div>
+                    )}
+                    {isOpening ? <Loader2 size={15} color="#9CA3AF" style={{ animation: 'spin 0.8s linear infinite' }} /> : <ChevronRight size={15} color="#D1D5DB" />}
+                  </div>
+                )
+              })}
             </div>
           )}
         </main>

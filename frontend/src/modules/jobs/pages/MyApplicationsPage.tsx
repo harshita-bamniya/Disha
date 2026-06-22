@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import {
-  Briefcase, ArrowUpRight, Clock, X, AlertTriangle,
-  ChevronRight, FileText, ListChecks, Hourglass, Star, TrendingUp,
+  ArrowUpRight, Clock, X, AlertTriangle, ChevronRight, FileText,
+  ListChecks, Hourglass, Star, TrendingUp,
 } from 'lucide-react'
 import AppSidebar from '@/components/layout/AppSidebar'
 import {
@@ -30,22 +30,54 @@ const WITHDRAW_REASONS = [
   'Other',
 ]
 
-type ColumnKey = 'applied' | 'under_review' | 'shortlisted' | 'closed'
-
-const COLUMNS: { key: ColumnKey; label: string; accent: string }[] = [
-  { key: 'applied',      label: 'Applied',      accent: '#3B82F6' },
-  { key: 'under_review', label: 'Under Review', accent: '#F59E0B' },
-  { key: 'shortlisted',  label: 'Shortlisted',  accent: '#22C55E' },
-  { key: 'closed',       label: 'Closed',       accent: '#94A3B8' },
-]
-
 const CLOSED_STATUSES = new Set(['rejected', 'hired', 'withdrawn'])
 
-function columnOf(status: string): ColumnKey {
-  if (status === 'applied') return 'applied'
-  if (status === 'under_review') return 'under_review'
-  if (status === 'shortlisted') return 'shortlisted'
-  return 'closed'
+// ── Delivery-style progress tracker ────────────────────────────────────────────
+// A single horizontal line — Applied → Under Review → Shortlisted → outcome —
+// same pattern as a food-delivery/courier tracker, instead of separate columns.
+
+const TRACK_STEPS = ['Applied', 'Under Review', 'Shortlisted']
+
+function trackInfo(status: string): { stepIndex: number; finalLabel: string; finalColor: string; isPending: boolean } {
+  if (status === 'hired') return { stepIndex: 3, finalLabel: 'Hired', finalColor: '#16A34A', isPending: false }
+  if (status === 'rejected') return { stepIndex: 3, finalLabel: 'Not Selected', finalColor: '#E11D48', isPending: false }
+  if (status === 'withdrawn') return { stepIndex: 3, finalLabel: 'Withdrawn', finalColor: '#9CA3AF', isPending: false }
+  if (status === 'shortlisted') return { stepIndex: 2, finalLabel: 'Decision', finalColor: '#D1D5DB', isPending: true }
+  if (status === 'under_review') return { stepIndex: 1, finalLabel: 'Decision', finalColor: '#D1D5DB', isPending: true }
+  return { stepIndex: 0, finalLabel: 'Decision', finalColor: '#D1D5DB', isPending: true } // applied
+}
+
+function ProgressTracker({ status }: { status: string }) {
+  const { stepIndex, finalLabel, finalColor, isPending } = trackInfo(status)
+  const allLabels = [...TRACK_STEPS, finalLabel]
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+      {allLabels.map((label, i) => {
+        const isFinal = i === allLabels.length - 1
+        const reached = i <= stepIndex
+        const dotColor = isFinal ? (reached ? finalColor : '#E5E7EB') : (reached ? '#2563EB' : '#E5E7EB')
+        return (
+          <div key={label} style={{ display: 'flex', alignItems: 'center', flex: isFinal ? '0 0 auto' : 1 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+              <div style={{
+                width: 10, height: 10, borderRadius: '50%', background: dotColor,
+                boxShadow: reached && i === stepIndex && isPending ? '0 0 0 3px rgba(37,99,235,0.18)' : 'none',
+              }} />
+              <span style={{
+                fontSize: 10.5, fontWeight: reached ? 700 : 500, marginTop: 5, whiteSpace: 'nowrap',
+                color: reached ? (isFinal ? finalColor : '#2563EB') : '#9CA3AF',
+              }}>
+                {label}
+              </span>
+            </div>
+            {!isFinal && (
+              <div style={{ flex: 1, height: 2, margin: '0 4px', marginBottom: 15, background: i < stepIndex ? '#2563EB' : '#E5E7EB' }} />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -67,10 +99,9 @@ function matchColor(s: number) {
   return '#E11D48'
 }
 
-// ── Pipeline card (compact) ───────────────────────────────────────────────────
+// ── Application card — one per application, with a delivery-style tracker ─────
 
-function PipelineCard({ app, onOpen }: { app: ApplicationOut; onOpen: () => void }) {
-  const cfg = STATUS_CFG[app.status] ?? STATUS_CFG.applied
+function ApplicationCard({ app, onOpen }: { app: ApplicationOut; onOpen: () => void }) {
   const [hov, setHov] = useState(false)
   return (
     <div
@@ -78,36 +109,50 @@ function PipelineCard({ app, onOpen }: { app: ApplicationOut; onOpen: () => void
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        background: '#fff', borderRadius: 12, padding: '13px 14px',
-        border: `1px solid ${hov ? cfg.accent + '55' : '#E8ECF1'}`,
-        borderLeft: `3px solid ${cfg.accent}`,
-        cursor: 'pointer', transition: 'all 0.15s',
-        boxShadow: hov ? '0 6px 18px rgba(15,23,42,0.08)' : '0 1px 2px rgba(15,23,42,0.03)',
+        background: 'white', borderRadius: 16, padding: '18px 22px',
+        border: `1px solid ${hov ? '#BFDBFE' : '#E5EDFB'}`,
+        cursor: 'pointer', transition: 'box-shadow 0.18s, border-color 0.18s, transform 0.18s',
+        boxShadow: hov ? '0 10px 28px rgba(37,99,235,0.14)' : '0 2px 8px rgba(15,23,42,0.04)',
         transform: hov ? 'translateY(-2px)' : 'none',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-        <div style={{ minWidth: 0 }}>
-          <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', margin: 0, lineHeight: 1.35 }}>
-            {app.job_title}
-          </p>
-          <p style={{ fontSize: 12, color: '#64748B', margin: '3px 0 0' }}>{app.company_name}</p>
-        </div>
-        {app.match_score !== null && (
-          <span style={{
-            fontSize: 11, fontWeight: 800, color: matchColor(app.match_score),
-            background: matchColor(app.match_score) + '14', borderRadius: 8,
-            padding: '2px 7px', flexShrink: 0,
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 18 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
+          <div style={{
+            width: 42, height: 42, borderRadius: 12, flexShrink: 0,
+            background: 'linear-gradient(135deg, #15130F, #3B342B)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 16, fontWeight: 700, color: '#F1EAE0',
+            boxShadow: '0 3px 10px rgba(21,19,15,0.3)',
           }}>
-            {app.match_score}%
-          </span>
-        )}
+            {app.company_name.charAt(0).toUpperCase()}
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ fontSize: 14.5, fontWeight: 700, color: '#0F172A', margin: 0, lineHeight: 1.35 }}>
+              {app.job_title}
+            </p>
+            <p style={{ fontSize: 12, color: '#64748B', margin: '3px 0 0', display: 'flex', alignItems: 'center', gap: 10 }}>
+              {app.company_name}
+              <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#94A3B8' }}>
+                <Clock size={10} /> {daysAgo(app.created_at)}
+              </span>
+            </p>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          {app.match_score !== null && (
+            <span style={{
+              fontSize: 12.5, fontWeight: 700, color: matchColor(app.match_score),
+              background: matchColor(app.match_score) + '14', borderRadius: 20, padding: '4px 10px',
+            }}>
+              {app.match_score}% match
+            </span>
+          )}
+          <ChevronRight size={16} color={hov ? '#2563EB' : '#93C5FD'} style={{ transition: 'color 0.15s' }} />
+        </div>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
-        <span style={{ fontSize: 10.5, color: '#A0AEC0', display: 'flex', alignItems: 'center', gap: 3 }}>
-          <Clock size={10} /> {daysAgo(app.created_at)}
-        </span>
-        <ChevronRight size={13} color="#CBD5E1" />
+      <div style={{ paddingTop: 16, borderTop: '1px solid #F1F5F9' }}>
+        <ProgressTracker status={app.status} />
       </div>
     </div>
   )
@@ -262,16 +307,16 @@ function DetailDrawer({ app, onClose }: { app: ApplicationOut; onClose: () => vo
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '18px 22px' }}>
           {/* Match + applied date */}
-          <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
+          <div style={{ display: 'flex', gap: 24, marginBottom: 20, paddingBottom: 18, borderBottom: '1px solid #F1F5F9' }}>
             {app.match_score !== null && (
-              <div style={{ flex: 1, background: '#F8FAFC', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
-                <p style={{ fontSize: 20, fontWeight: 900, color: matchColor(app.match_score), margin: 0 }}>{app.match_score}%</p>
-                <p style={{ fontSize: 10.5, color: '#94A3B8', fontWeight: 600, margin: '2px 0 0' }}>MATCH SCORE</p>
+              <div>
+                <p style={{ fontSize: 18, fontWeight: 700, color: matchColor(app.match_score), margin: 0 }}>{app.match_score}%</p>
+                <p style={{ fontSize: 11, color: '#9CA3AF', margin: '2px 0 0' }}>Match score</p>
               </div>
             )}
-            <div style={{ flex: 1, background: '#F8FAFC', borderRadius: 12, padding: '12px 14px', textAlign: 'center' }}>
-              <p style={{ fontSize: 13, fontWeight: 800, color: '#374151', margin: 0 }}>{fmtDate(app.created_at)}</p>
-              <p style={{ fontSize: 10.5, color: '#94A3B8', fontWeight: 600, margin: '2px 0 0' }}>APPLIED ON</p>
+            <div>
+              <p style={{ fontSize: 14, fontWeight: 700, color: '#374151', margin: 0 }}>{fmtDate(app.created_at)}</p>
+              <p style={{ fontSize: 11, color: '#9CA3AF', margin: '2px 0 0' }}>Applied on</p>
             </div>
           </div>
 
@@ -336,12 +381,9 @@ function DetailDrawer({ app, onClose }: { app: ApplicationOut; onClose: () => vo
             onClick={() => navigate(`/app/jobs/${app.job_id}`)}
             style={{
               width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              fontSize: 13.5, fontWeight: 700, background: '#3B82F6',
-              color: '#fff', border: 'none', borderRadius: 11, padding: '11px 0', cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(59,130,246,0.25)', transition: 'background 0.2s',
+              fontSize: 13.5, fontWeight: 700, background: '#2563EB',
+              color: '#fff', border: 'none', borderRadius: 10, padding: '11px 0', cursor: 'pointer',
             }}
-            onMouseOver={e => { e.currentTarget.style.background = '#1D4ED8' }}
-            onMouseOut={e => { e.currentTarget.style.background = '#3B82F6' }}
           >
             View Full Job Posting <ArrowUpRight size={14} />
           </button>
@@ -370,47 +412,53 @@ export default function MyApplicationsPage() {
     ? Math.round(((all.length - all.filter(a => a.status === 'applied').length) / all.length) * 100)
     : 0
 
-  const byColumn: Record<ColumnKey, ApplicationOut[]> = {
-    applied: [], under_review: [], shortlisted: [], closed: [],
-  }
-  for (const app of all) byColumn[columnOf(app.status)].push(app)
-  for (const key of Object.keys(byColumn) as ColumnKey[]) {
-    byColumn[key].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-  }
+  const sorted = [...all].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'linear-gradient(160deg, #FAF7F1 0%, #FFFFFF 55%, #F1EAE0 100%)' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'white' }}>
       <AppSidebar activePath="/app/jobs/applications" />
 
-      <main style={{ flex: 1, minWidth: 0, padding: '28px 30px', overflowX: 'auto' }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 22, flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <h1 style={{ fontFamily: 'Hind, sans-serif', fontSize: 22, fontWeight: 900, color: '#15130F', margin: 0, letterSpacing: '-0.3px' }}>
-              Application Pipeline
-            </h1>
-            <p style={{ fontSize: 13, color: '#6B7280', margin: '4px 0 0' }}>
-              Track every application from submission to offer.
-            </p>
+        <header style={{
+          background: 'white',
+          borderBottom: '1px solid #F1F5F9',
+          padding: '0 28px', height: 64,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          position: 'sticky', top: 0, zIndex: 20,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{
+              width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+              background: 'linear-gradient(135deg, #3B82F6, #2563EB)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <FileText size={14} color="white" />
+            </div>
+            <div>
+              <p style={{ fontSize: 14.5, fontWeight: 700, color: '#0F172A', margin: 0 }}>Application Pipeline</p>
+              <p style={{ fontSize: 11.5, color: '#9CA3AF', margin: 0 }}>Track every application from submission to offer</p>
+            </div>
           </div>
           <button
             type="button"
             onClick={() => navigate('/app/jobs')}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
-              fontSize: 13, fontWeight: 700, color: '#fff',
-              background: '#15130F', border: 'none', borderRadius: 10,
-              padding: '10px 18px', cursor: 'pointer', transition: 'background 0.2s',
+              fontSize: 13, fontWeight: 700, color: 'white',
+              background: '#2563EB', border: 'none', borderRadius: 10,
+              padding: '9px 16px', cursor: 'pointer',
+              boxShadow: '0 3px 10px rgba(37,99,235,0.25)',
             }}
-            onMouseOver={e => { e.currentTarget.style.background = '#2B2722' }}
-            onMouseOut={e => { e.currentTarget.style.background = '#15130F' }}
           >
             Browse Jobs <ArrowUpRight size={14} />
           </button>
-        </div>
+        </header>
 
-        {/* Stat cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(140px, 1fr))', gap: 12, marginBottom: 24 }}>
+      <main style={{ flex: 1, minWidth: 0, padding: '28px 36px' }}>
+
+        {/* Stat cards — cream/black icon badge as a secondary accent against the page's blue */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(140px, 1fr))', gap: 14, marginBottom: 28 }}>
           {[
             { label: 'Total Applications', value: all.length, Icon: ListChecks },
             { label: 'In Progress',         value: inProgress, Icon: Hourglass },
@@ -418,15 +466,22 @@ export default function MyApplicationsPage() {
             { label: 'Response Rate',       value: `${respRate}%`, Icon: TrendingUp },
           ].map(s => (
             <div key={s.label} style={{
-              background: 'white', borderRadius: 14, padding: '14px 16px',
-              border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: 12,
+              background: 'linear-gradient(160deg, #F5F8FF 0%, #FFFFFF 100%)',
+              border: '1px solid #DBEAFE', borderRadius: 14, padding: '16px 18px',
+              display: 'flex', alignItems: 'center', gap: 12,
+              boxShadow: '0 2px 10px rgba(37,99,235,0.06)',
             }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(59,130,246,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <s.Icon size={16} color="#3B82F6" />
+              <div style={{
+                width: 38, height: 38, borderRadius: 11, flexShrink: 0,
+                background: 'linear-gradient(135deg, #15130F, #3B342B)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 3px 8px rgba(21,19,15,0.3)',
+              }}>
+                <s.Icon size={17} color="#F1EAE0" />
               </div>
               <div>
-                <p style={{ fontSize: 17, fontWeight: 800, color: '#15130F', margin: 0, fontFamily: 'Hind, sans-serif', lineHeight: 1 }}>{s.value}</p>
-                <p style={{ fontSize: 11, color: '#94A3B8', margin: '2px 0 0' }}>{s.label}</p>
+                <p style={{ fontSize: 19, fontWeight: 800, color: '#0F172A', margin: 0, lineHeight: 1 }}>{s.value}</p>
+                <p style={{ fontSize: 11, color: '#64748B', margin: '3px 0 0', fontWeight: 500 }}>{s.label}</p>
               </div>
             </div>
           ))}
@@ -434,7 +489,7 @@ export default function MyApplicationsPage() {
 
         {isLoading && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
-            <div style={{ width: 36, height: 36, border: '3px solid #3B82F6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+            <div style={{ width: 32, height: 32, border: '3px solid #2563EB', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
           </div>
         )}
 
@@ -445,16 +500,14 @@ export default function MyApplicationsPage() {
         )}
 
         {!isLoading && !isError && all.length === 0 && (
-          <div style={{ background: '#fff', borderRadius: 18, border: '1px solid #E2E8F0', padding: '64px 24px', textAlign: 'center' }}>
-            <div style={{ width: 60, height: 60, borderRadius: 18, background: 'rgba(59,130,246,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <Briefcase size={26} color="#3B82F6" />
-            </div>
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#15130F', margin: '0 0 8px' }}>No applications yet</h3>
-            <p style={{ fontSize: 13, color: '#94A3B8', margin: '0 0 20px' }}>Once you apply to jobs, they'll show up here as a pipeline.</p>
+          <div style={{ border: '1px solid #DBEAFE', background: '#F5F8FF', borderRadius: 14, padding: '64px 24px', textAlign: 'center' }}>
+            <div style={{ fontSize: 32, marginBottom: 14 }}>📋</div>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: '#0F172A', margin: '0 0 8px' }}>No applications yet</h3>
+            <p style={{ fontSize: 13, color: '#64748B', margin: '0 0 18px' }}>Once you apply to jobs, they'll show up here as a pipeline.</p>
             <button
               type="button"
               onClick={() => navigate('/app/jobs')}
-              style={{ fontSize: 13, fontWeight: 700, color: '#fff', background: '#3B82F6', border: 'none', borderRadius: 10, padding: '10px 22px', cursor: 'pointer' }}
+              style={{ fontSize: 13, fontWeight: 700, color: '#fff', background: '#2563EB', border: 'none', borderRadius: 10, padding: '10px 22px', cursor: 'pointer' }}
             >
               Browse Jobs →
             </button>
@@ -462,48 +515,14 @@ export default function MyApplicationsPage() {
         )}
 
         {!isLoading && !isError && all.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4, minWidth: 'max-content' }}>
-            {COLUMNS.map((col, ci) => {
-              const items = byColumn[col.key]
-              return (
-                <div key={col.key} style={{ display: 'flex', alignItems: 'flex-start' }}>
-                  <div style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
-                    {/* Column header */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, padding: '0 4px' }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: col.accent, flexShrink: 0 }} />
-                      <span style={{ fontSize: 13, fontWeight: 700, color: '#15130F' }}>{col.label}</span>
-                      <span style={{
-                        fontSize: 11, fontWeight: 800, color: '#94A3B8', background: '#F1EAE0',
-                        borderRadius: 20, padding: '1px 8px', marginLeft: 'auto',
-                      }}>
-                        {items.length}
-                      </span>
-                    </div>
-
-                    {/* Column body */}
-                    <div style={{
-                      background: '#FAF7F1', border: '1px solid #F1EAE0', borderRadius: 16, padding: 10, flex: 1,
-                      display: 'flex', flexDirection: 'column', gap: 8, minHeight: 120,
-                    }}>
-                      {items.length === 0
-                        ? <p style={{ fontSize: 12, color: '#B0A99A', textAlign: 'center', padding: '20px 6px' }}>Nothing here</p>
-                        : items.map(app => (
-                            <PipelineCard key={app.id} app={app} onOpen={() => setActive(app)} />
-                          ))
-                      }
-                    </div>
-                  </div>
-                  {ci < COLUMNS.length - 1 && (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 120, marginTop: 36, flexShrink: 0 }}>
-                      <ChevronRight size={16} color="#D6CFC0" />
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 760 }}>
+            {sorted.map(app => (
+              <ApplicationCard key={app.id} app={app} onOpen={() => setActive(app)} />
+            ))}
           </div>
         )}
       </main>
+      </div>
 
       {active && <DetailDrawer app={active} onClose={() => setActive(null)} />}
 

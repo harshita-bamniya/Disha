@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { interviewApi } from '@/api/interview'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
@@ -372,13 +372,28 @@ function Step4Instructions({ role, level, totalQ }: { role: string; level: strin
 const STEPS_WITH_ROLE    = ['Choose Role', 'Your Profile', 'System Check', 'Instructions']
 const STEPS_WITHOUT_ROLE = ['Your Profile', 'System Check', 'Instructions']
 
+/** Job context passed directly from a job card's "Mock Interview" button — scopes just
+ * this one interview session without touching the global active prep job. */
+interface JobContextOverride {
+  job_title: string
+  company_name: string
+  required_skills: string[]
+  skills_to_develop: string[]
+}
+
 export default function InterviewSetupPage() {
   const navigate = useNavigate()
-  const { activePrep, isLoading: prepLoading } = useActivePrepJob()
+  const location = useLocation()
+  const { activePrep } = useActivePrepJob()
+  const cardJobContext = (location.state as { jobContext?: JobContextOverride } | null)?.jobContext ?? null
 
-  // If active prep job exists we skip the role-selection step
-  const hasActivePrep = !!activePrep
-  const STEPS = hasActivePrep ? STEPS_WITHOUT_ROLE : STEPS_WITH_ROLE
+  // A job card's own context takes priority over the global active prep job —
+  // it's an explicit, one-off choice for this interview, not a global switch.
+  const jobContext = cardJobContext ?? activePrep
+
+  // If we have job context (from either source) we skip the role-selection step
+  const hasJobContext = !!jobContext
+  const STEPS = hasJobContext ? STEPS_WITHOUT_ROLE : STEPS_WITH_ROLE
 
   const [step, setStep] = useState(0)
   const [role, setRole] = useState('')
@@ -387,18 +402,18 @@ export default function InterviewSetupPage() {
   const [jobDesc, setJobDesc] = useState('')
   const device = useDeviceCheck()
 
-  // Pre-fill from active prep once loaded
+  // Pre-fill from job context once available
   useEffect(() => {
-    if (activePrep) {
-      setRole(activePrep.job_title)
-      const ctx = `Role: ${activePrep.job_title} at ${activePrep.company_name}. `
-        + `Required skills: ${activePrep.required_skills.slice(0, 6).join(', ')}.`
-        + (activePrep.skills_to_develop.length
-          ? ` Skills to develop: ${activePrep.skills_to_develop.slice(0, 4).join(', ')}.`
+    if (jobContext) {
+      setRole(jobContext.job_title)
+      const ctx = `Role: ${jobContext.job_title} at ${jobContext.company_name}. `
+        + `Required skills: ${jobContext.required_skills.slice(0, 6).join(', ')}.`
+        + (jobContext.skills_to_develop.length
+          ? ` Skills to develop: ${jobContext.skills_to_develop.slice(0, 4).join(', ')}.`
           : '')
       setJobDesc(ctx)
     }
-  }, [activePrep])
+  }, [jobContext])
 
   useEffect(() => {
     return () => device.stopStream()
@@ -419,7 +434,7 @@ export default function InterviewSetupPage() {
   })
 
   // canNext per step index depends on whether we have the role step
-  const canNextValues = hasActivePrep
+  const canNextValues = hasJobContext
     ? [level !== '', true, true]   // profile / device / instructions
     : [role !== '', level !== '', true, true]  // role / profile / device / instructions
 
@@ -456,8 +471,8 @@ export default function InterviewSetupPage() {
           </p>
         </div>
 
-        {/* Active prep banner */}
-        {activePrep && (
+        {/* Job context banner */}
+        {jobContext && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
             borderRadius: 14, marginBottom: 24,
@@ -466,9 +481,11 @@ export default function InterviewSetupPage() {
           }}>
             <Sparkles size={16} color="#15130F" style={{ flexShrink: 0 }} />
             <div style={{ flex: 1 }}>
-              <span style={{ fontSize: 12, fontWeight: 800, color: '#15130F' }}>Interviewing for your active prep job — </span>
-              <span style={{ fontSize: 12, color: '#374151', fontWeight: 700 }}>{activePrep.job_title}</span>
-              <span style={{ fontSize: 12, color: '#64748B' }}> at {activePrep.company_name}</span>
+              <span style={{ fontSize: 12, fontWeight: 800, color: '#15130F' }}>
+                {cardJobContext ? 'Interviewing for — ' : 'Interviewing for your active prep job — '}
+              </span>
+              <span style={{ fontSize: 12, color: '#374151', fontWeight: 700 }}>{jobContext.job_title}</span>
+              <span style={{ fontSize: 12, color: '#64748B' }}> at {jobContext.company_name}</span>
             </div>
           </div>
         )}
@@ -500,7 +517,7 @@ export default function InterviewSetupPage() {
 
         {/* Step content */}
         <div style={{ background: 'white', borderRadius: 20, padding: '28px 32px', border: '1.5px solid rgba(226,232,240,0.8)', marginBottom: 20 }}>
-          {hasActivePrep ? (
+          {hasJobContext ? (
             <>
               {step === 0 && <Step2Experience level={level} setLevel={setLevel} totalQ={totalQ} setTotalQ={setTotalQ} jobDesc={jobDesc} setJobDesc={setJobDesc} />}
               {step === 1 && <Step3Device {...device} />}
@@ -538,7 +555,7 @@ export default function InterviewSetupPage() {
               } else {
                 setStep(s => s + 1)
                 // trigger device check when entering the system-check step
-              const deviceStep = hasActivePrep ? 1 : 2
+              const deviceStep = hasJobContext ? 1 : 2
               if (step === deviceStep - 1) {
                   setTimeout(() => device.checkAll(), 100)
                 }

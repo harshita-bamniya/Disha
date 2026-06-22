@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  PlayCircle, BookOpen, ExternalLink, CheckCircle2, Circle,
-  Clock, Zap, RefreshCw, Loader2, AlertCircle, ChevronDown,
-  ChevronUp, Briefcase, Target, Save, Check, Sparkles,
+  PlayCircle, ExternalLink, CheckCircle2, Circle,
+  Zap, RefreshCw, Loader2, AlertCircle, ChevronDown,
+  ChevronUp, Target, Save, Check, Sparkles,
 } from 'lucide-react'
-import { jobPlanApi, type GenerationDetail, type GenerationStep, type ModuleQuiz, type PlanModule, type PlanResource, type QuizProgress, type QuizSubmitResponse } from '@/api/jobPlan'
+import { jobPlanApi, type GenerationDetail, type GenerationStep, type PlanModule, type PlanResource, type QuizProgress } from '@/api/jobPlan'
 import type { RoadmapOut } from '@/api/roadmap'
 
 interface Props {
@@ -55,30 +55,6 @@ function totalProgress(modules: PlanModule[], progress: Record<string, { done: b
 }
 
 // ── sub-components ─────────────────────────────────────────────────────────────
-
-function ProgressRing({ pct, size = 40 }: { pct: number; size?: number }) {
-  const r = (size - 6) / 2
-  const circ = 2 * Math.PI * r
-  const stroke = circ - (pct / 100) * circ
-  return (
-    <svg width={size} height={size} style={{ transform: 'rotate(-90deg)', flexShrink: 0 }}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#E2E8F0" strokeWidth={5} />
-      <circle
-        cx={size / 2} cy={size / 2} r={r} fill="none"
-        stroke={pct === 100 ? '#22C55E' : '#2563EB'} strokeWidth={5}
-        strokeDasharray={circ} strokeDashoffset={stroke}
-        strokeLinecap="round"
-        style={{ transition: 'stroke-dashoffset 0.5s' }}
-      />
-    </svg>
-  )
-}
-
-function ResourceIcon({ type }: { type: string }) {
-  if (type === 'youtube') return <PlayCircle size={14} color="#EF4444" />
-  if (type === 'course') return <Zap size={14} color="#8B5CF6" />
-  return <BookOpen size={14} color="#3B82F6" />
-}
 
 // ── Step-by-step generation progress ─────────────────────────────────────────
 
@@ -138,116 +114,88 @@ function GenerationProgress({
   return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 100,
-      background: 'rgba(15,23,42,0.72)', backdropFilter: 'blur(8px)',
+      background: 'rgba(15,23,42,0.4)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
     }}>
       <div style={{
-        background: 'white', borderRadius: 28,
-        width: '100%', maxWidth: 960,
-        boxShadow: '0 40px 100px rgba(15,23,42,0.4)',
+        background: 'white', borderRadius: 18,
+        width: '100%', maxWidth: 880,
+        boxShadow: '0 20px 60px rgba(15,23,42,0.18)',
         overflow: 'hidden', display: 'flex', flexDirection: 'column',
-        animation: 'modalIn 0.3s cubic-bezier(0.34,1.1,0.64,1) both',
       }}>
 
-        {/* Hero header */}
-        <div style={{
-          background: 'linear-gradient(135deg, #15130F 0%, #1E3A5F 55%, #2563EB 100%)',
-          padding: '32px 36px 28px', position: 'relative', overflow: 'hidden',
-        }}>
-          {/* decorative blobs */}
-          <div style={{ position: 'absolute', width: 300, height: 300, top: -120, right: -60, background: '#3B82F6', borderRadius: '50%', filter: 'blur(80px)', opacity: 0.2, pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', width: 200, height: 200, bottom: -80, left: 40, background: '#7C3AED', borderRadius: '50%', filter: 'blur(60px)', opacity: 0.15, pointerEvents: 'none' }} />
-
-          <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-              {/* Animated DISHA avatar */}
-              <div style={{ position: 'relative', flexShrink: 0 }}>
-                <div style={{
-                  width: 60, height: 60, borderRadius: 18, flexShrink: 0,
-                  background: 'linear-gradient(135deg, rgba(255,255,255,0.25), rgba(255,255,255,0.08))',
-                  border: '1.5px solid rgba(255,255,255,0.3)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: 'white', fontWeight: 900, fontSize: 22, fontFamily: 'Hind, sans-serif',
-                }}>D</div>
-                <div style={{
-                  position: 'absolute', bottom: -3, right: -3,
-                  width: 18, height: 18, borderRadius: '50%',
-                  background: '#22C55E', border: '2.5px solid #15130F',
-                  animation: 'pulse 2s infinite',
-                }} />
-              </div>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '1px' }}>DISHA AI</span>
-                  <span style={{ fontSize: 10, background: 'rgba(34,197,94,0.2)', border: '1px solid rgba(34,197,94,0.4)', color: '#86EFAC', padding: '2px 8px', borderRadius: 20, fontWeight: 700 }}>● Live</span>
-                </div>
-                <h3 style={{ fontSize: 20, fontWeight: 900, color: 'white', margin: 0, fontFamily: 'Hind, sans-serif', lineHeight: 1.2 }}>
-                  Crafting your personalised roadmap
-                </h3>
-                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', margin: '6px 0 0' }}>
-                  Analysing skill gaps for <span style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>{jobTitle ?? 'your target role'}</span>
-                </p>
-              </div>
+        {/* Header */}
+        <div style={{ padding: '24px 32px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+              background: 'linear-gradient(135deg, #818CF8, #6366F1)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'white', fontWeight: 700, fontSize: 16,
+            }}>D</div>
+            <div>
+              <p style={{ fontSize: 16, fontWeight: 700, color: '#111827', margin: 0 }}>
+                Crafting your personalised roadmap
+              </p>
+              <p style={{ fontSize: 12.5, color: '#9CA3AF', margin: '3px 0 0' }}>
+                Analysing skill gaps for <strong style={{ color: '#4B5563' }}>{jobTitle ?? 'your target role'}</strong>
+              </p>
             </div>
+          </div>
 
-            {/* Progress ring */}
-            <div style={{ flexShrink: 0, textAlign: 'center' }}>
-              <svg width={80} height={80} viewBox="0 0 80 80">
-                <circle cx={40} cy={40} r={34} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={7} />
-                <circle cx={40} cy={40} r={34} fill="none" stroke="white" strokeWidth={7}
-                  strokeDasharray={`${2 * Math.PI * 34}`}
-                  strokeDashoffset={`${2 * Math.PI * 34 * (1 - pct / 100)}`}
-                  strokeLinecap="round"
-                  transform="rotate(-90 40 40)"
-                  style={{ transition: 'stroke-dashoffset 0.6s ease' }}
-                />
-                <text x={40} y={44} textAnchor="middle" fill="white" fontSize={15} fontWeight={900} fontFamily="Hind, sans-serif">{pct}%</text>
-              </svg>
-              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 600, marginTop: 4 }}>OVERALL</p>
-            </div>
+          {/* Progress ring */}
+          <div style={{ flexShrink: 0, textAlign: 'center' }}>
+            <svg width={56} height={56} viewBox="0 0 56 56">
+              <circle cx={28} cy={28} r={23} fill="none" stroke="#F1F5F9" strokeWidth={5} />
+              <circle cx={28} cy={28} r={23} fill="none" stroke="#6366F1" strokeWidth={5}
+                strokeDasharray={`${2 * Math.PI * 23}`}
+                strokeDashoffset={`${2 * Math.PI * 23 * (1 - pct / 100)}`}
+                strokeLinecap="round"
+                transform="rotate(-90 28 28)"
+                style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+              />
+              <text x={28} y={32} textAnchor="middle" fill="#111827" fontSize={12} fontWeight={700}>{pct}%</text>
+            </svg>
           </div>
         </div>
 
         {/* Body: two columns */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', minHeight: 320 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', minHeight: 280 }}>
 
           {/* Left: step tracker */}
-          <div style={{ padding: '28px 32px', borderRight: '1px solid #F1F5F9' }}>
-            <p style={{ fontSize: 10, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 20 }}>Generation Steps</p>
+          <div style={{ padding: '24px 32px', borderRight: '1px solid #F1F5F9' }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 18 }}>Generation Steps</p>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {GEN_STEPS.map((s, i) => {
                 const state = i < stepIndex ? 'done' : i === stepIndex ? 'active' : 'upcoming'
                 return (
-                  <div key={s.key} style={{ display: 'flex', gap: 16 }}>
+                  <div key={s.key} style={{ display: 'flex', gap: 14 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                       <div style={{
-                        width: 38, height: 38, borderRadius: 12, flexShrink: 0,
-                        background: state === 'done' ? '#15130F' : state === 'active' ? 'linear-gradient(135deg, #1E3A5F, #2563EB)' : '#F8FAFC',
-                        border: state === 'upcoming' ? '1.5px solid #E2E8F0' : 'none',
+                        width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+                        background: state === 'upcoming' ? '#F1F5F9' : '#6366F1',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        color: state === 'upcoming' ? '#CBD5E1' : 'white',
-                        boxShadow: state === 'active' ? '0 4px 14px rgba(37,99,235,0.35)' : 'none',
-                        transition: 'all 0.3s',
+                        color: state === 'upcoming' ? '#9CA3AF' : 'white',
                       }}>
                         {state === 'done'
-                          ? <Check size={16} />
+                          ? <Check size={15} />
                           : state === 'active'
-                            ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
-                            : <s.Icon size={16} />
+                            ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                            : <s.Icon size={15} />
                         }
                       </div>
                       {i < GEN_STEPS.length - 1 && (
-                        <div style={{ width: 2, flex: 1, minHeight: 16, margin: '4px 0', background: state === 'done' ? '#15130F' : '#E2E8F0', borderRadius: 2, transition: 'background 0.4s' }} />
+                        <div style={{ width: 2, flex: 1, minHeight: 16, margin: '4px 0', background: state === 'done' ? '#6366F1' : '#F1F5F9' }} />
                       )}
                     </div>
-                    <div style={{ paddingBottom: 20, paddingTop: 6 }}>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: state === 'upcoming' ? '#CBD5E1' : '#0F172A', margin: 0 }}>
+                    <div style={{ paddingBottom: 18, paddingTop: 5 }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: state === 'upcoming' ? '#9CA3AF' : '#111827', margin: 0 }}>
                         {s.label}
                       </p>
                       <p style={{ fontSize: 11, margin: '3px 0 0', fontWeight: 600,
-                        color: state === 'done' ? '#059669' : state === 'active' ? '#3B82F6' : '#CBD5E1',
+                        color: state === 'done' ? '#16A34A' : state === 'active' ? '#6366F1' : '#D1D5DB',
                       }}>
-                        {state === 'done' ? '✓ Complete' : state === 'active' ? '⟳ In Progress' : 'Pending'}
+                        {state === 'done' ? 'Complete' : state === 'active' ? 'In Progress' : 'Pending'}
                       </p>
                     </div>
                   </div>
@@ -257,8 +205,8 @@ function GenerationProgress({
 
             {stuck && (
               <div style={{
-                marginTop: 8, padding: '12px 16px', borderRadius: 12,
-                background: '#FEF2F2', border: '1px solid #FECACA',
+                marginTop: 8, padding: '12px 16px', borderRadius: 10,
+                background: '#FEF2F2',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap',
               }}>
                 <span style={{ fontSize: 12, color: '#991B1B', fontWeight: 600 }}>Generation stuck — please regenerate.</span>
@@ -275,32 +223,31 @@ function GenerationProgress({
           </div>
 
           {/* Right: live AI narration */}
-          <div style={{ padding: '28px 32px', background: '#FAFBFC' }}>
-            <p style={{ fontSize: 10, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 20 }}>What DISHA is doing now</p>
+          <div style={{ padding: '24px 32px' }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 18 }}>What DISHA is doing now</p>
 
-            <div style={{ background: 'white', borderRadius: 16, padding: '16px 18px', marginBottom: 20, border: '1.5px solid rgba(226,232,240,0.8)', boxShadow: '0 2px 8px rgba(15,23,42,0.04)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#22C55E', boxShadow: '0 0 0 3px rgba(34,197,94,0.2)', animation: 'pulse 1.5s infinite' }} />
-                <p style={{ fontSize: 13, fontWeight: 800, color: '#0F172A', margin: 0 }}>{narration.title}</p>
+            <div style={{ marginBottom: 18, paddingBottom: 16, borderBottom: '1px solid #F1F5F9' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#16A34A' }} />
+                <p style={{ fontSize: 13, fontWeight: 700, color: '#111827', margin: 0 }}>{narration.title}</p>
               </div>
-              <p style={{ fontSize: 12, color: '#64748B', margin: 0, lineHeight: 1.6 }}>{narration.subtitle}</p>
+              <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0, lineHeight: 1.6 }}>{narration.subtitle}</p>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
               {narration.lines.map((b, i) => (
-                <div key={i} style={{ display: 'flex', gap: 14 }}>
+                <div key={i} style={{ display: 'flex', gap: 12 }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
                     <div style={{
-                      width: 22, height: 22, borderRadius: '50%', flexShrink: 0,
-                      border: '2.5px solid #3B82F6', borderTopColor: 'transparent',
+                      width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+                      border: '2px solid #6366F1', borderTopColor: 'transparent',
                       animation: 'spin 0.9s linear infinite',
-                      background: 'rgba(59,130,246,0.06)',
                     }} />
                     {i < narration.lines.length - 1 && (
-                      <div style={{ width: 2, flex: 1, minHeight: 16, margin: '4px 0', background: 'linear-gradient(to bottom, #3B82F6, #E2E8F0)', opacity: 0.4, borderRadius: 2 }} />
+                      <div style={{ width: 2, flex: 1, minHeight: 14, margin: '4px 0', background: '#F1F5F9' }} />
                     )}
                   </div>
-                  <p style={{ fontSize: 13, color: '#374151', margin: 0, paddingBottom: 18, lineHeight: 1.55 }}>{b}</p>
+                  <p style={{ fontSize: 13, color: '#4B5563', margin: 0, paddingBottom: 16, lineHeight: 1.55 }}>{b}</p>
                 </div>
               ))}
             </div>
@@ -308,21 +255,18 @@ function GenerationProgress({
         </div>
 
         {/* Footer progress bar */}
-        <div style={{ padding: '16px 36px 20px', borderTop: '1px solid #F1F5F9', background: 'white' }}>
+        <div style={{ padding: '16px 32px 20px', borderTop: '1px solid #F1F5F9' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ flex: 1, height: 6, background: '#F1F5F9', borderRadius: 6, overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, #15130F, #2563EB)', borderRadius: 6, transition: 'width 0.6s ease' }} />
+            <div style={{ flex: 1, height: 5, background: '#F1F5F9', borderRadius: 5, overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${pct}%`, background: '#6366F1', borderRadius: 5, transition: 'width 0.6s ease' }} />
             </div>
-            <span style={{ fontSize: 12, fontWeight: 800, color: '#15130F', minWidth: 36, textAlign: 'right' as const }}>{pct}%</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#111827', minWidth: 32, textAlign: 'right' as const }}>{pct}%</span>
           </div>
-          <p style={{ fontSize: 11, color: '#94A3B8', margin: '6px 0 0' }}>This usually takes 30–60 seconds. Please don't close this window.</p>
+          <p style={{ fontSize: 11, color: '#9CA3AF', margin: '6px 0 0' }}>This usually takes 30–60 seconds. Please don't close this window.</p>
         </div>
       </div>
 
-      <style>{`
-        @keyframes modalIn { from{opacity:0;transform:scale(0.94) translateY(20px)} to{opacity:1;transform:scale(1) translateY(0)} }
-        @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,0.4)} 50%{box-shadow:0 0 0 6px rgba(34,197,94,0)} }
-      `}</style>
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }
@@ -337,46 +281,38 @@ function VideoOptionCard({
 }) {
   return (
     <div style={{
-      flex: 1, minWidth: 180, borderRadius: 12, overflow: 'hidden', cursor: 'pointer',
-      border: selected ? '2px solid #3B82F6' : '1.5px solid #E2E8F0',
-      background: 'white', transition: 'border-color 0.15s',
+      flex: 1, minWidth: 180, borderRadius: 10, overflow: 'hidden', cursor: 'pointer',
+      border: selected ? '1.5px solid #6366F1' : '1px solid #F1F5F9',
+      background: 'white',
+      transition: 'border-color 0.15s',
     }}
       onClick={onSelect}
     >
-      <div style={{ position: 'relative', aspectRatio: '16/9', background: '#0F172A' }}>
+      <div style={{ position: 'relative', aspectRatio: '16/9', background: '#F3F4F6' }}>
         <img src={video.thumbnail_url} alt={video.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         {recommended && (
           <span style={{
-            position: 'absolute', top: 6, right: 6,
-            display: 'flex', alignItems: 'center', gap: 3,
-            background: '#3B82F6', color: 'white', fontSize: 10, fontWeight: 700,
-            padding: '3px 8px', borderRadius: 20,
+            position: 'absolute', top: 6, left: 6,
+            fontSize: 9.5, fontWeight: 700, color: 'white',
+            background: 'rgba(99,102,241,0.92)', padding: '3px 7px', borderRadius: 5,
           }}>
-            <CheckCircle2 size={10} /> Recommended
+            Recommended
           </span>
         )}
         <div style={{
-          position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(0,0,0,0.15)',
+          position: 'absolute', bottom: 6, right: 6,
+          width: 18, height: 18, borderRadius: '50%',
+          background: selected ? '#6366F1' : 'rgba(255,255,255,0.85)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <PlayCircle size={28} color="white" style={{ opacity: 0.85 }} />
+          {selected ? <CheckCircle2 size={12} color="white" /> : <Circle size={11} color="#9CA3AF" />}
         </div>
       </div>
       <div style={{ padding: '8px 10px' }}>
-        <p style={{ fontSize: 12, fontWeight: 700, color: '#111827', margin: 0, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+        <p style={{ fontSize: 12, fontWeight: 600, color: '#1F2937', margin: 0, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
           {video.title}
         </p>
-        <p style={{ fontSize: 11, color: '#94A3B8', margin: '3px 0 6px' }}>{video.channel}</p>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', gap: 4 }}>
-            <span style={{ fontSize: 9, fontWeight: 700, color: '#059669', background: 'rgba(5,150,105,0.08)', padding: '2px 6px', borderRadius: 6 }}>Quiz</span>
-            <span style={{ fontSize: 9, fontWeight: 700, color: '#D97706', background: 'rgba(217,119,6,0.08)', padding: '2px 6px', borderRadius: 6 }}>Follow-ups</span>
-          </div>
-          {selected
-            ? <CheckCircle2 size={16} color="#3B82F6" />
-            : <Circle size={16} color="#CBD5E1" />
-          }
-        </div>
+        <p style={{ fontSize: 10.5, color: '#9CA3AF', margin: '4px 0 0' }}>{video.channel} · {video.duration_minutes}m</p>
       </div>
     </div>
   )
@@ -394,32 +330,34 @@ function ResourceCard({
 
   if (resource.type === 'youtube' && resource.video_options && resource.video_options.length > 0) {
     return (
-      <div style={{
-        padding: '12px', borderRadius: 12,
-        background: done ? 'rgba(59,130,246,0.04)' : '#FAFAFA',
-        border: done ? '1px solid rgba(59,130,246,0.25)' : '1px solid #E2E8F0',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 10 }}>
+      <div style={{ padding: '12px 0' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 12 }}>
           <button
             onClick={onToggle}
             disabled={loading}
             style={{
-              background: 'none', border: 'none', cursor: loading ? 'wait' : 'pointer',
-              padding: 0, marginTop: 1, flexShrink: 0, opacity: loading ? 0.5 : 1,
-              color: done ? '#3B82F6' : '#CBD5E1',
+              background: done ? '#16A34A' : 'white', borderRadius: '50%',
+              border: done ? 'none' : '1.5px solid #D1D5DB', cursor: loading ? 'wait' : 'pointer',
+              width: 19, height: 19, padding: 0, marginTop: 2, flexShrink: 0, opacity: loading ? 0.5 : 1,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
             title={done ? 'Mark as incomplete' : 'Mark as done'}
           >
-            {done ? <CheckCircle2 size={18} /> : <Circle size={18} />}
+            {done && <CheckCircle2 size={17} color="white" style={{ marginLeft: -1, marginTop: -1 }} />}
           </button>
-          <div>
-            <span style={{ fontSize: 13, fontWeight: 700, color: done ? '#6B7280' : '#111827', textDecoration: done ? 'line-through' : 'none' }}>
-              {resource.title}
-            </span>
-            <p style={{ fontSize: 12, color: '#6B7280', margin: '2px 0 0', lineHeight: 1.4 }}>{resource.description}</p>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 13.5, fontWeight: 600, color: '#1F2937' }}>{resource.title}</span>
+              {done && (
+                <span style={{ fontSize: 10.5, fontWeight: 700, color: '#16A34A', background: '#F0FDF4', padding: '2px 8px', borderRadius: 20 }}>
+                  Completed
+                </span>
+              )}
+            </div>
+            <p style={{ fontSize: 12.5, color: '#9CA3AF', margin: '3px 0 0', lineHeight: 1.5 }}>{resource.description}</p>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingLeft: 29 }}>
           {resource.video_options.map(v => (
             <VideoOptionCard
               key={v.video_id}
@@ -435,11 +373,11 @@ function ResourceCard({
             href={resource.video_options.find(v => v.video_id === selectedVideoId)?.url ?? resource.url}
             target="_blank" rel="noopener noreferrer"
             style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 10,
-              fontSize: 12, fontWeight: 700, color: '#3B82F6', textDecoration: 'none',
+              display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 10, paddingLeft: 29,
+              fontSize: 12.5, fontWeight: 600, color: '#6366F1', textDecoration: 'none',
             }}
           >
-            Watch selected video <ExternalLink size={11} />
+            <PlayCircle size={13} /> Watch selected video <ExternalLink size={10} />
           </a>
         )}
       </div>
@@ -447,65 +385,52 @@ function ResourceCard({
   }
 
   return (
-    <div style={{
-      display: 'flex', alignItems: 'flex-start', gap: 10,
-      padding: '10px 12px', borderRadius: 10,
-      background: done ? 'rgba(59,130,246,0.04)' : '#FAFAFA',
-      border: done ? '1px solid rgba(59,130,246,0.25)' : '1px solid #E2E8F0',
-      transition: 'all 0.2s',
-    }}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 0' }}>
       {/* Checkbox */}
       <button
         onClick={onToggle}
         disabled={loading}
         style={{
-          background: 'none', border: 'none', cursor: loading ? 'wait' : 'pointer',
-          padding: 0, marginTop: 1, flexShrink: 0, opacity: loading ? 0.5 : 1,
-          color: done ? '#3B82F6' : '#CBD5E1',
+          background: done ? '#16A34A' : 'white', borderRadius: '50%',
+          border: done ? 'none' : '1.5px solid #D1D5DB', cursor: loading ? 'wait' : 'pointer',
+          width: 19, height: 19, padding: 0, marginTop: 2, flexShrink: 0, opacity: loading ? 0.5 : 1,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}
         title={done ? 'Mark as incomplete' : 'Mark as done'}
       >
-        {done
-          ? <CheckCircle2 size={18} />
-          : <Circle size={18} />
-        }
+        {done && <CheckCircle2 size={17} color="white" style={{ marginLeft: -1, marginTop: -1 }} />}
       </button>
 
       {/* Content */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-          <ResourceIcon type={resource.type} />
-          <span style={{
-            fontSize: 13, fontWeight: 600, color: done ? '#6B7280' : '#111827',
-            textDecoration: done ? 'line-through' : 'none',
-          }}>
-            {resource.title}
-          </span>
-          <span style={{ fontSize: 11, color: '#94A3B8' }}>
-            {resource.channel_or_source}
-          </span>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 12, justifyContent: 'space-between' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 13.5, fontWeight: 600, color: '#1F2937' }}>
+              {resource.title}
+            </span>
+            {done && (
+              <span style={{ fontSize: 10.5, fontWeight: 700, color: '#16A34A', background: '#F0FDF4', padding: '2px 8px', borderRadius: 20 }}>
+                Completed
+              </span>
+            )}
+          </div>
+          <p style={{ fontSize: 12.5, color: '#9CA3AF', margin: '3px 0 0', lineHeight: 1.5 }}>
+            {resource.description}
+          </p>
         </div>
-        <p style={{ fontSize: 12, color: '#6B7280', margin: '3px 0 0', lineHeight: 1.4 }}>
-          {resource.description}
-        </p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 6 }}>
-          <span style={{ fontSize: 11, color: '#94A3B8', display: 'flex', alignItems: 'center', gap: 3 }}>
-            <Clock size={10} /> {resource.duration_minutes} min
-          </span>
-          <a
-            href={resource.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              fontSize: 11, fontWeight: 600, color: '#3B82F6',
-              display: 'flex', alignItems: 'center', gap: 3,
-              textDecoration: 'none',
-            }}
-          >
-            {resource.type === 'youtube' ? 'Watch on YouTube' : 'Read / Search'}
-            <ExternalLink size={10} />
-          </a>
-        </div>
+        <a
+          href={resource.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            fontSize: 12.5, fontWeight: 600, color: '#6366F1',
+            display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0,
+            textDecoration: 'none', whiteSpace: 'nowrap', marginTop: 1,
+          }}
+        >
+          {resource.type === 'youtube' ? 'Watch' : 'View Resource'}
+          <ExternalLink size={10} />
+        </a>
       </div>
     </div>
   )
@@ -534,122 +459,97 @@ function ModuleCard({
   const donePct = Math.round(pct)
   const doneCount = mod.resources.filter(r => progress[r.id]?.done).length
 
+  // 3-segment progress dashes, like the reference's flat topic rows
+  const segments = [0, 1, 2].map(i => donePct >= (i + 1) * 34 || (i === 0 && donePct > 0))
+
   return (
     <div
       id={`job-module-${skillKey(mod.skill)}`}
-      style={{
-        borderRadius: 16, overflow: 'hidden',
-        border: highlighted ? '2px solid #2563EB' : pct === 100 ? '1.5px solid rgba(5,150,105,0.25)' : '1.5px solid rgba(226,232,240,0.8)',
-        background: 'white',
-        boxShadow: highlighted ? '0 6px 24px rgba(37,99,235,0.18)' : open ? '0 6px 24px rgba(15,23,42,0.07)' : '0 2px 8px rgba(15,23,42,0.04)',
-        transition: 'box-shadow 0.2s, border-color 0.2s',
-      }}>
+      style={{ borderBottom: '1px solid #F1F5F9' }}
+    >
       {/* Module header */}
       <button
         onClick={() => setOpen(o => !o)}
         style={{
-          width: '100%', padding: '16px 18px',
+          width: '100%', padding: '16px 0',
           background: 'none', border: 'none', cursor: 'pointer',
-          display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left',
+          display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left',
         }}
       >
-        {/* Priority badge */}
-        <div style={{
-          width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-          background: pct === 100 ? '#059669' : open ? '#15130F' : '#FAF7F1',
-          border: pct === 100 ? 'none' : open ? 'none' : '1.5px solid #F1EAE0',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          transition: 'all 0.2s',
-        }}>
-          {pct === 100
-            ? <CheckCircle2 size={16} color="white" />
-            : <span style={{ fontSize: 12, fontWeight: 800, color: open ? 'white' : '#15130F' }}>#{mod.priority}</span>
-          }
+        <div style={{ color: '#9CA3AF', flexShrink: 0, display: 'flex' }}>
+          {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: '#0F172A' }}>{mod.skill}</span>
-            {pct === 100 && (
-              <span style={{ fontSize: 10, fontWeight: 700, color: '#059669', background: 'rgba(5,150,105,0.08)', padding: '2px 8px', borderRadius: 20 }}>
-                Complete
-              </span>
-            )}
-          </div>
-          <p style={{ fontSize: 12, color: '#6B7280', margin: 0, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: open ? 'unset' : 1, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' }}>
-            {mod.why_important}
-          </p>
-          {/* Mini progress bar */}
-          {doneCount > 0 && doneCount < mod.resources.length && (
-            <div style={{ marginTop: 6, height: 3, background: '#F1F5F9', borderRadius: 3, overflow: 'hidden', maxWidth: 120 }}>
-              <div style={{ height: '100%', width: `${donePct}%`, background: 'linear-gradient(90deg, #15130F, #2563EB)', borderRadius: 3 }} />
-            </div>
+          <span style={{ fontSize: 14, fontWeight: 600, color: '#1F2937' }}>
+            Topic {mod.priority}: <strong style={{ fontWeight: 700, color: '#111827' }}>{mod.skill}</strong>
+          </span>
+          {highlighted && (
+            <span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 700, color: '#6366F1', background: '#EEF2FF', padding: '2px 8px', borderRadius: 20 }}>
+              Focus
+            </span>
           )}
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-          <div style={{ textAlign: 'right' as const }}>
-            <p style={{ fontSize: 11, color: '#94A3B8', margin: 0, display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'flex-end' }}>
-              <Clock size={10} /> {mod.estimated_hours}h
-            </p>
-            <p style={{ fontSize: 10, color: '#CBD5E1', margin: '2px 0 0' }}>
-              {doneCount}/{mod.resources.length} done
-            </p>
-          </div>
-          <div style={{
-            width: 28, height: 28, borderRadius: 8,
-            background: open ? '#15130F' : '#F8FAFC',
-            border: open ? 'none' : '1px solid #E2E8F0',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: open ? 'white' : '#94A3B8',
-            transition: 'all 0.2s',
-          }}>
-            {open ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          <span style={{ fontSize: 11.5, color: '#9CA3AF' }}>{doneCount}/{mod.resources.length}</span>
+          <div style={{ display: 'flex', gap: 3 }}>
+            {segments.map((filled, i) => (
+              <div key={i} style={{ width: 26, height: 5, borderRadius: 3, background: filled ? (pct === 100 ? '#16A34A' : '#6366F1') : '#E5E7EB' }} />
+            ))}
           </div>
         </div>
       </button>
 
       {/* Resource list */}
       {open && (
-        <div style={{ borderTop: '1px solid #F8FAFC', padding: '12px 18px 16px', display: 'flex', flexDirection: 'column', gap: 8, background: '#FAFBFC' }}>
-          {mod.resources.map(res => (
-            <ResourceCard
-              key={res.id}
-              resource={res}
-              done={!!progress[res.id]?.done}
-              loading={togglingId === res.id}
-              onToggle={() => onToggleResource(res.id, !progress[res.id]?.done)}
-            />
-          ))}
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ paddingLeft: 28, paddingBottom: 18 }}>
+          <p style={{ fontSize: 12.5, color: '#9CA3AF', margin: '0 0 8px', lineHeight: 1.55 }}>
+            {mod.why_important}
+          </p>
+          <p style={{ fontSize: 11.5, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase' as const, letterSpacing: '0.5px', margin: '14px 0 2px' }}>
+            Subtopics
+          </p>
+          <div>
+            {mod.resources.map((res, i) => (
+              <div key={res.id} style={{ borderTop: i > 0 ? '1px solid #F1F5F9' : 'none' }}>
+                <ResourceCard
+                  resource={res}
+                  done={!!progress[res.id]?.done}
+                  loading={togglingId === res.id}
+                  onToggle={() => onToggleResource(res.id, !progress[res.id]?.done)}
+                />
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 18, alignItems: 'center', paddingTop: 12 }}>
             <button
               onClick={() => navigate(`/app/quiz/${jobId}/${mod.id}`)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
-                background: quizProgress?.passed ? '#F0FDF4' : 'white',
-                border: `1.5px solid ${quizProgress?.passed ? '#BBF7D0' : '#15130F30'}`, borderRadius: 10,
-                padding: '8px 16px', fontSize: 12, fontWeight: 700,
-                color: quizProgress?.passed ? '#16A34A' : '#15130F', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: 'none', border: 'none', padding: 0,
+                fontSize: 13, fontWeight: 600,
+                color: quizProgress?.passed ? '#16A34A' : '#6366F1', cursor: 'pointer',
               }}
             >
               {quizProgress?.passed
-                ? <><CheckCircle2 size={13} color="#16A34A" /> Quiz passed — {quizProgress.score_pct}%</>
+                ? <><CheckCircle2 size={14} /> Quiz passed — {quizProgress.score_pct}%</>
                 : mod.quiz?.questions?.length
-                  ? <><Zap size={13} /> Take Quiz</>
-                  : <><Zap size={13} /> Generate Quiz</>}
+                  ? <><Zap size={14} /> Take Quiz</>
+                  : <><Zap size={14} /> Generate Quiz</>}
             </button>
             {onAskAI && (
               <button
                 onClick={() => onAskAI(buildAskAIPrompt(mod, jobTitle))}
                 title="Ask DISHA to explain this topic"
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
-                  background: 'white', border: '1.5px solid rgba(37,99,235,0.3)', borderRadius: 10,
-                  padding: '8px 16px', fontSize: 12, fontWeight: 700,
-                  color: '#2563EB', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  background: 'none', border: 'none', padding: 0,
+                  fontSize: 13, fontWeight: 600,
+                  color: '#9333EA', cursor: 'pointer',
                 }}
               >
-                <Sparkles size={13} /> Ask AI
+                <Sparkles size={14} /> Ask AI
               </button>
             )}
           </div>
@@ -885,49 +785,51 @@ export default function JobLearningPlanPanel({ activeJobId, activeJobTitle, acti
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div>
 
-      {/* Overall progress summary card */}
-      <div style={{ background: '#FAF7F1', border: '1.5px solid #F1EAE0', borderRadius: 16, padding: '16px 18px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase' as const, letterSpacing: '0.6px', margin: '0 0 2px' }}>Learning Plan</p>
-            <p style={{ fontSize: 13, fontWeight: 800, color: '#0F172A', margin: 0 }}>{plan.job_title} · {plan.company}</p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-            <div style={{ textAlign: 'right' as const }}>
-              <p style={{ fontSize: 18, fontWeight: 900, color: '#15130F', margin: 0, fontFamily: 'Hind, sans-serif' }}>{pct}%</p>
-              <p style={{ fontSize: 10, color: '#94A3B8', margin: 0 }}>{done}/{total} done</p>
-            </div>
-            <button
-              onClick={() => generateMutation.mutate()}
-              disabled={generateMutation.isPending}
-              title="Regenerate plan"
-              style={{
-                width: 32, height: 32, borderRadius: 9,
-                background: 'white', border: '1.5px solid #E2E8F0',
-                cursor: 'pointer', color: '#94A3B8',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              }}
-            >
-              <RefreshCw size={13} />
-            </button>
-          </div>
-        </div>
-        <div style={{ height: 6, background: 'rgba(255,255,255,0.8)', borderRadius: 6, overflow: 'hidden' }}>
-          <div style={{
-            height: '100%', width: `${pct}%`,
-            background: pct === 100 ? '#059669' : 'linear-gradient(90deg, #15130F, #2563EB)',
-            borderRadius: 6, transition: 'width 0.5s',
-          }} />
-        </div>
-        <p style={{ fontSize: 11, color: '#94A3B8', margin: '6px 0 0' }}>
-          {plan.total_estimated_hours}h total · {plan.modules.length} skill modules
+      {/* Plain header — title + stats, no card */}
+      <div style={{ marginBottom: 8 }}>
+        <h2 style={{ fontSize: 22, fontWeight: 800, color: '#111827', margin: '0 0 4px', fontFamily: 'Hind, sans-serif' }}>
+          {plan.job_title}
+        </h2>
+        <p style={{ fontSize: 13.5, color: '#9CA3AF', margin: 0 }}>
+          A learning path for {plan.company}
         </p>
       </div>
 
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '16px 0', borderBottom: '1px solid #F1F5F9', marginBottom: 4,
+      }}>
+        <div>
+          <p style={{ fontSize: 16, fontWeight: 700, color: '#111827', margin: '0 0 2px' }}>Path Curriculum</p>
+          <p style={{ fontSize: 12.5, color: '#9CA3AF', margin: 0 }}>
+            {plan.modules.length} Topics · {total} Resources · {done}/{total} done
+          </p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: pct === 100 ? '#16A34A' : '#6366F1' }}>{pct}%</span>
+          <button
+            onClick={() => generateMutation.mutate()}
+            disabled={generateMutation.isPending}
+            title="Regenerate plan"
+            style={{
+              width: 30, height: 30, borderRadius: '50%',
+              background: 'none', border: 'none',
+              cursor: 'pointer', color: '#9CA3AF',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              transition: 'background 0.15s',
+            }}
+            onMouseOver={e => { e.currentTarget.style.background = '#F3F4F6' }}
+            onMouseOut={e => { e.currentTarget.style.background = 'none' }}
+          >
+            <RefreshCw size={14} style={generateMutation.isPending ? { animation: 'spin 0.8s linear infinite' } : undefined} />
+          </button>
+        </div>
+      </div>
+
       {/* Module list */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div>
         {plan.modules
           .sort((a, b) => a.priority - b.priority)
           .map(mod => {

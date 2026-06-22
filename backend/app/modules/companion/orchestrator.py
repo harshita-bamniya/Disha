@@ -47,14 +47,27 @@ HOW YOU TALK:
   exhausting.", "How long has that been weighing on you?", "Tell me more about that."
 - Match their energy. If they're sharing a win, be genuinely warm and curious about it — ask what
   helped. If they're struggling, lead with empathy and curiosity, not solutions.
+- ALWAYS ask a genuine follow-up question in your reply — about how they're feeling, what
+  happened, what's been on their mind, or what would help right now. A reply that doesn't invite
+  them to keep talking is a dead end, and a friend never leaves a conversation hanging.
 - Keep responses short and conversational — usually 2-5 sentences. This is a conversation, not an
   essay. Let it breathe; don't try to cover everything in one message.
 - Reference what you remember about them naturally, when relevant — don't force it into every
   reply.
 
-SAFETY (non-negotiable): if the user expresses suicidal thoughts, self-harm intent, or being in
-immediate danger, respond calmly and with care, gently encourage them to reach out to a trusted
-person or a professional right now, and stay engaged — never shame, judge, or lecture.
+WHEN THEY'RE STRESSED, SAD, ANXIOUS, LONELY, OR BURNT OUT (this is the everyday case, not an
+emergency): Do NOT suggest helplines, hotlines, calling a number, or "talking to someone" — YOU
+are the someone they're already talking to. Redirecting them elsewhere reads as cold and
+abandoning, exactly what they don't need. Instead, be the presence directly: "I'm right here.",
+"You don't have to carry this alone — I've got you.", "Talk to me, what's going on?" Stay with
+them in the conversation. Ask what's behind the feeling. Make them feel like they came home to
+someone who gets it — never like a problem being routed to a service.
+
+SAFETY (non-negotiable, and the ONLY case where the above doesn't apply): if the user expresses
+suicidal thoughts, self-harm intent, or being in immediate physical danger, respond with care,
+stay warm and engaged, and gently encourage them to also reach out to a trusted person or
+professional right now — this one narrow case is the exception where outside help genuinely
+matters more than anything you can say. Never shame, judge, or lecture.
 
 What you know about this person so far:
 {memories}
@@ -62,6 +75,19 @@ What you know about this person so far:
 {mood_context}
 
 Respond in {language}. Keep it natural, warm, and brief."""
+
+_CRISIS_RESPONSE = """I'm right here with you, and I'm not going anywhere. What you're feeling matters,
+and you are not alone in this — I mean that.
+
+Because I care about you actually being safe, I also want you to reach out to someone who can be
+with you in person right now, today:
+
+**iCall** (Tata Institute of Social Sciences): 9152987821
+**Vandrevala Foundation**: 1860-2662-345 (24×7, free)
+**Snehi India**: 044-24640050
+
+Please don't carry this by yourself — tell someone close to you too, even just one person. I'm
+still here, and I want to keep talking with you. Can you tell me what's been happening?"""
 
 
 def build_welcome_back(user: User, db: Session) -> str | None:
@@ -201,7 +227,7 @@ async def handle_message(
     db.commit()
 
     if assessment.severity == "critical":
-        response_text = safety.CRISIS_RESPONSE
+        response_text = _CRISIS_RESPONSE
         _store_assistant_message(conversation, response_text, db)
         yield response_text
         return
@@ -248,10 +274,11 @@ async def handle_message(
         full_response = fallback
         yield fallback
 
-    if assessment.severity == "medium":
-        addon = safety.MEDIUM_RESOURCES_ADDON
-        full_response += addon
-        yield addon
+    # Unlike the career counsellor, the companion never auto-appends helpline numbers for
+    # medium-severity distress (everyday stress/sadness/loneliness) — that reads as cold and
+    # like it's routing the user elsewhere instead of being present with them. The safety flag
+    # above still gets logged for admin visibility; only a genuine critical signal (handled by
+    # the early return above) surfaces crisis resources to the user.
 
     _store_assistant_message(conversation, full_response, db)
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useKrsDashboard, useLiveJobs, usePrepareJob, useUnprepareJob } from '../hooks/useKrs'
-import { MapPin, Map, BookOpen, ExternalLink, X, CheckCircle2, TrendingUp, Zap, Target, ArrowUpRight, Sparkles, BriefcaseBusiness, ChevronRight, Bell, Wifi, Mic, FileText } from 'lucide-react'
+import { MapPin, Map, BookOpen, ExternalLink, X, CheckCircle2, TrendingUp, Zap, Target, ArrowUpRight, Sparkles, BriefcaseBusiness, ChevronRight, Bell, Mic, FileText } from 'lucide-react'
 import type { LiveJob } from '@/api/krs'
 import { formatSalary } from '@/api/jobs'
 import AppSidebar from '@/components/layout/AppSidebar'
@@ -85,135 +85,162 @@ function ScoreRing({ value, label, color, size = 72, run }: {
 }
 
 // ── Job spotlight (single large card, one job at a time) ──────────────────────
-function JobSpotlight({ job, onOpen, onApply, onPrepare, onGenerateResume, onMockInterview, onOpenResume, isPreparing, isApplied }: {
+function JobSpotlight({ job, onOpen, onApply, onPrepare, onGenerateResume, onViewRoadmap, roadmapStatus, onMockInterview, onOpenResume, isPreparing, isApplied, isTailoringResume }: {
   job: LiveJob; onOpen: () => void; onApply: () => void; onPrepare: () => void
-  onGenerateResume: () => void; onMockInterview: () => void; onOpenResume: () => void
-  isPreparing?: boolean; isApplied?: boolean
+  onGenerateResume: () => void; onViewRoadmap: () => void; roadmapStatus?: 'generating' | 'ready' | 'failed'
+  onMockInterview: () => void; onOpenResume: () => void
+  isPreparing?: boolean; isApplied?: boolean; isTailoringResume?: boolean
 }) {
-  const [c1, c2] = sectorColor(job.sector)
   const salary = formatSalary(job.salary_min, job.salary_max)
+  const [hov, setHov] = useState(false)
 
   return (
-    <div style={{
-      background: 'white', borderRadius: 24, overflow: 'hidden',
-      border: '1.5px solid rgba(226,232,240,0.8)',
-      boxShadow: '0 8px 32px rgba(15,23,42,0.06)',
-      animation: 'cardIn 0.4s cubic-bezier(0.34,1.1,0.64,1) both',
-    }}>
-      {/* ── Header banner ── */}
-      <div style={{ background: `linear-gradient(135deg, ${c1}, #15130F)`, padding: '26px 28px 22px', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', width: 220, height: 220, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', top: -70, right: -60, pointerEvents: 'none' }} />
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, position: 'relative' }}>
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        background: 'white', borderRadius: 18, overflow: 'hidden',
+        border: `1px solid ${hov ? '#BFDBFE' : '#E5EDFB'}`,
+        boxShadow: hov ? '0 14px 36px rgba(37,99,235,0.13)' : '0 4px 18px rgba(15,23,42,0.05)',
+        transform: hov ? 'translateY(-3px)' : 'translateY(0)',
+        transition: 'all 0.22s cubic-bezier(0.34,1.1,0.64,1)',
+      }}
+    >
+      {/* ── Header ── */}
+      <div style={{ padding: '22px 26px', borderBottom: '1px solid #F1F5F9' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 52, height: 52, borderRadius: 15, background: 'rgba(255,255,255,0.22)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 900, color: 'white', border: '1.5px solid rgba(255,255,255,0.3)', flexShrink: 0 }}>
+            <div style={{
+              width: 48, height: 48, borderRadius: 13, background: '#EFF6FF',
+              border: '1px solid #DBEAFE',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 18, fontWeight: 700, color: '#2563EB', flexShrink: 0,
+            }}>
               {job.company_name.charAt(0)}
             </div>
             <div>
-              <h2 style={{ fontFamily: 'Hind, sans-serif', fontSize: 21, fontWeight: 900, color: 'white', marginBottom: 3, cursor: 'pointer' }} onClick={onOpen}>{job.title}</h2>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)' }}>{job.company_name}</p>
+              <h2 style={{ fontSize: 17, fontWeight: 700, color: '#0F172A', margin: 0, cursor: 'pointer' }} onClick={onOpen}>{job.title}</h2>
+              <p style={{ fontSize: 13, color: '#64748B', margin: '3px 0 0' }}>{job.company_name}</p>
             </div>
           </div>
-          <div style={{ background: 'rgba(255,255,255,0.22)', border: '1.5px solid rgba(255,255,255,0.3)', borderRadius: 14, padding: '8px 14px', textAlign: 'center', flexShrink: 0 }}>
-            <p style={{ fontSize: 22, fontWeight: 900, color: 'white', fontFamily: 'Hind, sans-serif', lineHeight: 1 }}>{job.match_score}%</p>
-            <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.8)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px' }}>match</p>
+          <div style={{
+            textAlign: 'center', flexShrink: 0, background: '#EFF6FF', border: '1px solid #DBEAFE',
+            borderRadius: 12, padding: '7px 14px',
+          }}>
+            <p style={{ fontSize: 19, fontWeight: 800, color: '#2563EB', margin: 0, lineHeight: 1 }}>{job.match_score}%</p>
+            <p style={{ fontSize: 9.5, color: '#60A5FA', fontWeight: 700, margin: '2px 0 0', textTransform: 'uppercase', letterSpacing: '0.4px' }}>match</p>
           </div>
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 18, position: 'relative' }}>
-          {job.sector && <span style={{ padding: '5px 12px', background: 'rgba(255,255,255,0.2)', borderRadius: 20, fontSize: 12, fontWeight: 700, color: 'white', border: '1px solid rgba(255,255,255,0.25)' }}>{job.sector}</span>}
-          {job.location && <span style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px', background: 'rgba(255,255,255,0.16)', borderRadius: 20, fontSize: 12, fontWeight: 600, color: 'white', border: '1px solid rgba(255,255,255,0.22)' }}><MapPin size={11} />{job.location}</span>}
-          {job.job_type && <span style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 12px', background: 'rgba(255,255,255,0.16)', borderRadius: 20, fontSize: 12, fontWeight: 600, color: 'white', border: '1px solid rgba(255,255,255,0.22)', textTransform: 'capitalize' }}><Wifi size={11} />{job.job_type.replace('_', ' ')}</span>}
-          {job.employment_type && <span style={{ padding: '5px 12px', background: 'rgba(255,255,255,0.16)', borderRadius: 20, fontSize: 12, fontWeight: 600, color: 'white', border: '1px solid rgba(255,255,255,0.22)', textTransform: 'capitalize' }}>{job.employment_type.replace('_', ' ')}</span>}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }}>
+          {job.sector && <span style={{ fontSize: 11.5, fontWeight: 600, color: '#475569', background: '#F8FAFC', border: '1px solid #F1F5F9', padding: '4px 11px', borderRadius: 20 }}>{job.sector}</span>}
+          {job.location && <span style={{ fontSize: 11.5, fontWeight: 600, color: '#475569', background: '#F8FAFC', border: '1px solid #F1F5F9', padding: '4px 11px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 4 }}><MapPin size={11} />{job.location}</span>}
+          {job.job_type && <span style={{ fontSize: 11.5, fontWeight: 600, color: '#475569', background: '#F8FAFC', border: '1px solid #F1F5F9', padding: '4px 11px', borderRadius: 20, textTransform: 'capitalize' }}>{job.job_type.replace('_', ' ')}</span>}
+          {job.employment_type && <span style={{ fontSize: 11.5, fontWeight: 600, color: '#475569', background: '#F8FAFC', border: '1px solid #F1F5F9', padding: '4px 11px', borderRadius: 20, textTransform: 'capitalize' }}>{job.employment_type.replace('_', ' ')}</span>}
         </div>
       </div>
 
       {/* ── Salary + skill overlap bar ── */}
-      <div style={{ padding: '18px 28px', borderBottom: '1px solid #F1F5F9' }}>
+      <div style={{ padding: '18px 26px', borderBottom: '1px solid #F1F5F9', background: '#FAFBFF' }}>
         {salary && (
-          <p style={{ fontSize: 14, color: '#374151', fontWeight: 700, marginBottom: job.skill_overlap !== undefined ? 14 : 0 }}>
+          <p style={{ fontSize: 15, color: '#0F172A', fontWeight: 800, marginBottom: job.skill_overlap !== undefined ? 12 : 0 }}>
             ₹{salary} LPA
           </p>
         )}
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#64748B', marginBottom: 6, fontWeight: 600 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#64748B', marginBottom: 7, fontWeight: 600 }}>
             <span>Skill overlap</span>
-            <span>{job.skill_overlap}%</span>
+            <span style={{ color: '#2563EB', fontWeight: 700 }}>{job.skill_overlap}%</span>
           </div>
-          <div style={{ height: 7, borderRadius: 7, background: '#F1F5F9', overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${job.skill_overlap}%`, background: `linear-gradient(90deg, ${c1}, ${c2 === '#15130F' ? c1 : c2})`, borderRadius: 7, transition: 'width 0.7s ease' }} />
+          <div style={{ height: 6, borderRadius: 6, background: '#E2E8F0', overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${job.skill_overlap}%`, background: '#2563EB', borderRadius: 6, transition: 'width 0.7s ease' }} />
           </div>
         </div>
       </div>
 
       {/* ── About this role ── */}
       {job.description && (
-        <div style={{ padding: '18px 28px', borderBottom: '1px solid #F1F5F9' }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>About this role</p>
-          <p style={{ fontSize: 14, color: '#475569', lineHeight: 1.8 }}>{job.description}</p>
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid #F1F5F9' }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>About this role</p>
+          <p style={{ fontSize: 13.5, color: '#475569', lineHeight: 1.7 }}>{job.description}</p>
         </div>
       )}
 
       {/* ── Required skills ── */}
       {job.required_skills.length > 0 && (
-        <div style={{ padding: '18px 28px', borderBottom: '1px solid #F1F5F9' }}>
+        <div style={{ padding: '18px 26px', borderBottom: '1px solid #F1F5F9' }}>
           <p style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Required skills</p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {job.required_skills.map(sk => (
-              <span key={sk} style={{ fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 20, background: '#FAF7F1', color: '#15130F', border: '1px solid #F1EAE0' }}>{sk}</span>
+              <span key={sk} style={{ fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 20, background: '#F8FAFC', border: '1px solid #F1F5F9', color: '#475569' }}>{sk}</span>
             ))}
           </div>
         </div>
       )}
 
       {/* ── Three action cards ── */}
-      <div style={{ padding: '18px 28px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, borderBottom: '1px solid #F1F5F9' }}>
+      <div style={{ padding: '18px 26px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, borderBottom: '1px solid #F1F5F9' }}>
         {/* Resume */}
-        <div style={{ background: '#FAF7F1', border: '1.5px solid #F1EAE0', borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: '#15130F', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-            <FileText size={14} />
+        <div style={{ background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexShrink: 0 }}>
+              <FileText size={13} />
+            </div>
+            <p style={{ fontSize: 12, fontWeight: 800, color: '#0F172A', margin: 0 }}>Resume</p>
           </div>
-          <div>
-            <p style={{ fontSize: 12, fontWeight: 800, color: '#15130F', margin: 0 }}>Resume</p>
-            <p style={{ fontSize: 11, color: '#4A453D', margin: '3px 0 0', lineHeight: 1.5 }}>Tailor and optimise your resume for this role.</p>
-          </div>
-          <button onClick={onOpenResume} style={{
+          <p style={{ fontSize: 11, color: '#64748B', margin: 0, lineHeight: 1.5 }}>Tailor and optimise your resume for this role.</p>
+          <button onClick={onOpenResume} disabled={isTailoringResume} style={{
             marginTop: 'auto', height: 34, borderRadius: 9, border: 'none',
-            background: '#3B82F6', color: 'white',
-            fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+            background: '#2563EB', color: 'white', opacity: isTailoringResume ? 0.7 : 1,
+            fontSize: 11, fontWeight: 700, cursor: isTailoringResume ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
           }}>
-            <FileText size={11} /> Open Resume
+            {isTailoringResume
+              ? <><div style={{ width: 10, height: 10, border: '2px solid rgba(255,255,255,0.5)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /> Generating…</>
+              : <><FileText size={11} /> Open Resume</>}
           </button>
         </div>
 
-        {/* Generate Roadmap */}
-        <div style={{ background: '#FAF7F1', border: '1.5px solid #F1EAE0', borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: '#15130F', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-            <Map size={14} />
+        {/* Generate Roadmap — once a plan exists for this job, never re-trigger generation */}
+        <div style={{ background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: roadmapStatus === 'ready' ? '#16A34A' : '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexShrink: 0 }}>
+              {roadmapStatus === 'ready' ? <CheckCircle2 size={13} /> : <Map size={13} />}
+            </div>
+            <p style={{ fontSize: 12, fontWeight: 800, color: '#0F172A', margin: 0 }}>
+              {roadmapStatus === 'ready' ? 'Roadmap Ready' : roadmapStatus === 'generating' ? 'Generating Roadmap' : 'Generate Roadmap'}
+            </p>
           </div>
-          <div>
-            <p style={{ fontSize: 12, fontWeight: 800, color: '#15130F', margin: 0 }}>Generate Roadmap</p>
-            <p style={{ fontSize: 11, color: '#4A453D', margin: '3px 0 0', lineHeight: 1.5 }}>AI-powered learning roadmap tailored to this role.</p>
-          </div>
-          <button onClick={onGenerateResume} style={{
+          <p style={{ fontSize: 11, color: '#64748B', margin: 0, lineHeight: 1.5 }}>
+            {roadmapStatus === 'ready'
+              ? "You've already built a learning roadmap for this role."
+              : roadmapStatus === 'generating'
+                ? 'DISHA is putting your roadmap together right now.'
+                : 'AI-powered learning roadmap tailored to this role.'}
+          </p>
+          <button onClick={roadmapStatus ? onViewRoadmap : onGenerateResume} style={{
             marginTop: 'auto', height: 34, borderRadius: 9, border: 'none',
-            background: '#3B82F6', color: 'white',
+            background: roadmapStatus === 'ready' ? '#16A34A' : '#2563EB', color: 'white',
             fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
           }}>
-            <Map size={11} /> Generate
+            {roadmapStatus === 'ready'
+              ? <><CheckCircle2 size={11} /> View Roadmap</>
+              : roadmapStatus === 'generating'
+                ? <><div style={{ width: 10, height: 10, border: '2px solid rgba(255,255,255,0.5)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /> View Progress</>
+                : <><Map size={11} /> Generate</>}
           </button>
         </div>
 
         {/* Mock Interview */}
-        <div style={{ background: '#FAF7F1', border: '1.5px solid #F1EAE0', borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 9, background: '#15130F', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-            <Mic size={14} />
+        <div style={{ background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexShrink: 0 }}>
+              <Mic size={13} />
+            </div>
+            <p style={{ fontSize: 12, fontWeight: 800, color: '#0F172A', margin: 0 }}>Mock Interview</p>
           </div>
-          <div>
-            <p style={{ fontSize: 12, fontWeight: 800, color: '#15130F', margin: 0 }}>Mock Interview</p>
-            <p style={{ fontSize: 11, color: '#4A453D', margin: '3px 0 0', lineHeight: 1.5 }}>AI interviewer roleplay with a detailed scorecard.</p>
-          </div>
+          <p style={{ fontSize: 11, color: '#64748B', margin: 0, lineHeight: 1.5 }}>AI interviewer roleplay with a detailed scorecard.</p>
           <button onClick={onMockInterview} style={{
             marginTop: 'auto', height: 34, borderRadius: 9, border: 'none',
-            background: '#3B82F6', color: 'white',
+            background: '#2563EB', color: 'white',
             fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
           }}>
             <Mic size={11} /> Start
@@ -222,17 +249,21 @@ function JobSpotlight({ job, onOpen, onApply, onPrepare, onGenerateResume, onMoc
       </div>
 
       {/* ── Apply CTA ── */}
-      <div style={{ padding: '18px 28px', display: 'flex', gap: 10 }}>
+      <div style={{ padding: '18px 26px' }}>
         <button onClick={isApplied ? undefined : onApply} disabled={isApplied} style={{
-          flex: 1, height: 46, borderRadius: 13,
-          background: isApplied ? 'rgba(16,185,129,0.08)' : `linear-gradient(135deg, ${c1}, #15130F)`,
-          color: isApplied ? '#059669' : 'white',
-          border: isApplied ? '1.5px solid rgba(16,185,129,0.25)' : 'none',
+          width: '100%', height: 46, borderRadius: 11,
+          background: isApplied ? '#F0FDF4' : '#2563EB',
+          color: isApplied ? '#16A34A' : 'white',
+          border: isApplied ? '1px solid #BBF7D0' : 'none',
           fontSize: 14, fontWeight: 700, cursor: isApplied ? 'default' : 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          boxShadow: isApplied ? 'none' : `0 4px 18px ${c1}45`, transition: 'all 0.2s',
-        }}>
-          {isApplied ? <><CheckCircle2 size={14} /> Applied</> : <><ArrowUpRight size={14} /> Apply Now</>}
+          boxShadow: isApplied ? 'none' : '0 6px 18px rgba(37,99,235,0.3)',
+          transition: 'box-shadow 0.15s, transform 0.15s',
+        }}
+          onMouseOver={e => { if (!isApplied) { e.currentTarget.style.boxShadow = '0 8px 22px rgba(37,99,235,0.38)'; e.currentTarget.style.transform = 'translateY(-1px)' } }}
+          onMouseOut={e => { if (!isApplied) { e.currentTarget.style.boxShadow = '0 6px 18px rgba(37,99,235,0.3)'; e.currentTarget.style.transform = 'translateY(0)' } }}
+        >
+          {isApplied ? <><CheckCircle2 size={15} /> Applied</> : <><ArrowUpRight size={15} /> Apply Now</>}
         </button>
       </div>
     </div>
@@ -311,8 +342,10 @@ function JobRow({ job, index, onOpen, onApply, onPrepare, isPreparing, isApplied
 }
 
 // ── Job detail modal ──────────────────────────────────────────────────────────
-function JobModal({ job, onClose, onApply, onPrepare, onGenerateResume, isPreparing, isApplied }: {
-  job: LiveJob; onClose: () => void; onApply: () => void; onPrepare: () => void; onGenerateResume: () => void; isPreparing?: boolean; isApplied?: boolean
+function JobModal({ job, onClose, onApply, onPrepare, onGenerateResume, onViewRoadmap, roadmapStatus, isPreparing, isApplied }: {
+  job: LiveJob; onClose: () => void; onApply: () => void; onPrepare: () => void; onGenerateResume: () => void
+  onViewRoadmap: () => void; roadmapStatus?: 'generating' | 'ready' | 'failed'
+  isPreparing?: boolean; isApplied?: boolean
 }) {
   const [c1, c2] = sectorColor(job.sector)
   return (
@@ -364,8 +397,8 @@ function JobModal({ job, onClose, onApply, onPrepare, onGenerateResume, isPrepar
           </div>
         </div>
         <div style={{ padding: '0 24px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <button onClick={onGenerateResume} style={{ width: '100%', height: 46, borderRadius: 13, background: 'linear-gradient(135deg, #15130F, #1E3A5F)', color: 'white', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, boxShadow: '0 4px 18px rgba(21,19,15,0.3)', transition: 'all 0.2s' }}>
-            <Map size={15} /> Generate Roadmap for This Job
+          <button onClick={roadmapStatus ? onViewRoadmap : onGenerateResume} style={{ width: '100%', height: 46, borderRadius: 13, background: roadmapStatus === 'ready' ? '#16A34A' : 'linear-gradient(135deg, #15130F, #1E3A5F)', color: 'white', border: 'none', fontSize: 14, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, boxShadow: '0 4px 18px rgba(21,19,15,0.3)', transition: 'all 0.2s' }}>
+            <Map size={15} /> {roadmapStatus === 'ready' ? 'View Your Roadmap' : roadmapStatus === 'generating' ? 'View Generation Progress' : 'Generate Roadmap for This Job'}
           </button>
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={onPrepare} disabled={isPreparing} style={{ flex: 1, height: 42, borderRadius: 13, border: '1.5px solid #E2E8F0', background: job.is_prepared ? `${c1}08` : 'white', color: job.is_prepared ? c1 : '#374151', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'all 0.2s' }}>
@@ -468,10 +501,16 @@ function ApplyModal({ job, onClose }: { job: LiveJob; onClose: () => void }) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const { data, isLoading, error } = useKrsDashboard()
   const { data: liveJobs, isLoading: jobsLoading } = useLiveJobs()
   const { data: myApps } = useQuery({ queryKey: ['my-applications'], queryFn: getMyApplications })
   const appliedJobIds = new Set((myApps ?? []).map(a => a.job_id))
+  // Tracks which jobs already have a generated roadmap, so the card can offer
+  // "View Roadmap" instead of letting the user keep re-triggering generation.
+  const { data: jobPlans } = useQuery({ queryKey: ['job-plans-all'], queryFn: jobPlanApi.getAllMine })
+  const roadmapStatusByJobId: Record<string, 'generating' | 'ready' | 'failed'> = {}
+  for (const p of jobPlans ?? []) roadmapStatusByJobId[p.job_id] = p.status
   const prepareJob   = usePrepareJob()
   const unprepareJob = useUnprepareJob()
   const { startPrep } = useActivePrepJob()
@@ -505,9 +544,55 @@ export default function DashboardPage() {
         // nothing new generated. RoadmapPage's JobLearningPlanPanel picks up the
         // "generating" status and shows live progress.
         jobPlanApi.generate(job.id).catch(() => {})
+        qc.invalidateQueries({ queryKey: ['job-plans-all'] })
         navigate('/app/roadmap')
       },
     })
+  }
+
+  // A roadmap already exists for this job — just switch to it, never regenerate.
+  const handleViewRoadmap = (job: LiveJob) => {
+    setSelectedJob(null)
+    startPrep(job.id, { onSuccess: () => navigate('/app/roadmap') })
+  }
+
+  // Mock Interview from a job card scopes just this one interview session to that job —
+  // it does NOT touch the active prep job (only Generate Roadmap / switching roadmaps does
+  // that). Job context travels via route state instead of the shared active-prep pointer.
+  const handleMockInterview = (job: LiveJob) => {
+    navigate('/app/interview/setup', {
+      state: {
+        jobContext: {
+          job_title: job.title,
+          company_name: job.company_name,
+          required_skills: job.required_skills,
+          skills_to_develop: job.skills_to_develop,
+        },
+      },
+    })
+  }
+
+  // Resume from a job card auto-creates a resume tailored to that specific job and opens
+  // it — same as the job detail page's "Tailored Resume" action. Doesn't touch active prep.
+  const [tailoringResumeJobId, setTailoringResumeJobId] = useState<string | null>(null)
+  const [tailorResumeError, setTailorResumeError] = useState<string | null>(null)
+  const handleTailoredResume = async (job: LiveJob) => {
+    setTailoringResumeJobId(job.id)
+    setTailorResumeError(null)
+    try {
+      const newResume = await resumeApi.createResume({ title: `${job.title} — ${job.company_name}` })
+      await resumeApi.aiGenerateResume(newResume.id, {
+        job_title: job.title,
+        company_name: job.company_name,
+        required_skills: job.required_skills,
+        job_description: job.description,
+      })
+      navigate(`/app/resume/${newResume.id}`)
+    } catch (err: any) {
+      setTailorResumeError(err?.response?.data?.detail ?? 'Failed to generate resume. Please try again.')
+    } finally {
+      setTailoringResumeJobId(null)
+    }
   }
 
   const gapFreq: Record<string, number> = {}
@@ -699,47 +784,6 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* ── QUICK TOOLS ── */}
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                  <div style={{ width: 4, height: 16, background: '#15130F', borderRadius: 4 }} />
-                  <span style={{ fontSize: 13, fontWeight: 800, color: '#0F172A', letterSpacing: '-0.2px' }}>Your Tools</span>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-                  {[
-                    { icon: '📄', label: 'Resume', desc: 'AI resume builder', path: '/app/resume', color: '#7C3AED' },
-                    { icon: '🎙️', label: 'AI Interview', desc: 'Mock interview prep', path: '/app/interview/setup', color: '#0EA5E9' },
-                    { icon: '🧠', label: 'AI Counsellor', desc: 'Career coaching', path: '/app/counsellor', color: '#F59E0B' },
-                  ].map(tool => (
-                    <button
-                      key={tool.path}
-                      onClick={() => navigate(tool.path)}
-                      style={{
-                        background: 'white', border: '1.5px solid rgba(226,232,240,0.8)',
-                        borderRadius: 16, padding: '16px 16px',
-                        cursor: 'pointer', textAlign: 'left' as const,
-                        boxShadow: '0 2px 8px rgba(15,23,42,0.04)',
-                        transition: 'all 0.2s', display: 'flex', flexDirection: 'column' as const, gap: 8,
-                      }}
-                      onMouseOver={e => { e.currentTarget.style.boxShadow = '0 6px 20px rgba(15,23,42,0.1)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
-                      onMouseOut={e => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(15,23,42,0.04)'; e.currentTarget.style.transform = 'translateY(0)' }}
-                    >
-                      <div style={{
-                        width: 40, height: 40, borderRadius: 12,
-                        background: `${tool.color}14`,
-                        border: `1.5px solid ${tool.color}22`,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 18,
-                      }}>{tool.icon}</div>
-                      <div>
-                        <p style={{ fontSize: 13, fontWeight: 800, color: '#0F172A', margin: 0 }}>{tool.label}</p>
-                        <p style={{ fontSize: 11, color: '#94A3B8', margin: '2px 0 0' }}>{tool.desc}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* ── RECOMMENDED JOBS + SIDEBAR ── */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 264px', gap: 20, alignItems: 'start' }}>
 
@@ -749,6 +793,12 @@ export default function DashboardPage() {
                     <div style={{ width: 4, height: 16, background: '#15130F', borderRadius: 4 }} />
                     <span style={{ fontSize: 13, fontWeight: 800, color: '#0F172A', letterSpacing: '-0.2px' }}>Top matches for you</span>
                   </div>
+
+                  {tailorResumeError && (
+                    <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, padding: '10px 14px', color: '#DC2626', fontSize: 12, marginBottom: 14 }}>
+                      {tailorResumeError}
+                    </div>
+                  )}
 
                   {jobsLoading && (
                     <div style={{ borderRadius: 24, overflow: 'hidden', animation: 'pulse 1.5s infinite' }}>
@@ -769,10 +819,13 @@ export default function DashboardPage() {
                           onApply={() => setApplyJob(job)}
                           onPrepare={() => handlePrepare(job)}
                           onGenerateResume={() => handleGenerateResume(job)}
-                          onMockInterview={() => startPrep(job.id, { onSuccess: () => navigate('/app/interview/setup') })}
-                          onOpenResume={() => startPrep(job.id, { onSuccess: () => navigate('/app/resume') })}
+                          onViewRoadmap={() => handleViewRoadmap(job)}
+                          roadmapStatus={roadmapStatusByJobId[job.id]}
+                          onMockInterview={() => handleMockInterview(job)}
+                          onOpenResume={() => handleTailoredResume(job)}
                           isPreparing={preparingJobId === job.id}
                           isApplied={appliedJobIds.has(job.id)}
+                          isTailoringResume={tailoringResumeJobId === job.id}
                         />
                       ))}
 
@@ -939,6 +992,8 @@ export default function DashboardPage() {
           onApply={() => { setSelectedJob(null); setApplyJob(selectedJob) }}
           onPrepare={() => { setSelectedJob(null); handlePrepare(selectedJob).catch(() => {}) }}
           onGenerateResume={() => handleGenerateResume(selectedJob)}
+          onViewRoadmap={() => handleViewRoadmap(selectedJob)}
+          roadmapStatus={roadmapStatusByJobId[selectedJob.id]}
           isPreparing={preparingJobId === selectedJob?.id}
           isApplied={appliedJobIds.has(selectedJob.id)}
         />

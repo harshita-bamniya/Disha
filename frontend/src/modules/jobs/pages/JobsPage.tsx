@@ -8,12 +8,7 @@ import { getJobs, type JobListItem } from '@/api/matching'
 const SECTORS = ['Policy', 'ESG', 'EdTech', 'NGO', 'Consulting', 'Public Affairs', 'Research']
 const JOB_TYPES = ['remote', 'pan_india', 'hybrid', 'onsite']
 
-function matchColor(_score: number): { bg: string; text: string } {
-  return { bg: 'rgba(59,130,246,0.10)', text: '#1D4ED8' }
-}
-
 function JobCard({ job }: { job: JobListItem }) {
-  const mc = job.match_score !== null ? matchColor(job.match_score) : null
   const [hov, setHov] = useState(false)
 
   return (
@@ -21,22 +16,31 @@ function JobCard({ job }: { job: JobListItem }) {
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        background: '#fff', borderRadius: 18, border: '1.5px solid #E2E8F0', overflow: 'hidden',
-        boxShadow: hov ? '0 16px 36px rgba(15,23,42,0.10)' : '0 2px 10px rgba(15,23,42,0.04)',
-        transform: hov ? 'translateY(-4px)' : 'translateY(0)',
-        transition: 'all 0.25s cubic-bezier(0.34,1.1,0.64,1)',
+        background: '#fff', borderRadius: 16, border: `1px solid ${hov ? '#BFDBFE' : '#F1F5F9'}`, overflow: 'hidden',
+        boxShadow: hov ? '0 12px 30px rgba(37,99,235,0.12)' : '0 2px 8px rgba(15,23,42,0.04)',
+        transform: hov ? 'translateY(-3px)' : 'translateY(0)',
+        transition: 'all 0.2s cubic-bezier(0.34,1.1,0.64,1)',
       }}
     >
-      <div style={{ height: 3, background: 'linear-gradient(90deg, #3B82F6, #15130F)' }} />
       <div style={{ padding: '18px 20px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flex: 1, minWidth: 0 }}>
+            <div style={{
+              width: 38, height: 38, borderRadius: 11, flexShrink: 0,
+              background: 'linear-gradient(135deg, #15130F, #3B342B)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 15, fontWeight: 700, color: '#F1EAE0',
+              boxShadow: '0 3px 10px rgba(21,19,15,0.3)',
+            }}>
+              {job.company_name.charAt(0).toUpperCase()}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
               <h3 style={{ fontWeight: 700, color: '#111827', fontSize: 15, margin: 0 }}>{job.title}</h3>
-              {mc && (
+              {job.match_score !== null && (
                 <span style={{
-                  fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-                  background: mc.bg, color: mc.text,
+                  fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 20,
+                  background: 'rgba(37,99,235,0.1)', color: '#1D4ED8',
                 }}>
                   {job.match_score}% match
                 </span>
@@ -46,7 +50,7 @@ function JobCard({ job }: { job: JobListItem }) {
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
               {job.sector && (
-                <span style={{ fontSize: 11, background: 'rgba(59,130,246,0.08)', color: '#1D4ED8', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>
+                <span style={{ fontSize: 11, background: 'rgba(37,99,235,0.08)', color: '#1D4ED8', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>
                   {job.sector}
                 </span>
               )}
@@ -77,6 +81,7 @@ function JobCard({ job }: { job: JobListItem }) {
                 You have {job.skill_overlap_pct}% of required skills
               </p>
             )}
+            </div>
           </div>
         </div>
 
@@ -86,11 +91,12 @@ function JobCard({ job }: { job: JobListItem }) {
             style={{
               flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               textAlign: 'center', fontSize: 13, fontWeight: 700,
-              color: 'white', background: '#3B82F6', borderRadius: 10,
+              color: 'white', background: '#2563EB', borderRadius: 10,
               padding: '9px 0', textDecoration: 'none', transition: 'background 0.15s',
+              boxShadow: '0 3px 10px rgba(37,99,235,0.25)',
             }}
             onMouseOver={e => { (e.currentTarget as HTMLAnchorElement).style.background = '#1D4ED8' }}
-            onMouseOut={e => { (e.currentTarget as HTMLAnchorElement).style.background = '#3B82F6' }}
+            onMouseOut={e => { (e.currentTarget as HTMLAnchorElement).style.background = '#2563EB' }}
           >
             View Details <ArrowUpRight size={13} />
           </Link>
@@ -108,10 +114,10 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
       background: 'white', borderRadius: 20, border: '1px solid #E2E8F0',
     }}>
       <div style={{
-        width: 56, height: 56, borderRadius: 16, background: 'rgba(59,130,246,0.08)',
+        width: 56, height: 56, borderRadius: 16, background: 'rgba(37,99,235,0.08)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
       }}>
-        <Briefcase size={24} color="#3B82F6" />
+        <Briefcase size={24} color="#2563EB" />
       </div>
       <h3 style={{ fontSize: 16, fontWeight: 700, color: '#111827', margin: '0 0 8px' }}>
         {hasFilters ? 'No jobs match these filters' : 'No jobs available yet'}
@@ -119,10 +125,10 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
       {!hasFilters && (
         <div style={{
           display: 'flex', alignItems: 'flex-start', gap: 10,
-          background: '#FAF7F1', border: '1px solid #F1EAE0', borderRadius: 10,
+          background: '#F5F8FF', border: '1px solid #DBEAFE', borderRadius: 10,
           padding: '12px 16px', marginTop: 12, maxWidth: 420, textAlign: 'left',
         }}>
-          <AlertCircle size={16} color="#3B82F6" style={{ marginTop: 1, flexShrink: 0 }} />
+          <AlertCircle size={16} color="#2563EB" style={{ marginTop: 1, flexShrink: 0 }} />
           <p style={{ fontSize: 13, color: '#475569', margin: 0, lineHeight: 1.5 }}>
             Jobs are only shown after an employer account is approved by an admin.
             If you're testing, ask an admin to approve an employer in the admin panel.
@@ -151,24 +157,38 @@ export default function JobsPage() {
   })
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'linear-gradient(160deg, #F0F7FF 0%, #FFFFFF 55%, #EFF6FF 100%)' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'white' }}>
       <AppSidebar activePath="/app/jobs" />
-      <main style={{ flex: 1, padding: '32px 28px', maxWidth: 900, margin: '0 auto' }}>
-
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
-        <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontFamily: 'Hind, sans-serif', fontSize: 24, fontWeight: 900, color: '#1E3A5F', margin: 0, letterSpacing: '-0.4px' }}>Job Opportunities</h1>
-          <p style={{ fontSize: 13, color: '#6B7280', marginTop: 4 }}>
-            Ranked by your DISHA profile match score
-          </p>
-        </div>
+        <header style={{
+          background: 'white',
+          borderBottom: '1px solid #F1F5F9',
+          padding: '0 28px', height: 64,
+          display: 'flex', alignItems: 'center', gap: 10,
+          position: 'sticky', top: 0, zIndex: 20,
+        }}>
+          <div style={{
+            width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+            background: 'linear-gradient(135deg, #3B82F6, #2563EB)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Briefcase size={14} color="white" />
+          </div>
+          <div>
+            <p style={{ fontSize: 14.5, fontWeight: 700, color: '#0F172A', margin: 0 }}>Job Opportunities</p>
+            <p style={{ fontSize: 11.5, color: '#9CA3AF', margin: 0 }}>Ranked by your DISHA profile match score</p>
+          </div>
+        </header>
+
+      <main style={{ flex: 1, padding: '28px 36px', maxWidth: 960 }}>
 
         {/* Filters */}
         <div style={{
           display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 24, alignItems: 'center',
-          background: 'white', border: '1px solid #E2E8F0', borderRadius: 14, padding: '12px 16px',
+          background: '#F5F8FF', border: '1px solid #DBEAFE', borderRadius: 14, padding: '12px 16px',
         }}>
-          <SlidersHorizontal size={15} color="#3B82F6" />
+          <SlidersHorizontal size={15} color="#2563EB" />
           <select
             value={sector}
             onChange={e => { setSector(e.target.value); setPage(0) }}
@@ -208,7 +228,7 @@ export default function JobsPage() {
         {isLoading && (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '64px 0' }}>
             <div style={{
-              width: 32, height: 32, border: '2px solid #3B82F6',
+              width: 32, height: 32, border: '2px solid #2563EB',
               borderTopColor: 'transparent', borderRadius: '50%',
               animation: 'spin 0.7s linear infinite',
             }} />
@@ -280,6 +300,7 @@ export default function JobsPage() {
           </>
         )}
       </main>
+      </div>
     </div>
   )
 }

@@ -10,6 +10,7 @@ import AppSidebar from '@/components/layout/AppSidebar'
 import { getJobDetail, applyToJob } from '@/api/matching'
 import { resumeApi } from '@/api/resume'
 import { counsellorApi } from '@/api/counsellor'
+import { jobPlanApi } from '@/api/jobPlan'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 
 export default function JobDetailPage() {
@@ -27,7 +28,7 @@ export default function JobDetailPage() {
     queryFn: () => getJobDetail(jobId!),
     enabled: !!jobId,
   })
-  const { activePrep, startPrep, isStartingPrep, clearPrep, isClearingPrep } = useActivePrepJob()
+  const { activePrep, startPrep, isStartingPrep } = useActivePrepJob()
   const isActivePrepJob = activePrep?.job_id === jobId
   const { data: checklist } = useQuery({
     queryKey: ['prep-checklist', jobId],
@@ -43,6 +44,19 @@ export default function JobDetailPage() {
       qc.invalidateQueries({ queryKey: ['my-applications'] })
     },
   })
+
+  // Generating a roadmap is what makes this the active prep job — there's no
+  // separate manual "set active" toggle anymore. Switching roadmaps (from
+  // RoadmapHistoryPage) is the only other thing that changes which job is active.
+  function handleGenerateRoadmap() {
+    if (!jobId) return
+    startPrep(jobId, {
+      onSuccess: () => {
+        jobPlanApi.generate(jobId).catch(() => {})
+        navigate('/app/roadmap')
+      },
+    })
+  }
 
   async function handleGenerateResume() {
     if (!job || generatingResume) return
@@ -204,39 +218,26 @@ export default function JobDetailPage() {
 
         {/* ── Action cards: Prep Job / Tailored Resume / Mock Interview ── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-          {/* Set as Active Prep Job */}
+          {/* Generate Roadmap — this is what makes this job the active prep job */}
           <div className="bg-white rounded-2xl border border-gray-200 p-5 flex flex-col">
             <div className="w-11 h-11 rounded-xl bg-black flex items-center justify-center mb-4">
               {isActivePrepJob ? <Check size={20} className="text-white" /> : <Target size={20} className="text-white" />}
             </div>
             <h3 className="font-bold text-gray-900 text-sm">
-              {isActivePrepJob ? 'Active Prep Job' : 'Set as Active Prep Job'}
+              {isActivePrepJob ? 'Your Active Roadmap' : 'Generate Roadmap'}
             </h3>
             <p className="text-xs text-gray-500 mt-1.5 leading-relaxed flex-1">
               {isActivePrepJob
-                ? 'DISHA AI is building your roadmap for this role.'
+                ? "This is the roadmap you're currently using."
                 : 'Personalised roadmap, course suggestions, and skill tracking.'}
             </p>
-            {isActivePrepJob ? (
-              <button
-                onClick={() => clearPrep()}
-                disabled={isClearingPrep}
-                className="mt-4 w-full flex items-center justify-center gap-2 border border-gray-300 text-gray-600 font-semibold rounded-xl py-2.5 text-sm hover:bg-gray-50 transition-colors disabled:opacity-60"
-              >
-                {isClearingPrep ? 'Clearing…' : 'Clear Prep Job'}
-              </button>
-            ) : (
-              <button
-                onClick={() => {
-                  startPrep(jobId!)
-                  qc.invalidateQueries({ queryKey: ['roadmap'] })
-                }}
-                disabled={isStartingPrep}
-                className="mt-4 w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-60 text-white font-semibold rounded-xl py-2.5 text-sm transition-colors"
-              >
-                {isStartingPrep ? 'Setting…' : 'Set as Prep Job'}
-              </button>
-            )}
+            <button
+              onClick={() => isActivePrepJob ? navigate('/app/roadmap') : handleGenerateRoadmap()}
+              disabled={isStartingPrep}
+              className="mt-4 w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-60 text-white font-semibold rounded-xl py-2.5 text-sm transition-colors"
+            >
+              {isStartingPrep ? 'Generating…' : isActivePrepJob ? 'View Roadmap' : 'Generate'}
+            </button>
           </div>
 
           {/* Tailored Resume */}
