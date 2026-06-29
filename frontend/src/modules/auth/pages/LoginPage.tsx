@@ -7,10 +7,12 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { useLogin, useGoogleLogin } from '../hooks/useAuth'
 import { getApiError } from '@/api/client'
+import { getRecaptchaToken } from '@/lib/recaptcha'
 
 export default function LoginPage() {
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
+  const [rememberMe, setRememberMe] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const login = useLogin()
@@ -26,10 +28,11 @@ export default function LoginPage() {
     return Object.keys(errors).length === 0
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!validate()) return
-    login.mutate({ phone, password })
+    const recaptcha_token = await getRecaptchaToken('login')
+    login.mutate({ phone, password, rememberMe, recaptcha_token })
   }
 
   const serverError = login.error ? getApiError(login.error, 'Incorrect phone number or password') : null
@@ -69,6 +72,16 @@ export default function LoginPage() {
           prefix={<Lock className="w-4 h-4" />}
           maxLength={128}
         />
+
+        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none -mt-1">
+          <input
+            type="checkbox"
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
+            className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/30"
+          />
+          Remember me on this device
+        </label>
 
         {serverError && (
           <p className="text-sm text-danger bg-danger/5 border border-danger/20 rounded-xl px-4 py-3">

@@ -92,9 +92,7 @@ export function ChipSelector({
           style={{
             padding: '7px 14px', borderRadius: 20, fontSize: 13, fontWeight: 600,
             cursor: 'pointer', transition: 'all 0.2s',
-            background: isSelected(opt)
-              ? 'linear-gradient(135deg, #3B82F6, #1D4ED8)'
-              : 'rgba(255,255,255,0.7)',
+            background: isSelected(opt) ? '#2563EB' : 'white',
             color: isSelected(opt) ? '#fff' : '#374151',
             border: isSelected(opt)
               ? 'none'
@@ -141,7 +139,7 @@ function Section({
       {isOpen && (
         <div style={{
           height: 3,
-          background: 'linear-gradient(90deg, #3B82F6, #15130F)',
+          background: '#2563EB',
         }} />
       )}
 
@@ -167,7 +165,7 @@ function Section({
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 15, fontWeight: 800, color: '#1E3A5F', fontFamily: 'Hind, sans-serif' }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>
                 {title}
               </span>
               {saved && (
@@ -710,7 +708,7 @@ function MindsetSection({ profile, open, onToggle }: { profile: ProfileData; ope
       <div className="flex flex-col gap-4">
         {profile.disha_insight && (
           <div className="bg-primary/5 border border-primary/10 rounded-xl px-4 py-3">
-            <p className="text-xs font-medium text-primary mb-1">Your DISHA insight</p>
+            <p className="text-xs font-medium text-primary mb-1">Your BeginablAI insight</p>
             <p className="text-sm text-gray-700 leading-relaxed italic">"{profile.disha_insight}"</p>
           </div>
         )}
@@ -760,7 +758,7 @@ export default function ProfilePage() {
     setOpenSection(prev => (prev === section ? null : section))
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #F0F7FF 0%, #FFFFFF 55%, #EFF6FF 100%)', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
 
       {/* ── Sidebar ── */}
       <AppSidebar activePath="/app/profile" />
@@ -770,67 +768,56 @@ export default function ProfilePage() {
 
         {/* Top bar */}
         <header style={{
-          background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(16px)',
-          borderBottom: '1px solid rgba(59,130,246,0.08)',
+          background: 'white',
+          borderBottom: '1px solid #F1F5F9',
           padding: '0 32px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           position: 'sticky', top: 0, zIndex: 20,
-          boxShadow: '0 2px 16px rgba(30,58,95,0.04)',
         }}>
           <div>
-            <h1 style={{ fontFamily: 'Hind, sans-serif', fontSize: 18, fontWeight: 900, color: '#1E3A5F' }}>Profile</h1>
-            <p style={{ fontSize: 12, color: '#9CA3AF' }}>Every update improves your KRS score & job matches</p>
+            <h1 style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>Profile</h1>
+            <p style={{ fontSize: 11.5, color: '#9CA3AF' }}>Every update improves your KRS score & job matches</p>
           </div>
         </header>
 
         <main style={{ padding: '28px 32px', flex: 1 }}>
 
           {/* Hero card */}
-          <div style={{
-            background: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 60%, #E0F2FE 100%)',
-            borderRadius: 24, padding: '28px 32px', position: 'relative', overflow: 'hidden',
-            border: '1px solid rgba(59,130,246,0.15)',
-            boxShadow: '0 4px 24px rgba(59,130,246,0.08)', marginBottom: 24,
-          }}>
-            <div style={{ position: 'absolute', width: 260, height: 260, borderRadius: '50%', background: 'rgba(59,130,246,0.06)', top: '-70px', right: '-50px' }} />
-            <div style={{ position: 'absolute', width: 130, height: 130, borderRadius: '50%', background: 'rgba(99,102,241,0.04)', bottom: '-30px', left: '40%' }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 18, position: 'relative', zIndex: 1 }}>
+          <div style={{ borderBottom: '1px solid #F1F5F9', paddingBottom: 20, marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <div style={{
-                width: 60, height: 60, borderRadius: 18,
-                background: 'rgba(59,130,246,0.12)',
-                border: '2px solid rgba(59,130,246,0.2)',
+                width: 52, height: 52, borderRadius: '50%',
+                background: '#EFF6FF',
+                border: '1px solid #DBEAFE',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 26, flexShrink: 0, color: '#3B82F6', fontWeight: 800,
+                fontSize: 22, flexShrink: 0, color: '#2563EB', fontWeight: 700,
               }}>
-                {profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : <User size={26} />}
+                {profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : <User size={22} />}
               </div>
               <div>
-                <p style={{ fontSize: 12, color: '#94A3B8', fontWeight: 500, marginBottom: 3 }}>Your profile</p>
-                <h2 style={{ fontFamily: 'Hind, sans-serif', fontSize: 22, fontWeight: 900, color: '#1E3A5F', letterSpacing: '-0.3px' }}>
+                <p style={{ fontSize: 11.5, color: '#9CA3AF', marginBottom: 2 }}>Your profile</p>
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: '#111827' }}>
                   {profile?.full_name ?? 'Complete your profile'}
                 </h2>
-                <p style={{ fontSize: 13, color: '#475569', marginTop: 3 }}>
+                <p style={{ fontSize: 12.5, color: '#6B7280', marginTop: 2 }}>
                   {profile?.city ? `${profile.city}, ${profile.state ?? ''}` : 'Add your location'}
                 </p>
               </div>
             </div>
-            <div style={{ marginTop: 18, paddingTop: 16, borderTop: '1px solid rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', gap: 8, position: 'relative', zIndex: 1 }}>
-              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#3B82F6', flexShrink: 0 }} />
-              <p style={{ fontSize: 12, color: '#475569', lineHeight: 1.5 }}>
-                Each section you complete improves your KRS score and surfaces better job matches.
-              </p>
-            </div>
+            <p style={{ fontSize: 12, color: '#9CA3AF', lineHeight: 1.5, marginTop: 14 }}>
+              Each section you complete improves your KRS score and surfaces better job matches.
+            </p>
           </div>
 
           {isLoading && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {[1,2,3,4].map(i => (
-                <div key={i} style={{ height: 80, borderRadius: 20, background: 'rgba(255,255,255,0.6)', animation: 'pulse 2s infinite', border: '1px solid rgba(59,130,246,0.06)' }} />
+                <div key={i} style={{ height: 80, borderRadius: 14, background: '#F8FAFC', animation: 'pulse 2s infinite', border: '1px solid #F1F5F9' }} />
               ))}
             </div>
           )}
 
           {error && (
-            <div style={{ background: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.15)', borderRadius: 16, padding: '14px 18px', fontSize: 14, color: '#DC2626' }}>
+            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, padding: '14px 18px', fontSize: 14, color: '#DC2626' }}>
               Could not load profile. Please refresh.
             </div>
           )}

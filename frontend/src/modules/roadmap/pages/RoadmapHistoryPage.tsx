@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { jobPlanApi } from '@/api/jobPlan'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 import AppSidebar from '@/components/layout/AppSidebar'
-import { Map, ChevronRight, TrendingUp, Loader2, ArrowRight, Briefcase } from 'lucide-react'
+import { Map, ChevronRight, TrendingUp, Loader2, ArrowRight, Briefcase, Trash2 } from 'lucide-react'
 
 function statusBadge(status: 'generating' | 'ready' | 'failed') {
   if (status === 'generating') return { color: '#D97706', label: 'Generating…' }
@@ -14,12 +14,21 @@ function statusBadge(status: 'generating' | 'ready' | 'failed') {
 
 export default function RoadmapHistoryPage() {
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const { startPrep } = useActivePrepJob()
   const [openingJobId, setOpeningJobId] = useState<string | null>(null)
 
   const { data: jobPlans = [], isLoading: isLoadingAny } = useQuery({
     queryKey: ['job-plans-all'],
     queryFn: jobPlanApi.getAllMine,
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (jobId: string) => jobPlanApi.remove(jobId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['job-plans-all'] })
+      qc.invalidateQueries({ queryKey: ['active-prep'] })
+    },
   })
 
   function openJobPlan(jobId: string) {
@@ -33,10 +42,10 @@ export default function RoadmapHistoryPage() {
   const isEmpty = !isLoadingAny && jobPlans.length === 0
 
   return (
-    <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: '#FAFBFD', display: 'flex' }}>
       <AppSidebar activePath="/app/roadmap" />
 
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: '#FAFBFD' }}>
         <header style={{
           background: 'white',
           borderBottom: '1px solid #F1F5F9',
@@ -114,6 +123,27 @@ export default function RoadmapHistoryPage() {
                         <span style={{ fontSize: 12.5, fontWeight: 700, color: '#4B5563' }}>{p.progress_pct}%</span>
                       </div>
                     )}
+                    <button
+                      onClick={e => {
+                        e.stopPropagation()
+                        if (window.confirm(`Delete the roadmap for ${p.job_title}? This can't be undone.`)) {
+                          deleteMutation.mutate(p.job_id)
+                        }
+                      }}
+                      disabled={deleteMutation.isPending && deleteMutation.variables === p.job_id}
+                      title="Delete roadmap"
+                      style={{
+                        flexShrink: 0, width: 30, height: 30, borderRadius: 8, border: 'none',
+                        background: 'none', color: '#CBD5E1', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s',
+                      }}
+                      onMouseOver={e => { e.currentTarget.style.background = '#FEF2F2'; e.currentTarget.style.color = '#DC2626' }}
+                      onMouseOut={e => { e.currentTarget.style.background = 'none'; e.currentTarget.style.color = '#CBD5E1' }}
+                    >
+                      {deleteMutation.isPending && deleteMutation.variables === p.job_id
+                        ? <Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} />
+                        : <Trash2 size={14} />}
+                    </button>
                     {isOpening ? <Loader2 size={15} color="#9CA3AF" style={{ animation: 'spin 0.8s linear infinite' }} /> : <ChevronRight size={15} color="#D1D5DB" />}
                   </div>
                 )

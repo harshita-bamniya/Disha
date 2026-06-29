@@ -1,10 +1,9 @@
+import { useEffect, useState } from 'react'
 import {
-  Building2, MapPin, Target, TrendingUp, CheckCircle2,
-  X, ExternalLink, Sparkles,
+  CheckCircle2, X, ExternalLink, ListChecks,
 } from 'lucide-react'
 import type { LiveJob } from '@/api/krs'
-import { formatSalary, EMPLOYMENT_TYPE_LABELS } from '@/api/jobs'
-import type { EmploymentType } from '@/api/jobs'
+import { krsApi } from '@/api/krs'
 
 interface Props {
   job: LiveJob
@@ -20,165 +19,170 @@ export default function JobAnalysisDrawer({ job, kScore, onClose, onRemove, onAp
   const gapCount  = job.skills_to_develop.length
   const total     = job.required_skills.length
   const readyPct  = total > 0 ? Math.round((haveCount / total) * 100) : 0
-  const meetsKScore = kScore >= job.min_k_score
+
+  const [aiSummary, setAiSummary] = useState<string | null>(null)
+  const [aiLoading, setAiLoading] = useState(true)
+  const [aiError, setAiError] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    setAiLoading(true)
+    setAiError(false)
+    setAiSummary(null)
+    krsApi.getJobFitAnalysis({
+      job_title: job.title,
+      company_name: job.company_name,
+      description: job.description,
+      required_skills: job.required_skills,
+      skills_you_have: job.skills_you_have,
+      skills_to_develop: job.skills_to_develop,
+      min_k_score: job.min_k_score,
+      k_score: kScore,
+    })
+      .then(res => { if (!cancelled) setAiSummary(res.summary) })
+      .catch(() => { if (!cancelled) setAiError(true) })
+      .finally(() => { if (!cancelled) setAiLoading(false) })
+    return () => { cancelled = true }
+  }, [job.id])
 
   return (
     <div onClick={onClose} style={{
       position: 'fixed', inset: 0, zIndex: 200,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '20px 16px',
-      background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(8px)',
-      animation: 'fadeInBg 0.2s ease both',
+      background: 'rgba(15,23,42,0.4)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
     }}>
       <div onClick={e => e.stopPropagation()} style={{
+        background: 'white', borderRadius: 18,
         width: '100%', maxWidth: 800, maxHeight: '90vh',
-        background: '#F8FAFC', borderRadius: 26,
-        boxShadow: '0 40px 100px rgba(15,23,42,0.3)',
-        display: 'flex', flexDirection: 'column', overflow: 'hidden',
-        animation: 'modalIn 0.28s cubic-bezier(0.34,1.1,0.64,1) both',
+        boxShadow: '0 20px 60px rgba(15,23,42,0.18)',
+        overflow: 'hidden', display: 'flex', flexDirection: 'column',
       }}>
         {/* Header */}
-        <div style={{ background: 'linear-gradient(135deg, #15130F 0%, #1E3A5F 55%, #2563EB 100%)', padding: '26px 28px 22px', position: 'relative', overflow: 'hidden', flexShrink: 0 }}>
-          <div style={{ position: 'absolute', width: 220, height: 220, top: -80, right: -50, background: '#3B82F6', borderRadius: '50%', filter: 'blur(70px)', opacity: 0.22, pointerEvents: 'none' }} />
-          <button onClick={onClose} style={{
-            position: 'absolute', top: 16, right: 16, width: 32, height: 32, borderRadius: 9,
-            background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)',
-            color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', zIndex: 2, transition: 'all 0.2s',
-          }}
-            onMouseOver={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.22)' }}
-            onMouseOut={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)' }}
-          ><X size={14} /></button>
+        <div style={{ padding: '24px 32px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
+            <div style={{
+              width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
+              background: 'linear-gradient(135deg, #818CF8, #6366F1)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'white', fontWeight: 700, fontSize: 16,
+            }}>{job.company_name.charAt(0).toUpperCase()}</div>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ fontSize: 16, fontWeight: 700, color: '#111827', margin: 0 }}>
+                {job.title}
+              </p>
+              <p style={{ fontSize: 12.5, color: '#9CA3AF', margin: '3px 0 0' }}>
+                at <strong style={{ color: '#4B5563' }}>{job.company_name}</strong>
+              </p>
+            </div>
+          </div>
 
-          <div style={{ position: 'relative', zIndex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
-              <div style={{ width: 50, height: 50, borderRadius: 14, flexShrink: 0, background: 'rgba(255,255,255,0.15)', border: '1.5px solid rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 900, color: 'white' }}>
-                {job.company_name.charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <h2 style={{ fontFamily: 'Hind, sans-serif', fontSize: 20, fontWeight: 900, color: 'white', lineHeight: 1.2, marginBottom: 4 }}>{job.title}</h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                  <Building2 size={11} color="rgba(255,255,255,0.5)" />
-                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: 500 }}>{job.company_name}</span>
-                  {job.location && (<><span style={{ color: 'rgba(255,255,255,0.3)' }}>·</span><MapPin size={11} color="rgba(255,255,255,0.5)" /><span style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>{job.location}</span></>)}
-                </div>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 20, fontSize: 12, fontWeight: 700, color: 'white' }}>
-                <Target size={11} />{job.match_score}% match
-              </span>
-              {job.employment_type && <span style={{ padding: '5px 12px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: 20, fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>{EMPLOYMENT_TYPE_LABELS[job.employment_type as EmploymentType] ?? job.employment_type}</span>}
-              {job.growth_outlook && <span style={{ padding: '5px 12px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: 20, fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>{job.growth_outlook} growth ↑</span>}
-            </div>
+          {/* Match ring */}
+          <div style={{ flexShrink: 0, textAlign: 'center' }}>
+            <svg width={56} height={56} viewBox="0 0 56 56">
+              <circle cx={28} cy={28} r={23} fill="none" stroke="#F1F5F9" strokeWidth={5} />
+              <circle cx={28} cy={28} r={23} fill="none" stroke="#6366F1" strokeWidth={5}
+                strokeDasharray={`${2 * Math.PI * 23}`}
+                strokeDashoffset={`${2 * Math.PI * 23 * (1 - readyPct / 100)}`}
+                strokeLinecap="round"
+                transform="rotate(-90 28 28)"
+                style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+              />
+              <text x={28} y={32} textAnchor="middle" fill="#111827" fontSize={12} fontWeight={700}>{readyPct}%</text>
+            </svg>
           </div>
         </div>
 
         {/* Body */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '22px 28px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-          {/* Stats row */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-            {[
-              { label: 'Match Score', value: `${job.match_score}%`, color: '#15130F' },
-              { label: 'Skills Ready', value: `${readyPct}%`, color: '#059669' },
-              { label: 'Salary', value: formatSalary(job.salary_min, job.salary_max) ? `₹${formatSalary(job.salary_min, job.salary_max)} LPA` : 'Not listed', color: '#374151' },
-              { label: 'Posted', value: new Date(job.posted_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }), color: '#64748B' },
-            ].map((s, i) => (
-              <div key={i} style={{ background: 'white', borderRadius: 14, padding: '12px 14px', border: '1.5px solid rgba(226,232,240,0.8)', boxShadow: '0 2px 8px rgba(15,23,42,0.04)' }}>
-                <p style={{ fontSize: 9, color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 5 }}>{s.label}</p>
-                <p style={{ fontFamily: 'Hind, sans-serif', fontSize: 17, fontWeight: 900, color: s.color }}>{s.value}</p>
+          {/* Why you fit / don't fit — AI-generated */}
+          <div>
+            <p style={{
+              fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10,
+              color: readyPct >= 70 ? '#16A34A' : readyPct >= 40 ? '#D97706' : '#DC2626',
+            }}>
+              {readyPct >= 70 ? 'Why this role fits you' : readyPct >= 40 ? 'You have a partial fit' : 'Why this role is a stretch right now'}
+            </p>
+            {aiLoading ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ height: 12, width: '100%', background: '#F1F5F9', borderRadius: 6, animation: 'pulse 1.3s ease-in-out infinite' }} />
+                <div style={{ height: 12, width: '92%', background: '#F1F5F9', borderRadius: 6, animation: 'pulse 1.3s ease-in-out infinite' }} />
+                <div style={{ height: 12, width: '70%', background: '#F1F5F9', borderRadius: 6, animation: 'pulse 1.3s ease-in-out infinite' }} />
               </div>
-            ))}
+            ) : (
+              <p style={{ fontSize: 13, color: '#4B5563', lineHeight: 1.7, margin: 0 }}>
+                {aiSummary ?? (aiError
+                  ? `You have ${haveCount} of the ${total} required skills (${readyPct}% ready). Couldn't generate a detailed analysis right now — please try again in a moment.`
+                  : '')}
+              </p>
+            )}
           </div>
 
-          {/* Two-column */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            {/* Why it fits */}
-            <div style={{ background: 'white', borderRadius: 18, padding: '18px', border: '1.5px solid rgba(226,232,240,0.8)', boxShadow: '0 2px 8px rgba(15,23,42,0.04)' }}>
+          {/* Required skills */}
+          <div style={{ paddingTop: 18, borderTop: '1px solid #F1F5F9' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <ListChecks size={14} color="#6366F1" />
+              <p style={{ fontSize: 12.5, fontWeight: 700, color: '#111827', margin: 0 }}>Skills this role asks for ({total})</p>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {job.required_skills.map(sk => {
+                const has = job.skills_you_have.includes(sk)
+                return (
+                  <span key={sk} style={{
+                    padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+                    background: has ? '#ECFDF5' : '#F0F4FF',
+                    color: has ? '#059669' : '#4F46E5',
+                  }}>{has ? '✓ ' : '+ '}{sk}</span>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Two-column: have / missing */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, paddingTop: 18, borderTop: '1px solid #F1F5F9' }}>
+            {/* Skills you have */}
+            <div style={{ paddingRight: 20, borderRight: '1px solid #F1F5F9' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: '#15130F', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Sparkles size={13} color="white" />
-                </div>
-                <p style={{ fontSize: 12, fontWeight: 800, color: '#0F172A' }}>Why this role fits you</p>
+                <CheckCircle2 size={14} color="#16A34A" />
+                <p style={{ fontSize: 12.5, fontWeight: 700, color: '#111827', margin: 0 }}>Skills you have</p>
+                <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: '#16A34A' }}>{haveCount}/{total}</span>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
-                {[
-                  { label: 'Overall match', value: `${job.match_score}%`, color: '#15130F' },
-                  { label: 'Skills ready', value: `${job.skill_overlap}%`, color: '#2563EB' },
-                ].map((s, i) => (
-                  <div key={i} style={{ background: '#FAF7F1', borderRadius: 10, padding: '10px 12px', border: '1px solid #F1EAE0' }}>
-                    <p style={{ fontSize: 9, color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 3 }}>{s.label}</p>
-                    <p style={{ fontFamily: 'Hind, sans-serif', fontSize: 20, fontWeight: 900, color: s.color }}>{s.value}</p>
-                  </div>
-                ))}
-              </div>
-              {job.skills_you_have.length > 0 && (
-                <div style={{ marginBottom: 10 }}>
-                  <p style={{ fontSize: 10, fontWeight: 700, color: '#059669', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <CheckCircle2 size={10} />Your matching skills ({job.skills_you_have.length})
-                  </p>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                    {job.skills_you_have.map(sk => (
-                      <span key={sk} style={{ padding: '3px 9px', background: '#FAF7F1', border: '1px solid #F1EAE0', borderRadius: 20, fontSize: 10, fontWeight: 600, color: '#15130F' }}>✓ {sk}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {job.min_k_score > 0 && (
-                <div style={{ background: meetsKScore ? 'rgba(5,150,105,0.06)' : '#FFFBEB', border: `1px solid ${meetsKScore ? 'rgba(5,150,105,0.18)' : '#FDE68A'}`, borderRadius: 10, padding: '10px 12px', fontSize: 11, color: meetsKScore ? '#059669' : '#92400E', lineHeight: 1.6 }}>
-                  <span style={{ fontWeight: 700 }}>UPSC knowledge valued.</span> Min K-score: {job.min_k_score}/100.{' '}
-                  {meetsKScore ? <span>Your score of {kScore} meets this ✓</span> : <span>Build to {job.min_k_score} to fully qualify.</span>}
+              {job.skills_you_have.length === 0 ? (
+                <p style={{ fontSize: 12, color: '#9CA3AF', padding: '8px 0' }}>None of the required skills yet.</p>
+              ) : (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                  {job.skills_you_have.map(sk => (
+                    <span key={sk} style={{ padding: '3px 9px', background: '#ECFDF5', borderRadius: 20, fontSize: 10, fontWeight: 600, color: '#059669' }}>✓ {sk}</span>
+                  ))}
                 </div>
               )}
             </div>
 
-            {/* Skills to build */}
-            <div style={{ background: 'white', borderRadius: 18, padding: '18px', border: '1.5px solid rgba(226,232,240,0.8)', boxShadow: '0 2px 8px rgba(15,23,42,0.04)' }}>
+            {/* Skills you don't have */}
+            <div style={{ paddingLeft: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: '#15130F', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <TrendingUp size={13} color="white" />
-                </div>
-                <p style={{ fontSize: 12, fontWeight: 800, color: '#0F172A' }}>Skills to build</p>
-                <span style={{ marginLeft: 'auto', fontSize: 10, fontWeight: 700, color: '#059669' }}>{readyPct}% ready</span>
-              </div>
-              <div style={{ marginBottom: 12 }}>
-                <div style={{ height: 6, borderRadius: 6, background: '#F1F5F9', overflow: 'hidden', marginBottom: 5 }}>
-                  <div style={{ height: '100%', width: `${readyPct}%`, background: 'linear-gradient(90deg, #3B82F6, #15130F)', borderRadius: 6, transition: 'width 0.8s ease' }} />
-                </div>
-                <p style={{ fontSize: 10, color: '#94A3B8', fontWeight: 500 }}>{haveCount} of {total} ready · {gapCount} to develop</p>
+                <X size={14} color="#6366F1" />
+                <p style={{ fontSize: 12.5, fontWeight: 700, color: '#111827', margin: 0 }}>Skills you don't have</p>
+                <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: '#4F46E5' }}>{gapCount}/{total}</span>
               </div>
               {job.skills_to_develop.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '14px 0' }}>
-                  <CheckCircle2 size={26} color="#059669" style={{ margin: '0 auto 6px' }} />
-                  <p style={{ fontSize: 12, fontWeight: 700, color: '#059669' }}>You have all required skills!</p>
+                <div style={{ padding: '8px 0' }}>
+                  <CheckCircle2 size={22} color="#16A34A" style={{ marginBottom: 6 }} />
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#16A34A', margin: 0 }}>You have all required skills!</p>
                 </div>
               ) : (
-                <>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-                    {job.skills_to_develop.map(sk => (
-                      <span key={sk} style={{ padding: '4px 10px', background: '#FAF7F1', border: '1px solid #F1EAE0', borderRadius: 20, fontSize: 10, fontWeight: 600, color: '#15130F' }}>+ {sk}</span>
-                    ))}
-                  </div>
-                  <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '10px 12px', fontSize: 10, color: '#92400E', lineHeight: 1.6 }}>
-                    <span style={{ fontWeight: 700 }}>Tip:</span> Each skill you add directly improves your match score for this role.
-                  </div>
-                </>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                  {job.skills_to_develop.map(sk => (
+                    <span key={sk} style={{ padding: '4px 10px', background: '#F0F4FF', borderRadius: 20, fontSize: 10, fontWeight: 600, color: '#4F46E5' }}>+ {sk}</span>
+                  ))}
+                </div>
               )}
             </div>
           </div>
-
-          {/* About this role */}
-          {job.description && (
-            <div style={{ background: 'white', borderRadius: 18, padding: '18px 20px', border: '1.5px solid rgba(226,232,240,0.8)', boxShadow: '0 2px 8px rgba(15,23,42,0.04)' }}>
-              <p style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: 10 }}>About this role</p>
-              <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>{job.description}</p>
-            </div>
-          )}
         </div>
 
         {/* Footer */}
-        <div style={{ borderTop: '1px solid rgba(226,232,240,0.8)', padding: '14px 28px', display: 'flex', gap: 10, background: 'white', flexShrink: 0 }}>
+        <div style={{ borderTop: '1px solid #F1F5F9', padding: '16px 32px 20px', display: 'flex', gap: 10, flexShrink: 0 }}>
           {onRemove && (
             <button onClick={onRemove} style={{
               display: 'flex', alignItems: 'center', gap: 6, height: 42, padding: '0 16px', borderRadius: 11,
@@ -188,23 +192,27 @@ export default function JobAnalysisDrawer({ job, kScore, onClose, onRemove, onAp
               onMouseOut={e => { e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.color = '#6B7280' }}
             ><X size={13} /> Remove</button>
           )}
+          <button onClick={onClose} style={{
+            height: 42, padding: '0 18px', borderRadius: 11,
+            border: '1.5px solid #E2E8F0', background: 'white', fontSize: 13, fontWeight: 600, color: '#6B7280', cursor: 'pointer', transition: 'all 0.2s',
+          }}
+            onMouseOver={e => { e.currentTarget.style.background = '#F8FAFC' }}
+            onMouseOut={e => { e.currentTarget.style.background = 'white' }}
+          >Cancel</button>
           <button onClick={onApply} style={{
             flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-            height: 42, borderRadius: 11, border: 'none',
-            background: 'linear-gradient(135deg, #3B82F6, #15130F)',
-            fontSize: 13, fontWeight: 700, color: 'white', cursor: 'pointer',
-            boxShadow: '0 4px 14px rgba(21,19,15,0.22)', transition: 'all 0.2s',
+            height: 42, borderRadius: 11,
+            background: 'white', border: '1.5px solid #BFDBFE',
+            fontSize: 13, fontWeight: 700, color: '#2563EB', cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(37,99,235,0.08)', transition: 'all 0.2s',
           }}
-            onMouseOver={e => { e.currentTarget.style.boxShadow = '0 6px 20px rgba(21,19,15,0.32)' }}
-            onMouseOut={e => { e.currentTarget.style.boxShadow = '0 4px 14px rgba(21,19,15,0.22)' }}
+            onMouseOver={e => { e.currentTarget.style.borderColor = '#93C5FD'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(37,99,235,0.14)' }}
+            onMouseOut={e => { e.currentTarget.style.borderColor = '#BFDBFE'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(37,99,235,0.08)' }}
           ><ExternalLink size={13} /> Apply Now</button>
         </div>
       </div>
 
-      <style>{`
-        @keyframes fadeInBg { from{opacity:0} to{opacity:1} }
-        @keyframes modalIn  { from{opacity:0;transform:scale(0.94) translateY(16px)} to{opacity:1;transform:scale(1) translateY(0)} }
-      `}</style>
+      <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }`}</style>
     </div>
   )
 }

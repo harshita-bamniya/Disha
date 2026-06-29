@@ -134,13 +134,78 @@ class CandidateOut(BaseModel):
     applied_at: datetime
     days_ago: int = 0
     status_history: list[ApplicationStatusHistoryItem] = []
+    notes: list["CandidateNoteOut"] = []
+    avg_rating: Optional[float] = None
+    interview_feedback: list["InterviewFeedbackOut"] = []
 
     model_config = {"from_attributes": True}
 
 
 class UpdateApplicationStatusRequest(BaseModel):
-    status: str = Field(..., pattern="^(under_review|shortlisted|rejected|hired)$")
+    status: str = Field(
+        ...,
+        pattern="^(screening|shortlisted|interview_scheduled|interview_completed|offer_sent|rejected|hired)$",
+    )
     note: Optional[str] = Field(None, max_length=500)
+
+
+class BulkStatusUpdateRequest(BaseModel):
+    application_ids: list[str]
+    status: str = Field(
+        ...,
+        pattern="^(screening|shortlisted|interview_scheduled|interview_completed|offer_sent|rejected|hired)$",
+    )
+    note: Optional[str] = Field(None, max_length=500)
+
+
+class CandidateNoteCreateRequest(BaseModel):
+    note: str = Field(..., min_length=1, max_length=2000)
+    is_internal: bool = True
+
+
+class CandidateNoteOut(BaseModel):
+    id: str
+    author_name: Optional[str] = None
+    note: str
+    is_internal: bool
+    created_at: datetime
+
+
+class CandidateRatingRequest(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+
+
+class ScheduleInterviewRequest(BaseModel):
+    scheduled_at: datetime
+    meeting_link: Optional[str] = Field(None, max_length=500)
+
+
+class InterviewFeedbackSubmitRequest(BaseModel):
+    recommendation: Optional[str] = Field(None, pattern="^(strong_yes|yes|no|strong_no)$")
+    feedback: Optional[str] = Field(None, max_length=4000)
+
+
+class InterviewFeedbackOut(BaseModel):
+    id: str
+    application_id: str
+    interviewer_name: Optional[str] = None
+    scheduled_at: Optional[datetime] = None
+    meeting_link: Optional[str] = None
+    status: str
+    recommendation: Optional[str] = None
+    feedback: Optional[str] = None
+    created_at: datetime
+
+
+class UpcomingInterviewEntry(BaseModel):
+    id: str
+    application_id: str
+    candidate_name: Optional[str] = None
+    job_id: str
+    job_title: str
+    scheduled_at: datetime
+    meeting_link: Optional[str] = None
+    interviewer_name: Optional[str] = None
 
 
 class JobCandidatePipeline(BaseModel):
@@ -156,3 +221,60 @@ class JobCandidatePipeline(BaseModel):
 class JobRecommendationsResponse(BaseModel):
     total: int
     jobs: list[JobListItem]
+
+
+# ── Employer analytics (Module 05 Phase 5) ────────────────────────────────────
+
+class EmployerFunnelStage(BaseModel):
+    stage: str
+    count: int
+    pct_of_total: float
+
+
+class EmployerFunnelResponse(BaseModel):
+    total_applications: int
+    stages: list[EmployerFunnelStage]
+
+
+class JobPerformanceEntry(BaseModel):
+    job_id: str
+    title: str
+    is_active: bool
+    total_applications: int
+    shortlisted: int
+    interviewed: int
+    hired: int
+    rejected: int
+    conversion_rate_pct: float   # hired / total_applications
+    created_at: datetime
+
+
+class JobPerformanceResponse(BaseModel):
+    jobs: list[JobPerformanceEntry]
+
+
+# ── Dashboard KPIs (Module 05 Phase 8) ─────────────────────────────────────────
+
+class DashboardKpis(BaseModel):
+    active_jobs: int
+    draft_jobs: int
+    paused_jobs: int
+    closed_jobs: int
+    archived_jobs: int
+    applications_today: int
+    total_applications: int
+    interviews_scheduled: int
+    offers_sent: int
+    hires: int
+    response_rate_pct: float          # % of applications moved past 'applied' by a recruiter
+    avg_time_to_hire_days: Optional[float] = None   # null until at least one hire
+
+
+class ApplicationTrendPoint(BaseModel):
+    date: str
+    count: int
+
+
+class ApplicationTrendResponse(BaseModel):
+    days: int
+    series: list[ApplicationTrendPoint]

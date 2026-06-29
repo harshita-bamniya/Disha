@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   PlayCircle, ExternalLink, CheckCircle2, Circle,
   Zap, RefreshCw, Loader2, AlertCircle, ChevronDown,
-  ChevronUp, Target, Save, Check, Sparkles,
+  ChevronUp, Target, Save, Check, Sparkles, X,
 } from 'lucide-react'
 import { jobPlanApi, type GenerationDetail, type GenerationStep, type PlanModule, type PlanResource, type QuizProgress } from '@/api/jobPlan'
 import type { RoadmapOut } from '@/api/roadmap'
@@ -70,7 +70,7 @@ const GEN_STEPS: { key: GenerationStep; label: string; Icon: typeof Target }[] =
 function buildNarration(step: GenerationStep, detail: GenerationDetail | undefined, jobTitle?: string) {
   if (step === 'agenda') {
     return {
-      title: 'DISHA AI is Creating Your Learning Path',
+      title: 'BeginablAI is Creating Your Learning Path',
       subtitle: `Drafting modules from the skill gaps for ${jobTitle ?? 'this role'}`,
       lines: ['Reading the job description and required skills', 'Comparing them against your profile', 'Drafting prioritised modules'],
     }
@@ -84,20 +84,20 @@ function buildNarration(step: GenerationStep, detail: GenerationDetail | undefin
     if (detail?.last_found) lines.push(`Just found: "${detail.last_found}"`)
     if (lines.length === 0) lines.push('Starting real YouTube search for each module…')
     return {
-      title: 'DISHA AI is Curating Your Resources',
+      title: 'BeginablAI is Curating Your Resources',
       subtitle: 'Searching for real, watchable videos — not just search links',
       lines,
     }
   }
   return {
-    title: 'DISHA AI is Finalizing Your Roadmap',
+    title: 'BeginablAI is Finalizing Your Roadmap',
     subtitle: detail?.modules_planned ? `Saving your ${detail.modules_planned}-module roadmap` : 'Saving your roadmap',
     lines: ['Double-checking every module has working resources', 'Writing your roadmap to your dashboard'],
   }
 }
 
 function GenerationProgress({
-  step, detail, jobTitle, stuck, onRegenerate, regenerating,
+  step, detail, jobTitle, stuck, onRegenerate, regenerating, onClose, cancelling,
 }: {
   step: GenerationStep
   detail?: GenerationDetail
@@ -105,6 +105,8 @@ function GenerationProgress({
   stuck: boolean
   onRegenerate: () => void
   regenerating: boolean
+  onClose: () => void
+  cancelling: boolean
 }) {
   const stepIndex = GEN_STEPS.findIndex(s => s.key === step)
   const resourcesPct = detail?.resources_total ? (detail.resources_done ?? 0) / detail.resources_total : 0.5
@@ -122,7 +124,25 @@ function GenerationProgress({
         width: '100%', maxWidth: 880,
         boxShadow: '0 20px 60px rgba(15,23,42,0.18)',
         overflow: 'hidden', display: 'flex', flexDirection: 'column',
+        position: 'relative',
       }}>
+        <button
+          onClick={onClose}
+          disabled={cancelling}
+          title="Stop generating this roadmap"
+          style={{
+            position: 'absolute', top: 16, right: 16, zIndex: 1,
+            width: 30, height: 30, borderRadius: 9,
+            background: '#F8FAFC', border: '1px solid #EEF2F9',
+            color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: cancelling ? 'wait' : 'pointer', transition: 'all 0.2s',
+            opacity: cancelling ? 0.6 : 1,
+          }}
+          onMouseOver={e => { e.currentTarget.style.background = '#FEF2F2'; e.currentTarget.style.color = '#DC2626' }}
+          onMouseOut={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.color = '#64748B' }}
+        >
+          {cancelling ? <Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> : <X size={14} />}
+        </button>
 
         {/* Header */}
         <div style={{ padding: '24px 32px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
@@ -224,7 +244,7 @@ function GenerationProgress({
 
           {/* Right: live AI narration */}
           <div style={{ padding: '24px 32px' }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 18 }}>What DISHA is doing now</p>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 18 }}>What BeginablAI is doing now</p>
 
             <div style={{ marginBottom: 18, paddingBottom: 16, borderBottom: '1px solid #F1F5F9' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
@@ -541,7 +561,7 @@ function ModuleCard({
             {onAskAI && (
               <button
                 onClick={() => onAskAI(buildAskAIPrompt(mod, jobTitle))}
-                title="Ask DISHA to explain this topic"
+                title="Ask BeginablAI to explain this topic"
                 style={{
                   display: 'flex', alignItems: 'center', gap: 6,
                   background: 'none', border: 'none', padding: 0,
@@ -603,6 +623,15 @@ export default function JobLearningPlanPanel({ activeJobId, activeJobTitle, acti
       qc.invalidateQueries({ queryKey: ['job-learning-plan', activeJobId] })
     },
     onError: () => setPollingActive(false),
+  })
+
+  const cancelGenerationMutation = useMutation({
+    mutationFn: () => jobPlanApi.remove(activeJobId),
+    onSuccess: () => {
+      setPollingActive(false)
+      qc.invalidateQueries({ queryKey: ['job-learning-plan', activeJobId] })
+      qc.invalidateQueries({ queryKey: ['job-plans-all'] })
+    },
   })
 
   // Self-healing: a "ready" plan generated before real-video enrichment existed
@@ -677,7 +706,7 @@ export default function JobLearningPlanPanel({ activeJobId, activeJobTitle, acti
           Get your personalised learning roadmap
         </h3>
         <p style={{ fontSize: 13, color: '#6B7280', margin: '0 0 18px', maxWidth: 360, lineHeight: 1.5 }}>
-          DISHA AI will analyse the skill gaps between your profile and{' '}
+          BeginablAI will analyse the skill gaps between your profile and{' '}
           <strong>{activeJobTitle ?? 'this job'}</strong> at <strong>{activeCompany ?? 'the company'}</strong>,
           then generate a step-by-step plan with YouTube courses and reading material to close every gap.
         </p>
@@ -720,6 +749,12 @@ export default function JobLearningPlanPanel({ activeJobId, activeJobTitle, acti
         stuck={stuck}
         regenerating={generateMutation.isPending}
         onRegenerate={() => generateMutation.mutate()}
+        cancelling={cancelGenerationMutation.isPending}
+        onClose={() => {
+          if (window.confirm('Stop generating this roadmap? Progress so far will be discarded.')) {
+            cancelGenerationMutation.mutate()
+          }
+        }}
       />
     )
   }

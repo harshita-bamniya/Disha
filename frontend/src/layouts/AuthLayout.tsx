@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 
 interface AuthLayoutProps {
   children: React.ReactNode
@@ -54,7 +55,7 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
           }}>
             <span style={{ color: '#1D4ED8', fontWeight: 900, fontSize: 18 }}>D</span>
           </div>
-          <span style={{ fontFamily: 'Hind, sans-serif', fontWeight: 800, fontSize: 22, color: '#1E3A5F' }}>DISHA AI</span>
+          <span style={{ fontFamily: 'Hind, sans-serif', fontWeight: 800, fontSize: 22, color: '#1E3A5F' }}>BeginablAI</span>
         </Link>
 
         {/* Middle copy */}
@@ -113,7 +114,7 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
           }}>
             <span style={{ color: 'white', fontWeight: 800, fontSize: 16 }}>D</span>
           </div>
-          <span style={{ fontFamily: 'Hind, sans-serif', fontWeight: 800, fontSize: 20, color: '#1E3A5F' }}>DISHA AI</span>
+          <span style={{ fontFamily: 'Hind, sans-serif', fontWeight: 800, fontSize: 20, color: '#1E3A5F' }}>BeginablAI</span>
         </Link>
 
         {/* Card */}
@@ -126,6 +127,13 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
           boxShadow: '0 20px 60px rgba(30,58,95,0.07), 0 4px 16px rgba(59,130,246,0.05)',
           padding: '36px 36px',
         }}>
+          <Link to="/" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontSize: 13, fontWeight: 600, color: '#6B7280',
+            textDecoration: 'none', marginBottom: 18,
+          }}>
+            <ArrowLeft size={14} />Back to home
+          </Link>
           <div style={{ marginBottom: 28 }}>
             <h1 style={{
               fontFamily: 'Hind, sans-serif', fontSize: 26, fontWeight: 900,

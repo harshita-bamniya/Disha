@@ -14,7 +14,7 @@ export function useOnboardingStatus() {
 
 function useStepMutation(
   mutationFn: (data: any) => Promise<any>,
-  nextStep: number | 'done',
+  nextStep: number | 'done' | 'dashboard',
 ) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -22,15 +22,23 @@ function useStepMutation(
   return useMutation({
     mutationFn,
     onSuccess: (data) => {
-      // Update cache synchronously so OnboardingGate sees is_completed=true
-      // before navigation, preventing the race-condition redirect to step 1.
+      // Update cache synchronously so OnboardingGate sees the new current_step
+      // before navigation, preventing a race-condition redirect back to step 1.
       queryClient.setQueryData(ONBOARDING_STATUS_KEY, {
-        current_step: data.current_step ?? nextStep,
+        current_step: data.current_step ?? (typeof nextStep === 'number' ? nextStep : 1),
         is_completed: data.is_completed ?? false,
       })
+      // Every step writes to the same aspirant profile the dashboard's
+      // ProfileCompletionCard reads — without this, completing e.g. Skills
+      // still shows "Add skills" unchecked until a hard page reload, because
+      // that query was never told the underlying data changed.
+      queryClient.invalidateQueries({ queryKey: ['onboarding', 'profile'] })
+      queryClient.invalidateQueries({ queryKey: ['krs', 'dashboard'] })
       // For 'done' steps the component handles its own navigation
       // (e.g. Step7 shows the InsightCard first), so we skip here.
-      if (nextStep !== 'done') {
+      if (nextStep === 'dashboard') {
+        navigate('/app/dashboard')
+      } else if (nextStep !== 'done') {
         navigate(`/app/onboarding/step/${nextStep}`)
       }
     },
@@ -38,6 +46,12 @@ function useStepMutation(
 }
 
 export const useOnboardingSteps = () => ({
+  // Step 1 is the only mandatory step — completing it unlocks the dashboard
+  // (OnboardingGate only checks current_step >= 2). Steps 2-7 walk through
+  // sequentially right after, same as LinkedIn/Indeed-style progressive
+  // profile wizards — each one is still skippable (see SkipLink in each page),
+  // and a user can also just navigate to the dashboard directly at any point
+  // since the gate doesn't force them back.
   personal:       useStepMutation(onboardingApi.savePersonal, 2),
   education:      useStepMutation(onboardingApi.saveEducation, 3),
   upscJourney:    useStepMutation(onboardingApi.saveUpscJourney, 4),

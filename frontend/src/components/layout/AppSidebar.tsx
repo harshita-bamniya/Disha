@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LayoutDashboard, LogOut, BarChart2, FileText, Briefcase, Map, Zap, ChevronLeft, ChevronRight, MessageSquare, Brain, Heart } from 'lucide-react'
+import { LayoutDashboard, LogOut, BarChart2, FileText, Briefcase, Map, Zap, ChevronLeft, ChevronRight, MessageSquare, Brain, Heart, ShieldCheck } from 'lucide-react'
 import { useKrsDashboard } from '@/modules/dashboard/hooks/useKrs'
 import { useLogout } from '@/modules/auth/hooks/useAuth'
 import { useQuery } from '@tanstack/react-query'
@@ -20,6 +20,7 @@ type NavPath =
   | '/app/roadmap'
   | '/app/roadmap/history'
   | '/app/companion'
+  | '/app/security'
 
 // Main app navigation — shown everywhere except inside the Roadmap's tool pages.
 const MAIN_NAV_ITEMS: { icon: React.ReactNode; label: string; path: NavPath }[] = [
@@ -70,7 +71,7 @@ export default function AppSidebar({ activePath }: { activePath?: NavPath }) {
           }}>
             <span style={{ color: 'white', fontWeight: 900, fontSize: 17 }}>D</span>
           </div>
-          {!collapsed && <span style={{ fontFamily: 'Hind, sans-serif', fontWeight: 800, fontSize: 18, color: '#1E3A5F', whiteSpace: 'nowrap' }}>DISHA AI</span>}
+          {!collapsed && <span style={{ fontFamily: 'Hind, sans-serif', fontWeight: 800, fontSize: 18, color: '#1E3A5F', whiteSpace: 'nowrap' }}>BeginablAI</span>}
         </div>
         {!collapsed && (
           <button
@@ -94,14 +95,20 @@ export default function AppSidebar({ activePath }: { activePath?: NavPath }) {
       {!collapsed && (
         <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(59,130,246,0.07)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 38, height: 38, borderRadius: '50%', flexShrink: 0,
-              background: 'linear-gradient(135deg, rgba(59,130,246,0.12), rgba(147,197,253,0.18))',
-              border: '2px solid rgba(59,130,246,0.15)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontWeight: 800, fontSize: 15, color: '#3B82F6',
-            }}>
-              {name.charAt(0).toUpperCase()}
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <div style={{
+                width: 38, height: 38, borderRadius: '50%',
+                background: 'linear-gradient(135deg, #818CF8, #3B82F6)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 700, fontSize: 15, color: 'white',
+                boxShadow: '0 3px 10px rgba(59,130,246,0.3)',
+              }}>
+                {name.charAt(0).toUpperCase()}
+              </div>
+              <div style={{
+                position: 'absolute', bottom: -1, right: -1, width: 10, height: 10, borderRadius: '50%',
+                background: '#16A34A', border: '2px solid white',
+              }} />
             </div>
             <div style={{ overflow: 'hidden' }}>
               <p style={{ fontSize: 13, fontWeight: 700, color: '#1E3A5F', whiteSpace: 'nowrap' }}>{name}</p>
@@ -145,11 +152,11 @@ export default function AppSidebar({ activePath }: { activePath?: NavPath }) {
                 justifyContent: collapsed ? 'center' : 'flex-start',
                 padding: collapsed ? '10px 0' : '10px 12px',
                 borderRadius: 12, marginBottom: 2,
-                background: isActive ? '#3B82F6' : 'transparent',
+                background: isActive ? 'linear-gradient(135deg, #4F8DFB, #2563EB)' : 'transparent',
                 color: isActive ? 'white' : '#6B7280',
                 border: 'none', cursor: 'pointer', textAlign: 'left',
                 fontSize: 14, fontWeight: 600, transition: 'all 0.2s',
-                boxShadow: isActive ? '0 4px 12px rgba(59,130,246,0.22)' : 'none',
+                boxShadow: isActive ? '0 6px 16px rgba(37,99,235,0.28)' : 'none',
               }}
               onMouseOver={e => { if (!isActive) e.currentTarget.style.background = 'rgba(59,130,246,0.06)' }}
               onMouseOut={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
@@ -255,17 +262,32 @@ export default function AppSidebar({ activePath }: { activePath?: NavPath }) {
         </div>
       )}
 
+      {/* Security */}
+      <div style={{ padding: collapsed ? '12px 0' : '12px 20px 0', display: 'flex', justifyContent: collapsed ? 'center' : 'flex-start' }}>
+        <button onClick={() => navigate('/app/security')} title={collapsed ? 'Security' : undefined} style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          width: collapsed ? 'auto' : '100%',
+          padding: collapsed ? '10px' : '10px 12px', borderRadius: 10,
+          background: activePath === '/app/security' ? 'rgba(59,130,246,0.08)' : 'transparent',
+          border: 'none', cursor: 'pointer',
+          fontSize: 13, fontWeight: 600, color: activePath === '/app/security' ? '#1D4ED8' : '#6B7280', transition: 'all 0.2s',
+        }}>
+          <ShieldCheck size={14} />
+          {!collapsed && 'Security'}
+        </button>
+      </div>
+
       {/* Logout */}
       <div style={{ padding: collapsed ? '12px 0' : '12px 20px', borderTop: '1px solid rgba(59,130,246,0.07)', display: 'flex', justifyContent: collapsed ? 'center' : 'flex-start' }}>
         <button onClick={() => logout.mutate()} title={collapsed ? 'Log out' : undefined} style={{
           display: 'flex', alignItems: 'center', gap: 8,
           width: collapsed ? 'auto' : '100%',
           padding: collapsed ? '10px' : '10px 12px', borderRadius: 10,
-          background: 'none', border: 'none', cursor: 'pointer',
-          fontSize: 13, fontWeight: 500, color: '#9CA3AF', transition: 'all 0.2s',
+          background: 'rgba(220,38,38,0.06)', border: 'none', cursor: 'pointer',
+          fontSize: 13, fontWeight: 600, color: '#DC2626', transition: 'all 0.2s',
         }}
-          onMouseOver={e => { e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.background = 'rgba(220,38,38,0.05)' }}
-          onMouseOut={e => { e.currentTarget.style.color = '#9CA3AF'; e.currentTarget.style.background = 'none' }}
+          onMouseOver={e => { e.currentTarget.style.background = 'rgba(220,38,38,0.12)' }}
+          onMouseOut={e => { e.currentTarget.style.background = 'rgba(220,38,38,0.06)' }}
         >
           <LogOut size={14} />
           {!collapsed && 'Log out'}

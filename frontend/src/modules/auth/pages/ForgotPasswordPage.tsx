@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { authApi } from '@/api/auth'
 import { getApiError } from '@/api/client'
+import { getRecaptchaToken } from '@/lib/recaptcha'
 
 type Step = 'phone' | 'reset' | 'done'
 
@@ -34,7 +35,8 @@ export default function ForgotPasswordPage() {
 
     setLoading(true)
     try {
-      const res = await authApi.forgotPassword(phone)
+      const recaptcha_token = await getRecaptchaToken('forgot_password')
+      const res = await authApi.forgotPassword(phone, recaptcha_token)
       if (res.dev_otp) setDevOtp(res.dev_otp)
       setStep('reset')
     } catch (err: any) {

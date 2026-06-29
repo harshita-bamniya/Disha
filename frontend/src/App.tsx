@@ -39,6 +39,8 @@ import VerifyOtpPage from '@/modules/auth/pages/VerifyOtpPage'
 import EmployerRegisterPage from '@/modules/auth/pages/EmployerRegisterPage'
 import EmployerVerifyOtpPage from '@/modules/auth/pages/EmployerVerifyOtpPage'
 import EmployerPendingPage from '@/modules/auth/pages/EmployerPendingPage'
+import TwoFactorChallengePage from '@/modules/auth/pages/TwoFactorChallengePage'
+import SecuritySettingsPage from '@/modules/auth/pages/SecuritySettingsPage'
 
 // Onboarding pages
 import Step1Personal from '@/modules/onboarding/pages/Step1Personal'
@@ -53,7 +55,13 @@ import DashboardPage from '@/modules/dashboard/pages/DashboardPage'
 import DishaLanding from '@/pages/DishaLanding'
 import ProfilePage from '@/modules/profile/pages/ProfilePage'
 import EmployerDashboardPage from '@/modules/employer/pages/EmployerDashboardPage'
+const EmployerVerificationPage = lazy(() => import('@/modules/employer/pages/EmployerVerificationPage'))
+const EmployerSetupWizardPage = lazy(() => import('@/modules/employer/pages/EmployerSetupWizardPage'))
+const CompanyTeamPage = lazy(() => import('@/modules/employer/pages/CompanyTeamPage'))
+const EmployerAnalyticsPage = lazy(() => import('@/modules/employer/pages/EmployerAnalyticsPage'))
+const SubscriptionPage = lazy(() => import('@/modules/employer/pages/SubscriptionPage'))
 import ForgotPasswordPage from '@/modules/auth/pages/ForgotPasswordPage'
+import { PLATFORM_ADMIN_ROLES } from '@/types'
 
 // Lazy-loaded pages
 const AdminDashboardPage = lazy(() => import('@/modules/admin/pages/AdminDashboardPage'))
@@ -96,7 +104,7 @@ function GuestRoute({ children }: { children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!isAuthenticated) return <>{children}</>
   if (user?.role === 'employer') return <Navigate to="/app/employer/dashboard" replace />
-  if (user?.role === 'admin') return <Navigate to="/admin" replace />
+  if (user && PLATFORM_ADMIN_ROLES.includes(user.role)) return <Navigate to="/admin" replace />
   return <Navigate to="/app/dashboard" replace />
 }
 
@@ -104,11 +112,13 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const user = useAuthStore((s) => s.user)
   if (!isAuthenticated) return <Navigate to="/auth/login" replace />
-  if (user?.role !== 'admin') return <Navigate to="/" replace />
+  if (!user || !PLATFORM_ADMIN_ROLES.includes(user.role)) return <Navigate to="/" replace />
   return <>{children}</>
 }
 
-/** Ensures aspirants complete onboarding before reaching the dashboard */
+/** Only blocks the dashboard until the quick-start step (name/status/city,
+ * current_step 1) is done — the rest of onboarding (education, skills, etc.)
+ * is optional and completed later from the dashboard's profile-completion card. */
 function OnboardingGate({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const user = useAuthStore((s) => s.user)
@@ -118,8 +128,8 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
   // Employers skip onboarding — they land on a pending/different page
   if (user?.role === 'employer') return <>{children}</>
   if (isLoading) return null
-  if (status && !status.is_completed) {
-    return <Navigate to={`/app/onboarding/step/${status.current_step}`} replace />
+  if (status && status.current_step < 2) {
+    return <Navigate to="/app/onboarding/step/1" replace />
   }
   return <>{children}</>
 }
@@ -146,6 +156,7 @@ function App() {
           <Route path="/auth/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
           <Route path="/auth/verify" element={<VerifyOtpPage />} />
           <Route path="/auth/forgot-password" element={<GuestRoute><ForgotPasswordPage /></GuestRoute>} />
+          <Route path="/auth/2fa-challenge" element={<TwoFactorChallengePage />} />
 
           {/* Employer auth routes */}
           <Route path="/auth/register/employer" element={<GuestRoute><EmployerRegisterPage /></GuestRoute>} />
@@ -165,6 +176,41 @@ function App() {
 
           {/* Employer dashboard */}
           <Route path="/app/employer/dashboard" element={<ProtectedRoute><EmployerDashboardPage /></ProtectedRoute>} />
+          <Route path="/app/employer/verification" element={
+            <ProtectedRoute>
+              <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
+                <EmployerVerificationPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/app/employer/setup" element={
+            <ProtectedRoute>
+              <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
+                <EmployerSetupWizardPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/app/employer/company" element={
+            <ProtectedRoute>
+              <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
+                <CompanyTeamPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/app/employer/analytics" element={
+            <ProtectedRoute>
+              <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
+                <EmployerAnalyticsPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/app/employer/subscription" element={
+            <ProtectedRoute>
+              <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
+                <SubscriptionPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
 
           {/* Protected dashboard — gated behind onboarding completion */}
           <Route
@@ -185,6 +231,9 @@ function App() {
               </OnboardingGate>
             }
           />
+
+          {/* Security settings (2FA) — any authenticated role, no onboarding gate */}
+          <Route path="/app/security" element={<ProtectedRoute><SecuritySettingsPage /></ProtectedRoute>} />
 
           {/* Skills Report (Module 03 frontend) */}
           <Route path="/app/skills/report" element={

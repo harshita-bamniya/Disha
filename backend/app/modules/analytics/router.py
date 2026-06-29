@@ -255,6 +255,48 @@ def list_safety_flags(
     }
 
 
+@router.get("/admin/trends")
+def admin_trends(
+    metric: str = Query("users", pattern="^(users|employers|jobs|applications)$"),
+    days: int = Query(30, ge=7, le=180),
+    current_user: User = Depends(_admin),
+    db: Session = Depends(get_db),
+):
+    """Daily time series for growth charts — Module 05 admin analytics dashboard."""
+    from app.models.user import EmployerProfile, JobPosting
+    from app.models.mvp3 import Application
+
+    model_for_metric = {
+        "users": (User, User.created_at, User.deleted_at == None),
+        "employers": (EmployerProfile, EmployerProfile.created_at, None),
+        "jobs": (JobPosting, JobPosting.created_at, None),
+        "applications": (Application, Application.created_at, None),
+    }
+    model, date_col, extra_filter = model_for_metric[metric]
+
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(days=days)
+
+    query = (
+        db.query(func.date_trunc("day", date_col).label("day"), func.count())
+        .filter(date_col >= start)
+        .group_by("day")
+        .order_by("day")
+    )
+    if extra_filter is not None:
+        query = query.filter(extra_filter)
+
+    rows = query.all()
+    counts_by_day = {row.day.date().isoformat(): row[1] for row in rows}
+
+    series = []
+    for i in range(days):
+        day = (start + timedelta(days=i)).date().isoformat()
+        series.append({"date": day, "count": counts_by_day.get(day, 0)})
+
+    return {"metric": metric, "days": days, "series": series}
+
+
 @router.patch("/admin/safety-flags/{flag_id}/review", status_code=200)
 def review_safety_flag(
     flag_id: str,

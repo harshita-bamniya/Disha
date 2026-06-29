@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { MapPin } from 'lucide-react'
 import OnboardingLayout from '@/layouts/OnboardingLayout'
 import Input from '@/components/ui/Input'
@@ -31,6 +32,7 @@ export default function Step6Preferences() {
   const [salary, setSalary] = useState<{ min: number; max: number } | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const { preferences } = useOnboardingSteps()
+  const navigate = useNavigate()
 
   const toggleSector = (s: string) => {
     setErrors((p) => ({ ...p, sectors: '' }))
@@ -80,6 +82,7 @@ export default function Step6Preferences() {
       currentStep={6}
       title="Career preferences"
       subtitle="Tell us what you're looking for. This shapes your personalised matches."
+      onSkip={() => navigate('/app/onboarding/step/7')}
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
 

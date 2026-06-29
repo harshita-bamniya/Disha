@@ -136,4 +136,7 @@ export const jobPlanApi = {
 
   generateQuiz: (jobId: string, moduleId: string) =>
     apiClient.post<ModuleQuiz>(`/jobs/${jobId}/learning-plan/modules/${moduleId}/quiz/generate`).then(r => r.data),
+
+  remove: (jobId: string) =>
+    apiClient.delete(`/jobs/${jobId}/learning-plan`).then(r => r.data),
 }

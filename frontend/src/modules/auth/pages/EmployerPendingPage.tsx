@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { Clock, CheckCircle2, Phone, ArrowRight } from 'lucide-react'
+import { Clock, CheckCircle2, Phone, ArrowRight, ArrowLeft } from 'lucide-react'
 
 export default function EmployerPendingPage() {
   return (
@@ -13,6 +13,16 @@ export default function EmployerPendingPage() {
       <div style={{ position: 'absolute', width: 500, height: 500, borderRadius: '50%', background: 'radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 70%)', top: '-100px', right: '-100px', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', width: 300, height: 300, borderRadius: '50%', background: 'radial-gradient(circle, rgba(147,197,253,0.07) 0%, transparent 70%)', bottom: '-80px', left: '-80px', pointerEvents: 'none' }} />
 
+      {/* Back to home */}
+      <div style={{ width: '100%', maxWidth: 460, position: 'relative', zIndex: 1 }}>
+        <Link to="/" style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none',
+          fontSize: 13, fontWeight: 600, color: '#6B7280', marginBottom: 16,
+        }}>
+          <ArrowLeft size={14} />Back to home
+        </Link>
+      </div>
+
       {/* Logo */}
       <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', marginBottom: 32, position: 'relative', zIndex: 1 }}>
         <div style={{
@@ -23,7 +33,7 @@ export default function EmployerPendingPage() {
         }}>
           <span style={{ color: 'white', fontWeight: 900, fontSize: 18 }}>D</span>
         </div>
-        <span style={{ fontFamily: 'Hind, sans-serif', fontWeight: 800, fontSize: 22, color: '#1E3A5F' }}>DISHA AI</span>
+        <span style={{ fontFamily: 'Hind, sans-serif', fontWeight: 800, fontSize: 22, color: '#1E3A5F' }}>BeginablAI</span>
       </Link>
 
       {/* Card */}

@@ -455,7 +455,7 @@ def list_memories(
     user: User = Depends(get_current_aspirant),
     db: Session = Depends(get_db),
 ):
-    """Return all active memories DISHA has stored about this user."""
+    """Return all active memories BeginablAI has stored about this user."""
     importance_order = case(
         (CounsellorMemory.importance == "critical", 0),
         (CounsellorMemory.importance == "high", 1),

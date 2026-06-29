@@ -457,3 +457,65 @@ def _build_active_prep_context(
         matched_track_slug=best_track.slug if best_track else None,
         match_score=match_score,
     )
+
+
+_FIT_ANALYSIS_SYSTEM = """You are a career counsellor helping a UPSC aspirant decide whether to prepare for a private-sector job. \
+Write a short, natural, encouraging-but-honest analysis (3-4 sentences max, plain prose, no headings or bullet points) that:
+1. Briefly says what the company/role actually does, in your own words (don't just repeat the description verbatim).
+2. Explains concretely why this candidate is or isn't a good fit, referencing the specific skills they have and the specific skills they're missing.
+3. Gives a clear, actionable next step for preparation.
+Speak directly to the candidate as "you". Do not use markdown formatting."""
+
+
+async def get_job_fit_analysis(
+    job_title: str,
+    company_name: str,
+    description: str | None,
+    required_skills: list[str],
+    skills_you_have: list[str],
+    skills_to_develop: list[str],
+    min_k_score: int,
+    k_score: int,
+) -> str:
+    """LLM-generated natural-language explanation of job fit. Falls back to a
+    template sentence if the LLM call fails or times out."""
+    total = len(required_skills)
+    ready_pct = round((len(skills_you_have) / total) * 100) if total else 0
+
+    fallback = (
+        f"You have {len(skills_you_have)} of the {total} skills {company_name} is asking for in this "
+        f"{job_title} role ({ready_pct}% ready). "
+        + (
+            f"Focus on building {', '.join(skills_to_develop[:3])} to close the gap."
+            if skills_to_develop else
+            "You're well covered on required skills for this role."
+        )
+    )
+
+    try:
+        import asyncio
+        from app.ai.providers.groq import GroqProvider
+
+        provider = GroqProvider()
+        user_prompt = (
+            f"Job: {job_title} at {company_name}\n"
+            f"Company/role description: {(description or 'Not provided')[:600]}\n"
+            f"Required skills: {', '.join(required_skills) or 'None listed'}\n"
+            f"Skills the candidate already has: {', '.join(skills_you_have) or 'None'}\n"
+            f"Skills the candidate is missing: {', '.join(skills_to_develop) or 'None'}\n"
+            f"Candidate's UPSC knowledge score: {k_score}/100"
+            + (f" (role requires at least {min_k_score})" if min_k_score else "")
+        )
+        response = await asyncio.wait_for(
+            provider.complete(
+                _FIT_ANALYSIS_SYSTEM,
+                [{"role": "user", "content": user_prompt}],
+                max_tokens=220,
+            ),
+            timeout=20.0,
+        )
+        text = response.content.strip()
+        return text or fallback
+    except Exception:
+        logging.getLogger(__name__).warning("Job fit analysis LLM call failed, using fallback", exc_info=True)
+        return fallback

@@ -3,12 +3,21 @@ from typing import Literal
 from datetime import date, datetime
 
 VALID_SKILLS = {
-    "Essay Writing", "Current Affairs", "Polity & Governance", "History",
-    "Geography", "Economics", "Science & Technology", "Environment",
-    "Ethics & Integrity", "Law & Legal Knowledge", "Public Administration",
-    "International Relations", "Analytical Reasoning", "Research & Analysis",
-    "Data Interpretation", "Communication", "Leadership", "Management",
-    "Hindi Proficiency", "English Proficiency", "Computer Skills",
+    # Was missing 9 skills the job-posting form actually lets employers pick
+    # (Data Analysis, Policy Research, Report Writing, Public Speaking, Project
+    # Management, Strategic Planning, Stakeholder Engagement, Teaching &
+    # Training, Budget & Finance) — selecting any of them would fail submit
+    # validation. Now matches the taxonomy in onboarding/schemas.py exactly.
+    "Analytical Reasoning", "Research & Analysis", "Data Interpretation",
+    "Data Analysis", "Policy Research",
+    "Report Writing", "Essay Writing", "Public Speaking",
+    "Leadership", "Management", "Project Management", "Strategic Planning",
+    "Economics", "Public Administration", "Polity & Governance",
+    "Ethics & Integrity", "International Relations", "Law & Legal Knowledge",
+    "Stakeholder Engagement",
+    "Communication", "English Proficiency", "Hindi Proficiency", "Computer Skills",
+    "Science & Technology", "Current Affairs", "History", "Geography", "Environment",
+    "Teaching & Training", "Budget & Finance",
 }
 
 VALID_SECTORS = {
@@ -37,8 +46,12 @@ class JobPostingRequest(BaseModel):
     location: str
     # Employment type — required
     employment_type: Literal["full_time", "part_time", "internship", "contract", "freelance"]
-    # When the posting closes — optional, must be a future date
-    expires_at: date | None = None
+    # When the posting closes — required, must be a future date. An open-ended
+    # posting invites stale/zombie listings that never get cleaned up.
+    expires_at: date
+    # If True, the job goes live immediately (status=published); if False (default),
+    # it's saved as a draft — visible only to the employer, not to aspirants.
+    publish: bool = False
 
     @field_validator("title")
     @classmethod
@@ -94,8 +107,8 @@ class JobPostingRequest(BaseModel):
 
     @field_validator("expires_at")
     @classmethod
-    def validate_expiry(cls, v: date | None) -> date | None:
-        if v is not None and v <= date.today():
+    def validate_expiry(cls, v: date) -> date:
+        if v <= date.today():
             raise ValueError("Expiry date must be in the future")
         return v
 
@@ -109,6 +122,23 @@ class JobPostingRequest(BaseModel):
             if v > 500:
                 raise ValueError("Salary must be in LPA (max 500)")
         return v
+
+
+class SuggestSkillsRequest(BaseModel):
+    title: str
+    description: str
+
+    @field_validator("description")
+    @classmethod
+    def validate_description_for_suggest(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) < 20:
+            raise ValueError("Description must be at least 20 characters before suggesting skills")
+        return v
+
+
+class SuggestSkillsResponse(BaseModel):
+    suggested_skills: list[str]
 
 
 class JobPostingResponse(BaseModel):
@@ -126,6 +156,7 @@ class JobPostingResponse(BaseModel):
     employment_type: str | None
     expires_at: date | None
     is_active: bool
+    status: str
     created_at: datetime
     updated_at: datetime
     applicant_count: int = 0
@@ -139,3 +170,41 @@ class EmployerDashboardResponse(BaseModel):
     total_jobs: int
     active_jobs: int
     jobs: list[JobPostingResponse]
+
+
+class MessageResponse(BaseModel):
+    message: str
+
+
+class EmployerPermissionsResponse(BaseModel):
+    role_name: str
+    permissions: list[str]   # "resource:action" strings
+
+
+# ── Employer KYC verification (self-service submission) ─────────────────────
+
+class VerificationDocumentOut(BaseModel):
+    id: str
+    doc_type: str
+    file_url: str
+    original_filename: str | None = None
+    status: str
+    uploaded_at: datetime
+
+
+class VerificationEventOut(BaseModel):
+    id: str
+    from_status: str | None = None
+    to_status: str
+    note: str | None = None
+    created_at: datetime
+
+
+class VerificationStatusResponse(BaseModel):
+    id: str | None = None
+    status: str = "not_submitted"   # not_submitted | pending | under_review | approved | rejected | resubmitted
+    rejection_reason: str | None = None
+    submitted_at: datetime | None = None
+    reviewed_at: datetime | None = None
+    documents: list[VerificationDocumentOut] = []
+    events: list[VerificationEventOut] = []

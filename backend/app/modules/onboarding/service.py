@@ -74,6 +74,7 @@ def get_profile(user: User, db: Session) -> ProfileResponse:
 
     return ProfileResponse(
         full_name=profile.full_name,
+        current_status=profile.current_status,
         date_of_birth=dob_str,
         gender=profile.gender,
         city=profile.city,
@@ -118,10 +119,16 @@ def get_status(user: User, db: Session) -> OnboardingStatusResponse:
 def save_personal(user: User, data: PersonalInfoRequest, db: Session) -> StepSavedResponse:
     profile = _get_or_create_profile(user, db)
     profile.full_name = data.full_name
-    profile.date_of_birth = data.date_of_birth
-    profile.gender = data.gender
+    profile.current_status = data.current_status
     profile.city = data.city
-    profile.state = data.state
+    # Deferred fields — only overwrite if this submission actually provided them,
+    # so a later "complete your profile" pass doesn't need to resend everything.
+    if data.date_of_birth is not None:
+        profile.date_of_birth = data.date_of_birth
+    if data.gender is not None:
+        profile.gender = data.gender
+    if data.state is not None:
+        profile.state = data.state
     if profile.current_step < 2:
         profile.current_step = 2
     db.commit()
@@ -293,7 +300,7 @@ def _call_groq_insight(
     pressure_label = {10: "no financial rush", 35: "some financial pressure", 65: "significant financial pressure", 90: "urgent financial need"}[pressure]
 
     prompt = (
-        "You are DISHA AI — a compassionate, deeply human career counsellor for UPSC aspirants "
+        "You are BeginablAI — a compassionate, deeply human career counsellor for UPSC aspirants "
         "transitioning into private sector roles. You understand the psychological weight of this journey.\n\n"
         "A user has just completed their onboarding. Write a warm, grounding, personalised 2–3 sentence "
         "welcome message. Be specific to their journey — not generic. No bullet points. Second person only.\n\n"

@@ -62,7 +62,7 @@ function Bubble({ msg, persona }: { msg: any; persona: Persona }) {
       )}
       <div style={{
         maxWidth: '75%',
-        background: isUser ? 'linear-gradient(135deg, #1D4ED8, #3B82F6)' : 'white',
+        background: isUser ? '#2563EB' : 'white',
         color: isUser ? 'white' : '#1e293b',
         padding: '12px 16px',
         borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
@@ -79,7 +79,7 @@ function Bubble({ msg, persona }: { msg: any; persona: Persona }) {
       {isUser && (
         <div style={{
           width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-          background: 'linear-gradient(135deg, #1D4ED8, #3B82F6)',
+          background: '#2563EB',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           marginLeft: 10, marginTop: 2,
         }}>
@@ -380,7 +380,7 @@ export default function MockInterviewPage() {
   // ── SETUP SCREEN ─────────────────────────────────────────────────────────────
   if (phase === 'setup') {
     return (
-      <div style={{ minHeight: '100vh', background: '#F0F4F8', display: 'flex' }}>
+      <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
         <AppSidebar activePath="/app/jobs" />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
           <div style={{ width: '100%', maxWidth: 560 }}>
@@ -388,7 +388,7 @@ export default function MockInterviewPage() {
               <ArrowLeft size={14} /> Back
             </button>
 
-            <h1 style={{ fontSize: 24, fontWeight: 900, color: '#0F172A', fontFamily: 'Hind, sans-serif', marginBottom: 6 }}>
+            <h1 style={{ fontSize: 24, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>
               Mock Interview
             </h1>
             {job ? (
@@ -459,7 +459,7 @@ export default function MockInterviewPage() {
   // ── INTERVIEW SCREEN ──────────────────────────────────────────────────────────
   if (phase === 'interview') {
     return (
-      <div style={{ minHeight: '100vh', background: '#F8FAFC', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ minHeight: '100vh', background: 'white', display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
         <header style={{
           background: 'white', borderBottom: '1px solid rgba(226,232,240,0.8)',
@@ -640,7 +640,7 @@ export default function MockInterviewPage() {
   if (phase === 'report' && report) {
     const vc = verdictColor(report.verdict)
     return (
-      <div style={{ minHeight: '100vh', background: '#F0F4F8', display: 'flex' }}>
+      <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
         <AppSidebar activePath="/app/jobs" />
         <div style={{ flex: 1, overflowY: 'auto', padding: '32px 40px' }}>
           <div style={{ maxWidth: 720, margin: '0 auto' }}>
@@ -648,7 +648,7 @@ export default function MockInterviewPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28 }}>
               <div style={{ fontSize: 40 }}>{persona.avatar}</div>
               <div>
-                <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0F172A', fontFamily: 'Hind, sans-serif' }}>Interview Report</h1>
+                <h1 style={{ fontSize: 22, fontWeight: 700, color: '#0F172A' }}>Interview Report</h1>
                 <p style={{ fontSize: 13, color: '#64748B' }}>{persona.name} · {job?.title ?? 'Mock Interview'}{job ? ` at ${job.company_name}` : ''}</p>
               </div>
             </div>
@@ -760,7 +760,7 @@ export default function MockInterviewPage() {
                 Try Again
               </button>
               <button onClick={() => navigate('/app/jobs')}
-                style={{ flex: 1, height: 44, borderRadius: 12, background: 'linear-gradient(135deg, #2D6A4F, #40916C)', border: 'none', fontSize: 13, fontWeight: 700, color: 'white', cursor: 'pointer' }}>
+                style={{ flex: 1, height: 44, borderRadius: 12, background: '#2563EB', border: 'none', fontSize: 13, fontWeight: 700, color: 'white', cursor: 'pointer' }}>
                 Back to Jobs
               </button>
             </div>

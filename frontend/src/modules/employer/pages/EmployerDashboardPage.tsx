@@ -1,11 +1,18 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Clock,
+  Plus, Pencil, Trash2, Clock,
   CheckCircle2, LogOut, LayoutDashboard, Building2,
-  TrendingUp, PauseCircle, X, Users,
+  TrendingUp, PauseCircle, X, Users, ShieldCheck, Users2, BarChart3, CreditCard,
+  Rocket, PlayCircle, XCircle, Archive, Copy,
+  Briefcase, CalendarClock, Send, Award, Activity, Video, Sparkles, ArrowRight,
 } from 'lucide-react'
-import { useEmployerDashboard, useCreateJob, useUpdateJob, useToggleJob, useDeleteJob } from '../hooks/useJobs'
+import {
+  useEmployerDashboard, useCreateJob, useUpdateJob, useDeleteJob,
+  usePublishJob, usePauseJob, useCloseJob, useReopenJob, useArchiveJob, useDuplicateJob,
+  useDashboardKpis, useApplicationTrend, useUpcomingInterviews, useHasPermission,
+  useCompanyProfile,
+} from '../hooks/useJobs'
 import { useLogout } from '@/modules/auth/hooks/useAuth'
 import JobForm from '../components/JobForm'
 import type { JobPosting, JobPostingPayload } from '@/api/jobs'
@@ -20,6 +27,88 @@ const OUTLOOK_STYLE: Record<string, { color: string; bg: string }> = {
   low:    { color: '#9CA3AF', bg: 'rgba(156,163,175,0.08)' },
 }
 
+function Spinner12({ color }: { color: string }) {
+  return <div style={{ width: 12, height: 12, border: `2px solid ${color}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+}
+
+function KpiCard({ icon: Icon, label, value, color, sub }: {
+  icon: React.ElementType; label: string; value: string | number; color: string; sub?: string
+}) {
+  return (
+    <div style={{
+      background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(16px)',
+      border: '1px solid rgba(255,255,255,0.95)', borderRadius: 16, padding: '14px 16px',
+      boxShadow: '0 2px 12px rgba(30,58,95,0.05)', display: 'flex', alignItems: 'center', gap: 12,
+    }}>
+      <div style={{
+        width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+        background: `${color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <Icon size={16} color={color} />
+      </div>
+      <div style={{ minWidth: 0 }}>
+        <p style={{ fontSize: 19, fontWeight: 900, color: '#1E3A5F', fontFamily: 'Hind, sans-serif', lineHeight: 1.1 }}>{value}</p>
+        <p style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, marginTop: 1, whiteSpace: 'nowrap' }}>{label}</p>
+        {sub && <p style={{ fontSize: 10, color: '#9CA3AF', marginTop: 1 }}>{sub}</p>}
+      </div>
+    </div>
+  )
+}
+
+function ApplicationTrendStrip() {
+  const { data } = useApplicationTrend(30)
+  const series = data?.series ?? []
+  const max = Math.max(1, ...series.map(p => p.count))
+
+  return (
+    <div style={{
+      background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(16px)',
+      border: '1px solid rgba(255,255,255,0.95)', borderRadius: 16, padding: '16px 18px',
+      boxShadow: '0 2px 12px rgba(30,58,95,0.05)',
+    }}>
+      <p style={{ fontSize: 12, fontWeight: 700, color: '#1E3A5F', marginBottom: 10 }}>Application Trend — last 30 days</p>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 56 }}>
+        {series.map(p => (
+          <div
+            key={p.date}
+            title={`${p.date}: ${p.count}`}
+            style={{
+              flex: 1, minHeight: 2, borderRadius: 2,
+              height: `${(p.count / max) * 100}%`,
+              background: 'linear-gradient(180deg, #3B82F6, #93C5FD)',
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const primaryActionStyle: React.CSSProperties = {
+  flex: 1, height: 36, borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+  background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)', border: 'none',
+  color: '#fff', transition: 'all 0.2s',
+}
+
+function outlineActionStyle(color: string): React.CSSProperties {
+  return {
+    flex: 1, height: 36, borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+    background: 'transparent', border: `1.5px solid ${color}33`,
+    color, transition: 'all 0.2s',
+  }
+}
+
+function iconActionStyle(color: string): React.CSSProperties {
+  return {
+    height: 36, width: 36, borderRadius: 10, cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    background: 'transparent', border: `1px solid ${color}33`,
+    color, transition: 'all 0.2s', flexShrink: 0,
+  }
+}
+
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 function Sidebar({
   companyName, totalJobs, activeJobs, isApproved, onNewJob, logout, view,
@@ -27,6 +116,7 @@ function Sidebar({
   companyName: string; totalJobs: number; activeJobs: number
   isApproved: boolean; onNewJob: () => void; logout: () => void; view: View
 }) {
+  const canCreateJob = useHasPermission('jobs:create')
   const initial = companyName.charAt(0).toUpperCase()
 
   return (
@@ -50,7 +140,7 @@ function Sidebar({
             <span style={{ color: 'white', fontWeight: 900, fontSize: 17 }}>D</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontFamily: 'Hind, sans-serif', fontWeight: 800, fontSize: 18, color: '#1E3A5F' }}>DISHA AI</span>
+            <span style={{ fontFamily: 'Hind, sans-serif', fontWeight: 800, fontSize: 18, color: '#1E3A5F' }}>BeginablAI</span>
             <span style={{ fontSize: 10, fontWeight: 700, color: '#3B82F6', background: 'rgba(59,130,246,0.08)', padding: '2px 7px', borderRadius: 6, letterSpacing: '0.3px' }}>EMPLOYER</span>
           </div>
         </div>
@@ -95,6 +185,51 @@ function Sidebar({
           <LayoutDashboard size={16} />Dashboard
         </button>
 
+        <Link to="/app/employer/verification" style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 12px', borderRadius: 12, marginTop: 4,
+          color: '#1E3A5F', textDecoration: 'none',
+          fontSize: 14, fontWeight: 600,
+        }}>
+          <ShieldCheck size={16} />Verification
+        </Link>
+
+        <Link to="/app/employer/company" style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 12px', borderRadius: 12, marginTop: 2,
+          color: '#1E3A5F', textDecoration: 'none',
+          fontSize: 14, fontWeight: 600,
+        }}>
+          <Users2 size={16} />Company & Team
+        </Link>
+
+        <Link to="/app/employer/analytics" style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 12px', borderRadius: 12, marginTop: 2,
+          color: '#1E3A5F', textDecoration: 'none',
+          fontSize: 14, fontWeight: 600,
+        }}>
+          <BarChart3 size={16} />Analytics
+        </Link>
+
+        <Link to="/app/employer/subscription" style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 12px', borderRadius: 12, marginTop: 2,
+          color: '#1E3A5F', textDecoration: 'none',
+          fontSize: 14, fontWeight: 600,
+        }}>
+          <CreditCard size={16} />Subscription
+        </Link>
+
+        <Link to="/app/security" style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 12px', borderRadius: 12, marginTop: 2,
+          color: '#1E3A5F', textDecoration: 'none',
+          fontSize: 14, fontWeight: 600,
+        }}>
+          <ShieldCheck size={16} />Security
+        </Link>
+
         {/* Stats panel in sidebar */}
         <div style={{
           marginTop: 20, padding: 16,
@@ -121,7 +256,7 @@ function Sidebar({
         </div>
 
         {/* Post job CTA */}
-        {isApproved && view === 'list' && (
+        {isApproved && view === 'list' && canCreateJob && (
           <button onClick={onNewJob} style={{
             width: '100%', marginTop: 14,
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -157,25 +292,44 @@ function Sidebar({
 }
 
 // ── Job Card ──────────────────────────────────────────────────────────────────
+const STATUS_BADGE_STYLE: Record<string, { bg: string; border: string; color: string; icon: React.ElementType; label: string }> = {
+  draft:     { bg: 'rgba(107,114,128,0.08)', border: 'rgba(107,114,128,0.2)', color: '#6B7280', icon: Pencil,       label: 'Draft' },
+  published: { bg: 'rgba(5,150,105,0.08)',   border: 'rgba(5,150,105,0.2)',   color: '#059669', icon: CheckCircle2, label: 'Active' },
+  paused:    { bg: 'rgba(217,119,6,0.08)',   border: 'rgba(217,119,6,0.2)',   color: '#D97706', icon: PauseCircle,  label: 'Paused' },
+  closed:    { bg: 'rgba(220,38,38,0.08)',   border: 'rgba(220,38,38,0.2)',   color: '#DC2626', icon: XCircle,      label: 'Closed' },
+  archived:  { bg: 'rgba(107,114,128,0.06)', border: 'rgba(107,114,128,0.15)',color: '#9CA3AF', icon: Archive,      label: 'Archived' },
+}
+
 function JobCard({
-  job, onEdit, onToggle, onDelete, isToggling,
+  job, onEdit, onDelete, onPublish, onPause, onClose, onReopen, onArchive, onDuplicate, isMutating,
 }: {
   job: JobPosting
   onEdit: () => void
-  onToggle: () => void
   onDelete: () => void
-  isToggling?: boolean
+  onPublish: () => void
+  onPause: () => void
+  onClose: () => void
+  onReopen: () => void
+  onArchive: () => void
+  onDuplicate: () => void
+  isMutating?: boolean
 }) {
   const outlook = OUTLOOK_STYLE[job.growth_outlook ?? '']
+  const canEdit = useHasPermission('jobs:edit')
+  const canPublish = useHasPermission('jobs:publish')
+  const canCreate = useHasPermission('jobs:create')
+  const canDelete = useHasPermission('jobs:delete')
+  const statusStyle = STATUS_BADGE_STYLE[job.status] ?? STATUS_BADGE_STYLE.draft
+  const StatusIcon = statusStyle.icon
 
   return (
     <div style={{
-      background: job.is_active ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.55)',
+      background: job.status === 'published' ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.55)',
       backdropFilter: 'blur(20px)',
-      border: job.is_active ? '1px solid rgba(255,255,255,0.95)' : '1.5px dashed rgba(156,163,175,0.4)',
+      border: job.status === 'published' ? '1px solid rgba(255,255,255,0.95)' : '1.5px dashed rgba(156,163,175,0.4)',
       borderRadius: 20, padding: '20px',
       boxShadow: '0 4px 20px rgba(30,58,95,0.06)',
-      opacity: job.is_active ? 1 : 0.75,
+      opacity: job.status === 'archived' ? 0.6 : job.status === 'published' ? 1 : 0.8,
       transition: 'all 0.25s',
       display: 'flex', flexDirection: 'column', gap: 14,
     }}>
@@ -200,15 +354,9 @@ function JobCard({
         </div>
         {/* Status badge */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-          {job.is_active ? (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: 'rgba(5,150,105,0.08)', border: '1px solid rgba(5,150,105,0.2)', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#059669' }}>
-              <CheckCircle2 size={10} />Active
-            </span>
-          ) : (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: 'rgba(156,163,175,0.1)', border: '1px solid rgba(156,163,175,0.25)', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#9CA3AF' }}>
-              <PauseCircle size={10} />Paused
-            </span>
-          )}
+          <span style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: statusStyle.bg, border: `1px solid ${statusStyle.border}`, borderRadius: 20, fontSize: 11, fontWeight: 700, color: statusStyle.color }}>
+            <StatusIcon size={10} />{statusStyle.label}
+          </span>
         </div>
       </div>
 
@@ -264,47 +412,53 @@ function JobCard({
         )}
       </div>
 
-      {/* Actions */}
-      <div style={{ display: 'flex', gap: 8, borderTop: '1px solid rgba(59,130,246,0.06)', paddingTop: 14 }}>
-        <button onClick={onToggle} disabled={isToggling} style={{
-          flex: 1, height: 36, borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-          background: 'transparent', border: '1.5px solid rgba(59,130,246,0.2)',
-          color: '#3B82F6', transition: 'all 0.2s',
-        }}
-          onMouseOver={e => e.currentTarget.style.background = 'rgba(59,130,246,0.05)'}
-          onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-        >
-          {isToggling ? (
-            <div style={{ width: 12, height: 12, border: '2px solid #3B82F6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-          ) : job.is_active ? (
-            <><ToggleRight size={13} />Pause</>
-          ) : (
-            <><ToggleLeft size={13} />Activate</>
-          )}
-        </button>
-        <button onClick={onEdit} style={{
-          flex: 1, height: 36, borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-          background: 'rgba(59,130,246,0.07)', border: '1px solid rgba(59,130,246,0.15)',
-          color: '#3B82F6', transition: 'all 0.2s',
-        }}
-          onMouseOver={e => e.currentTarget.style.background = 'rgba(59,130,246,0.12)'}
-          onMouseOut={e => e.currentTarget.style.background = 'rgba(59,130,246,0.07)'}
-        >
-          <Pencil size={12} />Edit
-        </button>
-        <button onClick={onDelete} style={{
-          height: 36, width: 36, borderRadius: 10, cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'transparent', border: '1px solid rgba(220,38,38,0.2)',
-          color: '#DC2626', transition: 'all 0.2s', flexShrink: 0,
-        }}
-          onMouseOver={e => e.currentTarget.style.background = 'rgba(220,38,38,0.05)'}
-          onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-        >
-          <Trash2 size={13} />
-        </button>
+      {/* Actions — vary by lifecycle status */}
+      <div style={{ display: 'flex', gap: 8, borderTop: '1px solid rgba(59,130,246,0.06)', paddingTop: 14, flexWrap: 'wrap' }}>
+        {job.status === 'draft' && canPublish && (
+          <button onClick={onPublish} disabled={isMutating} style={primaryActionStyle}>
+            {isMutating ? <Spinner12 color="#fff" /> : <><Rocket size={13} />Publish</>}
+          </button>
+        )}
+        {job.status === 'published' && canPublish && (
+          <button onClick={onPause} disabled={isMutating} style={outlineActionStyle('#D97706')}>
+            {isMutating ? <Spinner12 color="#D97706" /> : <><PauseCircle size={13} />Pause</>}
+          </button>
+        )}
+        {job.status === 'paused' && canPublish && (
+          <button onClick={onReopen} disabled={isMutating} style={outlineActionStyle('#059669')}>
+            {isMutating ? <Spinner12 color="#059669" /> : <><PlayCircle size={13} />Resume</>}
+          </button>
+        )}
+        {job.status === 'closed' && canPublish && (
+          <button onClick={onReopen} disabled={isMutating} style={outlineActionStyle('#059669')}>
+            {isMutating ? <Spinner12 color="#059669" /> : <><PlayCircle size={13} />Reopen</>}
+          </button>
+        )}
+        {(job.status === 'published' || job.status === 'paused') && canPublish && (
+          <button onClick={onClose} disabled={isMutating} style={outlineActionStyle('#DC2626')}>
+            <XCircle size={13} />Close
+          </button>
+        )}
+        {job.status !== 'archived' && canEdit && (
+          <button onClick={onEdit} style={outlineActionStyle('#3B82F6')}>
+            <Pencil size={12} />Edit
+          </button>
+        )}
+        {canCreate && (
+          <button onClick={onDuplicate} style={iconActionStyle('#3B82F6')} title="Duplicate job">
+            <Copy size={13} />
+          </button>
+        )}
+        {job.status !== 'archived' && canPublish && (
+          <button onClick={onArchive} style={iconActionStyle('#6B7280')} title="Archive job">
+            <Archive size={13} />
+          </button>
+        )}
+        {canDelete && (
+          <button onClick={onDelete} style={iconActionStyle('#DC2626')} title="Delete job">
+            <Trash2 size={13} />
+          </button>
+        )}
       </div>
       {/* Applicant count summary */}
       <div style={{
@@ -333,20 +487,148 @@ function JobCard({
   )
 }
 
+function DashboardKpiSection() {
+  const { data: kpis, isLoading } = useDashboardKpis()
+  if (isLoading || !kpis) return null
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+        <KpiCard icon={Briefcase} label="Active Jobs" value={kpis.active_jobs} color="#3B82F6" />
+        <KpiCard icon={Pencil} label="Draft Jobs" value={kpis.draft_jobs} color="#6B7280" />
+        <KpiCard icon={XCircle} label="Closed Jobs" value={kpis.closed_jobs} color="#DC2626" />
+        <KpiCard icon={Users} label="Applications Today" value={kpis.applications_today} color="#7C3AED" />
+        <KpiCard icon={Activity} label="Total Applications" value={kpis.total_applications} color="#0EA5E9" />
+        <KpiCard icon={CalendarClock} label="Interviews Scheduled" value={kpis.interviews_scheduled} color="#D97706" />
+        <KpiCard icon={Send} label="Offers Sent" value={kpis.offers_sent} color="#059669" />
+        <KpiCard icon={Award} label="Hires" value={kpis.hires} color="#1E3A5F" />
+        <KpiCard icon={TrendingUp} label="Response Rate" value={`${kpis.response_rate_pct}%`} color="#3B82F6" />
+        <KpiCard
+          icon={Clock} label="Avg. Time to Hire" color="#D97706"
+          value={kpis.avg_time_to_hire_days !== null ? `${kpis.avg_time_to_hire_days}d` : '—'}
+        />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14 }}>
+        <ApplicationTrendStrip />
+        <UpcomingInterviewsWidget />
+      </div>
+    </div>
+  )
+}
+
+function UpcomingInterviewsWidget() {
+  const { data: interviews, isLoading } = useUpcomingInterviews(5)
+
+  return (
+    <div style={{
+      background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(16px)',
+      border: '1px solid rgba(255,255,255,0.95)', borderRadius: 16, padding: '16px 18px',
+      boxShadow: '0 2px 12px rgba(30,58,95,0.05)',
+    }}>
+      <p style={{ fontSize: 12, fontWeight: 700, color: '#1E3A5F', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Video size={13} color="#3B82F6" />Upcoming Interviews
+      </p>
+      {isLoading ? (
+        <p style={{ fontSize: 11, color: '#9CA3AF' }}>Loading…</p>
+      ) : !interviews || interviews.length === 0 ? (
+        <p style={{ fontSize: 11, color: '#9CA3AF' }}>No interviews scheduled.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {interviews.map(iv => (
+            <div key={iv.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: '#1E293B', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {iv.candidate_name ?? 'Candidate'}
+                </p>
+                <p style={{ fontSize: 10, color: '#94A3B8', margin: '1px 0 0' }}>{iv.job_title}</p>
+              </div>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#3B82F6', whiteSpace: 'nowrap' }}>
+                {new Date(iv.scheduled_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Setup wizard prompt ─────────────────────────────────────────────────────────
+// Shown once per company until dismissed or the wizard's been completed —
+// `company.industry` being null is the signal nobody's been through it yet.
+function SetupWizardBanner() {
+  const { data: company } = useCompanyProfile()
+  const [dismissed, setDismissed] = useState(() => sessionStorage.getItem('setup_wizard_dismissed') === '1')
+
+  if (!company || company.industry || dismissed) return null
+
+  const dismiss = () => {
+    sessionStorage.setItem('setup_wizard_dismissed', '1')
+    setDismissed(true)
+  }
+
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 14,
+      background: 'linear-gradient(135deg, rgba(124,58,237,0.06), rgba(59,130,246,0.06))',
+      border: '1px solid rgba(124,58,237,0.18)',
+      borderRadius: 20, padding: '16px 20px',
+    }}>
+      <div style={{ width: 38, height: 38, borderRadius: 11, background: 'rgba(124,58,237,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Sparkles size={18} color="#7C3AED" />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontSize: 14, fontWeight: 700, color: '#1E3A5F' }}>Complete your company profile</p>
+        <p style={{ fontSize: 13, color: '#64748B', marginTop: 2 }}>
+          Add your industry, logo, and a few more details to help candidates trust your listings — takes about 2 minutes.
+        </p>
+      </div>
+      <Link to="/app/employer/setup" style={{
+        display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
+        padding: '8px 16px', borderRadius: 10,
+        background: '#7C3AED', color: 'white', fontSize: 13, fontWeight: 700,
+        textDecoration: 'none',
+      }}>
+        Complete setup <ArrowRight size={14} />
+      </Link>
+      <button
+        type="button"
+        onClick={dismiss}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', flexShrink: 0, padding: 4 }}
+        aria-label="Dismiss"
+      >
+        <X size={16} />
+      </button>
+    </div>
+  )
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function EmployerDashboardPage() {
   const { data, isLoading } = useEmployerDashboard()
   const createJob  = useCreateJob()
   const updateJob  = useUpdateJob()
-  const toggleJob  = useToggleJob()
   const deleteJob  = useDeleteJob()
+  const publishJob = usePublishJob()
+  const pauseJob   = usePauseJob()
+  const closeJob   = useCloseJob()
+  const reopenJob  = useReopenJob()
+  const archiveJob = useArchiveJob()
+  const duplicateJob = useDuplicateJob()
+  const canCreateJob = useHasPermission('jobs:create')
   const logout     = useLogout()
   const [view, setView] = useState<View>('list')
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
-  const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [mutatingId, setMutatingId] = useState<string | null>(null)
 
   const handleCreate = (payload: JobPostingPayload) => {
     createJob.mutate(payload, { onSuccess: () => setView('list') })
+  }
+
+  const runLifecycleAction = async (id: string, mutate: (id: string) => Promise<unknown>) => {
+    setMutatingId(id)
+    try { await mutate(id) }
+    finally { setMutatingId(null) }
   }
 
   const handleUpdate = (id: string, payload: JobPostingPayload) => {
@@ -357,11 +639,6 @@ export default function EmployerDashboardPage() {
     deleteJob.mutate(id, { onSuccess: () => setConfirmDelete(null) })
   }
 
-  const handleToggle = async (id: string) => {
-    setTogglingId(id)
-    try { await toggleJob.mutateAsync(id) }
-    finally { setTogglingId(null) }
-  }
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #F0F7FF 0%, #FFFFFF 55%, #EFF6FF 100%)', display: 'flex' }}>
@@ -401,7 +678,7 @@ export default function EmployerDashboardPage() {
                 : 'Fill in the details below'}
             </p>
           </div>
-          {data?.is_approved && view === 'list' && (
+          {data?.is_approved && view === 'list' && canCreateJob && (
             <button onClick={() => setView('new')} style={{
               display: 'flex', alignItems: 'center', gap: 8,
               padding: '9px 18px', borderRadius: 11,
@@ -437,7 +714,7 @@ export default function EmployerDashboardPage() {
           {data && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-              {/* ── Pending banner ── */}
+              {/* ── Verification banner — account access is instant, only posting is gated ── */}
               {!data.is_approved && (
                 <div style={{
                   display: 'flex', alignItems: 'flex-start', gap: 14,
@@ -448,14 +725,23 @@ export default function EmployerDashboardPage() {
                   <div style={{ width: 38, height: 38, borderRadius: 11, background: 'rgba(245,158,11,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <Clock size={18} color="#D97706" />
                   </div>
-                  <div>
-                    <p style={{ fontSize: 14, fontWeight: 700, color: '#92400E' }}>Account pending approval</p>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: '#92400E' }}>Verification required to post jobs</p>
                     <p style={{ fontSize: 13, color: '#B45309', marginTop: 3, lineHeight: 1.5 }}>
-                      Our team is reviewing your registration. You'll be able to post jobs once approved (24–48 hrs).
+                      Complete your company profile and submit verification documents — you can browse and set
+                      everything up now, you just can't publish a job listing until verification is approved.
                     </p>
                   </div>
+                  <Link to="/app/employer/verification" style={{
+                    flexShrink: 0, alignSelf: 'center', padding: '8px 16px', borderRadius: 10,
+                    background: '#D97706', color: 'white', fontSize: 13, fontWeight: 700, textDecoration: 'none',
+                  }}>
+                    Start verification
+                  </Link>
                 </div>
               )}
+
+              <SetupWizardBanner />
 
               {/* ── Hero banner ── */}
               {view === 'list' && (
@@ -494,6 +780,9 @@ export default function EmployerDashboardPage() {
                   </div>
                 </div>
               )}
+
+              {/* ── KPI grid + trend ── */}
+              {view === 'list' && <DashboardKpiSection />}
 
               {/* ── Form views ── */}
               {view === 'new' && (
@@ -540,7 +829,7 @@ export default function EmployerDashboardPage() {
                       <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(59,130,246,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 28 }}>📋</div>
                       <p style={{ fontSize: 16, fontWeight: 700, color: '#1E3A5F', marginBottom: 6 }}>No job postings yet</p>
                       <p style={{ fontSize: 13, color: '#9CA3AF', marginBottom: 24 }}>Post your first job to start reaching UPSC aspirants</p>
-                      {data.is_approved && (
+                      {data.is_approved && canCreateJob && (
                         <button onClick={() => setView('new')} style={{
                           display: 'inline-flex', alignItems: 'center', gap: 8,
                           padding: '11px 24px', borderRadius: 12, fontSize: 14, fontWeight: 700,
@@ -559,9 +848,14 @@ export default function EmployerDashboardPage() {
                           key={job.id}
                           job={job}
                           onEdit={() => setView({ edit: job })}
-                          onToggle={() => handleToggle(job.id)}
                           onDelete={() => setConfirmDelete(job.id)}
-                          isToggling={togglingId === job.id}
+                          onPublish={() => runLifecycleAction(job.id, (id) => publishJob.mutateAsync(id))}
+                          onPause={() => runLifecycleAction(job.id, (id) => pauseJob.mutateAsync(id))}
+                          onClose={() => runLifecycleAction(job.id, (id) => closeJob.mutateAsync(id))}
+                          onReopen={() => runLifecycleAction(job.id, (id) => reopenJob.mutateAsync(id))}
+                          onArchive={() => runLifecycleAction(job.id, (id) => archiveJob.mutateAsync(id))}
+                          onDuplicate={() => runLifecycleAction(job.id, (id) => duplicateJob.mutateAsync(id))}
+                          isMutating={mutatingId === job.id}
                         />
                       ))}
                     </div>

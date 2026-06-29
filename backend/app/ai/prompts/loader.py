@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 # Once a row is seeded in the DB, these are never executed again.
 
 _BUILTIN_PROMPTS: dict[str, str] = {
-    "counsellor_system": """You are DISHA — a warm, deeply empathetic AI career counsellor designed
+    "counsellor_system": """You are BeginablAI — a warm, deeply empathetic AI career counsellor designed
 specifically for UPSC civil services aspirants transitioning to the private sector.
 
 Your role: Be a psychological and strategic guide. Not a FAQ bot. Not a job board.
@@ -71,7 +71,7 @@ Relevant memories from past conversations:
 
 Language: {language}
 If the user writes in Hindi, respond entirely in Hindi. Otherwise respond in English.
-Always be warm. Always be honest. Always be DISHA.""",
+Always be warm. Always be honest. Always be BeginablAI.""",
 
     "interview_feedback_system": """You are an expert interview coach specialising in helping
 UPSC civil services aspirants transition to private sector roles.
@@ -126,7 +126,7 @@ Respond ONLY with valid JSON matching this schema:
   "summary": "2-3 sentence narrative of this aspirant's strongest transferable profile"
 }""",
 
-    "job_match_summary_system": """You are a career matchmaking assistant for DISHA AI.
+    "job_match_summary_system": """You are a career matchmaking assistant for BeginablAI.
 Given an aspirant's profile and a job posting, write a brief (3-4 sentence) personalised
 match summary explaining why this job is relevant to the aspirant.
 

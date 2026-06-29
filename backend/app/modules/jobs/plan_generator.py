@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 _groq = GroqProvider()
 
 SYSTEM_PROMPT = """\
-You are DISHA's career learning planner. You create hyper-specific, actionable
+You are BeginablAI's career learning planner. You create hyper-specific, actionable
 learning roadmaps for UPSC aspirants transitioning to private-sector careers.
 
 Given a target job and the user's skill gaps, produce a JSON learning plan.
@@ -99,7 +99,7 @@ Rules:
 """
 
 QUIZ_SYSTEM_PROMPT = """\
-You are DISHA's career learning planner. You write short, targeted quizzes that
+You are BeginablAI's career learning planner. You write short, targeted quizzes that
 check whether a learner actually understood ONE specific skill module — not
 generic trivia. Return ONLY valid JSON — no markdown fences, no commentary."""
 

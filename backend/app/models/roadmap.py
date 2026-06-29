@@ -1,4 +1,4 @@
-"""ORM models for the DISHA Roadmap Intelligence System.
+"""ORM models for the BeginablAI Roadmap Intelligence System.
 
 6-stage job-readiness engine:
   Stage 1: Identity Reframe        (narrative transformation)

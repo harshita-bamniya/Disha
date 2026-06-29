@@ -369,7 +369,7 @@ function ForEmployers() {
               Hire people with rare analytical depth
             </h2>
             <p style={{ fontSize: 15, color: C.inkSoft, lineHeight: 1.7, marginBottom: 28 }}>
-              UPSC aspirants bring structured thinking, policy awareness and discipline that's hard to find elsewhere. DISHA helps you reach them.
+              UPSC aspirants bring structured thinking, policy awareness and discipline that's hard to find elsewhere. BeginablAI helps you reach them.
             </p>
             <div style={{ display:'flex', flexDirection:'column', gap: 12, marginBottom: 32 }}>
               {perks.map(p => (

@@ -353,7 +353,7 @@ class InterviewFeedback(Base):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# MODULE 08 — AI COUNSELLOR (DISHA BOT)
+# MODULE 08 — AI COUNSELLOR (BeginablAI BOT)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 class Conversation(Base):

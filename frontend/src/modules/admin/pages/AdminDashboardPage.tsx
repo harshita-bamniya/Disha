@@ -1,37 +1,54 @@
 import { useState, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   Users, Briefcase, Clock, CheckCircle2, Building2, LogOut,
   Globe, MapPin, Phone, AlertCircle, X, Search, Plus, Pencil, Trash2,
   ChevronDown, ChevronUp, Compass, LayoutDashboard, FileText,
   TrendingUp, Activity, ToggleLeft, ToggleRight, Shield, ShieldOff,
   UserCheck, UserX, Zap, Star, Award, BarChart3, Eye, RefreshCw,
+  UserCog, KeyRound, Trash,
 } from 'lucide-react'
 import {
-  useAdminStats, useAdminEmployers, useApproveEmployer, useRejectEmployer, useRevokeEmployer,
+  useAdminStats, useAdminEmployers, useRevokeEmployer,
   useAdminUsers, useAdminUser, useDeactivateUser, useReactivateUser,
   useAdminCareerTracks, useCreateCareerTrack, useUpdateCareerTrack, useDeleteCareerTrack,
   useAdminJobs, useToggleAdminJob, useDeleteAdminJob,
   useAdminApplications, useAdminActivity,
+  useLoginHistory, useDeviceSessions, useUpdateUserStatus, useRevokeDeviceSession,
+  useAdminRoles, useUpdateRolePermissions, useAdminPermissions,
+  useSubAdmins, useCreateSubAdmin, useUpdateSubAdminRole, useDeleteSubAdmin,
+  useEmployerVerifications, useEmployerVerificationDetail, useReviewEmployerVerification,
+  useAuditLogs,
+  useSubscriptionPlansAdmin, useUpdateSubscriptionPlan,
 } from '../hooks/useAdmin'
+import { analyticsApi } from '@/api/analytics'
+import { adminApi } from '@/api/admin'
+import SubAdminManagement from '../components/SubAdminManagement'
+import type { TrendMetric } from '@/api/analytics'
 import { useLogout } from '@/modules/auth/hooks/useAuth'
 import { cn } from '@/lib/utils'
 import { getApiError } from '@/api/client'
 import type {
   AspirantDetailResponse, EmployerEntry, EmployerStatus,
-  CareerTrackAdminEntry, AdminJobEntry,
+  CareerTrackAdminEntry, AdminJobEntry, RoleEntry,
 } from '@/api/admin'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Section = 'dashboard' | 'users' | 'employers' | 'jobs' | 'applications' | 'tracks'
+type Section = 'dashboard' | 'users' | 'employers' | 'jobs' | 'applications' | 'tracks' | 'subadmins' | 'roles' | 'verifications' | 'auditlog' | 'subscriptions'
 
 const NAV: { label: string; value: Section; icon: React.ElementType; badge?: string }[] = [
   { label: 'Dashboard',    value: 'dashboard',    icon: LayoutDashboard },
   { label: 'Users',        value: 'users',        icon: Users           },
   { label: 'Employers',    value: 'employers',    icon: Building2       },
+  { label: 'KYC Verification', value: 'verifications', icon: Shield      },
   { label: 'Jobs',         value: 'jobs',         icon: Briefcase       },
   { label: 'Applications', value: 'applications', icon: FileText        },
   { label: 'Career Tracks',value: 'tracks',       icon: Compass         },
+  { label: 'Sub-Admins',   value: 'subadmins',    icon: UserCog         },
+  { label: 'Roles & Permissions', value: 'roles', icon: KeyRound        },
+  { label: 'Audit Log',    value: 'auditlog',     icon: Activity        },
+  { label: 'Subscriptions', value: 'subscriptions', icon: Award          },
 ]
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -294,7 +311,7 @@ function UserDetailDrawer({ userId, onClose }: { userId: string; onClose: () => 
                   <DetailRow label="Support system"      value={fmt(user.psychological_profile.support_system)} />
                   {user.psychological_profile.disha_insight && (
                     <div className="mt-2 bg-primary/5 border border-primary/20 rounded-xl px-3 py-3">
-                      <p className="text-[10px] font-bold text-primary uppercase tracking-wide mb-1">DISHA Insight</p>
+                      <p className="text-[10px] font-bold text-primary uppercase tracking-wide mb-1">BeginablAI Insight</p>
                       <p className="text-xs text-gray-700 leading-relaxed">{user.psychological_profile.disha_insight}</p>
                     </div>
                   )}
@@ -339,11 +356,109 @@ function UserDetailDrawer({ userId, onClose }: { userId: string; onClose: () => 
                   </div>
                 </>
               )}
+
+              <UserSecurityPanel userId={userId} />
             </div>
           )}
         </div>
       </div>
     </div>
+  )
+}
+
+// ── Security panel: status / login history / device sessions ────────────────
+
+function UserSecurityPanel({ userId }: { userId: string }) {
+  const { data: history, isLoading: historyLoading } = useLoginHistory(userId)
+  const { data: sessions, isLoading: sessionsLoading } = useDeviceSessions(userId)
+  const updateStatus = useUpdateUserStatus()
+  const revokeSession = useRevokeDeviceSession()
+  const [reasonFor, setReasonFor] = useState<'suspended' | 'banned' | null>(null)
+  const [reason, setReason] = useState('')
+
+  return (
+    <>
+      <SectionHeading>Account Status</SectionHeading>
+      <div className="flex gap-2 mb-3">
+        <button
+          onClick={() => updateStatus.mutate({ userId, status: 'active' })}
+          disabled={updateStatus.isPending}
+          className="flex items-center gap-1 h-7 px-2.5 rounded-lg bg-green-50 text-green-700 text-xs font-semibold hover:bg-green-100 disabled:opacity-50"
+        ><Shield size={12} /> Activate</button>
+        <button
+          onClick={() => setReasonFor('suspended')}
+          disabled={updateStatus.isPending}
+          className="flex items-center gap-1 h-7 px-2.5 rounded-lg bg-amber-50 text-amber-700 text-xs font-semibold hover:bg-amber-100 disabled:opacity-50"
+        ><ShieldOff size={12} /> Suspend</button>
+        <button
+          onClick={() => setReasonFor('banned')}
+          disabled={updateStatus.isPending}
+          className="flex items-center gap-1 h-7 px-2.5 rounded-lg bg-red-50 text-red-700 text-xs font-semibold hover:bg-red-100 disabled:opacity-50"
+        ><ShieldOff size={12} /> Ban</button>
+      </div>
+
+      {reasonFor && (
+        <div className="bg-gray-50 rounded-xl p-3 mb-3 flex flex-col gap-2">
+          <textarea
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            rows={2}
+            placeholder={`Reason for ${reasonFor === 'banned' ? 'ban' : 'suspension'}…`}
+            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs outline-none resize-none focus:border-red-300"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={() => { setReasonFor(null); setReason('') }}
+              className="flex-1 h-8 rounded-lg border border-gray-200 text-xs font-medium text-gray-600"
+            >Cancel</button>
+            <button
+              onClick={() => {
+                updateStatus.mutate({ userId, status: reasonFor, reason: reason.trim() || undefined })
+                setReasonFor(null); setReason('')
+              }}
+              className="flex-1 h-8 rounded-lg bg-red-500 text-white text-xs font-semibold"
+            >Confirm</button>
+          </div>
+        </div>
+      )}
+
+      <SectionHeading>Login History</SectionHeading>
+      {historyLoading ? <Spinner size="sm" /> : !history || history.length === 0 ? (
+        <p className="text-xs text-gray-400 mb-2">No login history recorded.</p>
+      ) : (
+        <div className="flex flex-col gap-1.5 mb-3">
+          {history.slice(0, 10).map(h => (
+            <div key={h.id} className="flex items-center justify-between text-xs">
+              <span className={cn('font-medium', h.success ? 'text-gray-700' : 'text-red-500')}>
+                {h.success ? 'Success' : h.failure_reason ?? 'Failed'} {h.device_label ? `· ${h.device_label}` : ''}
+              </span>
+              <span className="text-gray-400">{new Date(h.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <SectionHeading>Device Sessions</SectionHeading>
+      {sessionsLoading ? <Spinner size="sm" /> : !sessions || sessions.length === 0 ? (
+        <p className="text-xs text-gray-400">No active sessions.</p>
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          {sessions.map(s => (
+            <div key={s.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+              <div>
+                <p className="text-xs font-semibold text-gray-700">{s.device_label ?? 'Unknown device'}</p>
+                <p className="text-[10px] text-gray-400">{s.ip_address ?? '—'} · last seen {new Date(s.last_seen_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+              </div>
+              <button
+                onClick={() => revokeSession.mutate({ userId, sessionId: s.id })}
+                disabled={revokeSession.isPending}
+                className="text-xs font-semibold text-red-600 hover:underline disabled:opacity-50"
+              >Force logout</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
   )
 }
 
@@ -354,6 +469,33 @@ const STATUS_COLORS: Record<string, string> = {
   application: 'bg-green-500',
   job_posted: 'bg-purple-500',
   employer_approved: 'bg-amber-500',
+}
+
+function TrendChart({ metric, label, color }: { metric: TrendMetric; label: string; color: string }) {
+  const { data } = useQuery({
+    queryKey: ['admin', 'trends', metric],
+    queryFn: () => analyticsApi.getAdminTrends(metric, 30),
+  })
+  const series = data?.series ?? []
+  const max = Math.max(1, ...series.map(p => p.count))
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-4">
+      <p className="text-xs font-semibold text-gray-500 mb-3">{label} — last 30 days</p>
+      <div className="flex items-end gap-[2px] h-20">
+        {series.map(p => (
+          <div
+            key={p.date}
+            title={`${p.date}: ${p.count}`}
+            style={{ height: `${(p.count / max) * 100}%`, background: color, flex: 1, minHeight: 2, borderRadius: 2 }}
+          />
+        ))}
+      </div>
+      <p className="text-[10px] text-gray-400 mt-2">
+        {series.length > 0 && `${series[0].date} → ${series[series.length - 1].date}`}
+      </p>
+    </div>
+  )
 }
 
 function DashboardSection({ onNav }: { onNav: (s: Section) => void }) {
@@ -390,6 +532,16 @@ function DashboardSection({ onNav }: { onNav: (s: Section) => void }) {
             <StatCard icon={Shield}      label="Approved Employers" value={stats.approved_employers} sub={`${stats.total_employers - stats.approved_employers} not approved`} color="text-teal-600" accent="border-teal-400" />
           </div>
         ) : null}
+      </section>
+
+      <section>
+        <h3 className="text-base font-bold text-gray-900 mb-4">Growth Trends</h3>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <TrendChart metric="users" label="User Acquisition" color="#3B82F6" />
+          <TrendChart metric="employers" label="Employer Growth" color="#D97706" />
+          <TrendChart metric="jobs" label="Job Postings" color="#7C3AED" />
+          <TrendChart metric="applications" label="Applications" color="#059669" />
+        </div>
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -587,57 +739,16 @@ function UsersSection() {
 }
 
 // ── SECTION: Employers ────────────────────────────────────────────────────────
+// Approve/Reject moved entirely to KYC Verification — this section is now a
+// read-only directory plus Revoke (for already-verified employers).
 
-function RejectModal({ employer, onConfirm, onCancel, loading }: {
-  employer: EmployerEntry; onConfirm: (r: string) => void; onCancel: () => void; loading: boolean
-}) {
-  const [reason, setReason] = useState('')
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
-      <div className="bg-white rounded-2xl shadow-lg p-6 max-w-sm w-full">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h3 className="text-base font-bold text-gray-900">Reject registration</h3>
-            <p className="text-sm text-gray-500 mt-0.5">{employer.company_name}</p>
-          </div>
-          <button onClick={onCancel} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
-        </div>
-        <textarea
-          value={reason}
-          onChange={e => setReason(e.target.value)}
-          rows={3}
-          placeholder="e.g. Incomplete information, suspicious activity…"
-          className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 outline-none resize-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
-        />
-        <div className="flex gap-3 mt-4">
-          <button onClick={onCancel} className="flex-1 h-10 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">Cancel</button>
-          <button
-            onClick={() => reason.trim() && onConfirm(reason.trim())}
-            disabled={!reason.trim() || loading}
-            className="flex-1 h-10 rounded-xl bg-red-500 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-40"
-          >{loading ? 'Rejecting…' : 'Reject'}</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function EmployersSection() {
+function EmployersSection({ onNav }: { onNav: (s: Section) => void }) {
   const [tab, setTab] = useState<EmployerStatus>('pending')
   const { data: employers, isLoading } = useAdminEmployers(tab)
-  const approve = useApproveEmployer()
-  const reject  = useRejectEmployer()
   const revoke  = useRevokeEmployer()
-  const [approvingId, setApprovingId]   = useState<string | null>(null)
-  const [rejectTarget, setRejectTarget] = useState<EmployerEntry | null>(null)
   const [revokeTarget, setRevokeTarget] = useState<EmployerEntry | null>(null)
 
   const { data: stats } = useAdminStats()
-
-  const handleApprove = (id: string) => {
-    setApprovingId(id)
-    approve.mutate(id, { onSettled: () => setApprovingId(null) })
-  }
 
   return (
     <section className="flex flex-col gap-6">
@@ -645,11 +756,11 @@ function EmployersSection() {
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-white rounded-2xl border-l-4 border-amber-400 border border-gray-100 shadow-sm px-4 py-4">
           <p className="text-2xl font-black text-amber-600">{stats?.pending_employers ?? '—'}</p>
-          <p className="text-xs font-semibold text-gray-500">Pending approval</p>
+          <p className="text-xs font-semibold text-gray-500">Awaiting KYC verification</p>
         </div>
         <div className="bg-white rounded-2xl border-l-4 border-green-400 border border-gray-100 shadow-sm px-4 py-4">
           <p className="text-2xl font-black text-green-600">{stats?.approved_employers ?? '—'}</p>
-          <p className="text-xs font-semibold text-gray-500">Approved employers</p>
+          <p className="text-xs font-semibold text-gray-500">Verified employers</p>
         </div>
         <div className="bg-white rounded-2xl border-l-4 border-blue-400 border border-gray-100 shadow-sm px-4 py-4">
           <p className="text-2xl font-black text-blue-600">{stats?.total_employers ?? '—'}</p>
@@ -660,7 +771,15 @@ function EmployersSection() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         {/* Tabs header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-gray-50">
-          <h2 className="text-sm font-bold text-gray-900">Employer Registrations</h2>
+          <div>
+            <h2 className="text-sm font-bold text-gray-900">Employer Directory</h2>
+            <p className="text-[11px] text-gray-400 mt-0.5">
+              Read-only — verification is approved/rejected from{' '}
+              <button onClick={() => onNav('verifications')} className="text-primary font-semibold hover:underline">
+                KYC Verification
+              </button>
+            </p>
+          </div>
           <div className="flex bg-white border border-gray-200 rounded-xl p-0.5 gap-0.5">
             {(['pending', 'approved', 'all'] as EmployerStatus[]).map(t => (
               <button
@@ -702,8 +821,14 @@ function EmployersSection() {
                         ? <Badge color="red">Rejected</Badge>
                         : <Badge color="amber">Pending</Badge>}
                   </div>
-                  <p className="text-xs text-gray-400 mt-0.5">{emp.industry} · {emp.company_size} employees · {emp.city}</p>
-                  <p className="text-xs text-gray-400">{emp.contact_person}{emp.designation ? `, ${emp.designation}` : ''} · {emp.phone}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {[emp.industry, emp.company_size ? `${emp.company_size} employees` : null, emp.city]
+                      .filter(Boolean).join(' · ') || 'Profile not completed yet'}
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    {[emp.contact_person ? `${emp.contact_person}${emp.designation ? `, ${emp.designation}` : ''}` : null, emp.phone]
+                      .filter(Boolean).join(' · ')}
+                  </p>
                   {emp.gst_number && <p className="text-xs text-gray-300 font-mono mt-0.5">GST: {emp.gst_number}</p>}
                   {emp.rejection_reason && <p className="text-xs text-red-500 mt-0.5">Rejected: {emp.rejection_reason}</p>}
                 </div>
@@ -713,31 +838,16 @@ function EmployersSection() {
                   {new Date(emp.registered_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
                 </span>
                 <div className="flex gap-1.5 justify-end">
-                  {!emp.is_approved && !emp.rejection_reason && (
-                    <>
-                      <button
-                        onClick={() => setRejectTarget(emp)}
-                        className="h-7 px-2.5 rounded-lg border border-red-200 text-xs font-semibold text-red-500 hover:bg-red-50"
-                      >Reject</button>
-                      <button
-                        onClick={() => handleApprove(emp.id)}
-                        disabled={approvingId === emp.id}
-                        className="h-7 px-2.5 rounded-lg bg-primary text-white text-xs font-semibold hover:opacity-90 disabled:opacity-50"
-                      >{approvingId === emp.id ? '…' : 'Approve'}</button>
-                    </>
-                  )}
-                  {emp.is_approved && (
+                  {emp.is_approved ? (
                     <button
                       onClick={() => setRevokeTarget(emp)}
                       className="h-7 px-2.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors"
                     >Revoke</button>
-                  )}
-                  {emp.rejection_reason && !emp.is_approved && (
+                  ) : (
                     <button
-                      onClick={() => handleApprove(emp.id)}
-                      disabled={approvingId === emp.id}
-                      className="h-7 px-2.5 rounded-lg bg-green-500 text-white text-xs font-semibold hover:opacity-90 disabled:opacity-50"
-                    >Re-approve</button>
+                      onClick={() => onNav('verifications')}
+                      className="h-7 px-2.5 rounded-lg border border-primary/20 text-xs font-semibold text-primary hover:bg-primary/5"
+                    >Review KYC</button>
                   )}
                 </div>
               </div>
@@ -748,15 +858,6 @@ function EmployersSection() {
           </>
         )}
       </div>
-
-      {rejectTarget && (
-        <RejectModal
-          employer={rejectTarget}
-          loading={reject.isPending}
-          onConfirm={reason => reject.mutate({ profileId: rejectTarget.id, reason }, { onSuccess: () => setRejectTarget(null) })}
-          onCancel={() => setRejectTarget(null)}
-        />
-      )}
 
       {revokeTarget && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
@@ -1307,6 +1408,441 @@ function TracksSection() {
   )
 }
 
+// ── SECTION: Roles & Permissions ─────────────────────────────────────────────
+
+function RolesSection() {
+  const { data: roles, isLoading } = useAdminRoles()
+  const { data: permissions } = useAdminPermissions()
+  const update = useUpdateRolePermissions()
+  const [editingRole, setEditingRole] = useState<RoleEntry | null>(null)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+
+  const permByKey = useMemo(() => {
+    const map = new Map<string, string>() // "resource:action" -> id
+    ;(permissions ?? []).forEach(p => map.set(`${p.resource}:${p.action}`, p.id))
+    return map
+  }, [permissions])
+
+  return (
+    <section className="flex flex-col gap-6">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-100">
+          <h2 className="text-sm font-bold text-gray-900">Roles & Permission Matrix</h2>
+          <p className="text-xs text-gray-400 mt-0.5">Click a role to edit its permission set.</p>
+        </div>
+
+        {isLoading ? <Spinner /> : !roles || roles.length === 0 ? (
+          <Empty icon={KeyRound} text="No roles found" />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-gray-50 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  <th className="text-left px-4 py-2">Role</th>
+                  <th className="text-right px-4 py-2">Users</th>
+                  <th className="text-right px-4 py-2">Permissions</th>
+                  <th className="text-right px-4 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {roles.map(role => (
+                  <tr key={role.id} className="border-t border-gray-50">
+                    <td className="px-4 py-2.5">
+                      <span className="font-semibold text-gray-900">{role.name.replace(/_/g, ' ')}</span>
+                      {role.is_system && <span className="ml-2 text-[10px] text-gray-400">system</span>}
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-gray-600">{role.user_count}</td>
+                    <td className="px-4 py-2.5 text-right text-gray-600">{role.permissions.length}</td>
+                    <td className="px-4 py-2.5 text-right">
+                      <button
+                        onClick={() => {
+                          setEditingRole(role)
+                          setSelectedIds(role.permissions.map(key => permByKey.get(key)).filter((id): id is string => !!id))
+                        }}
+                        className="text-xs font-semibold text-primary hover:underline"
+                      >Edit</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {editingRole && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl shadow-lg p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex items-start justify-between mb-4">
+              <h3 className="text-base font-bold text-gray-900">{editingRole.name.replace(/_/g, ' ')}</h3>
+              <button onClick={() => setEditingRole(null)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {(permissions ?? []).map(perm => {
+                const key = `${perm.resource}:${perm.action}`
+                return (
+                  <label key={perm.id} className="flex items-center gap-2 text-xs text-gray-700">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(perm.id)}
+                      onChange={e => setSelectedIds(prev =>
+                        e.target.checked ? [...prev, perm.id] : prev.filter(id => id !== perm.id)
+                      )}
+                    />
+                    {key}
+                  </label>
+                )
+              })}
+            </div>
+            {update.isError && <p className="text-xs text-red-500 mt-2">{getApiError(update.error)}</p>}
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => setEditingRole(null)} className="flex-1 h-10 rounded-xl border border-gray-200 text-sm font-medium text-gray-600">Cancel</button>
+              <button
+                onClick={() => update.mutate(
+                  { roleId: editingRole.id, permissionIds: selectedIds },
+                  { onSuccess: () => setEditingRole(null) },
+                )}
+                disabled={update.isPending || editingRole.name === 'super_admin'}
+                className="flex-1 h-10 rounded-xl bg-primary text-white text-sm font-semibold disabled:opacity-40"
+              >{update.isPending ? 'Saving…' : 'Save'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
+// ── SECTION: Employer KYC Verification Queue ─────────────────────────────────
+
+const VERIF_STATUS_COLOR: Record<string, string> = {
+  pending: 'amber', under_review: 'blue', approved: 'green', rejected: 'red', resubmitted: 'purple',
+}
+
+function VerificationDetailDrawer({ id, onClose }: { id: string; onClose: () => void }) {
+  const { data: v, isLoading } = useEmployerVerificationDetail(id)
+  const review = useReviewEmployerVerification()
+  const [notes, setNotes] = useState('')
+  const [rejectReason, setRejectReason] = useState('')
+  const [showReject, setShowReject] = useState(false)
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-start justify-end z-50">
+      <div className="absolute inset-0" onClick={onClose} />
+      <div className="relative w-full max-w-md h-full bg-white shadow-2xl flex flex-col overflow-hidden">
+        <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100 bg-gray-50">
+          <div>
+            <h3 className="text-base font-bold text-gray-900">{isLoading ? 'Loading…' : v?.company_name}</h3>
+            {v && <Badge color={VERIF_STATUS_COLOR[v.status] ?? 'gray'}>{v.status.replace(/_/g, ' ')}</Badge>}
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          {isLoading ? <Spinner /> : !v ? (
+            <p className="text-sm text-gray-400 text-center py-10">Could not load verification.</p>
+          ) : (
+            <div className="flex flex-col gap-1">
+              <SectionHeading>Documents</SectionHeading>
+              {v.documents.length === 0 ? (
+                <p className="text-xs text-gray-400 mb-2">No documents uploaded.</p>
+              ) : (
+                <div className="flex flex-col gap-1.5 mb-3">
+                  {v.documents.map(d => (
+                    <div key={d.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-700">{d.doc_type.replace(/_/g, ' ')}</p>
+                        <p className="text-[10px] text-gray-400">{d.original_filename}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => adminApi.downloadVerificationDocument(v.id, d.id, d.original_filename)}
+                          className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                        >
+                          <Eye className="w-3.5 h-3.5" />View
+                        </button>
+                        <Badge color={d.status === 'verified' ? 'green' : d.status === 'rejected' ? 'red' : 'gray'}>{d.status}</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <SectionHeading>Timeline</SectionHeading>
+              <div className="flex flex-col gap-2 mb-3">
+                {v.events.map(e => (
+                  <div key={e.id} className="text-xs">
+                    <p className="font-semibold text-gray-700">{e.from_status ? `${e.from_status} → ` : ''}{e.to_status}</p>
+                    <p className="text-gray-400">{e.actor_name ?? 'System'} · {new Date(e.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                    {e.note && <p className="text-gray-500 mt-0.5">{e.note}</p>}
+                  </div>
+                ))}
+              </div>
+
+              {v.status !== 'approved' && (
+                <>
+                  <SectionHeading>Review</SectionHeading>
+                  <textarea
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                    rows={2}
+                    placeholder="Reviewer notes (optional)…"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs outline-none resize-none focus:border-primary mb-2"
+                  />
+                  <div className="flex gap-2">
+                    {v.status === 'pending' && (
+                      <button
+                        onClick={() => review.mutate({ id, action: 'under_review', notes: notes.trim() || undefined })}
+                        disabled={review.isPending}
+                        className="flex-1 h-9 rounded-lg bg-blue-50 text-blue-700 text-xs font-semibold disabled:opacity-50"
+                      >Mark Under Review</button>
+                    )}
+                    <button
+                      onClick={() => review.mutate({ id, action: 'approve', notes: notes.trim() || undefined })}
+                      disabled={review.isPending}
+                      className="flex-1 h-9 rounded-lg bg-green-50 text-green-700 text-xs font-semibold disabled:opacity-50"
+                    >Approve</button>
+                    <button
+                      onClick={() => setShowReject(true)}
+                      disabled={review.isPending}
+                      className="flex-1 h-9 rounded-lg bg-red-50 text-red-700 text-xs font-semibold disabled:opacity-50"
+                    >Reject</button>
+                  </div>
+                  {showReject && (
+                    <div className="mt-2 flex flex-col gap-2">
+                      <textarea
+                        value={rejectReason}
+                        onChange={e => setRejectReason(e.target.value)}
+                        rows={2}
+                        placeholder="Rejection reason (required)…"
+                        className="w-full rounded-lg border border-red-200 px-3 py-2 text-xs outline-none resize-none focus:border-red-400"
+                      />
+                      <button
+                        onClick={() => rejectReason.trim() && review.mutate(
+                          { id, action: 'reject', notes: notes.trim() || undefined, rejection_reason: rejectReason.trim() },
+                          { onSuccess: () => setShowReject(false) },
+                        )}
+                        disabled={!rejectReason.trim() || review.isPending}
+                        className="h-9 rounded-lg bg-red-500 text-white text-xs font-semibold disabled:opacity-40"
+                      >Confirm Rejection</button>
+                    </div>
+                  )}
+                  {review.isError && <p className="text-xs text-red-500 mt-2">{getApiError(review.error)}</p>}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function VerificationsSection() {
+  const [statusFilter, setStatusFilter] = useState<string | undefined>('pending')
+  const { data: list, isLoading } = useEmployerVerifications(statusFilter)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  return (
+    <section className="flex flex-col gap-6">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <h2 className="text-sm font-bold text-gray-900">Employer KYC Verification Queue</h2>
+          <select
+            value={statusFilter ?? ''}
+            onChange={e => setStatusFilter(e.target.value || undefined)}
+            className="h-8 rounded-lg border border-gray-200 px-2 text-xs outline-none focus:border-primary"
+          >
+            <option value="">All</option>
+            <option value="pending">Pending</option>
+            <option value="under_review">Under review</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+
+        {isLoading ? <Spinner /> : !list || list.length === 0 ? (
+          <Empty icon={Shield} text="No verifications match this filter" />
+        ) : (
+          list.map((v, idx) => (
+            <div
+              key={v.id}
+              onClick={() => setSelectedId(v.id)}
+              className={cn('flex items-center justify-between gap-3 px-4 py-3 cursor-pointer hover:bg-primary/5', idx < list.length - 1 && 'border-b border-gray-50')}
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">{v.company_name}</p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {v.document_count} document{v.document_count === 1 ? '' : 's'} · submitted {new Date(v.submitted_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
+                </p>
+              </div>
+              <Badge color={VERIF_STATUS_COLOR[v.status] ?? 'gray'}>{v.status.replace(/_/g, ' ')}</Badge>
+            </div>
+          ))
+        )}
+      </div>
+
+      {selectedId && <VerificationDetailDrawer id={selectedId} onClose={() => setSelectedId(null)} />}
+    </section>
+  )
+}
+
+// ── SECTION: Audit Log ────────────────────────────────────────────────────────
+
+function AuditLogSection() {
+  const [actionFilter, setActionFilter] = useState('')
+  const [offset, setOffset] = useState(0)
+  const limit = 25
+  const { data, isLoading } = useAuditLogs({ action: actionFilter || undefined, limit, offset })
+
+  return (
+    <section className="flex flex-col gap-6">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <h2 className="text-sm font-bold text-gray-900">Audit Log</h2>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+            <input
+              value={actionFilter}
+              onChange={e => { setActionFilter(e.target.value); setOffset(0) }}
+              placeholder="Filter by action…"
+              className="pl-8 pr-3 h-8 rounded-xl border border-gray-200 text-xs text-gray-700 placeholder:text-gray-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 bg-white w-56"
+            />
+          </div>
+        </div>
+
+        {isLoading ? <Spinner /> : !data || data.items.length === 0 ? (
+          <Empty icon={Activity} text="No audit log entries match this filter" />
+        ) : (
+          data.items.map((log, idx) => (
+            <div key={log.id} className={cn('px-4 py-3', idx < data.items.length - 1 && 'border-b border-gray-50')}>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-semibold text-gray-900">{log.action.replace(/[._]/g, ' ')}</span>
+                <span className="text-xs text-gray-400 whitespace-nowrap">
+                  {new Date(log.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {log.actor_email ?? log.actor_phone ?? 'System'}
+                {log.resource ? ` · ${log.resource}${log.resource_id ? ` #${log.resource_id.slice(0, 8)}` : ''}` : ''}
+                {log.ip_address ? ` · ${log.ip_address}` : ''}
+              </p>
+              {(log.previous_value || log.new_value) && (
+                <div className="flex gap-4 mt-1.5 text-[11px]">
+                  {log.previous_value && <span className="text-red-400">− {JSON.stringify(log.previous_value)}</span>}
+                  {log.new_value && <span className="text-green-600">+ {JSON.stringify(log.new_value)}</span>}
+                </div>
+              )}
+            </div>
+          ))
+        )}
+
+        {data && data.total > limit && (
+          <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-t border-gray-100">
+            <button
+              onClick={() => setOffset(Math.max(0, offset - limit))}
+              disabled={offset === 0}
+              className="text-xs font-semibold text-gray-600 disabled:opacity-40"
+            >Previous</button>
+            <span className="text-xs text-gray-400">{offset + 1}–{Math.min(offset + limit, data.total)} of {data.total}</span>
+            <button
+              onClick={() => setOffset(offset + limit)}
+              disabled={offset + limit >= data.total}
+              className="text-xs font-semibold text-gray-600 disabled:opacity-40"
+            >Next</button>
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+// ── SECTION: Subscription Plans ──────────────────────────────────────────────
+
+function SubscriptionPlansSection() {
+  const { data: plans, isLoading } = useSubscriptionPlansAdmin()
+  const update = useUpdateSubscriptionPlan()
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [form, setForm] = useState<{ price_monthly: string; max_active_jobs: string; max_recruiter_seats: string }>({
+    price_monthly: '', max_active_jobs: '', max_recruiter_seats: '',
+  })
+
+  return (
+    <section className="flex flex-col gap-6">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-100">
+          <h2 className="text-sm font-bold text-gray-900">Subscription Plans</h2>
+        </div>
+
+        {isLoading ? <Spinner /> : !plans || plans.length === 0 ? (
+          <Empty icon={Award} text="No plans found" />
+        ) : (
+          plans.map((p, idx) => (
+            <div key={p.id} className={cn('px-4 py-3', idx < plans.length - 1 && 'border-b border-gray-50')}>
+              {editingId === p.id ? (
+                <div className="flex flex-wrap items-end gap-3">
+                  <div>
+                    <p className="text-[10px] text-gray-400 mb-1">Price (paise/mo)</p>
+                    <input value={form.price_monthly} onChange={e => setForm({ ...form, price_monthly: e.target.value })}
+                      className="h-8 w-28 rounded-lg border border-gray-200 px-2 text-xs" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-gray-400 mb-1">Max active jobs</p>
+                    <input value={form.max_active_jobs} onChange={e => setForm({ ...form, max_active_jobs: e.target.value })}
+                      placeholder="blank = unlimited" className="h-8 w-32 rounded-lg border border-gray-200 px-2 text-xs" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-gray-400 mb-1">Max seats</p>
+                    <input value={form.max_recruiter_seats} onChange={e => setForm({ ...form, max_recruiter_seats: e.target.value })}
+                      placeholder="blank = unlimited" className="h-8 w-32 rounded-lg border border-gray-200 px-2 text-xs" />
+                  </div>
+                  <button
+                    onClick={() => {
+                      update.mutate({
+                        planId: p.id,
+                        payload: {
+                          price_monthly: Number(form.price_monthly) || 0,
+                          max_active_jobs: form.max_active_jobs === '' ? null : Number(form.max_active_jobs),
+                          max_recruiter_seats: form.max_recruiter_seats === '' ? null : Number(form.max_recruiter_seats),
+                        },
+                      }, { onSuccess: () => setEditingId(null) })
+                    }}
+                    disabled={update.isPending}
+                    className="h-8 px-3 rounded-lg bg-primary text-white text-xs font-semibold"
+                  >Save</button>
+                  <button onClick={() => setEditingId(null)} className="h-8 px-3 rounded-lg border border-gray-200 text-xs font-medium text-gray-600">Cancel</button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900 capitalize">{p.name}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {p.price_monthly === 0 ? 'Free' : `₹${(p.price_monthly / 100).toLocaleString('en-IN')}/mo`}
+                      {' · '}{p.max_active_jobs ?? 'Unlimited'} jobs · {p.max_recruiter_seats ?? 'Unlimited'} seats
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setEditingId(p.id)
+                      setForm({
+                        price_monthly: String(p.price_monthly),
+                        max_active_jobs: p.max_active_jobs?.toString() ?? '',
+                        max_recruiter_seats: p.max_recruiter_seats?.toString() ?? '',
+                      })
+                    }}
+                    className="text-xs font-semibold text-primary hover:underline"
+                  >Edit</button>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AdminDashboardPage() {
@@ -1340,7 +1876,7 @@ export default function AdminDashboardPage() {
           </div>
           {sidebarOpen && (
             <div>
-              <p className="text-sm font-black text-primary" style={{ fontFamily: 'Hind, sans-serif' }}>DISHA AI</p>
+              <p className="text-sm font-black text-primary" style={{ fontFamily: 'Hind, sans-serif' }}>BeginablAI</p>
               <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-widest">Admin</p>
             </div>
           )}
@@ -1404,7 +1940,7 @@ export default function AdminDashboardPage() {
             <h1 className="text-base font-bold text-gray-900" style={{ fontFamily: 'Hind, sans-serif' }}>
               {SECTION_LABELS[section]}
             </h1>
-            <p className="text-xs text-gray-400">DISHA AI platform administration</p>
+            <p className="text-xs text-gray-400">BeginablAI platform administration</p>
           </div>
           <div className="flex items-center gap-3">
             {pendingCount > 0 && (
@@ -1426,10 +1962,15 @@ export default function AdminDashboardPage() {
         <main className="flex-1 px-6 py-8 max-w-6xl mx-auto w-full">
           {section === 'dashboard'    && <DashboardSection onNav={setSection} />}
           {section === 'users'        && <UsersSection />}
-          {section === 'employers'    && <EmployersSection />}
+          {section === 'employers'    && <EmployersSection onNav={setSection} />}
           {section === 'jobs'         && <JobsSection />}
           {section === 'applications' && <ApplicationsSection />}
           {section === 'tracks'       && <TracksSection />}
+          {section === 'subadmins'    && <SubAdminManagement />}
+          {section === 'roles'        && <RolesSection />}
+          {section === 'verifications' && <VerificationsSection />}
+          {section === 'auditlog' && <AuditLogSection />}
+          {section === 'subscriptions' && <SubscriptionPlansSection />}
         </main>
       </div>
     </div>

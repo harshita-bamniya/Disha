@@ -44,11 +44,16 @@ VALID_SECTORS = {
 # ── Step 1: Personal ─────────────────────────────────────────────────────────
 
 class PersonalInfoRequest(BaseModel):
+    """Quick-start step — only these 3 fields are required to unlock the
+    dashboard. date_of_birth/gender/state are deferred to a later, skippable
+    'complete your profile' pass and may be filled in by re-submitting this
+    same endpoint."""
     full_name: str
-    date_of_birth: str          # YYYY-MM-DD
-    gender: Literal["male", "female", "other", "prefer_not_to_say"]
+    current_status: Literal["student", "fresher", "experienced"]
     city: str
-    state: str
+    date_of_birth: str | None = None          # YYYY-MM-DD
+    gender: Literal["male", "female", "other", "prefer_not_to_say"] | None = None
+    state: str | None = None
 
     @field_validator("full_name")
     @classmethod
@@ -62,7 +67,9 @@ class PersonalInfoRequest(BaseModel):
 
     @field_validator("date_of_birth")
     @classmethod
-    def validate_dob(cls, v: str) -> str:
+    def validate_dob(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
         if not re.match(r"^\d{4}-\d{2}-\d{2}$", v):
             raise ValueError("Date of birth must be in YYYY-MM-DD format")
         return v
@@ -240,6 +247,7 @@ class ProfileResponse(BaseModel):
     """Full aspirant profile — returned by GET /onboarding/profile for pre-filling edit forms."""
     # Personal
     full_name: str | None = None
+    current_status: str | None = None
     date_of_birth: str | None = None      # YYYY-MM-DD string
     gender: str | None = None
     city: str | None = None

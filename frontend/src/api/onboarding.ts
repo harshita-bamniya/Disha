@@ -7,10 +7,11 @@ import type {
 
 export interface PersonalPayload {
   full_name: string
-  date_of_birth: string
-  gender: Gender
+  current_status: 'student' | 'fresher' | 'experienced'
   city: string
-  state: string
+  date_of_birth?: string
+  gender?: Gender
+  state?: string
 }
 
 export interface EducationPayload {
@@ -60,6 +61,7 @@ export interface PsychologyPayload {
 
 export interface ProfileData {
   full_name: string | null
+  current_status: string | null
   date_of_birth: string | null
   gender: string | null
   city: string | null

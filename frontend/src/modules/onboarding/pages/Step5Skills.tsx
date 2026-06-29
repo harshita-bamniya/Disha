@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import OnboardingLayout from '@/layouts/OnboardingLayout'
 import Button from '@/components/ui/Button'
@@ -34,6 +35,7 @@ export default function Step5Skills() {
   const [error, setError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const { skills } = useOnboardingSteps()
+  const navigate = useNavigate()
 
   const toggle = (skill: string) => {
     setError('')
@@ -86,6 +88,7 @@ export default function Step5Skills() {
       currentStep={5}
       title="Your core skills"
       subtitle={`Select up to ${MAX_SKILLS} skills that best describe your strengths. Can't find yours? Add it below.`}
+      onSkip={() => navigate('/app/onboarding/step/6')}
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
 

@@ -78,6 +78,21 @@ class PrepareJobResponse(BaseModel):
     message: str
 
 
+class JobFitAnalysisRequest(BaseModel):
+    job_title: str
+    company_name: str
+    description: str | None = None
+    required_skills: list[str] = []
+    skills_you_have: list[str] = []
+    skills_to_develop: list[str] = []
+    min_k_score: int = 0
+    k_score: int = 0
+
+
+class JobFitAnalysisResponse(BaseModel):
+    summary: str
+
+
 class ActivePrepJobContext(BaseModel):
     """Full context returned when a user has an active prep job set."""
     job_id: str

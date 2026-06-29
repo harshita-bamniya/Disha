@@ -18,6 +18,7 @@ from app.models.mvp3 import (  # noqa: F401
     PlatformSetting, FeatureFlag,
     UserEvent,
     OAuthProvider,
+    CandidateNote, CandidateRating, CandidateInterviewFeedback,
 )
 from app.models.roadmap import (  # noqa: F401
     TicketTemplate, UserRoadmap, UserSkillCompetence,
@@ -26,3 +27,8 @@ from app.models.roadmap import (  # noqa: F401
 from app.models.xp import UserXP, XPTransaction  # noqa: F401
 from app.models.job_plan import JobLearningPlan  # noqa: F401
 from app.models.companion import CompanionMoodEntry, CompanionMilestone  # noqa: F401
+from app.models.company import Company, CompanyInvite  # noqa: F401
+from app.models.employer_verification import (  # noqa: F401
+    EmployerVerification, EmployerVerificationDocument, EmployerVerificationEvent,
+)
+from app.models.subscription import SubscriptionPlan, CompanySubscription  # noqa: F401

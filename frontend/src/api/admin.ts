@@ -21,13 +21,14 @@ export interface EmployerEntry {
   id: string
   user_id: string
   company_name: string
-  industry: string
-  company_size: string
+  // Filled in later via the post-login setup wizard — null until then.
+  industry: string | null
+  company_size: string | null
   website: string | null
   gst_number: string | null
-  contact_person: string
+  contact_person: string | null
   designation: string | null
-  city: string
+  city: string | null
   description: string | null
   phone: string
   phone_verified: boolean
@@ -212,6 +213,139 @@ export interface AdminActivityItem {
   timestamp: string
 }
 
+export interface PermissionEntry {
+  id: string
+  resource: string
+  action: string
+  description: string | null
+}
+
+export interface RoleEntry {
+  id: string
+  name: string
+  description: string | null
+  is_system: boolean
+  permissions: string[]   // "resource:action"
+  user_count: number
+}
+
+export interface SubAdminEntry {
+  user_id: string
+  email: string | null
+  phone: string | null
+  full_name: string | null
+  role_id: string
+  role_name: string
+  status: string
+  is_active: boolean
+  last_login_at: string | null
+  created_at: string
+}
+
+export interface SubAdminCreatePayload {
+  email: string
+  phone?: string
+  role_id: string
+  full_name?: string
+}
+
+export interface UserManagementEntry {
+  user_id: string
+  email: string | null
+  phone: string | null
+  role_name: string | null
+  full_name: string | null
+  status: string
+  is_active: boolean
+  failed_login_attempts: number
+  last_login_at: string | null
+  registered_at: string
+}
+
+export interface LoginHistoryEntry {
+  id: string
+  ip_address: string | null
+  user_agent: string | null
+  device_label: string | null
+  success: boolean
+  failure_reason: string | null
+  created_at: string
+}
+
+export interface DeviceSessionEntry {
+  id: string
+  device_label: string | null
+  ip_address: string | null
+  last_seen_at: string
+  is_current: boolean
+  created_at: string
+}
+
+export interface SubscriptionPlanAdminEntry {
+  id: string
+  name: string
+  price_monthly: number
+  max_active_jobs: number | null
+  max_recruiter_seats: number | null
+  resume_access: boolean
+  candidate_search_limit: number | null
+  is_active: boolean
+}
+
+export interface AuditLogEntry {
+  id: string
+  actor_email: string | null
+  actor_phone: string | null
+  action: string
+  resource: string | null
+  resource_id: string | null
+  ip_address: string | null
+  previous_value: Record<string, unknown> | null
+  new_value: Record<string, unknown> | null
+  created_at: string
+}
+
+export interface AuditLogPage {
+  total: number
+  items: AuditLogEntry[]
+}
+
+export interface VerificationDocumentEntry {
+  id: string
+  doc_type: string
+  file_url: string
+  original_filename: string | null
+  status: string
+  notes: string | null
+  uploaded_at: string
+}
+
+export interface VerificationEventEntry {
+  id: string
+  actor_name: string | null
+  from_status: string | null
+  to_status: string
+  note: string | null
+  created_at: string
+}
+
+export interface EmployerVerificationEntry {
+  id: string
+  employer_id: string
+  company_name: string
+  status: string
+  rejection_reason: string | null
+  submitted_at: string
+  reviewed_at: string | null
+  document_count: number
+}
+
+export interface EmployerVerificationDetail extends EmployerVerificationEntry {
+  reviewer_notes: string | null
+  documents: VerificationDocumentEntry[]
+  events: VerificationEventEntry[]
+}
+
 export const adminApi = {
   getStats: () =>
     apiClient.get<AdminStats>('/admin/stats').then(r => r.data),
@@ -219,12 +353,6 @@ export const adminApi = {
   // ── Employers ────────────────────────────────────────────────────────────────
   listEmployers: (status: EmployerStatus = 'pending') =>
     apiClient.get<EmployerEntry[]>('/admin/employers', { params: { status } }).then(r => r.data),
-
-  approveEmployer: (profileId: string) =>
-    apiClient.post<{ message: string }>(`/admin/employers/${profileId}/approve`).then(r => r.data),
-
-  rejectEmployer: (profileId: string, reason: string) =>
-    apiClient.post<{ message: string }>(`/admin/employers/${profileId}/reject`, { reason }).then(r => r.data),
 
   revokeEmployer: (profileId: string) =>
     apiClient.post<{ message: string }>(`/admin/employers/${profileId}/revoke`).then(r => r.data),
@@ -272,4 +400,73 @@ export const adminApi = {
   // ── Activity ──────────────────────────────────────────────────────────────────
   getActivity: (limit = 25) =>
     apiClient.get<AdminActivityItem[]>('/admin/activity', { params: { limit } }).then(r => r.data),
+
+  // ── RBAC: roles & permission matrix ─────────────────────────────────────────
+  listPermissions: () =>
+    apiClient.get<PermissionEntry[]>('/admin/permissions').then(r => r.data),
+
+  listRoles: () =>
+    apiClient.get<RoleEntry[]>('/admin/roles').then(r => r.data),
+
+  updateRolePermissions: (roleId: string, permissionIds: string[]) =>
+    apiClient.patch<RoleEntry>(`/admin/roles/${roleId}/permissions`, { permission_ids: permissionIds }).then(r => r.data),
+
+  // ── Sub-admin management ─────────────────────────────────────────────────────
+  listSubAdmins: () =>
+    apiClient.get<SubAdminEntry[]>('/admin/sub-admins').then(r => r.data),
+
+  createSubAdmin: (payload: SubAdminCreatePayload) =>
+    apiClient.post<SubAdminEntry>('/admin/sub-admins', payload).then(r => r.data),
+
+  updateSubAdminRole: (userId: string, roleId: string) =>
+    apiClient.patch<SubAdminEntry>(`/admin/sub-admins/${userId}/role`, { role_id: roleId }).then(r => r.data),
+
+  deleteSubAdmin: (userId: string) =>
+    apiClient.delete<{ message: string }>(`/admin/sub-admins/${userId}`).then(r => r.data),
+
+  // ── User management: status / login history / sessions ──────────────────────
+  listManagedUsers: (params?: { search?: string; status?: string }) =>
+    apiClient.get<UserManagementEntry[]>('/admin/user-management', { params }).then(r => r.data),
+
+  updateUserStatus: (userId: string, status: string, reason?: string) =>
+    apiClient.patch<{ message: string }>(`/admin/user-management/${userId}/status`, { status, reason }).then(r => r.data),
+
+  getLoginHistory: (userId: string) =>
+    apiClient.get<LoginHistoryEntry[]>(`/admin/user-management/${userId}/login-history`).then(r => r.data),
+
+  getDeviceSessions: (userId: string) =>
+    apiClient.get<DeviceSessionEntry[]>(`/admin/user-management/${userId}/sessions`).then(r => r.data),
+
+  revokeDeviceSession: (userId: string, sessionId: string) =>
+    apiClient.post<{ message: string }>(`/admin/user-management/${userId}/sessions/${sessionId}/revoke`).then(r => r.data),
+
+  // ── Employer KYC verification ────────────────────────────────────────────────
+  listEmployerVerifications: (status?: string) =>
+    apiClient.get<EmployerVerificationEntry[]>('/admin/employer-verifications', { params: status ? { status } : undefined }).then(r => r.data),
+
+  getEmployerVerification: (verificationId: string) =>
+    apiClient.get<EmployerVerificationDetail>(`/admin/employer-verifications/${verificationId}`).then(r => r.data),
+
+  reviewEmployerVerification: (verificationId: string, payload: { action: string; notes?: string; rejection_reason?: string }) =>
+    apiClient.post<EmployerVerificationDetail>(`/admin/employer-verifications/${verificationId}/review`, payload).then(r => r.data),
+
+  downloadVerificationDocument: async (verificationId: string, documentId: string, filename: string) => {
+    const res = await apiClient.get(`/admin/employer-verifications/${verificationId}/documents/${documentId}`, {
+      responseType: 'blob',
+    })
+    const url = URL.createObjectURL(res.data as Blob)
+    window.open(url, '_blank')
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  },
+
+  // ── Audit log ───────────────────────────────────────────────────────────────
+  listAuditLogs: (params?: { user_id?: string; action?: string; from?: string; to?: string; limit?: number; offset?: number }) =>
+    apiClient.get<AuditLogPage>('/admin/audit-logs', { params }).then(r => r.data),
+
+  // ── Subscription plans ────────────────────────────────────────────────────────
+  listSubscriptionPlans: () =>
+    apiClient.get<SubscriptionPlanAdminEntry[]>('/admin/subscription-plans').then(r => r.data),
+
+  updateSubscriptionPlan: (planId: string, payload: Partial<Omit<SubscriptionPlanAdminEntry, 'id' | 'name'>>) =>
+    apiClient.patch<SubscriptionPlanAdminEntry>(`/admin/subscription-plans/${planId}`, payload).then(r => r.data),
 }

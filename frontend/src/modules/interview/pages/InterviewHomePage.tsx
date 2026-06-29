@@ -50,18 +50,18 @@ export default function InterviewHomePage() {
   const recentSessions = sessions?.slice(0, 5) ?? []
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F0F4F8', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
       <AppSidebar activePath="/app/interview" />
       <div style={{ flex: 1, minWidth: 0 }}>
         <header style={{
-          background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(20px)',
+          background: 'white',
           borderBottom: '1px solid rgba(226,232,240,0.8)',
           padding: '0 28px', height: 60,
           display: 'flex', alignItems: 'center', gap: 8,
           position: 'sticky', top: 0, zIndex: 20,
         }}>
           <MessageSquare size={18} color="#2D6A4F" />
-          <span style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', fontFamily: 'Hind, sans-serif' }}>
+          <span style={{ fontSize: 16, fontWeight: 800, color: '#0F172A' }}>
             Mock Interview
           </span>
         </header>
@@ -75,7 +75,7 @@ export default function InterviewHomePage() {
                 background: 'white', borderRadius: 20, padding: '24px 28px', marginBottom: 24,
                 border: '1.5px solid rgba(226,232,240,0.8)',
               }}>
-                <h2 style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', marginBottom: 6, fontFamily: 'Hind, sans-serif' }}>
+                <h2 style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', marginBottom: 6 }}>
                   Start a Mock Interview
                 </h2>
                 <p style={{ fontSize: 13, color: '#64748B', marginBottom: 20, lineHeight: 1.6 }}>
@@ -136,7 +136,7 @@ export default function InterviewHomePage() {
               {/* Recent sessions */}
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                  <div style={{ width: 4, height: 16, background: 'linear-gradient(180deg, #2D6A4F, #40916C)', borderRadius: 4 }} />
+                  <div style={{ width: 4, height: 16, background: '#2563EB', borderRadius: 4 }} />
                   <h2 style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>Recent Sessions</h2>
                 </div>
                 {isLoading ? (
@@ -213,7 +213,7 @@ export default function InterviewHomePage() {
                         background: 'rgba(248,250,252,0.8)', borderRadius: 10,
                         padding: '10px 12px', textAlign: 'center',
                       }}>
-                        <div style={{ fontSize: 18, fontWeight: 900, color: '#0F172A', fontFamily: 'Hind, sans-serif' }}>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: '#0F172A' }}>
                           {value}
                         </div>
                         <div style={{ fontSize: 10, color: '#94A3B8', marginTop: 2 }}>{label}</div>
@@ -240,7 +240,7 @@ export default function InterviewHomePage() {
                           <div style={{ height: 5, background: 'rgba(45,106,79,0.1)', borderRadius: 5 }}>
                             <div style={{
                               width: `${(value / 10) * 100}%`, height: '100%',
-                              background: 'linear-gradient(90deg, #2D6A4F, #40916C)',
+                              background: '#2563EB',
                               borderRadius: 5, transition: 'width 0.8s ease',
                             }} />
                           </div>

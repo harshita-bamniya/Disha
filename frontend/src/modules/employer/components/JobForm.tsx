@@ -1,7 +1,14 @@
 import { useState } from 'react'
+import {
+  Briefcase, Clock4, GraduationCap, FileSignature, Sparkles,
+  Globe, MapPinned, Shuffle, Building2, MapPin, IndianRupee,
+  CalendarClock, TrendingUp, GaugeCircle, Tags, X, Plus, Info, Wand2,
+} from 'lucide-react'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
+import { useSuggestSkills } from '../hooks/useJobs'
+import { getApiError } from '@/api/client'
 import type { JobPostingPayload, GrowthOutlook, JobPosting, JobType, EmploymentType } from '@/api/jobs'
 
 const SECTORS = [
@@ -26,25 +33,25 @@ const ALL_SKILLS = [
   'Teaching & Training', 'Budget & Finance',
 ]
 
-const GROWTH_OPTIONS: { value: GrowthOutlook; label: string; color: string }[] = [
-  { value: 'high',   label: '↑ High growth',   color: 'bg-primary text-white border-primary' },
-  { value: 'medium', label: '→ Medium growth',  color: 'bg-accent text-white border-accent' },
-  { value: 'low',    label: '↓ Stable / niche', color: 'bg-gray-500 text-white border-gray-500' },
+const GROWTH_OPTIONS: { value: GrowthOutlook; label: string }[] = [
+  { value: 'high',   label: 'High growth' },
+  { value: 'medium', label: 'Medium growth' },
+  { value: 'low',    label: 'Stable / niche' },
 ]
 
-const JOB_TYPES: { value: JobType; label: string; icon: string; hint: string; needsLocation: boolean }[] = [
-  { value: 'remote',    label: 'Remote',    icon: '🌐', hint: 'Fully remote',        needsLocation: false },
-  { value: 'pan_india', label: 'Pan India', icon: '🇮🇳', hint: 'Anywhere in India',  needsLocation: false },
-  { value: 'hybrid',    label: 'Hybrid',    icon: '🔀', hint: 'Office + remote mix', needsLocation: true  },
-  { value: 'onsite',    label: 'On-site',   icon: '🏢', hint: 'Full time in office', needsLocation: true  },
+const JOB_TYPES: { value: JobType; label: string; icon: typeof Globe; hint: string; needsLocation: boolean }[] = [
+  { value: 'remote',    label: 'Remote',    icon: Globe,      hint: 'Fully remote',        needsLocation: false },
+  { value: 'pan_india', label: 'Pan India', icon: MapPinned,  hint: 'Anywhere in India',   needsLocation: false },
+  { value: 'hybrid',    label: 'Hybrid',    icon: Shuffle,    hint: 'Office + remote mix', needsLocation: true  },
+  { value: 'onsite',    label: 'On-site',   icon: Building2,  hint: 'Full time in office', needsLocation: true  },
 ]
 
-const EMPLOYMENT_TYPES: { value: EmploymentType; label: string; icon: string }[] = [
-  { value: 'full_time',  label: 'Full Time',  icon: '💼' },
-  { value: 'part_time',  label: 'Part Time',  icon: '⏰' },
-  { value: 'internship', label: 'Internship', icon: '🎓' },
-  { value: 'contract',   label: 'Contract',   icon: '📝' },
-  { value: 'freelance',  label: 'Freelance',  icon: '🔓' },
+const EMPLOYMENT_TYPES: { value: EmploymentType; label: string; icon: typeof Briefcase }[] = [
+  { value: 'full_time',  label: 'Full Time',  icon: Briefcase },
+  { value: 'part_time',  label: 'Part Time',  icon: Clock4 },
+  { value: 'internship', label: 'Internship', icon: GraduationCap },
+  { value: 'contract',   label: 'Contract',   icon: FileSignature },
+  { value: 'freelance',  label: 'Freelance',  icon: Sparkles },
 ]
 
 const CITY_PRESETS = ['New Delhi', 'Mumbai', 'Bengaluru', 'Hyderabad', 'Chennai', 'Pune', 'Kolkata']
@@ -70,6 +77,26 @@ interface JobFormProps {
   onSubmit: (data: JobPostingPayload) => void
   loading: boolean
   onCancel: () => void
+}
+
+function FieldLabel({ children, required, hint }: { children: React.ReactNode; required?: boolean; hint?: string }) {
+  return (
+    <div>
+      <label className="text-sm font-semibold text-gray-800">
+        {children}{required && <span className="text-danger ml-0.5">*</span>}
+      </label>
+      {hint && <p className="text-xs text-gray-400 mt-0.5">{hint}</p>}
+    </div>
+  )
+}
+
+function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="bg-white border border-gray-200 rounded-2xl p-6 flex flex-col gap-5">
+      <h3 className="text-sm font-bold text-gray-900 tracking-tight">{title}</h3>
+      {children}
+    </section>
+  )
 }
 
 export default function JobForm({ initial, onSubmit, loading, onCancel }: JobFormProps) {
@@ -99,8 +126,19 @@ export default function JobForm({ initial, onSubmit, loading, onCancel }: JobFor
   const [customSkillInput, setCustomSkillInput] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
 
+  const suggestSkills = useSuggestSkills()
+
   const selectedType  = JOB_TYPES.find(t => t.value === jobType)
   const needsLocation = selectedType?.needsLocation ?? false
+
+  const handleSuggestSkills = () => {
+    suggestSkills.mutate({ title, description }, {
+      onSuccess: (data) => {
+        setSelectedSkills(prev => new Set([...prev, ...data.suggested_skills]))
+        setErrors(p => ({ ...p, skills: '' }))
+      },
+    })
+  }
 
   const handleJobTypeChange = (type: JobType) => {
     const typeDef = JOB_TYPES.find(t => t.value === type)!
@@ -156,7 +194,9 @@ export default function JobForm({ initial, onSubmit, loading, onCancel }: JobFor
       e.salary = 'Max salary must be ≥ min salary'
     }
 
-    if (expiresAt && expiresAt <= new Date().toISOString().split('T')[0]) {
+    if (!expiresAt) {
+      e.expiresAt = 'Application deadline is required'
+    } else if (expiresAt <= new Date().toISOString().split('T')[0]) {
       e.expiresAt = 'Expiry date must be a future date'
     }
 
@@ -164,8 +204,7 @@ export default function JobForm({ initial, onSubmit, loading, onCancel }: JobFor
     return Object.keys(e).length === 0
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const submitWithPublish = (publish: boolean) => {
     if (!validate()) return
 
     const resolvedLocation =
@@ -185,47 +224,57 @@ export default function JobForm({ initial, onSubmit, loading, onCancel }: JobFor
       job_type:        jobType as JobType,
       location:        resolvedLocation,
       employment_type: employmentType as EmploymentType,
-      expires_at:      expiresAt || null,
+      expires_at:      expiresAt,
+      publish,
     })
   }
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    submitWithPublish(true)
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
 
-      {/* ── Basic info ── */}
-      <section className="flex flex-col gap-4">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Job details</p>
+      <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-50 border border-blue-100">
+        <Info className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+        <p className="text-xs text-blue-700">Fields marked with <span className="text-danger font-semibold">*</span> are required.</p>
+      </div>
 
+      {/* ── Basic details ── */}
+      <FormSection title="Basic details">
         <Input
           label="Job title"
-          placeholder="Senior Policy Analyst, Research Manager…"
+          required
+          placeholder="e.g. Senior Policy Analyst, Research Manager"
           value={title}
           onChange={e => { setTitle(e.target.value); setErrors(p => ({ ...p, title: '' })) }}
           error={errors.title}
         />
 
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-gray-700">Job description</label>
+        <div className="flex flex-col gap-1.5">
+          <FieldLabel required>Job description</FieldLabel>
           <textarea
             value={description}
             onChange={e => { setDescription(e.target.value); setErrors(p => ({ ...p, description: '' })) }}
-            placeholder="Describe the role, responsibilities, and why UPSC-background candidates are a great fit…"
-            rows={4}
+            placeholder="Describe the role, responsibilities, and why this candidate profile is a great fit…"
+            rows={5}
             className={cn(
-              'w-full rounded-xl border bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400',
-              'outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/10 resize-none',
-              errors.description ? 'border-danger' : 'border-gray-200',
+              'w-full rounded-xl border-[1.5px] bg-white/80 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400',
+              'outline-none transition-all duration-200 resize-none',
+              'focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/8 hover:border-gray-300',
+              errors.description ? 'border-[#DC2626]' : 'border-gray-200',
             )}
           />
           <div className="flex justify-between">
-            {errors.description ? <p className="text-xs text-danger">{errors.description}</p> : <span />}
+            {errors.description ? <p className="text-xs text-danger">{errors.description}</p> : <span className="text-xs text-gray-400">Minimum 20 characters</span>}
             <span className="text-xs text-gray-400">{description.length} chars</span>
           </div>
         </div>
 
-        {/* Sector */}
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-gray-700">Sector</label>
+        <div className="flex flex-col gap-1.5">
+          <FieldLabel required>Sector</FieldLabel>
           <select
             value={isCustomSector ? '__other__' : sector}
             onChange={e => {
@@ -239,9 +288,9 @@ export default function JobForm({ initial, onSubmit, loading, onCancel }: JobFor
               setErrors(p => ({ ...p, sector: '' }))
             }}
             className={cn(
-              'w-full h-11 rounded-xl border bg-white px-4 text-sm text-gray-900 outline-none transition-all',
-              'border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/10',
-              errors.sector && 'border-danger',
+              'w-full h-12 rounded-xl border-[1.5px] bg-white/80 px-4 text-sm text-gray-900 outline-none transition-all duration-200',
+              'focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/8 hover:border-gray-300',
+              errors.sector ? 'border-[#DC2626]' : 'border-gray-200',
             )}
           >
             <option value="">Select sector…</option>
@@ -253,233 +302,255 @@ export default function JobForm({ initial, onSubmit, loading, onCancel }: JobFor
               type="text"
               value={sector}
               onChange={e => { setSector(e.target.value); setErrors(p => ({ ...p, sector: '' })) }}
-              placeholder="e.g. Fintech, Agritech, Space Technology…"
+              placeholder="e.g. Fintech, Agritech, Space Technology"
               autoFocus
               className={cn(
-                'w-full h-10 rounded-xl border bg-white px-4 text-sm text-gray-900 placeholder:text-gray-400',
-                'outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/10 mt-1',
-                errors.sector ? 'border-danger' : 'border-gray-200',
+                'w-full h-11 rounded-xl border-[1.5px] bg-white/80 px-4 text-sm text-gray-900 placeholder:text-gray-400',
+                'outline-none transition-all duration-200 focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/8',
+                errors.sector ? 'border-[#DC2626]' : 'border-gray-200',
               )}
             />
           )}
           {errors.sector && <p className="text-xs text-danger">{errors.sector}</p>}
         </div>
+      </FormSection>
 
-        {/* Salary */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">
-            Salary range (LPA) <span className="text-xs text-gray-400 font-normal ml-1">optional</span>
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1">
-              <input
-                type="number" min={1} max={500}
-                value={salaryMin}
-                onChange={e => { setSalaryMin(e.target.value); setErrors(p => ({ ...p, salary: '' })) }}
-                placeholder="Min  e.g. 8"
-                className={cn(
-                  'w-full h-10 rounded-xl border bg-white px-4 text-sm text-gray-900 placeholder:text-gray-400',
-                  'outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/10',
-                  errors.salary ? 'border-danger' : 'border-gray-200',
-                )}
-              />
-              <span className="text-xs text-gray-400 pl-1">Min LPA</span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <input
-                type="number" min={1} max={500}
-                value={salaryMax}
-                onChange={e => { setSalaryMax(e.target.value); setErrors(p => ({ ...p, salary: '' })) }}
-                placeholder="Max  e.g. 20"
-                className={cn(
-                  'w-full h-10 rounded-xl border bg-white px-4 text-sm text-gray-900 placeholder:text-gray-400',
-                  'outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/10',
-                  errors.salary ? 'border-danger' : 'border-gray-200',
-                )}
-              />
-              <span className="text-xs text-gray-400 pl-1">Max LPA</span>
-            </div>
-          </div>
-          {errors.salary && <p className="text-xs text-danger">{errors.salary}</p>}
-          {salaryMin && salaryMax && !errors.salary && (
-            <p className="text-xs text-primary font-medium pl-1">
-              Will display as: ₹{salaryMin}–{salaryMax} LPA
-            </p>
-          )}
-        </div>
-      </section>
-
-      {/* ── Employment type ── */}
-      <section className="flex flex-col gap-2">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Employment type <span className="text-danger">*</span></p>
-        <div className="flex flex-wrap gap-2">
-          {EMPLOYMENT_TYPES.map(({ value, label, icon }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => { setEmploymentType(value); setErrors(p => ({ ...p, employmentType: '' })) }}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-semibold transition-all',
-                employmentType === value
-                  ? 'bg-accent text-white border-accent'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-accent/50',
-              )}
-            >
-              <span>{icon}</span>
-              {label}
-            </button>
-          ))}
-        </div>
-        {errors.employmentType && <p className="text-xs text-danger">{errors.employmentType}</p>}
-      </section>
-
-      {/* ── Work type ── */}
-      <section className="flex flex-col gap-2">
-        <div>
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Work type <span className="text-danger">*</span></p>
-          <p className="text-xs text-gray-400 mt-0.5">Remote and Pan India don't require a specific city.</p>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {JOB_TYPES.map(({ value, label, icon, hint }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => handleJobTypeChange(value)}
-              className={cn(
-                'flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-all',
-                jobType === value
-                  ? 'bg-primary text-white border-primary'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-primary/40',
-              )}
-            >
-              <span className="text-xl leading-none">{icon}</span>
-              <div>
-                <p className={cn('text-sm font-semibold', jobType === value ? 'text-white' : 'text-gray-800')}>{label}</p>
-                <p className={cn('text-xs', jobType === value ? 'text-white/70' : 'text-gray-400')}>{hint}</p>
-              </div>
-            </button>
-          ))}
-        </div>
-        {errors.jobType && <p className="text-xs text-danger">{errors.jobType}</p>}
-      </section>
-
-      {/* ── Location — only for hybrid / on-site ── */}
-      {needsLocation && (
-        <section className="flex flex-col gap-2">
-          <div>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-              Location <span className="text-danger">*</span>
-            </p>
-            <p className="text-xs text-gray-400 mt-0.5">Select one or more cities, or type your own.</p>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {CITY_PRESETS.map(city => (
+      {/* ── Employment & work type ── */}
+      <FormSection title="Employment type & location">
+        <div className="flex flex-col gap-2">
+          <FieldLabel required>Employment type</FieldLabel>
+          <div className="grid grid-cols-5 gap-2">
+            {EMPLOYMENT_TYPES.map(({ value, label, icon: Icon }) => (
               <button
-                key={city}
+                key={value}
                 type="button"
-                onClick={() => toggleCity(city)}
+                onClick={() => { setEmploymentType(value); setErrors(p => ({ ...p, employmentType: '' })) }}
                 className={cn(
-                  'px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all',
-                  location.split(',').map(p => p.trim()).includes(city)
-                    ? 'bg-primary text-white border-primary'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-primary/50',
+                  'flex flex-col items-center gap-1.5 py-3 rounded-xl border-[1.5px] text-xs font-semibold transition-all',
+                  employmentType === value
+                    ? 'bg-primary/5 border-primary text-primary'
+                    : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300',
                 )}
               >
-                {location.split(',').map(p => p.trim()).includes(city) && <span className="mr-1">✓</span>}
-                {city}
+                <Icon className="w-4 h-4" />
+                {label}
               </button>
             ))}
           </div>
-          <input
-            type="text"
-            value={location}
-            onChange={e => { setLocation(e.target.value); setErrors(p => ({ ...p, location: '' })) }}
-            placeholder="e.g. New Delhi, Lucknow, Patna"
-            className={cn(
-              'w-full h-10 rounded-xl border bg-white px-4 text-sm text-gray-900 placeholder:text-gray-400',
-              'outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/10',
-              errors.location ? 'border-danger' : 'border-gray-200',
+          {errors.employmentType && <p className="text-xs text-danger">{errors.employmentType}</p>}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <FieldLabel required hint="Remote and Pan India don't require a specific city.">Work type</FieldLabel>
+          <div className="grid grid-cols-2 gap-2">
+            {JOB_TYPES.map(({ value, label, icon: Icon, hint }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => handleJobTypeChange(value)}
+                className={cn(
+                  'flex items-center gap-3 px-4 py-3 rounded-xl border-[1.5px] text-left transition-all',
+                  jobType === value
+                    ? 'bg-primary/5 border-primary'
+                    : 'bg-white border-gray-200 hover:border-gray-300',
+                )}
+              >
+                <div className={cn(
+                  'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
+                  jobType === value ? 'bg-primary text-white' : 'bg-gray-100 text-gray-500',
+                )}>
+                  <Icon className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className={cn('text-sm font-semibold', jobType === value ? 'text-primary' : 'text-gray-800')}>{label}</p>
+                  <p className="text-xs text-gray-400">{hint}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+          {errors.jobType && <p className="text-xs text-danger">{errors.jobType}</p>}
+        </div>
+
+        {needsLocation && (
+          <div className="flex flex-col gap-2">
+            <FieldLabel required hint="Select one or more cities, or type your own.">City / cities</FieldLabel>
+            <div className="flex gap-2 flex-wrap">
+              {CITY_PRESETS.map(city => {
+                const active = location.split(',').map(p => p.trim()).includes(city)
+                return (
+                  <button
+                    key={city}
+                    type="button"
+                    onClick={() => toggleCity(city)}
+                    className={cn(
+                      'flex items-center gap-1 px-3 py-1.5 rounded-lg border-[1.5px] text-xs font-semibold transition-all',
+                      active
+                        ? 'bg-primary/5 border-primary text-primary'
+                        : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300',
+                    )}
+                  >
+                    <MapPin className="w-3 h-3" />
+                    {city}
+                  </button>
+                )
+              })}
+            </div>
+            <input
+              type="text"
+              value={location}
+              onChange={e => { setLocation(e.target.value); setErrors(p => ({ ...p, location: '' })) }}
+              placeholder="e.g. New Delhi, Lucknow, Patna"
+              className={cn(
+                'w-full h-11 rounded-xl border-[1.5px] bg-white/80 px-4 text-sm text-gray-900 placeholder:text-gray-400',
+                'outline-none transition-all duration-200 focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/8',
+                errors.location ? 'border-[#DC2626]' : 'border-gray-200',
+              )}
+            />
+            {errors.location && <p className="text-xs text-danger">{errors.location}</p>}
+          </div>
+        )}
+      </FormSection>
+
+      {/* ── Compensation & timing ── */}
+      <FormSection title="Compensation & timing">
+        <div className="grid grid-cols-2 gap-5">
+          <div className="flex flex-col gap-1.5">
+            <FieldLabel hint="Leave blank to keep compensation undisclosed.">
+              Salary range (LPA) <span className="text-gray-400 font-normal">(optional)</span>
+            </FieldLabel>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="relative flex items-center">
+                <IndianRupee className="absolute left-3 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                <input
+                  type="number" min={1} max={500}
+                  value={salaryMin}
+                  onChange={e => { setSalaryMin(e.target.value); setErrors(p => ({ ...p, salary: '' })) }}
+                  placeholder="Min, e.g. 8"
+                  className={cn(
+                    'w-full h-11 rounded-xl border-[1.5px] bg-white/80 pl-8 pr-2 text-sm text-gray-900 placeholder:text-gray-400',
+                    'outline-none transition-all duration-200 focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/8',
+                    errors.salary ? 'border-[#DC2626]' : 'border-gray-200',
+                  )}
+                />
+              </div>
+              <div className="relative flex items-center">
+                <IndianRupee className="absolute left-3 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                <input
+                  type="number" min={1} max={500}
+                  value={salaryMax}
+                  onChange={e => { setSalaryMax(e.target.value); setErrors(p => ({ ...p, salary: '' })) }}
+                  placeholder="Max, e.g. 20"
+                  className={cn(
+                    'w-full h-11 rounded-xl border-[1.5px] bg-white/80 pl-8 pr-2 text-sm text-gray-900 placeholder:text-gray-400',
+                    'outline-none transition-all duration-200 focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/8',
+                    errors.salary ? 'border-[#DC2626]' : 'border-gray-200',
+                  )}
+                />
+              </div>
+            </div>
+            {errors.salary && <p className="text-xs text-danger">{errors.salary}</p>}
+            {salaryMin && salaryMax && !errors.salary && (
+              <p className="text-xs text-primary font-medium">Displays as ₹{salaryMin}–{salaryMax} LPA</p>
             )}
-          />
-          {errors.location && <p className="text-xs text-danger">{errors.location}</p>}
-        </section>
-      )}
+          </div>
 
-      {/* ── Application deadline ── */}
-      <section className="flex flex-col gap-2">
-        <div>
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-            Application deadline <span className="text-xs text-gray-400 font-normal ml-1">optional</span>
-          </p>
-          <p className="text-xs text-gray-400 mt-0.5">Leave blank if the posting has no fixed closing date.</p>
+          <div className="flex flex-col gap-1.5">
+            <FieldLabel required hint="Postings close automatically on this date.">
+              Application deadline
+            </FieldLabel>
+            <div className="relative flex items-center">
+              <CalendarClock className="absolute left-3.5 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+              <input
+                type="date"
+                min={minExpiryDate()}
+                value={expiresAt}
+                onChange={e => { setExpiresAt(e.target.value); setErrors(p => ({ ...p, expiresAt: '' })) }}
+                className={cn(
+                  'w-full h-11 rounded-xl border-[1.5px] bg-white/80 pl-9 pr-4 text-sm text-gray-900',
+                  'outline-none transition-all duration-200 focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/8',
+                  errors.expiresAt ? 'border-[#DC2626]' : 'border-gray-200',
+                )}
+              />
+            </div>
+            {errors.expiresAt && <p className="text-xs text-danger">{errors.expiresAt}</p>}
+          </div>
         </div>
-        <input
-          type="date"
-          min={minExpiryDate()}
-          value={expiresAt}
-          onChange={e => { setExpiresAt(e.target.value); setErrors(p => ({ ...p, expiresAt: '' })) }}
-          className={cn(
-            'w-full h-10 rounded-xl border bg-white px-4 text-sm text-gray-900',
-            'outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/10',
-            errors.expiresAt ? 'border-danger' : 'border-gray-200',
-          )}
-        />
-        {errors.expiresAt && <p className="text-xs text-danger">{errors.expiresAt}</p>}
-      </section>
+      </FormSection>
 
-      {/* ── Growth outlook ── */}
-      <section className="flex flex-col gap-2">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Growth outlook</p>
-        <div className="grid grid-cols-3 gap-2">
-          {GROWTH_OPTIONS.map(({ value, label, color }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => { setGrowthOutlook(value); setErrors(p => ({ ...p, growth: '' })) }}
-              className={cn(
-                'h-11 rounded-xl border text-xs font-semibold transition-all',
-                growthOutlook === value ? color : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300',
-              )}
-            >
-              {label}
-            </button>
-          ))}
+      {/* ── Candidate requirements ── */}
+      <FormSection title="Candidate requirements">
+        <div className="flex flex-col gap-2">
+          <FieldLabel required>Growth outlook</FieldLabel>
+          <div className="grid grid-cols-3 gap-2">
+            {GROWTH_OPTIONS.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => { setGrowthOutlook(value); setErrors(p => ({ ...p, growth: '' })) }}
+                className={cn(
+                  'flex items-center justify-center gap-1.5 h-11 rounded-xl border-[1.5px] text-xs font-semibold transition-all',
+                  growthOutlook === value
+                    ? 'bg-primary/5 border-primary text-primary'
+                    : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300',
+                )}
+              >
+                <TrendingUp className="w-3.5 h-3.5" />
+                {label}
+              </button>
+            ))}
+          </div>
+          {errors.growth && <p className="text-xs text-danger">{errors.growth}</p>}
         </div>
-        {errors.growth && <p className="text-xs text-danger">{errors.growth}</p>}
-      </section>
 
-      {/* ── UPSC Knowledge requirement ── */}
-      <section className="flex flex-col gap-3">
-        <div>
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">UPSC preparation level required</p>
-          <p className="text-xs text-gray-400">What level of UPSC background do you expect from candidates?</p>
+        <div className="flex flex-col gap-2">
+          <FieldLabel hint="What level of UPSC background do you expect from candidates?">
+            UPSC preparation level <span className="text-gray-400 font-normal">(optional)</span>
+          </FieldLabel>
+          <div className="grid grid-cols-3 gap-2">
+            {K_SCORE_OPTIONS.map(({ value, label, hint }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setMinKScore(value)}
+                className={cn(
+                  'flex flex-col items-center gap-0.5 px-3 py-3 rounded-xl border-[1.5px] text-center transition-all',
+                  minKScore === value
+                    ? 'bg-primary/5 border-primary'
+                    : 'bg-white border-gray-200 hover:border-gray-300',
+                )}
+              >
+                <GaugeCircle className={cn('w-3.5 h-3.5 mb-0.5', minKScore === value ? 'text-primary' : 'text-gray-400')} />
+                <span className={cn('text-sm font-bold', minKScore === value ? 'text-primary' : 'text-gray-800')}>{label}</span>
+                <span className="text-xs leading-tight text-gray-400">{hint}</span>
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="grid grid-cols-3 gap-2">
-          {K_SCORE_OPTIONS.map(({ value, label, hint }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setMinKScore(value)}
-              className={cn(
-                'flex flex-col items-center gap-0.5 px-3 py-3 rounded-xl border text-center transition-all',
-                minKScore === value
-                  ? 'bg-primary text-white border-primary'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-primary/50',
-              )}
-            >
-              <span className={cn('text-sm font-bold', minKScore === value ? 'text-white' : 'text-gray-800')}>{label}</span>
-              <span className={cn('text-xs leading-tight', minKScore === value ? 'text-white/75' : 'text-gray-400')}>{hint}</span>
-            </button>
-          ))}
-        </div>
-      </section>
+      </FormSection>
 
       {/* ── Required skills ── */}
-      <section className="flex flex-col gap-3">
-        <div>
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Required skills</p>
-          <p className="text-xs text-gray-400">Select skills aspirants must have. Used to match your posting with the right candidates.</p>
+      <FormSection title="Required skills">
+        <div className="flex items-start justify-between gap-3">
+          <FieldLabel required hint="Select skills aspirants must have. Used to match your posting with the right candidates.">
+            Skills
+          </FieldLabel>
+          <button
+            type="button"
+            onClick={handleSuggestSkills}
+            disabled={suggestSkills.isPending || description.trim().length < 20}
+            title={description.trim().length < 20 ? 'Write at least 20 characters in the job description first' : undefined}
+            className="shrink-0 inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl bg-accent/10 text-accent text-xs font-semibold hover:bg-accent/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Wand2 className="w-3.5 h-3.5" />
+            {suggestSkills.isPending ? 'Suggesting…' : 'Suggest skills with AI'}
+          </button>
         </div>
+        {suggestSkills.isError && (
+          <p className="text-xs text-danger">{getApiError(suggestSkills.error, 'Could not suggest skills. Please try again.')}</p>
+        )}
+        {suggestSkills.isSuccess && suggestSkills.data.suggested_skills.length === 0 && (
+          <p className="text-xs text-gray-400">No clear skill matches found — try adding more detail to the description.</p>
+        )}
         <div className="flex flex-wrap gap-2">
           {ALL_SKILLS.map(skill => {
             const selected = selectedSkills.has(skill)
@@ -489,42 +560,41 @@ export default function JobForm({ initial, onSubmit, loading, onCancel }: JobFor
                 type="button"
                 onClick={() => toggleSkill(skill)}
                 className={cn(
-                  'px-3 py-1.5 rounded-full border text-xs font-medium transition-all',
+                  'inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border-[1.5px] text-xs font-medium transition-all',
                   selected
-                    ? 'bg-primary text-white border-primary'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-primary/50',
+                    ? 'bg-primary/5 border-primary text-primary'
+                    : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300',
                 )}
               >
-                {selected && <span className="mr-1">✓</span>}
+                <Tags className="w-3 h-3" />
                 {skill}
               </button>
             )
           })}
         </div>
-        {/* Custom selected skills */}
         {[...selectedSkills].some(s => !ALL_SKILLS.includes(s)) && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 pt-1 border-t border-gray-100">
             {[...selectedSkills].filter(s => !ALL_SKILLS.includes(s)).map(skill => (
               <button
                 key={skill}
                 type="button"
                 onClick={() => toggleSkill(skill)}
-                className="px-3 py-1.5 rounded-full border border-accent/40 bg-accent/10 text-accent text-xs font-medium flex items-center gap-1"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-[1.5px] border-primary bg-primary/5 text-primary text-xs font-medium"
               >
-                <span>✓</span> {skill}
+                {skill}
+                <X className="w-3 h-3" />
               </button>
             ))}
           </div>
         )}
-        <div className="flex justify-between text-xs text-gray-400">
-          <span>{selectedSkills.size} skill{selectedSkills.size !== 1 ? 's' : ''} selected</span>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-gray-400">{selectedSkills.size} skill{selectedSkills.size !== 1 ? 's' : ''} selected</span>
           {selectedSkills.size > 0 && (
-            <button type="button" onClick={() => setSelectedSkills(new Set())} className="text-danger hover:underline">
+            <button type="button" onClick={() => setSelectedSkills(new Set())} className="text-xs text-danger font-medium hover:underline">
               Clear all
             </button>
           )}
         </div>
-        {/* Custom skill input */}
         <div className="flex gap-2">
           <input
             type="text"
@@ -532,32 +602,44 @@ export default function JobForm({ initial, onSubmit, loading, onCancel }: JobFor
             onChange={e => setCustomSkillInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustomJobSkill() } }}
             placeholder="Add a skill not listed above…"
-            className="flex-1 h-9 rounded-xl border border-gray-200 bg-white px-3 text-xs text-gray-900 placeholder:text-gray-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
+            className="flex-1 h-10 rounded-xl border-[1.5px] border-gray-200 bg-white/80 px-3.5 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition-all duration-200 focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/8"
           />
           <button
             type="button"
             onClick={addCustomJobSkill}
             disabled={!customSkillInput.trim()}
-            className="shrink-0 h-9 px-3 rounded-xl bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-colors disabled:opacity-40"
+            className="shrink-0 inline-flex items-center gap-1 h-10 px-4 rounded-xl bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/15 transition-colors disabled:opacity-40"
           >
-            + Add
+            <Plus className="w-3.5 h-3.5" />
+            Add
           </button>
         </div>
         {errors.skills && <p className="text-xs text-danger">{errors.skills}</p>}
-      </section>
+      </FormSection>
 
       {/* ── Actions ── */}
-      <div className="flex gap-3 pt-2 border-t border-gray-100">
+      <div className="flex gap-3 pt-1">
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 h-11 rounded-xl border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+          className="flex-1 h-12 rounded-xl border-[1.5px] border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
         >
           Cancel
         </button>
-        <Button type="submit" loading={loading} className="flex-1">
-          {initial ? 'Save changes' : 'Post job'}
-        </Button>
+        {initial ? (
+          <Button type="submit" size="lg" loading={loading} className="flex-1">
+            Save changes
+          </Button>
+        ) : (
+          <>
+            <Button type="button" variant="outline" size="lg" onClick={() => submitWithPublish(false)} disabled={loading} className="flex-1">
+              Save as draft
+            </Button>
+            <Button type="submit" size="lg" loading={loading} className="flex-1">
+              Publish
+            </Button>
+          </>
+        )}
       </div>
     </form>
   )

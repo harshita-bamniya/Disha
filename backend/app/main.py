@@ -4,17 +4,22 @@ import uuid
 import sentry_sdk
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from sqlalchemy.exc import SQLAlchemyError
 from starlette.middleware.base import BaseHTTPMiddleware
 
+import app.models  # noqa: F401 — registers every model class before any mapper configures
 from app.config import get_settings
+from app.core.storage import BASE_DIR as UPLOAD_BASE_DIR
 from app.modules.auth.router import router as auth_router
 from app.modules.onboarding.router import router as onboarding_router
 from app.modules.krs.router import router as krs_router
 from app.modules.jobs.router import router as jobs_router
+from app.modules.companies.router import router as companies_router
+from app.modules.companies.router import subscription_router
 from app.modules.admin.router import router as admin_router
 from app.modules.careers.router import router as careers_router
 from app.modules.resume.router import router as resume_router
@@ -44,7 +49,7 @@ limiter = Limiter(key_func=get_remote_address, storage_uri=settings.redis_url)
 
 # ── App ───────────────────────────────────────────────────────────────────────
 app = FastAPI(
-    title="DISHA AI API",
+    title="BeginablAI API",
     description="Career relaunch platform for UPSC aspirants",
     version="0.1.0",
     docs_url="/docs" if settings.environment != "production" else None,
@@ -82,13 +87,21 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 # ── Request size limit middleware ─────────────────────────────────────────────
 class LimitRequestSizeMiddleware(BaseHTTPMiddleware):
     MAX_CONTENT_LENGTH = 2 * 1024 * 1024  # 2 MB
+    # Document upload routes accept scanned PDFs/images — allow more headroom.
+    UPLOAD_PATH_PREFIX = "/api/employer/verification/documents"
+    UPLOAD_MAX_CONTENT_LENGTH = 10 * 1024 * 1024  # 10 MB
 
     async def dispatch(self, request: Request, call_next):
+        limit = (
+            self.UPLOAD_MAX_CONTENT_LENGTH
+            if request.url.path.startswith(self.UPLOAD_PATH_PREFIX)
+            else self.MAX_CONTENT_LENGTH
+        )
         content_length = request.headers.get("content-length")
-        if content_length and int(content_length) > self.MAX_CONTENT_LENGTH:
+        if content_length and int(content_length) > limit:
             return JSONResponse(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                content={"detail": "Request body too large. Maximum size is 2MB."},
+                content={"detail": f"Request body too large. Maximum size is {limit // (1024*1024)}MB."},
             )
         return await call_next(request)
 
@@ -123,6 +136,12 @@ class StrictCORSMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(StrictCORSMiddleware)
+
+# ── Public static assets (company logos/banners only — KYC docs stay private,
+# served exclusively through the authenticated verification endpoints) ───────
+_branding_dir = UPLOAD_BASE_DIR / "company_branding"
+_branding_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(_branding_dir)), name="static")
 
 
 # ── Global exception handlers ─────────────────────────────────────────────────
@@ -163,6 +182,8 @@ app.include_router(auth_router, prefix="/api")
 app.include_router(onboarding_router, prefix="/api")
 app.include_router(krs_router, prefix="/api")
 app.include_router(jobs_router, prefix="/api")
+app.include_router(companies_router, prefix="/api")
+app.include_router(subscription_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(careers_router, prefix="/api")
 app.include_router(resume_router, prefix="/api")
@@ -184,4 +205,4 @@ def health_check():
 
 @app.get("/", include_in_schema=False)
 def root():
-    return {"message": "DISHA AI API is running"}
+    return {"message": "BeginablAI API is running"}

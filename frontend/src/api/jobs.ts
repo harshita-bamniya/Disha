@@ -3,6 +3,7 @@ import { apiClient } from './client'
 export type GrowthOutlook = 'high' | 'medium' | 'low'
 export type JobType = 'remote' | 'pan_india' | 'hybrid' | 'onsite'
 export type EmploymentType = 'full_time' | 'part_time' | 'internship' | 'contract' | 'freelance'
+export type JobStatus = 'draft' | 'published' | 'paused' | 'closed' | 'archived'
 
 export interface JobPostingPayload {
   title: string
@@ -16,7 +17,8 @@ export interface JobPostingPayload {
   job_type: JobType
   location: string
   employment_type: EmploymentType
-  expires_at?: string | null      // ISO date string "YYYY-MM-DD"
+  expires_at: string              // ISO date string "YYYY-MM-DD" — required
+  publish?: boolean                // true = publish immediately, false/omitted = save as draft
 }
 
 export interface JobPosting {
@@ -34,6 +36,7 @@ export interface JobPosting {
   employment_type: string | null
   expires_at: string | null       // ISO date string
   is_active: boolean
+  status: JobStatus
   created_at: string
   updated_at: string
   applicant_count: number
@@ -64,19 +67,90 @@ export const EMPLOYMENT_TYPE_LABELS: Record<EmploymentType, string> = {
   freelance:  'Freelance',
 }
 
+export type VerificationDocType = 'gst_certificate' | 'pan_card' | 'company_registration' | 'business_email'
+
+export interface VerificationDocumentOut {
+  id: string
+  doc_type: string
+  file_url: string
+  original_filename: string | null
+  status: string
+  uploaded_at: string
+}
+
+export interface VerificationEventOut {
+  id: string
+  from_status: string | null
+  to_status: string
+  note: string | null
+  created_at: string
+}
+
+export interface VerificationStatusResponse {
+  id: string | null
+  status: 'not_submitted' | 'pending' | 'under_review' | 'approved' | 'rejected' | 'resubmitted'
+  rejection_reason: string | null
+  submitted_at: string | null
+  reviewed_at: string | null
+  documents: VerificationDocumentOut[]
+  events: VerificationEventOut[]
+}
+
+export interface EmployerPermissionsResponse {
+  role_name: string
+  permissions: string[]   // "resource:action"
+}
+
 export const jobsApi = {
   getDashboard: () =>
     apiClient.get<EmployerDashboard>('/employer/dashboard').then((r) => r.data),
 
+  getMyPermissions: () =>
+    apiClient.get<EmployerPermissionsResponse>('/employer/permissions').then((r) => r.data),
+
   createJob: (data: JobPostingPayload) =>
     apiClient.post<JobPosting>('/employer/jobs', data).then((r) => r.data),
+
+  suggestSkills: (title: string, description: string) =>
+    apiClient.post<{ suggested_skills: string[] }>('/employer/jobs/suggest-skills', { title, description }).then((r) => r.data),
 
   updateJob: (id: string, data: JobPostingPayload) =>
     apiClient.put<JobPosting>(`/employer/jobs/${id}`, data).then((r) => r.data),
 
-  toggleActive: (id: string) =>
-    apiClient.patch<JobPosting>(`/employer/jobs/${id}/toggle`).then((r) => r.data),
+  publishJob: (id: string) =>
+    apiClient.patch<JobPosting>(`/employer/jobs/${id}/publish`).then((r) => r.data),
+
+  pauseJob: (id: string) =>
+    apiClient.patch<JobPosting>(`/employer/jobs/${id}/pause`).then((r) => r.data),
+
+  closeJob: (id: string) =>
+    apiClient.patch<JobPosting>(`/employer/jobs/${id}/close`).then((r) => r.data),
+
+  reopenJob: (id: string) =>
+    apiClient.patch<JobPosting>(`/employer/jobs/${id}/reopen`).then((r) => r.data),
+
+  archiveJob: (id: string) =>
+    apiClient.patch<JobPosting>(`/employer/jobs/${id}/archive`).then((r) => r.data),
+
+  duplicateJob: (id: string) =>
+    apiClient.post<JobPosting>(`/employer/jobs/${id}/duplicate`).then((r) => r.data),
 
   deleteJob: (id: string) =>
     apiClient.delete(`/employer/jobs/${id}`),
+
+  // ── KYC verification ──────────────────────────────────────────────────────────
+  getVerificationStatus: () =>
+    apiClient.get<VerificationStatusResponse>('/employer/verification').then((r) => r.data),
+
+  uploadVerificationDocument: (docType: VerificationDocType, file: File) => {
+    const form = new FormData()
+    form.append('doc_type', docType)
+    form.append('file', file)
+    return apiClient.post<VerificationStatusResponse>('/employer/verification/documents', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data)
+  },
+
+  submitVerification: () =>
+    apiClient.post<VerificationStatusResponse>('/employer/verification/submit').then((r) => r.data),
 }

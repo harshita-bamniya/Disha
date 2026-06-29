@@ -21,14 +21,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from redis import Redis
 from sqlalchemy.orm import Session
 
-from app.core.rbac import get_current_verified_user, require_role
+from app.core.rbac import get_current_verified_user, require_employer, require_permission, require_role
 from app.core.exceptions import AuthException, BadRequestException, NotFoundException
 from app.database import get_db, get_redis
 from app.models.user import User
 from app.modules.matching import service
 from app.modules.matching.schemas import (
-    ApplyRequest, ApplicationDetailOut, ApplicationOut,
-    JobDetail, JobRecommendationsResponse, JobCandidatePipeline,
+    ApplyRequest, ApplicationDetailOut, ApplicationOut, ApplicationTrendResponse,
+    BulkStatusUpdateRequest, CandidateNoteCreateRequest, CandidateNoteOut,
+    CandidateRatingRequest, DashboardKpis, EmployerFunnelResponse,
+    InterviewFeedbackOut, InterviewFeedbackSubmitRequest, ScheduleInterviewRequest, UpcomingInterviewEntry,
+    JobDetail, JobPerformanceResponse, JobRecommendationsResponse, JobCandidatePipeline,
     UpdateApplicationStatusRequest, WithdrawRequest,
 )
 from pydantic import BaseModel, Field
@@ -44,7 +47,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Employer Matching"])
 
 _aspirant = require_role("aspirant")
-_employer = require_role("employer")
+_employer = require_employer
 
 
 def _jobs_cache_key(user_id, sector, job_type, min_salary, limit, offset) -> str:
@@ -221,7 +224,7 @@ def update_application_note(
 def update_application_status(
     application_id: str,
     body: UpdateApplicationStatusRequest,
-    current_user: User = Depends(_employer),
+    current_user: User = Depends(require_permission("candidates", "shortlist")),
     db: Session = Depends(get_db),
 ):
     """Employer moves an application through the pipeline (review → shortlist → hire/reject)."""
@@ -231,3 +234,145 @@ def update_application_status(
         raise HTTPException(status_code=404, detail=str(e))
     except BadRequestException as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/employer/pipeline/applications/bulk-action", status_code=200)
+def bulk_update_status(
+    body: BulkStatusUpdateRequest,
+    current_user: User = Depends(require_permission("candidates", "shortlist")),
+    db: Session = Depends(get_db),
+):
+    """Move multiple applications to the same stage in one request (Kanban bulk drag)."""
+    try:
+        return service.bulk_update_status(body.application_ids, body.status, body.note, current_user, db)
+    except (AuthException, NotFoundException) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/employer/pipeline/applications/{application_id}/notes", response_model=CandidateNoteOut, status_code=201)
+def add_candidate_note(
+    application_id: str,
+    body: CandidateNoteCreateRequest,
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.add_candidate_note(application_id, body.note, body.is_internal, current_user, db)
+    except (AuthException, NotFoundException) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.put("/employer/pipeline/applications/{application_id}/rating", status_code=200)
+def set_candidate_rating(
+    application_id: str,
+    body: CandidateRatingRequest,
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.set_candidate_rating(application_id, body.rating, current_user, db)
+    except (AuthException, NotFoundException) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/employer/pipeline/applications/{application_id}/interviews", response_model=InterviewFeedbackOut, status_code=201)
+def schedule_interview(
+    application_id: str,
+    body: ScheduleInterviewRequest,
+    current_user: User = Depends(require_permission("candidates", "interview")),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.schedule_interview(application_id, body.scheduled_at, body.meeting_link, current_user, db)
+    except (AuthException, NotFoundException) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.patch("/employer/pipeline/applications/{application_id}/interviews/{interview_id}/feedback", response_model=InterviewFeedbackOut)
+def submit_interview_feedback(
+    application_id: str,
+    interview_id: str,
+    body: InterviewFeedbackSubmitRequest,
+    current_user: User = Depends(require_permission("candidates", "interview")),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.submit_interview_feedback(
+            application_id, interview_id, body.recommendation, body.feedback, current_user, db,
+        )
+    except (AuthException, NotFoundException) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.patch("/employer/pipeline/applications/{application_id}/interviews/{interview_id}/cancel", response_model=InterviewFeedbackOut)
+def cancel_interview(
+    application_id: str,
+    interview_id: str,
+    current_user: User = Depends(require_permission("candidates", "interview")),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.cancel_interview(application_id, interview_id, current_user, db)
+    except (AuthException, NotFoundException) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/employer/interviews/upcoming", response_model=list[UpcomingInterviewEntry])
+def list_upcoming_interviews(
+    limit: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.list_upcoming_interviews(current_user, db, limit)
+    except AuthException as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+# ── Employer analytics ────────────────────────────────────────────────────────
+
+@router.get("/employer/analytics/funnel", response_model=EmployerFunnelResponse)
+def get_employer_funnel(
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.get_employer_funnel(current_user, db)
+    except AuthException as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/employer/analytics/jobs", response_model=JobPerformanceResponse)
+def get_job_performance(
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.get_job_performance(current_user, db)
+    except AuthException as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+# ── Dashboard KPIs ─────────────────────────────────────────────────────────────
+
+@router.get("/employer/dashboard/kpis", response_model=DashboardKpis)
+def get_dashboard_kpis(
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.get_dashboard_kpis(current_user, db)
+    except AuthException as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/employer/dashboard/application-trend", response_model=ApplicationTrendResponse)
+def get_application_trend(
+    days: int = Query(30, ge=7, le=180),
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.get_application_trend(current_user, db, days)
+    except AuthException as e:
+        raise HTTPException(status_code=404, detail=str(e))

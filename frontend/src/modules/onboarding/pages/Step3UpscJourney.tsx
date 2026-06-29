@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import OnboardingLayout from '@/layouts/OnboardingLayout'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
@@ -34,6 +35,7 @@ export default function Step3UpscJourney() {
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const { upscJourney } = useOnboardingSteps()
+  const navigate = useNavigate()
 
   const validate = () => {
     const e: Record<string, string> = {}
@@ -61,7 +63,7 @@ export default function Step3UpscJourney() {
   const serverError = upscJourney.error ? getApiError(upscJourney.error) : null
 
   return (
-    <OnboardingLayout currentStep={3} title="Your UPSC journey" subtitle="Every attempt is experience. Tell us about your preparation.">
+    <OnboardingLayout currentStep={3} title="Your UPSC journey" subtitle="Every attempt is experience. Tell us about your preparation." onSkip={() => navigate('/app/onboarding/step/4')}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         {/* Exam type */}
         <div className="flex flex-col gap-1">

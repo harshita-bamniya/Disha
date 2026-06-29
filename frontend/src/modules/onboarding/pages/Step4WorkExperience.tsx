@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Briefcase } from 'lucide-react'
 import OnboardingLayout from '@/layouts/OnboardingLayout'
 import Input from '@/components/ui/Input'
@@ -18,6 +19,7 @@ export default function Step4WorkExperience() {
   const [form, setForm] = useState({ work_experience_years: '', work_experience_domain: '', last_designation: '' })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const { workExperience } = useOnboardingSteps()
+  const navigate = useNavigate()
 
   const validate = () => {
     const e: Record<string, string> = {}
@@ -45,7 +47,7 @@ export default function Step4WorkExperience() {
   const serverError = workExperience.error ? getApiError(workExperience.error) : null
 
   return (
-    <OnboardingLayout currentStep={4} title="Work experience" subtitle="Many aspirants have worked before or alongside their preparation — that's valuable.">
+    <OnboardingLayout currentStep={4} title="Work experience" subtitle="Many aspirants have worked before or alongside their preparation — that's valuable." onSkip={() => navigate('/app/onboarding/step/5')}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-gray-700">Do you have prior work experience?</label>

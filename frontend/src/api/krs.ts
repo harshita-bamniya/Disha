@@ -83,6 +83,17 @@ export interface ActivePrepJobContext {
   match_score: number
 }
 
+export interface JobFitAnalysisRequest {
+  job_title: string
+  company_name: string
+  description?: string | null
+  required_skills: string[]
+  skills_you_have: string[]
+  skills_to_develop: string[]
+  min_k_score: number
+  k_score: number
+}
+
 export const krsApi = {
   getDashboard: () =>
     apiClient.get<KrsDashboard>('/krs/dashboard').then((r) => r.data),
@@ -110,4 +121,7 @@ export const krsApi = {
 
   clearPrep: () =>
     apiClient.delete('/krs/jobs/active-prep').then((r) => r.data),
+
+  getJobFitAnalysis: (body: JobFitAnalysisRequest) =>
+    apiClient.post<{ summary: string }>('/krs/jobs/fit-analysis', body).then((r) => r.data),
 }

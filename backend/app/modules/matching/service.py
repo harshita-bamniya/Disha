@@ -11,18 +11,25 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.exceptions import AuthException, BadRequestException, NotFoundException
-from app.models.mvp3 import Application, ApplicationStatusHistory
+from app.models.mvp3 import (
+    Application, ApplicationStatusHistory, CandidateNote, CandidateRating, CandidateInterviewFeedback,
+)
 from app.models.user import (
     AspirantProfile, EmployerProfile, JobPosting, KrsScore, PsychologicalAssessment, User,
     UserCareerSelection,
 )
 from app.modules.matching.schemas import (
     ApplicationDetailOut, ApplicationOut, ApplicationStatusHistoryItem,
-    ApplyRequest, CandidateOut, CandidatePsychProfile, JobCandidatePipeline, JobDetail,
-    JobListItem, JobRecommendationsResponse, UpdateApplicationStatusRequest,
+    ApplicationTrendPoint, ApplicationTrendResponse,
+    ApplyRequest, CandidateNoteOut, CandidateOut, CandidatePsychProfile,
+    DashboardKpis, EmployerFunnelResponse, EmployerFunnelStage, InterviewFeedbackOut,
+    JobCandidatePipeline, JobDetail, JobListItem, JobPerformanceEntry,
+    JobPerformanceResponse, JobRecommendationsResponse, UpcomingInterviewEntry,
+    UpdateApplicationStatusRequest,
 )
 from app.modules.recommendations.ranker import RankedJob, rank_jobs_for_user
 
@@ -224,6 +231,12 @@ def apply_to_job(
 
     employer = db.query(EmployerProfile).filter(EmployerProfile.id == job.employer_id).first()
 
+    if employer:
+        from app.core.notifications import new_application_email, notify
+        recipient = db.query(User).filter(User.id == employer.user_id).first()
+        subject, html = new_application_email(job.title, profile.full_name if profile else None)
+        notify(recipient.email if recipient else None, subject, html)
+
     return ApplicationOut(
         id=str(application.id),
         job_id=str(job.id),
@@ -350,12 +363,22 @@ def _get_employer_profile_approved(user: User, db: Session) -> EmployerProfile:
     return profile
 
 
+def _get_company_employer_ids(profile: EmployerProfile, db: Session) -> list:
+    """All EmployerProfile.id values sharing this profile's company — team
+    members see/manage the whole company's pipeline, not just their own postings."""
+    if not profile.company_id:
+        return [profile.id]
+    rows = db.query(EmployerProfile.id).filter(EmployerProfile.company_id == profile.company_id).all()
+    return [r[0] for r in rows]
+
+
 def get_job_pipeline(job_id: str, user: User, db: Session) -> JobCandidatePipeline:
     """Return all applications for a job, enriched with aspirant profiles."""
     employer = _get_employer_profile_approved(user, db)
+    company_employer_ids = _get_company_employer_ids(employer, db)
     job = (
         db.query(JobPosting)
-        .filter(JobPosting.id == job_id, JobPosting.employer_id == employer.id)
+        .filter(JobPosting.id == job_id, JobPosting.employer_id.in_(company_employer_ids))
         .first()
     )
     if not job:
@@ -374,6 +397,54 @@ def get_job_pipeline(job_id: str, user: User, db: Session) -> JobCandidatePipeli
 
     from datetime import timezone as _tz
     now = __import__("datetime").datetime.now(_tz.utc)
+
+    app_ids = [a.id for a in apps]
+    notes_by_app: dict = {}
+    if app_ids:
+        note_rows = (
+            db.query(CandidateNote, User)
+            .outerjoin(User, CandidateNote.author_id == User.id)
+            .filter(CandidateNote.application_id.in_(app_ids))
+            .order_by(CandidateNote.created_at.desc())
+            .all()
+        )
+        for n, author in note_rows:
+            notes_by_app.setdefault(n.application_id, []).append(
+                CandidateNoteOut(
+                    id=str(n.id), author_name=(author.email or author.phone) if author else None,
+                    note=n.note, is_internal=n.is_internal, created_at=n.created_at,
+                )
+            )
+
+    ratings_by_app: dict = {}
+    if app_ids:
+        from sqlalchemy import func as _func
+        rating_rows = (
+            db.query(CandidateRating.application_id, _func.avg(CandidateRating.rating))
+            .filter(CandidateRating.application_id.in_(app_ids))
+            .group_by(CandidateRating.application_id)
+            .all()
+        )
+        ratings_by_app = {aid: round(float(avg), 1) for aid, avg in rating_rows}
+
+    feedback_by_app: dict = {}
+    if app_ids:
+        fb_rows = (
+            db.query(CandidateInterviewFeedback, User)
+            .outerjoin(User, CandidateInterviewFeedback.interviewer_id == User.id)
+            .filter(CandidateInterviewFeedback.application_id.in_(app_ids))
+            .order_by(CandidateInterviewFeedback.created_at.desc())
+            .all()
+        )
+        for f, interviewer in fb_rows:
+            feedback_by_app.setdefault(f.application_id, []).append(
+                InterviewFeedbackOut(
+                    id=str(f.id), application_id=str(f.application_id),
+                    interviewer_name=(interviewer.email or interviewer.phone) if interviewer else None,
+                    scheduled_at=f.scheduled_at, meeting_link=f.meeting_link, status=f.status,
+                    recommendation=f.recommendation, feedback=f.feedback, created_at=f.created_at,
+                )
+            )
 
     for app in apps:
         by_status[app.status] = by_status.get(app.status, 0) + 1
@@ -450,6 +521,9 @@ def get_job_pipeline(job_id: str, user: User, db: Session) -> JobCandidatePipeli
             applied_at=app.created_at,
             days_ago=days_ago,
             status_history=history,
+            notes=notes_by_app.get(app.id, []),
+            avg_rating=ratings_by_app.get(app.id),
+            interview_feedback=feedback_by_app.get(app.id, []),
         ))
 
     return JobCandidatePipeline(
@@ -469,20 +543,21 @@ def update_application_status(
 ) -> dict:
     """Employer updates the status of an application (shortlist, reject, hire)."""
     employer = _get_employer_profile_approved(user, db)
+    company_employer_ids = _get_company_employer_ids(employer, db)
 
-    # Verify the application belongs to one of this employer's jobs
+    # Verify the application belongs to one of this company's jobs
     app = (
         db.query(Application)
         .join(JobPosting, Application.job_id == JobPosting.id)
         .filter(
             Application.id == application_id,
-            JobPosting.employer_id == employer.id,
+            JobPosting.employer_id.in_(company_employer_ids),
         )
         .first()
     )
     if not app:
         raise NotFoundException("Application not found.")
-    if app.status in ("withdrawn", "hired"):
+    if app.status in ("withdrawn", "hired", "rejected"):
         raise BadRequestException(f"Cannot change status from '{app.status}'.")
 
     prev = app.status
@@ -499,8 +574,390 @@ def update_application_status(
     ))
     db.commit()
 
+    from app.core.notifications import application_status_email, notify
+    candidate = db.query(User).filter(User.id == app.aspirant_id).first()
+    job = db.query(JobPosting).filter(JobPosting.id == app.job_id).first()
+    if candidate and job:
+        subject, html = application_status_email(job.title, employer.company_name, body.status)
+        notify(candidate.email, subject, html)
+
     logger.info(
         "[MATCHING] Application %s: %s → %s by employer %s",
         application_id, prev, body.status, user.id
     )
     return {"application_id": application_id, "status": body.status}
+
+
+def _get_employer_application(application_id: str, user: User, db: Session) -> Application:
+    employer = _get_employer_profile_approved(user, db)
+    company_employer_ids = _get_company_employer_ids(employer, db)
+    app = (
+        db.query(Application)
+        .join(JobPosting, Application.job_id == JobPosting.id)
+        .filter(Application.id == application_id, JobPosting.employer_id.in_(company_employer_ids))
+        .first()
+    )
+    if not app:
+        raise NotFoundException("Application not found.")
+    return app
+
+
+def bulk_update_status(application_ids: list[str], status: str, note: str | None, user: User, db: Session) -> dict:
+    """Move multiple applications to the same stage in one transaction."""
+    employer = _get_employer_profile_approved(user, db)
+    company_employer_ids = _get_company_employer_ids(employer, db)
+    apps = (
+        db.query(Application)
+        .join(JobPosting, Application.job_id == JobPosting.id)
+        .filter(Application.id.in_(application_ids), JobPosting.employer_id.in_(company_employer_ids))
+        .all()
+    )
+    updated = 0
+    for app in apps:
+        if app.status in ("withdrawn", "hired", "rejected"):
+            continue
+        prev = app.status
+        app.status = status
+        if note:
+            app.employer_note = note
+        db.add(ApplicationStatusHistory(
+            application_id=app.id, from_status=prev, to_status=status, changed_by=user.id, note=note,
+        ))
+        updated += 1
+    db.commit()
+    return {"updated": updated, "status": status}
+
+
+def add_candidate_note(application_id: str, note: str, is_internal: bool, user: User, db: Session) -> CandidateNoteOut:
+    app = _get_employer_application(application_id, user, db)
+    row = CandidateNote(application_id=app.id, author_id=user.id, note=note, is_internal=is_internal)
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return CandidateNoteOut(
+        id=str(row.id), author_name=(user.email or user.phone), note=row.note,
+        is_internal=row.is_internal, created_at=row.created_at,
+    )
+
+
+def set_candidate_rating(application_id: str, rating: int, user: User, db: Session) -> dict:
+    app = _get_employer_application(application_id, user, db)
+    existing = (
+        db.query(CandidateRating)
+        .filter(CandidateRating.application_id == app.id, CandidateRating.rater_id == user.id)
+        .first()
+    )
+    if existing:
+        existing.rating = rating
+    else:
+        db.add(CandidateRating(application_id=app.id, rater_id=user.id, rating=rating))
+    db.commit()
+
+    from sqlalchemy import func as _func
+    avg = db.query(_func.avg(CandidateRating.rating)).filter(CandidateRating.application_id == app.id).scalar()
+    return {"application_id": application_id, "avg_rating": round(float(avg), 1) if avg else None}
+
+
+# ── Interview scheduling (Module 05 Phase 9) ──────────────────────────────────
+
+PIPELINE_FORWARD_ORDER = (
+    "applied", "screening", "shortlisted", "interview_scheduled",
+    "interview_completed", "offer_sent", "hired",
+)
+
+
+def _advance_status_if_earlier(app: Application, to_status: str, user: User, db: Session) -> None:
+    """Moves the application forward in the pipeline to to_status, but never
+    backward and never out of a terminal state (rejected/withdrawn/hired)."""
+    if app.status not in PIPELINE_FORWARD_ORDER:
+        return   # terminal state (rejected/withdrawn) — leave it alone
+    if PIPELINE_FORWARD_ORDER.index(to_status) <= PIPELINE_FORWARD_ORDER.index(app.status):
+        return   # already at or past this stage
+    prev = app.status
+    app.status = to_status
+    db.add(ApplicationStatusHistory(
+        application_id=app.id, from_status=prev, to_status=to_status, changed_by=user.id,
+        note=f"Auto-advanced by interview {to_status.replace('_', ' ')}.",
+    ))
+
+
+def _interview_to_out(row: CandidateInterviewFeedback, interviewer: User | None) -> InterviewFeedbackOut:
+    return InterviewFeedbackOut(
+        id=str(row.id), application_id=str(row.application_id),
+        interviewer_name=(interviewer.email or interviewer.phone) if interviewer else None,
+        scheduled_at=row.scheduled_at, meeting_link=row.meeting_link, status=row.status,
+        recommendation=row.recommendation, feedback=row.feedback, created_at=row.created_at,
+    )
+
+
+def schedule_interview(application_id: str, scheduled_at, meeting_link: str | None, user: User, db: Session) -> InterviewFeedbackOut:
+    app = _get_employer_application(application_id, user, db)
+    row = CandidateInterviewFeedback(
+        application_id=app.id, interviewer_id=user.id, scheduled_at=scheduled_at,
+        meeting_link=meeting_link, status="scheduled",
+    )
+    db.add(row)
+    _advance_status_if_earlier(app, "interview_scheduled", user, db)
+    db.commit()
+    db.refresh(row)
+
+    from app.core.notifications import interview_scheduled_email, notify
+    candidate = db.query(User).filter(User.id == app.aspirant_id).first()
+    job = db.query(JobPosting).filter(JobPosting.id == app.job_id).first()
+    employer = db.query(EmployerProfile).filter(EmployerProfile.id == job.employer_id).first() if job else None
+    if candidate and job and employer:
+        subject, html = interview_scheduled_email(
+            job.title, employer.company_name, scheduled_at.strftime("%d %b %Y, %I:%M %p UTC"), meeting_link,
+        )
+        notify(candidate.email, subject, html)
+
+    return _interview_to_out(row, user)
+
+
+def _get_employer_interview(application_id: str, interview_id: str, user: User, db: Session) -> CandidateInterviewFeedback:
+    app = _get_employer_application(application_id, user, db)
+    row = db.query(CandidateInterviewFeedback).filter(
+        CandidateInterviewFeedback.id == interview_id, CandidateInterviewFeedback.application_id == app.id,
+    ).first()
+    if not row:
+        raise NotFoundException("Interview not found.")
+    return row
+
+
+def submit_interview_feedback(
+    application_id: str, interview_id: str, recommendation: str | None, feedback: str | None,
+    user: User, db: Session,
+) -> InterviewFeedbackOut:
+    row = _get_employer_interview(application_id, interview_id, user, db)
+    row.recommendation = recommendation
+    row.feedback = feedback
+    row.status = "completed"
+
+    app = db.query(Application).filter(Application.id == row.application_id).first()
+    if app:
+        _advance_status_if_earlier(app, "interview_completed", user, db)
+    db.commit()
+    db.refresh(row)
+    return _interview_to_out(row, user)
+
+
+def cancel_interview(application_id: str, interview_id: str, user: User, db: Session) -> InterviewFeedbackOut:
+    row = _get_employer_interview(application_id, interview_id, user, db)
+    row.status = "canceled"
+    db.commit()
+    db.refresh(row)
+    return _interview_to_out(row, user)
+
+
+def list_upcoming_interviews(user: User, db: Session, limit: int = 20) -> list["UpcomingInterviewEntry"]:
+    from datetime import datetime, timezone
+    from app.models.user import AspirantProfile as _AspirantProfile
+
+    employer = _get_employer_profile_approved(user, db)
+    company_employer_ids = _get_company_employer_ids(employer, db)
+
+    rows = (
+        db.query(CandidateInterviewFeedback, Application, JobPosting, User)
+        .join(Application, CandidateInterviewFeedback.application_id == Application.id)
+        .join(JobPosting, Application.job_id == JobPosting.id)
+        .outerjoin(User, CandidateInterviewFeedback.interviewer_id == User.id)
+        .filter(
+            JobPosting.employer_id.in_(company_employer_ids),
+            CandidateInterviewFeedback.status == "scheduled",
+            CandidateInterviewFeedback.scheduled_at >= datetime.now(timezone.utc),
+        )
+        .order_by(CandidateInterviewFeedback.scheduled_at)
+        .limit(limit)
+        .all()
+    )
+
+    aspirant_ids = [a.aspirant_id for _, a, _, _ in rows]
+    names: dict = {}
+    if aspirant_ids:
+        for profile in db.query(_AspirantProfile).filter(_AspirantProfile.user_id.in_(aspirant_ids)).all():
+            names[profile.user_id] = profile.full_name
+
+    return [
+        UpcomingInterviewEntry(
+            id=str(interview.id), application_id=str(app.id),
+            candidate_name=names.get(app.aspirant_id), job_id=str(job.id), job_title=job.title,
+            scheduled_at=interview.scheduled_at, meeting_link=interview.meeting_link,
+            interviewer_name=(interviewer.email or interviewer.phone) if interviewer else None,
+        )
+        for interview, app, job, interviewer in rows
+    ]
+
+
+# ── Employer analytics (Module 05 Phase 5) ────────────────────────────────────
+
+FUNNEL_STAGE_ORDER = (
+    "applied", "screening", "shortlisted", "interview_scheduled",
+    "interview_completed", "offer_sent", "hired",
+)
+
+
+def get_employer_funnel(user: User, db: Session) -> EmployerFunnelResponse:
+    """Company-wide application funnel — counts at each stage are cumulative
+    'reached this stage or beyond', not just currently-sitting-there counts,
+    so the funnel reads as a conversion drop-off rather than a live snapshot."""
+    employer = _get_employer_profile_approved(user, db)
+    company_employer_ids = _get_company_employer_ids(employer, db)
+
+    apps = (
+        db.query(Application.status)
+        .join(JobPosting, Application.job_id == JobPosting.id)
+        .filter(JobPosting.employer_id.in_(company_employer_ids))
+        .all()
+    )
+    total = len(apps)
+    status_counts: dict[str, int] = {}
+    for (status,) in apps:
+        status_counts[status] = status_counts.get(status, 0) + 1
+
+    # "Reached stage N" = sum of counts for stage N and every stage after it in the pipeline.
+    reached: dict[str, int] = {}
+    for i, stage in enumerate(FUNNEL_STAGE_ORDER):
+        reached[stage] = sum(status_counts.get(s, 0) for s in FUNNEL_STAGE_ORDER[i:])
+
+    stages = [
+        EmployerFunnelStage(
+            stage=stage, count=reached[stage],
+            pct_of_total=round(reached[stage] / total * 100, 1) if total else 0.0,
+        )
+        for stage in FUNNEL_STAGE_ORDER
+    ]
+    return EmployerFunnelResponse(total_applications=total, stages=stages)
+
+
+def get_job_performance(user: User, db: Session) -> JobPerformanceResponse:
+    """Per-job application breakdown — views aren't tracked yet, so this
+    covers applications/shortlist/interview/hire/conversion only."""
+    employer = _get_employer_profile_approved(user, db)
+    company_employer_ids = _get_company_employer_ids(employer, db)
+
+    jobs = (
+        db.query(JobPosting)
+        .filter(JobPosting.employer_id.in_(company_employer_ids))
+        .order_by(JobPosting.created_at.desc())
+        .all()
+    )
+    job_ids = [j.id for j in jobs]
+    apps_by_job: dict = {}
+    if job_ids:
+        rows = db.query(Application.job_id, Application.status).filter(Application.job_id.in_(job_ids)).all()
+        for job_id, status in rows:
+            apps_by_job.setdefault(job_id, []).append(status)
+
+    entries = []
+    for job in jobs:
+        statuses = apps_by_job.get(job.id, [])
+        total = len(statuses)
+        shortlisted = sum(1 for s in statuses if s in ("shortlisted", "interview_scheduled", "interview_completed", "offer_sent", "hired"))
+        interviewed = sum(1 for s in statuses if s in ("interview_completed", "offer_sent", "hired"))
+        hired = sum(1 for s in statuses if s == "hired")
+        rejected = sum(1 for s in statuses if s == "rejected")
+        entries.append(JobPerformanceEntry(
+            job_id=str(job.id), title=job.title, is_active=job.is_active,
+            total_applications=total, shortlisted=shortlisted, interviewed=interviewed,
+            hired=hired, rejected=rejected,
+            conversion_rate_pct=round(hired / total * 100, 1) if total else 0.0,
+            created_at=job.created_at,
+        ))
+    return JobPerformanceResponse(jobs=entries)
+
+
+# ── Dashboard KPIs (Module 05 Phase 8) ─────────────────────────────────────────
+
+RESPONDED_STATUSES = (
+    "screening", "shortlisted", "interview_scheduled", "interview_completed",
+    "offer_sent", "hired", "rejected",
+)
+
+
+def get_dashboard_kpis(user: User, db: Session) -> DashboardKpis:
+    from datetime import datetime, timezone, timedelta
+
+    employer = _get_employer_profile_approved(user, db)
+    company_employer_ids = _get_company_employer_ids(employer, db)
+
+    jobs = db.query(JobPosting.status).filter(JobPosting.employer_id.in_(company_employer_ids)).all()
+    job_status_counts: dict[str, int] = {}
+    for (status,) in jobs:
+        job_status_counts[status] = job_status_counts.get(status, 0) + 1
+
+    job_ids = [j[0] for j in db.query(JobPosting.id).filter(JobPosting.employer_id.in_(company_employer_ids)).all()]
+
+    if not job_ids:
+        return DashboardKpis(
+            active_jobs=0, draft_jobs=0, paused_jobs=0, closed_jobs=0, archived_jobs=0,
+            applications_today=0, total_applications=0, interviews_scheduled=0,
+            offers_sent=0, hires=0, response_rate_pct=0.0, avg_time_to_hire_days=None,
+        )
+
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    apps = db.query(Application.status, Application.created_at).filter(Application.job_id.in_(job_ids)).all()
+    total_applications = len(apps)
+    applications_today = sum(1 for _, created_at in apps if created_at and created_at >= today_start)
+    interviews_scheduled = sum(1 for status, _ in apps if status == "interview_scheduled")
+    offers_sent = sum(1 for status, _ in apps if status in ("offer_sent", "hired"))
+    hires = sum(1 for status, _ in apps if status == "hired")
+    responded = sum(1 for status, _ in apps if status in RESPONDED_STATUSES)
+    response_rate_pct = round(responded / total_applications * 100, 1) if total_applications else 0.0
+
+    # Average time-to-hire: created_at -> the timestamp of the 'hired' transition,
+    # computed from ApplicationStatusHistory (the source of truth for transition times).
+    hired_durations = (
+        db.query(Application.created_at, ApplicationStatusHistory.created_at)
+        .join(ApplicationStatusHistory, ApplicationStatusHistory.application_id == Application.id)
+        .filter(Application.job_id.in_(job_ids), ApplicationStatusHistory.to_status == "hired")
+        .all()
+    )
+    avg_time_to_hire_days = None
+    if hired_durations:
+        days = [(hired_at - applied_at).total_seconds() / 86400 for applied_at, hired_at in hired_durations]
+        avg_time_to_hire_days = round(sum(days) / len(days), 1)
+
+    return DashboardKpis(
+        active_jobs=job_status_counts.get("published", 0),
+        draft_jobs=job_status_counts.get("draft", 0),
+        paused_jobs=job_status_counts.get("paused", 0),
+        closed_jobs=job_status_counts.get("closed", 0),
+        archived_jobs=job_status_counts.get("archived", 0),
+        applications_today=applications_today,
+        total_applications=total_applications,
+        interviews_scheduled=interviews_scheduled,
+        offers_sent=offers_sent,
+        hires=hires,
+        response_rate_pct=response_rate_pct,
+        avg_time_to_hire_days=avg_time_to_hire_days,
+    )
+
+
+def get_application_trend(user: User, db: Session, days: int = 30) -> ApplicationTrendResponse:
+    from datetime import datetime, timezone, timedelta
+
+    employer = _get_employer_profile_approved(user, db)
+    company_employer_ids = _get_company_employer_ids(employer, db)
+    job_ids = [j[0] for j in db.query(JobPosting.id).filter(JobPosting.employer_id.in_(company_employer_ids)).all()]
+
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(days=days)
+
+    counts_by_day: dict[str, int] = {}
+    if job_ids:
+        rows = (
+            db.query(func.date_trunc("day", Application.created_at), func.count())
+            .filter(Application.job_id.in_(job_ids), Application.created_at >= start)
+            .group_by(func.date_trunc("day", Application.created_at))
+            .all()
+        )
+        counts_by_day = {day.date().isoformat(): count for day, count in rows}
+
+    series = [
+        ApplicationTrendPoint(date=(start + timedelta(days=i)).date().isoformat(),
+                               count=counts_by_day.get((start + timedelta(days=i)).date().isoformat(), 0))
+        for i in range(days)
+    ]
+    return ApplicationTrendResponse(days=days, series=series)

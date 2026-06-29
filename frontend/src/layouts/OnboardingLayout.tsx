@@ -1,15 +1,18 @@
 import { Link } from 'react-router-dom'
-import { LogOut, CheckCircle2 } from 'lucide-react'
+import {
+  LogOut, CheckCircle2, User, GraduationCap, ClipboardList,
+  Briefcase, Zap, Target, Brain, ChevronRight,
+} from 'lucide-react'
 import { useLogout } from '@/modules/auth/hooks/useAuth'
 
 const STEPS = [
-  { label: 'Personal',    emoji: '👤' },
-  { label: 'Education',   emoji: '🎓' },
-  { label: 'UPSC Journey',emoji: '📋' },
-  { label: 'Experience',  emoji: '💼' },
-  { label: 'Skills',      emoji: '⚡' },
-  { label: 'Preferences', emoji: '🎯' },
-  { label: 'Mindset',     emoji: '🧠' },
+  { label: 'Personal',     icon: User },
+  { label: 'Education',    icon: GraduationCap },
+  { label: 'UPSC Journey', icon: ClipboardList },
+  { label: 'Experience',   icon: Briefcase },
+  { label: 'Skills',       icon: Zap },
+  { label: 'Preferences',  icon: Target },
+  { label: 'Mindset',      icon: Brain },
 ]
 
 interface OnboardingLayoutProps {
@@ -17,9 +20,11 @@ interface OnboardingLayoutProps {
   currentStep: number   // 1-based
   title: string
   subtitle?: string
+  /** Renders a "Skip for now" link in the header — omit on the mandatory step 1. */
+  onSkip?: () => void
 }
 
-export default function OnboardingLayout({ children, currentStep, title, subtitle }: OnboardingLayoutProps) {
+export default function OnboardingLayout({ children, currentStep, title, subtitle, onSkip }: OnboardingLayoutProps) {
   const pct = Math.round(((currentStep - 1) / STEPS.length) * 100)
   const logout = useLogout()
 
@@ -45,7 +50,7 @@ export default function OnboardingLayout({ children, currentStep, title, subtitl
           }}>
             <span style={{ color: 'white', fontWeight: 800, fontSize: 14 }}>D</span>
           </div>
-          <span style={{ fontFamily: 'Hind, sans-serif', fontWeight: 800, fontSize: 17, color: '#1E3A5F' }}>DISHA AI</span>
+          <span style={{ fontFamily: 'Hind, sans-serif', fontWeight: 800, fontSize: 17, color: '#1E3A5F' }}>BeginablAI</span>
         </Link>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -105,6 +110,7 @@ export default function OnboardingLayout({ children, currentStep, title, subtitl
             const stepNum = i + 1
             const done   = stepNum < currentStep
             const active = stepNum === currentStep
+            const Icon = s.icon
             return (
               <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <div style={{
@@ -116,9 +122,7 @@ export default function OnboardingLayout({ children, currentStep, title, subtitl
                   border: active ? 'none' : done ? '1px solid rgba(59,130,246,0.15)' : '1px solid transparent',
                   boxShadow: active ? '0 3px 10px rgba(59,130,246,0.3)' : 'none',
                 }}>
-                  {done
-                    ? <CheckCircle2 size={13} />
-                    : <span style={{ fontSize: 13 }}>{s.emoji}</span>}
+                  {done ? <CheckCircle2 size={13} /> : <Icon size={13} />}
                   {s.label}
                 </div>
                 {i < STEPS.length - 1 && (
@@ -137,23 +141,40 @@ export default function OnboardingLayout({ children, currentStep, title, subtitl
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 16px' }}>
         <div style={{ width: '100%', maxWidth: 540 }}>
           <div style={{ marginBottom: 28 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-              <div style={{
-                width: 36, height: 36, borderRadius: 10,
-                background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: 'white', fontFamily: 'Hind, sans-serif', fontWeight: 800, fontSize: 13,
-                boxShadow: '0 4px 12px rgba(59,130,246,0.3)',
-              }}>
-                {String(currentStep).padStart(2, '0')}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'white', fontFamily: 'Hind, sans-serif', fontWeight: 800, fontSize: 13,
+                  boxShadow: '0 4px 12px rgba(59,130,246,0.3)',
+                }}>
+                  {String(currentStep).padStart(2, '0')}
+                </div>
+                <div style={{
+                  fontSize: 11, fontWeight: 700, color: '#3B82F6',
+                  background: 'rgba(59,130,246,0.07)', padding: '3px 10px',
+                  borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.5px',
+                }}>
+                  {STEPS[currentStep - 1]?.label}
+                </div>
               </div>
-              <div style={{
-                fontSize: 11, fontWeight: 700, color: '#3B82F6',
-                background: 'rgba(59,130,246,0.07)', padding: '3px 10px',
-                borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.5px',
-              }}>
-                {STEPS[currentStep - 1]?.label}
-              </div>
+              {onSkip && (
+                <button
+                  onClick={onSkip}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 3,
+                    fontSize: 12.5, fontWeight: 600, color: '#9CA3AF',
+                    background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px',
+                    transition: 'color 0.15s',
+                  }}
+                  onMouseOver={e => e.currentTarget.style.color = '#3B82F6'}
+                  onMouseOut={e => e.currentTarget.style.color = '#9CA3AF'}
+                >
+                  Skip for now <ChevronRight size={13} />
+                </button>
+              )}
             </div>
             <h1 style={{
               fontFamily: 'Hind, sans-serif', fontSize: 24, fontWeight: 900,

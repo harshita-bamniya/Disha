@@ -83,7 +83,7 @@ export default function JobPlanChatWidget({ jobId, jobTitle, company, sector, sk
           boxShadow: '0 8px 24px rgba(21,19,15,0.3)',
         }}
       >
-        <Sparkles size={15} /> Ask DISHA
+        <Sparkles size={15} /> Ask BeginablAI
       </button>
     )
   }
@@ -101,7 +101,7 @@ export default function JobPlanChatWidget({ jobId, jobTitle, company, sector, sk
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <Sparkles size={14} color="white" />
-          <span style={{ fontSize: 13, fontWeight: 800, color: 'white' }}>Ask DISHA about this plan</span>
+          <span style={{ fontSize: 13, fontWeight: 800, color: 'white' }}>Ask BeginablAI about this plan</span>
         </div>
         <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.7)', display: 'flex' }}>
           <X size={16} />

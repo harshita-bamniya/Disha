@@ -75,6 +75,7 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     phone = Column(String(15), unique=True, nullable=True, index=True)
     email = Column(String(255), unique=True, nullable=True, index=True)
+    full_name = Column(String(150), nullable=True)   # set for admin/sub-admin/platform accounts; aspirants use AspirantProfile.full_name
     password_hash = Column(Text, nullable=True)
     google_id = Column(String(255), unique=True, nullable=True, index=True)
     phone_verified = Column(Boolean, default=False, nullable=False)
@@ -87,10 +88,20 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
 
+    # Account status (suspend/ban) — distinct from is_active, which login still checks.
+    status = Column(String(20), nullable=False, default="active", server_default="active")
+    status_reason = Column(Text, nullable=True)
+    status_changed_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    status_changed_at = Column(DateTime(timezone=True), nullable=True)
+    failed_login_attempts = Column(Integer, nullable=False, default=0, server_default="0")
+
     role = relationship("Role", back_populates="users")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
     otp_verifications = relationship("OtpVerification", back_populates="user", cascade="all, delete-orphan")
     audit_logs = relationship("AuditLog", back_populates="user")
+    login_history = relationship("LoginHistory", back_populates="user", cascade="all, delete-orphan", foreign_keys="LoginHistory.user_id")
+    device_sessions = relationship("DeviceSession", back_populates="user", cascade="all, delete-orphan", foreign_keys="DeviceSession.user_id")
+    two_factor_credential = relationship("TwoFactorCredential", back_populates="user", uselist=False, cascade="all, delete-orphan")
     employer_profile = relationship("EmployerProfile", back_populates="user", uselist=False, foreign_keys="EmployerProfile.user_id")
     aspirant_profile = relationship("AspirantProfile", back_populates="user", uselist=False)
     psychological_assessment = relationship("PsychologicalAssessment", back_populates="user", uselist=False)
@@ -161,14 +172,66 @@ class OtpVerification(Base):
         return self.used_at is not None
 
 
+class LoginHistory(Base):
+    """Every login attempt (success or failure) — surfaced on Admin Profile and user detail."""
+    __tablename__ = "login_history"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    ip_address = Column(INET, nullable=True)
+    user_agent = Column(Text, nullable=True)
+    device_label = Column(String(150), nullable=True)
+    success = Column(Boolean, nullable=False, default=True)
+    failure_reason = Column(String(100), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    user = relationship("User", back_populates="login_history", foreign_keys=[user_id])
+
+
+class DeviceSession(Base):
+    """One row per active refresh-token session — backs 'Device Sessions' + force-logout."""
+    __tablename__ = "device_sessions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    refresh_token_id = Column(UUID(as_uuid=True), ForeignKey("refresh_tokens.id", ondelete="CASCADE"), nullable=False, unique=True)
+    device_label = Column(String(150), nullable=True)
+    ip_address = Column(INET, nullable=True)
+    last_seen_at = Column(DateTime(timezone=True), server_default=func.now())
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="device_sessions", foreign_keys=[user_id])
+    refresh_token = relationship("RefreshToken")
+
+    @property
+    def is_revoked(self) -> bool:
+        return self.revoked_at is not None
+
+
+class TwoFactorCredential(Base):
+    """TOTP 2FA enrollment — one row per user."""
+    __tablename__ = "two_factor_credentials"
+
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    secret_encrypted = Column(Text, nullable=False)
+    is_enabled = Column(Boolean, nullable=False, default=False)
+    backup_codes_hash = Column(JSONB, nullable=True)
+    enabled_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="two_factor_credential")
+
+
 class AspirantProfile(Base):
     __tablename__ = "aspirant_profiles"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
 
-    # ── Step 1: Personal ──────────────────────────────────────────────────────
+    # ── Step 1: Personal (quick-start: full_name/current_status/city only) ────
     full_name = Column(String(150), nullable=True)
+    current_status = Column(String(20), nullable=True)  # student | fresher | experienced
     date_of_birth = Column(Date, nullable=True)
     gender = Column(GENDER_ENUM, nullable=True)
     city = Column(String(100), nullable=True)
@@ -257,13 +320,15 @@ class EmployerProfile(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     company_name = Column(String(255), nullable=False, index=True)
-    industry = Column(String(100), nullable=False)
-    company_size = Column(COMPANY_SIZE_ENUM, nullable=False)
+    # Filled at registration only as company_name; the rest are collected later
+    # via the post-login setup wizard and may be null until then.
+    industry = Column(String(100), nullable=True)
+    company_size = Column(COMPANY_SIZE_ENUM, nullable=True)
     website = Column(String(500), nullable=True)
     gst_number = Column(String(20), nullable=True)
-    contact_person = Column(String(150), nullable=False)
+    contact_person = Column(String(150), nullable=True)
     designation = Column(String(100), nullable=True)
-    city = Column(String(100), nullable=False)
+    city = Column(String(100), nullable=True)
     description = Column(Text, nullable=True)
 
     # Admin approval workflow
@@ -272,12 +337,18 @@ class EmployerProfile(Base):
     approved_at = Column(DateTime(timezone=True), nullable=True)
     rejection_reason = Column(Text, nullable=True)
 
+    # Company/team membership (Module 05 Phase 4) — every profile belongs to a
+    # Company; the registering profile is the owner, invited teammates are not.
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True)
+    is_owner = Column(Boolean, nullable=False, default=False, server_default="false")
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="employer_profile", foreign_keys=[user_id])
     approver = relationship("User", foreign_keys=[approved_by])
     job_postings = relationship("JobPosting", back_populates="employer", cascade="all, delete-orphan")
+    company = relationship("Company", back_populates="members")
 
 
 class AuditLog(Base):
@@ -291,6 +362,8 @@ class AuditLog(Base):
     ip_address = Column(INET, nullable=True)
     user_agent = Column(Text, nullable=True)
     log_metadata = Column("metadata", JSONB, nullable=True)
+    previous_value = Column(JSONB, nullable=True)
+    new_value = Column(JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     user = relationship("User", back_populates="audit_logs")
@@ -385,6 +458,10 @@ class JobPosting(Base):
     employment_type = Column(String(30), nullable=True)    # "full_time" | "part_time" | "internship" | "contract" | "freelance"
     expires_at = Column(Date, nullable=True)               # date the posting closes
     is_active = Column(Boolean, nullable=False, default=True, index=True)
+    # Job lifecycle (Module 05 Phase 7). is_active stays in sync with status == 'published' —
+    # it's kept because aspirant-facing ranker queries and subscription active-job limits
+    # already filter on it; status is the source of truth, is_active is derived from it.
+    status = Column(String(20), nullable=False, default="draft", index=True)
     description_embedding = Column(Vector(384), nullable=True)  # sentence-transformers job vector
     skill_extraction_status = Column(String(20), nullable=False, default="pending")  # pending | done | failed
 

@@ -22,6 +22,14 @@ def _uuid():
     return uuid.uuid4()
 
 
+# Full ATS pipeline (Module 05 Phase 3) — superset of the original 6 statuses.
+# 'under_review' kept as a legacy alias for screening (existing rows may use it).
+APPLICATION_STATUSES = (
+    "applied", "under_review", "screening", "shortlisted", "interview_scheduled",
+    "interview_completed", "offer_sent", "hired", "rejected", "withdrawn",
+)
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # MODULE 09 — EMPLOYER MATCHING (Applications)
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -56,10 +64,7 @@ class Application(Base):
 
     __table_args__ = (
         UniqueConstraint("aspirant_id", "job_id", name="uq_application_aspirant_job"),
-        CheckConstraint(
-            "status IN ('applied','under_review','shortlisted','rejected','hired','withdrawn')",
-            name="ck_application_status"
-        ),
+        CheckConstraint(f"status IN {APPLICATION_STATUSES}", name="ck_application_status"),
     )
 
 
@@ -79,9 +84,76 @@ class ApplicationStatusHistory(Base):
     actor           = relationship("User", foreign_keys=[changed_by])
 
     __table_args__ = (
+        CheckConstraint(f"to_status IN {APPLICATION_STATUSES}", name="ck_hist_to_status"),
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ATS PIPELINE EXTRAS — Notes, ratings, interview feedback (Module 05 Phase 3)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class CandidateNote(Base):
+    """Recruiter notes thread on an application — multiple, timestamped, attributable."""
+    __tablename__ = "candidate_notes"
+
+    id              = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    application_id  = Column(UUID(as_uuid=True), ForeignKey("applications.id", ondelete="CASCADE"), nullable=False, index=True)
+    author_id       = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    note            = Column(Text, nullable=False)
+    is_internal     = Column(Boolean, nullable=False, default=True)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+
+    application     = relationship("Application")
+    author          = relationship("User", foreign_keys=[author_id])
+
+
+class CandidateRating(Base):
+    """1-5 star rating per (application, rater) — recruiters rate independently."""
+    __tablename__ = "candidate_ratings"
+
+    application_id  = Column(UUID(as_uuid=True), ForeignKey("applications.id", ondelete="CASCADE"), primary_key=True)
+    rater_id        = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    rating          = Column(Integer, nullable=False)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+
+    application     = relationship("Application")
+    rater           = relationship("User", foreign_keys=[rater_id])
+
+    __table_args__ = (
+        CheckConstraint("rating BETWEEN 1 AND 5", name="ck_candidate_rating_range"),
+    )
+
+
+class CandidateInterviewFeedback(Base):
+    """An interview round on an application — scheduling + feedback in one lifecycle.
+
+    Distinct from InterviewFeedback (mvp2.py), which scores the AI mock-interview
+    practice feature — this table is recruiter-scheduled interviews with real candidates.
+    Lifecycle: scheduled -> completed (feedback added) | canceled.
+    """
+    __tablename__ = "candidate_interview_feedback"
+
+    id              = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    application_id  = Column(UUID(as_uuid=True), ForeignKey("applications.id", ondelete="CASCADE"), nullable=False, index=True)
+    interviewer_id  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    scheduled_at    = Column(DateTime(timezone=True), nullable=True)
+    meeting_link    = Column(Text, nullable=True)
+    status          = Column(String(20), nullable=False, default="scheduled")  # scheduled|completed|canceled
+    recommendation  = Column(String(20), nullable=True)   # strong_yes|yes|no|strong_no
+    feedback        = Column(Text, nullable=True)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+
+    application     = relationship("Application")
+    interviewer     = relationship("User", foreign_keys=[interviewer_id])
+
+    __table_args__ = (
         CheckConstraint(
-            "to_status IN ('applied','under_review','shortlisted','rejected','hired','withdrawn')",
-            name="ck_hist_to_status"
+            "recommendation IS NULL OR recommendation IN ('strong_yes','yes','no','strong_no')",
+            name="ck_interview_feedback_recommendation",
+        ),
+        CheckConstraint(
+            "status IN ('scheduled','completed','canceled')",
+            name="ck_interview_feedback_status",
         ),
     )
 

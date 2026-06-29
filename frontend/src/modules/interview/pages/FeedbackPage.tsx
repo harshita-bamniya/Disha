@@ -31,7 +31,7 @@ function ScoreRing({ score, max = 10, size = 56, color = '#2D6A4F' }: {
         style={{ transition: 'stroke-dashoffset 0.8s ease' }}
       />
       <text x={size/2} y={size/2 + 1} textAnchor="middle" dominantBaseline="middle"
-        fill={color} fontSize={size * 0.22} fontWeight={900} fontFamily="Hind, sans-serif">
+        fill={color} fontSize={size * 0.22} fontWeight={700}>
         {val.toFixed(1)}
       </text>
     </svg>
@@ -154,7 +154,7 @@ export default function FeedbackPage() {
   })
 
   if (isLoading) return (
-    <div style={{ minHeight: '100vh', background: '#F0F4F8', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
       <AppSidebar activePath="/app/interview" />
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: 28, height: 28, border: '3px solid rgba(45,106,79,0.2)', borderTopColor: '#2D6A4F', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
@@ -168,11 +168,11 @@ export default function FeedbackPage() {
   const overallColor = feedback.overall_avg >= 8 ? '#16A34A' : feedback.overall_avg >= 6 ? '#D97706' : '#DC2626'
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F0F4F8', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
       <AppSidebar activePath="/app/interview" />
       <div style={{ flex: 1, minWidth: 0 }}>
         <header style={{
-          background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(20px)',
+          background: 'white',
           borderBottom: '1px solid rgba(226,232,240,0.8)',
           padding: '0 28px', height: 60,
           display: 'flex', alignItems: 'center', gap: 12,
@@ -181,7 +181,7 @@ export default function FeedbackPage() {
           <button onClick={() => navigate('/app/interview')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 8, color: '#64748B' }}>
             <ArrowLeft size={16} />
           </button>
-          <span style={{ fontSize: 14, fontWeight: 800, color: '#0F172A', fontFamily: 'Hind, sans-serif' }}>
+          <span style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>
             Interview Feedback
           </span>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
@@ -208,7 +208,7 @@ export default function FeedbackPage() {
           }}>
             <ScoreRing score={feedback.overall_avg} size={80} color={overallColor} />
             <div>
-              <h1 style={{ fontSize: 20, fontWeight: 900, color: '#0F172A', fontFamily: 'Hind, sans-serif', marginBottom: 6 }}>
+              <h1 style={{ fontSize: 20, fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>
                 {feedback.overall_avg >= 8
                   ? 'Excellent Performance!'
                   : feedback.overall_avg >= 6

@@ -32,16 +32,14 @@ function MessageBubble({ msg }: { msg: MessageOut | { role: string; content: str
       {!isUser && (
         <div style={{
           width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-          background: '#15130F',
+          background: 'linear-gradient(135deg, #818CF8, #6366F1)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 14, color: 'white', fontWeight: 800, marginRight: 10, marginTop: 2,
         }}>D</div>
       )}
       <div style={{
         maxWidth: '72%',
-        background: isUser
-          ? 'linear-gradient(135deg, #1D4ED8, #3B82F6)'
-          : 'white',
+        background: isUser ? '#2563EB' : 'white',
         color: isUser ? 'white' : '#1e293b',
         padding: '12px 16px',
         borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
@@ -73,7 +71,7 @@ function TypingIndicator() {
     <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
       <div style={{
         width: 32, height: 32, borderRadius: '50%',
-        background: '#15130F',
+        background: 'linear-gradient(135deg, #818CF8, #6366F1)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: 14, color: 'white', fontWeight: 800, marginRight: 10,
       }}>D</div>
@@ -127,7 +125,7 @@ function MemoryPanel() {
       >
         <Brain size={11} color="#3B82F6" />
         <span style={{ fontSize: 10, fontWeight: 700, color: '#3B82F6', flex: 1, textAlign: 'left' }}>
-          WHAT DISHA KNOWS
+          WHAT BeginablAI KNOWS
         </span>
         {open ? <ChevronUp size={11} color="#3B82F6" /> : <ChevronDown size={11} color="#3B82F6" />}
       </button>
@@ -158,7 +156,7 @@ function MemoryPanel() {
             </div>
           ))}
           <p style={{ fontSize: 9, color: '#CBD5E1', textAlign: 'center', marginTop: 4 }}>
-            Click × to ask DISHA to forget something
+            Click × to ask BeginablAI to forget something
           </p>
         </div>
       )}
@@ -179,14 +177,14 @@ function NudgeBanner() {
   if (dismissed || !nudge?.message) return null
 
   const bgMap: Record<string, string> = {
-    interview: '#FAF7F1',
-    learning: '#FAF7F1',
-    streak: '#FAF7F1',
+    interview: '#F5F8FF',
+    learning: '#F5F8FF',
+    streak: '#F5F8FF',
   }
   const borderMap: Record<string, string> = {
-    interview: '#F1EAE0',
-    learning: '#F1EAE0',
-    streak: '#F1EAE0',
+    interview: '#DBEAFE',
+    learning: '#DBEAFE',
+    streak: '#DBEAFE',
   }
   const colorMap: Record<string, string> = {
     interview: '#3B82F6',
@@ -374,43 +372,43 @@ export default function CounsellorPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #FAF7F1 0%, #FFFFFF 55%, #F1EAE0 100%)', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
       <AppSidebar activePath="/app/counsellor" />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         {/* Top bar */}
         <header style={{
-          background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)',
-          borderBottom: '1px solid rgba(226,232,240,0.8)',
-          padding: '0 24px', height: 60,
+          background: 'white',
+          borderBottom: '1px solid #F1F5F9',
+          padding: '0 24px', height: 64,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           position: 'sticky', top: 0, zIndex: 20,
-          boxShadow: '0 1px 8px rgba(15,23,42,0.05)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{
-              width: 36, height: 36, borderRadius: '50%',
-              background: '#15130F',
+              width: 30, height: 30, borderRadius: '50%',
+              background: 'linear-gradient(135deg, #818CF8, #6366F1)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 16, color: 'white', fontWeight: 800,
+              fontSize: 14, color: 'white', fontWeight: 700,
             }}>D</div>
             <div>
-              <p style={{ fontSize: 15, fontWeight: 800, color: '#0F172A', fontFamily: 'Hind, sans-serif' }}>DISHA AI Counsellor</p>
-              <p style={{ fontSize: 11, color: '#94A3B8' }}>Your career guide — here whenever you need to talk</p>
+              <p style={{ fontSize: 14.5, fontWeight: 700, color: '#0F172A' }}>BeginablAI Counsellor</p>
+              <p style={{ fontSize: 11.5, color: '#9CA3AF' }}>Your career guide — here whenever you need to talk</p>
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981', boxShadow: '0 0 6px rgba(16,185,129,0.6)' }} />
-            <span style={{ fontSize: 11, color: '#10B981', fontWeight: 600 }}>Online</span>
+            <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#16A34A' }} />
+            <span style={{ fontSize: 11, color: '#16A34A', fontWeight: 600 }}>Online</span>
           </div>
         </header>
 
         <NudgeBanner />
-        <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+        <div style={{ flex: 1, display: 'flex', minHeight: 0, background: '#FAFBFD' }}>
           {/* Left sidebar — conversation list */}
           <div style={{
             width: 260, flexShrink: 0, background: 'white',
-            borderRight: '1px solid rgba(226,232,240,0.8)',
+            borderRight: '1px solid #F1F5F9',
+            boxShadow: '4px 0 16px rgba(15,23,42,0.03)',
             display: 'flex', flexDirection: 'column',
           }}>
             <div style={{ padding: '16px 14px 12px', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -419,12 +417,14 @@ export default function CounsellorPage() {
                 disabled={createConvMutation.isPending}
                 style={{
                   width: '100%', height: 38, borderRadius: 10,
-                  background: '#3B82F6',
-                  color: 'white', border: 'none', cursor: 'pointer',
+                  background: 'white',
+                  color: '#2563EB', border: '1.5px solid #BFDBFE', cursor: 'pointer',
                   fontSize: 13, fontWeight: 700,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                  boxShadow: '0 3px 10px rgba(59,130,246,0.3)',
+                  boxShadow: '0 2px 8px rgba(37,99,235,0.08)', transition: 'all 0.15s',
                 }}
+                onMouseOver={e => { e.currentTarget.style.borderColor = '#93C5FD'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(37,99,235,0.14)' }}
+                onMouseOut={e => { e.currentTarget.style.borderColor = '#BFDBFE'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(37,99,235,0.08)' }}
               >
                 <Plus size={14} /> New conversation
               </button>
@@ -463,8 +463,8 @@ export default function CounsellorPage() {
                     onClick={() => setActiveConvId(conv.id)}
                     style={{
                       width: '100%', padding: '10px 12px', borderRadius: 10, marginBottom: 4,
-                      background: activeConvId === conv.id ? 'rgba(59,130,246,0.08)' : 'transparent',
-                      border: activeConvId === conv.id ? '1px solid rgba(59,130,246,0.2)' : '1px solid transparent',
+                      background: activeConvId === conv.id ? '#EFF6FF' : 'transparent',
+                      border: activeConvId === conv.id ? '1px solid #BFDBFE' : '1px solid transparent',
                       cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s', paddingRight: 30,
                     }}
                     onMouseOver={e => { if (activeConvId !== conv.id) e.currentTarget.style.background = '#F8FAFC' }}
@@ -551,13 +551,13 @@ export default function CounsellorPage() {
               }}>
                 <div style={{
                   width: 72, height: 72, borderRadius: '50%',
-                  background: '#15130F',
+                  background: 'linear-gradient(135deg, #818CF8, #6366F1)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 28, color: 'white', fontWeight: 800, marginBottom: 20,
                   boxShadow: '0 8px 24px rgba(59,130,246,0.3)',
                 }}>D</div>
                 <h2 style={{ fontSize: 22, fontWeight: 900, color: '#0F172A', fontFamily: 'Hind, sans-serif', marginBottom: 8 }}>
-                  Hi, I'm DISHA
+                  Hi, I'm BeginablAI
                 </h2>
                 <p style={{ fontSize: 14, color: '#64748B', textAlign: 'center', maxWidth: 380, lineHeight: 1.7, marginBottom: 28 }}>
                   I'm your career counsellor. I understand the journey you've been on — the years of preparation, the uncertainty, the emotional weight. Let's talk.
@@ -582,13 +582,13 @@ export default function CounsellorPage() {
                       }}
                       style={{
                         padding: '12px 16px', borderRadius: 12, textAlign: 'left',
-                        background: 'white', border: '1px solid rgba(226,232,240,0.8)',
+                        background: 'white', border: '1px solid #EEF2F9',
                         cursor: 'pointer', fontSize: 13, color: '#374151',
-                        boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                        boxShadow: '0 6px 16px rgba(15,23,42,0.05)',
                         transition: 'all 0.15s', lineHeight: 1.5,
                       }}
-                      onMouseOver={e => { e.currentTarget.style.borderColor = '#3B82F6'; e.currentTarget.style.color = '#3B82F6' }}
-                      onMouseOut={e => { e.currentTarget.style.borderColor = 'rgba(226,232,240,0.8)'; e.currentTarget.style.color = '#374151' }}
+                      onMouseOver={e => { e.currentTarget.style.borderColor = '#93C5FD'; e.currentTarget.style.color = '#2563EB'; e.currentTarget.style.boxShadow = '0 10px 22px rgba(37,99,235,0.12)' }}
+                      onMouseOut={e => { e.currentTarget.style.borderColor = '#EEF2F9'; e.currentTarget.style.color = '#374151'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(15,23,42,0.05)' }}
                     >
                       {prompt}
                     </button>
@@ -625,18 +625,19 @@ export default function CounsellorPage() {
                 <div style={{
                   padding: '12px 24px 20px',
                   background: 'white',
-                  borderTop: '1px solid rgba(226,232,240,0.8)',
+                  borderTop: '1px solid #F1F5F9',
                 }}>
                   <div style={{
                     display: 'flex', gap: 10, alignItems: 'center',
-                    background: '#F8FAFC', borderRadius: 16,
-                    border: '1.5px solid rgba(226,232,240,0.9)',
+                    background: 'white', borderRadius: 16,
+                    border: '1.5px solid #EEF2F9',
+                    boxShadow: '0 4px 14px rgba(15,23,42,0.05)',
                     padding: '10px 14px', minHeight: 52,
-                    transition: 'border-color 0.2s',
+                    transition: 'border-color 0.2s, box-shadow 0.2s',
                     width: '100%',
                   }}
-                    onFocus={e => { e.currentTarget.style.borderColor = '#3B82F6' }}
-                    onBlur={e => { e.currentTarget.style.borderColor = 'rgba(226,232,240,0.9)' }}
+                    onFocus={e => { e.currentTarget.style.borderColor = '#93C5FD'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(37,99,235,0.1)' }}
+                    onBlur={e => { e.currentTarget.style.borderColor = '#EEF2F9'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(15,23,42,0.05)' }}
                   >
                     <textarea
                       ref={inputRef}
@@ -680,7 +681,7 @@ export default function CounsellorPage() {
                     </button>
                   </div>
                   <p style={{ fontSize: 10, color: '#94A3B8', textAlign: 'center', marginTop: 8 }}>
-                    DISHA is an AI counsellor, not a licensed mental health professional.
+                    BeginablAI is an AI counsellor, not a licensed mental health professional.
                     For crisis support: iCall 9152987821 · Vandrevala 1860-2662-345
                   </p>
                 </div>

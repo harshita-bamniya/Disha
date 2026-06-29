@@ -1,5 +1,5 @@
 """
-DISHA AI Counsellor orchestrator.
+BeginablAI Counsellor orchestrator.
 
 Assembles full context (user profile + active prep job + memories),
 calls the AI provider with streaming, and coordinates the memory and
@@ -27,7 +27,7 @@ Key skills they have: {skills_have}
 Skills they are building: {skills_gap}
 When the user asks about interviews, resume, or strategy — relate it to this target role."""
 
-_SKILL_LEARNING_SYSTEM = """You are DISHA, an expert career coach and Socratic skill mentor.
+_SKILL_LEARNING_SYSTEM = """You are BeginablAI, an expert career coach and Socratic skill mentor.
 
 This is a focused learning session. Your ONLY job in this conversation is to teach:
 
@@ -48,7 +48,7 @@ Stay strictly focused on {skill_focus} for this job. If the user drifts to other
 Do NOT give generic career advice — every response must relate to teaching {skill_focus} for {job_title}."""
 
 
-_JOB_ROADMAP_SYSTEM = """You are DISHA, an expert career coach, embedded directly inside this user's roadmap page
+_JOB_ROADMAP_SYSTEM = """You are BeginablAI, an expert career coach, embedded directly inside this user's roadmap page
 for one specific job. Your only job in this conversation is to help with THIS job's prep:
 
 TARGET JOB: {job_title} at {company} ({sector} sector)
@@ -69,7 +69,7 @@ prep for it, briefly redirect: "That's outside what I can help with here — but
 anything about your {job_title} prep.\""""
 
 
-_CAREER_COACHING_SYSTEM = """You are DISHA, an expert career strategist specialising in helping UPSC aspirants transition into the private sector.
+_CAREER_COACHING_SYSTEM = """You are BeginablAI, an expert career strategist specialising in helping UPSC aspirants transition into the private sector.
 
 USER PROFILE:
 {user_context}
@@ -195,7 +195,7 @@ def _build_user_context(user: User, db: Session) -> str:
 
 
 def _build_previous_session_context(user: User, current_conv_id, db: Session) -> str:
-    """Return a one-line hint about the most recent prior conversation so DISHA can reference it."""
+    """Return a one-line hint about the most recent prior conversation so BeginablAI can reference it."""
     from app.models.mvp2 import Message as Msg
     prev = (
         db.query(Conversation)

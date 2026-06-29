@@ -269,7 +269,7 @@ def generate_pdf(
         leftMargin=16 * mm, rightMargin=16 * mm,
         topMargin=14 * mm, bottomMargin=14 * mm,
         title=resume_title, author=candidate_name,
-        subject="Resume — DISHA AI",
+        subject="Resume — BeginablAI",
     )
 
     story: list = []
@@ -303,7 +303,7 @@ def generate_pdf(
     # Footer
     story.append(Spacer(1, 6))
     story.append(Paragraph(
-        "<i>Generated with DISHA AI — Career Relaunch Platform</i>", FOOTER,
+        "<i>Generated with BeginablAI — Career Relaunch Platform</i>", FOOTER,
     ))
 
     try:

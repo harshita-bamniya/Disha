@@ -355,7 +355,7 @@ function SectionCard({
               Cancel
             </button>
             <button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}
-              style={{ padding: '7px 16px', borderRadius: 8, background: 'linear-gradient(135deg, #2D6A4F, #40916C)', color: 'white', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, opacity: saveMutation.isPending ? 0.7 : 1 }}>
+              style={{ padding: '7px 16px', borderRadius: 8, background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, opacity: saveMutation.isPending ? 0.7 : 1 }}>
               {saveMutation.isPending ? 'Saving…' : 'Save'}
             </button>
           </div>
@@ -586,12 +586,12 @@ const deleteSmallBtn: React.CSSProperties = {
   alignItems: 'center', justifyContent: 'center', color: '#DC2626', flexShrink: 0,
 }
 const addLineBtn: React.CSSProperties = {
-  background: 'none', border: 'none', color: '#2D6A4F', fontSize: 12,
+  background: 'none', border: 'none', color: '#2563EB', fontSize: 12,
   fontWeight: 700, cursor: 'pointer', padding: '4px 0',
 }
 const addBlockBtn: React.CSSProperties = {
-  width: '100%', padding: '8px', borderRadius: 9, border: '1.5px dashed rgba(45,106,79,0.3)',
-  background: 'rgba(45,106,79,0.03)', color: '#2D6A4F', fontSize: 12, fontWeight: 700,
+  width: '100%', padding: '8px', borderRadius: 9, border: '1.5px dashed #BFDBFE',
+  background: '#EFF6FF', color: '#2563EB', fontSize: 12, fontWeight: 700,
   cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
 }
 
@@ -691,10 +691,10 @@ export default function ResumeEditorPage() {
   }
 
   if (isLoading) return (
-    <div style={{ minHeight: '100vh', background: '#F0F4F8', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
       <AppSidebar activePath="/app/resume" />
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 28, height: 28, border: '3px solid rgba(45,106,79,0.2)', borderTopColor: '#2D6A4F', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <div style={{ width: 28, height: 28, border: '3px solid #2563EB', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     </div>
@@ -705,23 +705,22 @@ export default function ResumeEditorPage() {
   const availableTypes = ALL_SECTION_TYPES.filter(t => !existingTypes.has(t))
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F0F4F8', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
       <AppSidebar activePath="/app/resume" />
 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         {/* top bar */}
         <header style={{
-          background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)',
-          borderBottom: '1px solid rgba(226,232,240,0.8)',
-          padding: '0 24px', height: 58,
+          background: 'white',
+          borderBottom: '1px solid #F1F5F9',
+          padding: '0 24px', height: 64,
           display: 'flex', alignItems: 'center', gap: 10,
           position: 'sticky', top: 0, zIndex: 20,
-          boxShadow: '0 1px 8px rgba(15,23,42,0.05)',
         }}>
-          <button onClick={() => navigate('/app/resume')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 8, color: '#64748B' }}>
+          <button onClick={() => navigate('/app/resume')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 8, color: '#9CA3AF' }}>
             <ArrowLeft size={16} />
           </button>
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', fontFamily: 'Hind, sans-serif', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#111827', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {resume.title}
           </span>
 
@@ -749,7 +748,7 @@ export default function ResumeEditorPage() {
             )}
             <button onClick={() => setCopilotOpen(true)} style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10,
-              background: 'linear-gradient(135deg, #7C3AED, #6D28D9)',
+              background: '#6366F1',
               color: 'white', border: 'none',
               cursor: 'pointer', fontSize: 12, fontWeight: 700,
               boxShadow: '0 3px 10px rgba(124,58,237,0.3)',
@@ -820,7 +819,7 @@ export default function ResumeEditorPage() {
                 </select>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button onClick={() => setAddSection(false)} style={{ flex: 1, padding: '7px', borderRadius: 8, border: '1.5px solid #E2E8F0', background: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#64748B' }}>Cancel</button>
-                  <button onClick={() => addSectionMutation.mutate()} disabled={addSectionMutation.isPending} style={{ flex: 1, padding: '7px', borderRadius: 8, background: 'linear-gradient(135deg, #2D6A4F, #40916C)', color: 'white', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Add</button>
+                  <button onClick={() => addSectionMutation.mutate()} disabled={addSectionMutation.isPending} style={{ flex: 1, padding: '7px', borderRadius: 8, background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Add</button>
                 </div>
               </div>
             )}

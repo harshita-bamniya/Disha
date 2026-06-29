@@ -175,7 +175,7 @@ export default function StructuredInterviewPage() {
   // ── SETUP ─────────────────────────────────────────────────────────────────────
   if (phase === 'setup') {
     return (
-      <div style={{ minHeight: '100vh', background: '#F0F4F8', display: 'flex' }}>
+      <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
         <AppSidebar activePath="/app/mock-interview" />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
           <div style={{ width: '100%', maxWidth: 520 }}>
@@ -185,7 +185,7 @@ export default function StructuredInterviewPage() {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
               <Brain size={22} color="#3B82F6" />
-              <h1 style={{ fontSize: 22, fontWeight: 900, color: '#0F172A', fontFamily: 'Hind, sans-serif' }}>
+              <h1 style={{ fontSize: 22, fontWeight: 700, color: '#0F172A' }}>
                 AI-Adaptive Interview
               </h1>
             </div>
@@ -244,9 +244,9 @@ export default function StructuredInterviewPage() {
               disabled={starting}
               style={{
                 width: '100%', padding: '14px', borderRadius: 14,
-                background: 'linear-gradient(135deg,#3B82F6,#1D4ED8)',
+                background: '#2563EB',
                 color: 'white', border: 'none', cursor: starting ? 'not-allowed' : 'pointer',
-                fontSize: 15, fontWeight: 800, fontFamily: 'Hind, sans-serif',
+                fontSize: 15, fontWeight: 800,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                 boxShadow: '0 4px 16px rgba(59,130,246,0.3)',
               }}
@@ -271,13 +271,13 @@ export default function StructuredInterviewPage() {
       : null
 
     return (
-      <div style={{ minHeight: '100vh', background: '#F0F4F8', display: 'flex' }}>
+      <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
         <AppSidebar activePath="/app/mock-interview" />
 
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
           {/* Header */}
           <header style={{
-            background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(20px)',
+            background: 'white',
             borderBottom: '1px solid rgba(226,232,240,0.8)',
             padding: '0 28px', height: 56,
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -285,7 +285,7 @@ export default function StructuredInterviewPage() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <Brain size={16} color="#3B82F6" />
-              <span style={{ fontSize: 14, fontWeight: 800, color: '#0F172A', fontFamily: 'Hind, sans-serif' }}>
+              <span style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>
                 AI-Adaptive Interview
               </span>
               <span style={{ fontSize: 12, color: '#94A3B8' }}>· {totalResponded} / {session?.total_questions ?? totalQ} answered</span>
@@ -304,13 +304,13 @@ export default function StructuredInterviewPage() {
               {/* Session complete banner */}
               {sessionComplete && !completingSession && (
                 <div style={{
-                  background: 'linear-gradient(135deg,rgba(34,197,94,0.1),rgba(16,185,129,0.06))',
+                  background: '#F0FDF4',
                   border: '1.5px solid rgba(34,197,94,0.3)',
                   borderRadius: 20, padding: '24px 28px', marginBottom: 20,
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
                     <CheckCircle2 size={22} color="#22C55E" />
-                    <h2 style={{ fontSize: 18, fontWeight: 800, color: '#166534', fontFamily: 'Hind, sans-serif' }}>
+                    <h2 style={{ fontSize: 18, fontWeight: 800, color: '#166534' }}>
                       All questions answered!
                     </h2>
                   </div>
@@ -323,7 +323,7 @@ export default function StructuredInterviewPage() {
                     style={{
                       display: 'flex', alignItems: 'center', gap: 8,
                       padding: '12px 24px', borderRadius: 12,
-                      background: 'linear-gradient(135deg,#22C55E,#16A34A)',
+                      background: '#16A34A',
                       color: 'white', border: 'none', cursor: 'pointer',
                       fontSize: 14, fontWeight: 700,
                       boxShadow: '0 4px 14px rgba(34,197,94,0.3)',
@@ -360,7 +360,7 @@ export default function StructuredInterviewPage() {
                     )}
                   </div>
 
-                  <p style={{ fontSize: 17, fontWeight: 700, color: '#0F172A', lineHeight: 1.5, marginBottom: 20, fontFamily: 'Hind, sans-serif' }}>
+                  <p style={{ fontSize: 17, fontWeight: 700, color: '#0F172A', lineHeight: 1.5, marginBottom: 20 }}>
                     {currentQ.text}
                   </p>
 
@@ -396,7 +396,7 @@ export default function StructuredInterviewPage() {
                         display: 'flex', alignItems: 'center', gap: 7,
                         padding: '11px 22px', borderRadius: 12,
                         background: answer.trim() && !submitting && !waitingNext
-                          ? 'linear-gradient(135deg,#3B82F6,#1D4ED8)' : '#E5E7EB',
+                          ? '#2563EB' : '#E5E7EB',
                         color: answer.trim() && !submitting && !waitingNext ? 'white' : '#9CA3AF',
                         border: 'none',
                         cursor: answer.trim() && !submitting && !waitingNext ? 'pointer' : 'not-allowed',
@@ -492,7 +492,7 @@ export default function StructuredInterviewPage() {
                   <div style={{
                     height: '100%', borderRadius: 100,
                     width: `${Math.min(100, (totalResponded / (session?.total_questions ?? totalQ)) * 100)}%`,
-                    background: 'linear-gradient(90deg,#3B82F6,#1D4ED8)',
+                    background: '#2563EB',
                     transition: 'width 0.5s ease',
                   }} />
                 </div>
@@ -507,12 +507,12 @@ export default function StructuredInterviewPage() {
 
   // ── FEEDBACK ──────────────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: '100vh', background: '#F0F4F8', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
       <AppSidebar activePath="/app/mock-interview" />
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <header style={{
-          background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(20px)',
+          background: 'white',
           borderBottom: '1px solid rgba(226,232,240,0.8)',
           padding: '0 28px', height: 56,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -520,7 +520,7 @@ export default function StructuredInterviewPage() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <CheckCircle2 size={16} color="#22C55E" />
-            <span style={{ fontSize: 14, fontWeight: 800, color: '#0F172A', fontFamily: 'Hind, sans-serif' }}>
+            <span style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>
               Interview Complete — AI Feedback
             </span>
           </div>
@@ -529,7 +529,7 @@ export default function StructuredInterviewPage() {
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '8px 16px', borderRadius: 10,
-              background: 'linear-gradient(135deg,#3B82F6,#1D4ED8)',
+              background: '#2563EB',
               color: 'white', border: 'none', cursor: 'pointer',
               fontSize: 12, fontWeight: 700,
             }}
@@ -550,7 +550,7 @@ export default function StructuredInterviewPage() {
               <div>
                 <p style={{ fontSize: 14, color: '#64748B', fontWeight: 600, marginBottom: 4 }}>Overall Performance</p>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                  <span style={{ fontSize: 48, fontWeight: 900, color: SCORE_COLOR(feedback.overall_avg), fontFamily: 'Hind, sans-serif', lineHeight: 1 }}>
+                  <span style={{ fontSize: 48, fontWeight: 700, color: SCORE_COLOR(feedback.overall_avg), lineHeight: 1 }}>
                     {feedback.overall_avg.toFixed(1)}
                   </span>
                   <span style={{ fontSize: 20, color: '#94A3B8', fontWeight: 600 }}>/ 10</span>
@@ -570,7 +570,7 @@ export default function StructuredInterviewPage() {
                     const avg = feedback.feedback_items.reduce((sum, f) => sum + ((f as any)[key] ?? 0), 0) / Math.max(1, feedback.feedback_items.length)
                     return (
                       <div key={key} style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: 16, fontWeight: 900, color: SCORE_COLOR(avg), fontFamily: 'Hind, sans-serif' }}>{avg.toFixed(1)}</div>
+                        <div style={{ fontSize: 16, fontWeight: 700, color: SCORE_COLOR(avg) }}>{avg.toFixed(1)}</div>
                         <div style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600 }}>{label}</div>
                       </div>
                     )
@@ -598,7 +598,7 @@ export default function StructuredInterviewPage() {
                   </p>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontSize: 24, fontWeight: 900, color: SCORE_COLOR(item.overall_score ?? 5), fontFamily: 'Hind, sans-serif' }}>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: SCORE_COLOR(item.overall_score ?? 5) }}>
                     {item.overall_score ?? '—'}/10
                   </div>
                   <div style={{ fontSize: 11, color: SCORE_COLOR(item.overall_score ?? 5), fontWeight: 700 }}>
@@ -616,7 +616,7 @@ export default function StructuredInterviewPage() {
                   { label: 'STAR', val: item.star_adherence },
                 ].map(({ label, val }) => (
                   <div key={label} style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: SCORE_COLOR(val ?? 5), fontFamily: 'Hind, sans-serif' }}>{val ?? '—'}</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: SCORE_COLOR(val ?? 5) }}>{val ?? '—'}</div>
                     <div style={{ background: 'rgba(59,130,246,0.08)', borderRadius: 100, height: 4, margin: '3px 0' }}>
                       <div style={{ height: '100%', borderRadius: 100, width: `${((val ?? 5) / 10) * 100}%`, background: SCORE_COLOR(val ?? 5) }} />
                     </div>

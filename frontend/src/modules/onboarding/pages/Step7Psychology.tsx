@@ -118,7 +118,7 @@ function Section<T extends string>({
   )
 }
 
-// ── DISHA Insight card shown after successful submission ──────────────────────
+// ── BeginablAI Insight card shown after successful submission ──────────────────────
 
 function InsightCard({ insight, onContinue }: { insight: string; onContinue: () => void }) {
   return (
@@ -128,7 +128,7 @@ function InsightCard({ insight, onContinue }: { insight: string; onContinue: () 
           <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shrink-0">
             <span className="text-white font-bold text-sm">D</span>
           </div>
-          <span className="text-sm font-semibold text-primary">DISHA says</span>
+          <span className="text-sm font-semibold text-primary">BeginablAI says</span>
         </div>
         <p className="text-gray-700 text-sm leading-relaxed italic">"{insight}"</p>
       </div>
@@ -199,12 +199,12 @@ export default function Step7Psychology() {
 
   const serverError = psychology.error ? getApiError(psychology.error) : null
 
-  // Show DISHA insight card after successful submission
+  // Show BeginablAI insight card after successful submission
   if (insight) {
     return (
       <OnboardingLayout
         currentStep={7}
-        title="DISHA has heard you"
+        title="BeginablAI has heard you"
         subtitle="Here's what we see in your story so far."
       >
         <InsightCard insight={insight} onContinue={() => navigate('/app/dashboard')} />
@@ -216,7 +216,8 @@ export default function Step7Psychology() {
     <OnboardingLayout
       currentStep={7}
       title="Your mindset & readiness"
-      subtitle="Honest answers here shape everything DISHA recommends. There are no wrong answers."
+      subtitle="Honest answers here shape everything BeginablAI recommends. There are no wrong answers."
+      onSkip={() => navigate('/app/dashboard')}
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
 
@@ -303,11 +304,11 @@ export default function Step7Psychology() {
           loading={psychology.isPending}
           className="mt-2"
         >
-          {psychology.isPending ? 'DISHA is listening…' : 'Complete my profile →'}
+          {psychology.isPending ? 'BeginablAI is listening…' : 'Complete Registration →'}
         </Button>
 
         <p className="text-xs text-center text-gray-400">
-          Your answers are private and used only to personalise your DISHA experience.
+          Your answers are private and used only to personalise your BeginablAI experience.
         </p>
       </form>
     </OnboardingLayout>

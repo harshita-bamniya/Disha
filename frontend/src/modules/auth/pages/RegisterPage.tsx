@@ -5,8 +5,10 @@ import AuthLayout from '@/layouts/AuthLayout'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { cn } from '@/lib/utils'
-import { useRegister } from '../hooks/useAuth'
+import { GoogleLogin } from '@react-oauth/google'
+import { useRegister, useGoogleLogin } from '../hooks/useAuth'
 import { getApiError } from '@/api/client'
+import { getRecaptchaToken } from '@/lib/recaptcha'
 
 interface PasswordRule {
   label: string
@@ -29,6 +31,7 @@ export default function RegisterPage() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const register = useRegister()
+  const googleLogin = useGoogleLogin()
 
   const passwordStrength = PASSWORD_RULES.filter((r) => r.test(password)).length
 
@@ -46,10 +49,11 @@ export default function RegisterPage() {
     return Object.keys(errors).length === 0
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!validate()) return
-    register.mutate({ phone, password, preferred_language: language })
+    const recaptcha_token = await getRecaptchaToken('register')
+    register.mutate({ phone, password, preferred_language: language, recaptcha_token })
   }
 
   const serverError = register.error ? getApiError(register.error) : null
@@ -179,6 +183,33 @@ export default function RegisterPage() {
             Log in
           </Link>
         </p>
+
+        <div className="relative flex items-center my-1">
+          <div className="flex-grow border-t border-gray-200" />
+          <span className="mx-3 text-xs text-gray-400 shrink-0">or continue with</span>
+          <div className="flex-grow border-t border-gray-200" />
+        </div>
+
+        {googleLogin.error && (
+          <p className="text-sm text-danger bg-danger/5 border border-danger/20 rounded-xl px-4 py-3">
+            {getApiError(googleLogin.error, 'Google sign-in failed. Please try again.')}
+          </p>
+        )}
+
+        <div className="flex justify-center">
+          <GoogleLogin
+            onSuccess={(response) => {
+              if (response.credential) {
+                googleLogin.mutate({ credential: response.credential })
+              }
+            }}
+            onError={() => {}}
+            width="320"
+            text="signup_with"
+            shape="rectangular"
+            theme="outline"
+          />
+        </div>
       </form>
     </AuthLayout>
   )

@@ -114,6 +114,40 @@ export interface CandidateOut {
   applied_at: string
   days_ago: number
   status_history: ApplicationStatusHistoryItem[]
+  notes: CandidateNoteOut[]
+  avg_rating: number | null
+  interview_feedback: InterviewFeedbackOut[]
+}
+
+export interface CandidateNoteOut {
+  id: string
+  author_name: string | null
+  note: string
+  is_internal: boolean
+  created_at: string
+}
+
+export interface InterviewFeedbackOut {
+  id: string
+  application_id: string
+  interviewer_name: string | null
+  scheduled_at: string | null
+  meeting_link: string | null
+  status: 'scheduled' | 'completed' | 'canceled'
+  recommendation: string | null
+  feedback: string | null
+  created_at: string
+}
+
+export interface UpcomingInterviewEntry {
+  id: string
+  application_id: string
+  candidate_name: string | null
+  job_id: string
+  job_title: string
+  scheduled_at: string
+  meeting_link: string | null
+  interviewer_name: string | null
 }
 
 export interface JobCandidatePipeline {
@@ -176,4 +210,60 @@ export const updateApplicationNote = (
 ): Promise<{ application_id: string; note: string }> =>
   apiClient
     .patch(`/employer/pipeline/applications/${applicationId}/note`, { note })
+    .then((r) => r.data)
+
+export const bulkUpdateApplicationStatus = (
+  applicationIds: string[],
+  status: string,
+  note?: string,
+): Promise<{ updated: number; status: string }> =>
+  apiClient
+    .post('/employer/pipeline/applications/bulk-action', { application_ids: applicationIds, status, note: note || null })
+    .then((r) => r.data)
+
+export const addCandidateNote = (
+  applicationId: string,
+  note: string,
+  isInternal = true,
+): Promise<CandidateNoteOut> =>
+  apiClient
+    .post(`/employer/pipeline/applications/${applicationId}/notes`, { note, is_internal: isInternal })
+    .then((r) => r.data)
+
+export const setCandidateRating = (
+  applicationId: string,
+  rating: number,
+): Promise<{ application_id: string; avg_rating: number | null }> =>
+  apiClient
+    .put(`/employer/pipeline/applications/${applicationId}/rating`, { rating })
+    .then((r) => r.data)
+
+export const scheduleInterview = (
+  applicationId: string,
+  payload: { scheduled_at: string; meeting_link?: string },
+): Promise<InterviewFeedbackOut> =>
+  apiClient
+    .post(`/employer/pipeline/applications/${applicationId}/interviews`, payload)
+    .then((r) => r.data)
+
+export const submitInterviewFeedback = (
+  applicationId: string,
+  interviewId: string,
+  payload: { recommendation?: string; feedback?: string },
+): Promise<InterviewFeedbackOut> =>
+  apiClient
+    .patch(`/employer/pipeline/applications/${applicationId}/interviews/${interviewId}/feedback`, payload)
+    .then((r) => r.data)
+
+export const cancelInterview = (
+  applicationId: string,
+  interviewId: string,
+): Promise<InterviewFeedbackOut> =>
+  apiClient
+    .patch(`/employer/pipeline/applications/${applicationId}/interviews/${interviewId}/cancel`)
+    .then((r) => r.data)
+
+export const getUpcomingInterviews = (limit = 20): Promise<UpcomingInterviewEntry[]> =>
+  apiClient
+    .get('/employer/interviews/upcoming', { params: { limit } })
     .then((r) => r.data)

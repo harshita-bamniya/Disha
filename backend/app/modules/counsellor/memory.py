@@ -1,5 +1,5 @@
 """
-Memory system for the DISHA AI Counsellor.
+Memory system for the BeginablAI Counsellor.
 
 After each assistant response, extract potential memories (facts, preferences, concerns)
 and store them with embeddings for semantic retrieval.
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 _MEMORY_EXTRACTION_SYSTEM = """You are a memory extraction assistant for a career counselling AI.
 
-Given the latest exchange between a user and DISHA AI (career counsellor), extract any meaningful
+Given the latest exchange between a user and BeginablAI (career counsellor), extract any meaningful
 long-term facts that should be remembered about the user.
 
 Extract ONLY information that is:

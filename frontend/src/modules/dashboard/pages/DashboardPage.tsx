@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useKrsDashboard, useLiveJobs, usePrepareJob, useUnprepareJob } from '../hooks/useKrs'
-import { MapPin, Map, BookOpen, ExternalLink, X, CheckCircle2, TrendingUp, Zap, Target, ArrowUpRight, Sparkles, BriefcaseBusiness, ChevronRight, Bell, Mic, FileText } from 'lucide-react'
+import { MapPin, Map, BookOpen, ExternalLink, X, CheckCircle2, TrendingUp, Zap, Target, ArrowUpRight, Sparkles, ChevronRight, Bell, Mic, FileText } from 'lucide-react'
 import type { LiveJob } from '@/api/krs'
 import { formatSalary } from '@/api/jobs'
 import AppSidebar from '@/components/layout/AppSidebar'
@@ -11,11 +11,8 @@ import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { applyToJob, getMyApplications } from '@/api/matching'
 import { jobPlanApi } from '@/api/jobPlan'
-
-function greeting() {
-  const h = new Date().getHours()
-  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'
-}
+import { getApiError } from '@/api/client'
+import ProfileCompletionCard from '../components/ProfileCompletionCard'
 
 const SECTOR_COLORS: Record<string, [string, string]> = {
   'Consulting': ['#6366F1', '#818CF8'],
@@ -34,56 +31,6 @@ function sectorColor(sector: string): [string, string] {
   return SECTOR_COLORS[key]
 }
 
-function useCountUp(target: number, duration = 1000, run = false) {
-  const [val, setVal] = useState(0)
-  useEffect(() => {
-    if (!run) return
-    let raf: number
-    const t0 = performance.now()
-    const tick = (now: number) => {
-      const p = Math.min(1, (now - t0) / duration)
-      setVal(Math.round((1 - Math.pow(1 - p, 3)) * target))
-      if (p < 1) raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [target, duration, run])
-  return val
-}
-
-// ── Animated score ring ───────────────────────────────────────────────────────
-function ScoreRing({ value, label, color, size = 72, run }: {
-  value: number; label: string; color: string; size?: number; run: boolean
-}) {
-  const [dash, setDash] = useState(0)
-  const counted = useCountUp(value, 1000, run)
-  const r = (size - 10) / 2
-  const circ = 2 * Math.PI * r
-  useEffect(() => {
-    if (!run) return
-    const t = setTimeout(() => setDash((value / 100) * circ), 150)
-    return () => clearTimeout(t)
-  }, [run, value, circ])
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-      <div style={{ position: 'relative', width: size, height: size }}>
-        <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(59,130,246,0.15)" strokeWidth={5} />
-          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={5}
-            strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
-            style={{ transition: 'stroke-dasharray 1.4s cubic-bezier(0.34,1.1,0.64,1)', filter: `drop-shadow(0 0 6px ${color}88)` }} />
-        </svg>
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontSize: size * 0.26, fontWeight: 900, color: '#0F172A', fontFamily: 'Hind, sans-serif', letterSpacing: '-1px' }}>
-            {run ? counted : value}
-          </span>
-        </div>
-      </div>
-      <span style={{ fontSize: 10, fontWeight: 700, color: color, letterSpacing: '0.6px', textTransform: 'uppercase', opacity: 0.85 }}>{label}</span>
-    </div>
-  )
-}
-
 // ── Job spotlight (single large card, one job at a time) ──────────────────────
 function JobSpotlight({ job, onOpen, onApply, onPrepare, onGenerateResume, onViewRoadmap, roadmapStatus, onMockInterview, onOpenResume, isPreparing, isApplied, isTailoringResume }: {
   job: LiveJob; onOpen: () => void; onApply: () => void; onPrepare: () => void
@@ -100,10 +47,12 @@ function JobSpotlight({ job, onOpen, onApply, onPrepare, onGenerateResume, onVie
       onMouseLeave={() => setHov(false)}
       style={{
         background: 'white', borderRadius: 18, overflow: 'hidden',
-        border: `1px solid ${hov ? '#BFDBFE' : '#E5EDFB'}`,
-        boxShadow: hov ? '0 14px 36px rgba(37,99,235,0.13)' : '0 4px 18px rgba(15,23,42,0.05)',
+        border: `1px solid ${hov ? '#DBEAFE' : '#EEF2F9'}`,
+        boxShadow: hov
+          ? '0 20px 44px rgba(15,23,42,0.12), 0 4px 12px rgba(37,99,235,0.10)'
+          : '0 10px 28px rgba(15,23,42,0.07), 0 2px 6px rgba(15,23,42,0.04)',
         transform: hov ? 'translateY(-3px)' : 'translateY(0)',
-        transition: 'all 0.22s cubic-bezier(0.34,1.1,0.64,1)',
+        transition: 'all 0.25s cubic-bezier(0.22,1,0.36,1)',
       }}
     >
       {/* ── Header ── */}
@@ -114,7 +63,8 @@ function JobSpotlight({ job, onOpen, onApply, onPrepare, onGenerateResume, onVie
               width: 48, height: 48, borderRadius: 13, background: '#EFF6FF',
               border: '1px solid #DBEAFE',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 18, fontWeight: 700, color: '#2563EB', flexShrink: 0,
+              fontSize: 18, fontWeight: 700, color: '#3B82F6', flexShrink: 0,
+              boxShadow: '0 4px 10px rgba(37,99,235,0.12)',
             }}>
               {job.company_name.charAt(0)}
             </div>
@@ -126,8 +76,9 @@ function JobSpotlight({ job, onOpen, onApply, onPrepare, onGenerateResume, onVie
           <div style={{
             textAlign: 'center', flexShrink: 0, background: '#EFF6FF', border: '1px solid #DBEAFE',
             borderRadius: 12, padding: '7px 14px',
+            boxShadow: '0 4px 10px rgba(37,99,235,0.12)',
           }}>
-            <p style={{ fontSize: 19, fontWeight: 800, color: '#2563EB', margin: 0, lineHeight: 1 }}>{job.match_score}%</p>
+            <p style={{ fontSize: 19, fontWeight: 800, color: '#3B82F6', margin: 0, lineHeight: 1 }}>{job.match_score}%</p>
             <p style={{ fontSize: 9.5, color: '#60A5FA', fontWeight: 700, margin: '2px 0 0', textTransform: 'uppercase', letterSpacing: '0.4px' }}>match</p>
           </div>
         </div>
@@ -140,27 +91,30 @@ function JobSpotlight({ job, onOpen, onApply, onPrepare, onGenerateResume, onVie
       </div>
 
       {/* ── Salary + skill overlap bar ── */}
-      <div style={{ padding: '18px 26px', borderBottom: '1px solid #F1F5F9', background: '#FAFBFF' }}>
-        {salary && (
-          <p style={{ fontSize: 15, color: '#0F172A', fontWeight: 800, marginBottom: job.skill_overlap !== undefined ? 12 : 0 }}>
-            ₹{salary} LPA
-          </p>
-        )}
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#64748B', marginBottom: 7, fontWeight: 600 }}>
-            <span>Skill overlap</span>
-            <span style={{ color: '#2563EB', fontWeight: 700 }}>{job.skill_overlap}%</span>
-          </div>
-          <div style={{ height: 6, borderRadius: 6, background: '#E2E8F0', overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${job.skill_overlap}%`, background: '#2563EB', borderRadius: 6, transition: 'width 0.7s ease' }} />
+      <div style={{ padding: '20px 26px', borderBottom: '1px solid #F1F5F9', background: 'linear-gradient(180deg, #FAFBFF, #FFFFFF)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20 }}>
+          {salary ? (
+            <div>
+              <p style={{ fontSize: 10.5, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 3px' }}>Salary range</p>
+              <p style={{ fontSize: 17, color: '#0F172A', fontWeight: 800, margin: 0 }}>₹{salary} LPA</p>
+            </div>
+          ) : <div />}
+          <div style={{ flex: 1, maxWidth: 220 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: '#64748B', marginBottom: 7, fontWeight: 600 }}>
+              <span>Skill overlap</span>
+              <span style={{ color: '#3B82F6', fontWeight: 700 }}>{job.skill_overlap}%</span>
+            </div>
+            <div style={{ height: 6, borderRadius: 6, background: '#E2E8F0', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${job.skill_overlap}%`, background: 'linear-gradient(90deg, #93C5FD, #3B82F6)', borderRadius: 6, transition: 'width 0.7s ease' }} />
+            </div>
           </div>
         </div>
       </div>
 
       {/* ── About this role ── */}
       {job.description && (
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid #F1F5F9' }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>About this role</p>
+        <div style={{ padding: '18px 26px', borderBottom: '1px solid #F1F5F9' }}>
+          <p style={{ fontSize: 10.5, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 9 }}>About this role</p>
           <p style={{ fontSize: 13.5, color: '#475569', lineHeight: 1.7 }}>{job.description}</p>
         </div>
       )}
@@ -168,103 +122,144 @@ function JobSpotlight({ job, onOpen, onApply, onPrepare, onGenerateResume, onVie
       {/* ── Required skills ── */}
       {job.required_skills.length > 0 && (
         <div style={{ padding: '18px 26px', borderBottom: '1px solid #F1F5F9' }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Required skills</p>
+          <p style={{ fontSize: 10.5, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>Required skills</p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {job.required_skills.map(sk => (
-              <span key={sk} style={{ fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 20, background: '#F8FAFC', border: '1px solid #F1F5F9', color: '#475569' }}>{sk}</span>
+              <span key={sk} style={{ fontSize: 12, fontWeight: 600, padding: '6px 13px', borderRadius: 20, background: '#F0F4FF', border: '1px solid #E0E7FF', color: '#6366F1' }}>{sk}</span>
             ))}
           </div>
         </div>
       )}
 
       {/* ── Three action cards ── */}
-      <div style={{ padding: '18px 26px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, borderBottom: '1px solid #F1F5F9' }}>
+      <div style={{ padding: '20px 26px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, borderBottom: '1px solid #F1F5F9' }}>
         {/* Resume */}
-        <div style={{ background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexShrink: 0 }}>
-              <FileText size={13} />
-            </div>
-            <p style={{ fontSize: 12, fontWeight: 800, color: '#0F172A', margin: 0 }}>Resume</p>
+        <div className="dash-action-card" style={{
+          background: 'white', border: '1px solid #EEF2F9', borderRadius: 16, padding: '16px',
+          display: 'flex', flexDirection: 'column', gap: 10,
+          boxShadow: '0 2px 8px rgba(15,23,42,0.04)', transition: 'box-shadow 0.2s, transform 0.2s, border-color 0.2s',
+        }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 11,
+            background: 'linear-gradient(150deg, #60A5FA, #3B82F6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexShrink: 0,
+            boxShadow: '0 4px 10px rgba(37,99,235,0.25)',
+          }}>
+            <FileText size={16} />
           </div>
-          <p style={{ fontSize: 11, color: '#64748B', margin: 0, lineHeight: 1.5 }}>Tailor and optimise your resume for this role.</p>
+          <div>
+            <p style={{ fontSize: 13.5, fontWeight: 700, color: '#0F172A', margin: '0 0 3px' }}>Resume</p>
+            <p style={{ fontSize: 11.5, color: '#64748B', margin: 0, lineHeight: 1.55 }}>Tailor and optimise your resume for this role.</p>
+          </div>
           <button onClick={onOpenResume} disabled={isTailoringResume} style={{
-            marginTop: 'auto', height: 34, borderRadius: 9, border: 'none',
-            background: '#2563EB', color: 'white', opacity: isTailoringResume ? 0.7 : 1,
-            fontSize: 11, fontWeight: 700, cursor: isTailoringResume ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+            marginTop: 'auto', height: 36, borderRadius: 10, border: '1.5px solid #BFDBFE',
+            background: 'white', color: '#3B82F6', opacity: isTailoringResume ? 0.7 : 1,
+            fontSize: 12, fontWeight: 700, cursor: isTailoringResume ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
           }}>
             {isTailoringResume
-              ? <><div style={{ width: 10, height: 10, border: '2px solid rgba(255,255,255,0.5)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /> Generating…</>
-              : <><FileText size={11} /> Open Resume</>}
+              ? <><div style={{ width: 11, height: 11, border: '2px solid rgba(59,130,246,0.3)', borderTopColor: '#3B82F6', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /> Generating…</>
+              : <><FileText size={12} /> Open Resume</>}
           </button>
         </div>
 
         {/* Generate Roadmap — once a plan exists for this job, never re-trigger generation */}
-        <div style={{ background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: roadmapStatus === 'ready' ? '#16A34A' : '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexShrink: 0 }}>
-              {roadmapStatus === 'ready' ? <CheckCircle2 size={13} /> : <Map size={13} />}
-            </div>
-            <p style={{ fontSize: 12, fontWeight: 800, color: '#0F172A', margin: 0 }}>
+        <div className="dash-action-card" style={{
+          background: 'white', border: '1px solid #EEF2F9', borderRadius: 16, padding: '16px',
+          display: 'flex', flexDirection: 'column', gap: 10,
+          boxShadow: '0 2px 8px rgba(15,23,42,0.04)', transition: 'box-shadow 0.2s, transform 0.2s, border-color 0.2s',
+        }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 11,
+            background: roadmapStatus === 'ready' ? 'linear-gradient(150deg, #34D399, #16A34A)' : 'linear-gradient(150deg, #60A5FA, #3B82F6)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexShrink: 0,
+            boxShadow: roadmapStatus === 'ready' ? '0 4px 10px rgba(22,163,74,0.25)' : '0 4px 10px rgba(37,99,235,0.25)',
+          }}>
+            {roadmapStatus === 'ready' ? <CheckCircle2 size={16} /> : <Map size={16} />}
+          </div>
+          <div>
+            <p style={{ fontSize: 13.5, fontWeight: 700, color: '#0F172A', margin: '0 0 3px' }}>
               {roadmapStatus === 'ready' ? 'Roadmap Ready' : roadmapStatus === 'generating' ? 'Generating Roadmap' : 'Generate Roadmap'}
             </p>
+            <p style={{ fontSize: 11.5, color: '#64748B', margin: 0, lineHeight: 1.55 }}>
+              {roadmapStatus === 'ready'
+                ? "You've already built a learning roadmap for this role."
+                : roadmapStatus === 'generating'
+                  ? 'BeginablAI is putting your roadmap together right now.'
+                  : 'AI-powered learning roadmap tailored to this role.'}
+            </p>
           </div>
-          <p style={{ fontSize: 11, color: '#64748B', margin: 0, lineHeight: 1.5 }}>
-            {roadmapStatus === 'ready'
-              ? "You've already built a learning roadmap for this role."
-              : roadmapStatus === 'generating'
-                ? 'DISHA is putting your roadmap together right now.'
-                : 'AI-powered learning roadmap tailored to this role.'}
-          </p>
           <button onClick={roadmapStatus ? onViewRoadmap : onGenerateResume} style={{
-            marginTop: 'auto', height: 34, borderRadius: 9, border: 'none',
-            background: roadmapStatus === 'ready' ? '#16A34A' : '#2563EB', color: 'white',
-            fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+            marginTop: 'auto', height: 36, borderRadius: 10,
+            border: roadmapStatus === 'ready' ? '1.5px solid #BBF7D0' : '1.5px solid #BFDBFE',
+            background: 'white', color: roadmapStatus === 'ready' ? '#16A34A' : '#3B82F6',
+            fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
           }}>
             {roadmapStatus === 'ready'
-              ? <><CheckCircle2 size={11} /> View Roadmap</>
+              ? <><CheckCircle2 size={12} /> View Roadmap</>
               : roadmapStatus === 'generating'
-                ? <><div style={{ width: 10, height: 10, border: '2px solid rgba(255,255,255,0.5)', borderTopColor: 'white', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /> View Progress</>
-                : <><Map size={11} /> Generate</>}
+                ? <><div style={{ width: 11, height: 11, border: '2px solid rgba(59,130,246,0.3)', borderTopColor: '#3B82F6', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /> View Progress</>
+                : <><Map size={12} /> Generate</>}
           </button>
         </div>
 
         {/* Mock Interview */}
-        <div style={{ background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: 14, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: '#2563EB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexShrink: 0 }}>
-              <Mic size={13} />
-            </div>
-            <p style={{ fontSize: 12, fontWeight: 800, color: '#0F172A', margin: 0 }}>Mock Interview</p>
-          </div>
-          <p style={{ fontSize: 11, color: '#64748B', margin: 0, lineHeight: 1.5 }}>AI interviewer roleplay with a detailed scorecard.</p>
-          <button onClick={onMockInterview} style={{
-            marginTop: 'auto', height: 34, borderRadius: 9, border: 'none',
-            background: '#2563EB', color: 'white',
-            fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+        <div className="dash-action-card" style={{
+          background: 'white', border: '1px solid #EEF2F9', borderRadius: 16, padding: '16px',
+          display: 'flex', flexDirection: 'column', gap: 10,
+          boxShadow: '0 2px 8px rgba(15,23,42,0.04)', transition: 'box-shadow 0.2s, transform 0.2s, border-color 0.2s',
+        }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 11,
+            background: 'linear-gradient(150deg, #A78BFA, #7C3AED)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexShrink: 0,
+            boxShadow: '0 4px 10px rgba(124,58,237,0.25)',
           }}>
-            <Mic size={11} /> Start
+            <Mic size={16} />
+          </div>
+          <div>
+            <p style={{ fontSize: 13.5, fontWeight: 700, color: '#0F172A', margin: '0 0 3px' }}>Mock Interview</p>
+            <p style={{ fontSize: 11.5, color: '#64748B', margin: 0, lineHeight: 1.55 }}>AI interviewer roleplay with a detailed scorecard.</p>
+          </div>
+          <button onClick={onMockInterview} style={{
+            marginTop: 'auto', height: 36, borderRadius: 10, border: '1.5px solid #DDD6FE',
+            background: 'white', color: '#7C3AED',
+            fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+          }}>
+            <Mic size={12} /> Start
           </button>
         </div>
       </div>
 
       {/* ── Apply CTA ── */}
       <div style={{ padding: '18px 26px' }}>
-        <button onClick={isApplied ? undefined : onApply} disabled={isApplied} style={{
-          width: '100%', height: 46, borderRadius: 11,
-          background: isApplied ? '#F0FDF4' : '#2563EB',
-          color: isApplied ? '#16A34A' : 'white',
-          border: isApplied ? '1px solid #BBF7D0' : 'none',
-          fontSize: 14, fontWeight: 700, cursor: isApplied ? 'default' : 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-          boxShadow: isApplied ? 'none' : '0 6px 18px rgba(37,99,235,0.3)',
-          transition: 'box-shadow 0.15s, transform 0.15s',
-        }}
-          onMouseOver={e => { if (!isApplied) { e.currentTarget.style.boxShadow = '0 8px 22px rgba(37,99,235,0.38)'; e.currentTarget.style.transform = 'translateY(-1px)' } }}
-          onMouseOut={e => { if (!isApplied) { e.currentTarget.style.boxShadow = '0 6px 18px rgba(37,99,235,0.3)'; e.currentTarget.style.transform = 'translateY(0)' } }}
-        >
-          {isApplied ? <><CheckCircle2 size={15} /> Applied</> : <><ArrowUpRight size={15} /> Apply Now</>}
-        </button>
+        {isApplied ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 4px' }}>
+            <div style={{
+              width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+              background: '#ECFDF5', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <CheckCircle2 size={17} color="#16A34A" />
+            </div>
+            <div>
+              <p style={{ fontSize: 13.5, fontWeight: 700, color: '#0F172A', margin: 0 }}>Application submitted</p>
+              <p style={{ fontSize: 11.5, color: '#9CA3AF', margin: '2px 0 0' }}>You'll be notified when the employer responds.</p>
+            </div>
+          </div>
+        ) : (
+          <button onClick={onApply} style={{
+            width: '100%', height: 48, borderRadius: 12,
+            background: 'white', color: '#3B82F6', border: '1.5px solid #BFDBFE',
+            fontSize: 14, fontWeight: 700, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+            boxShadow: '0 2px 8px rgba(37,99,235,0.08)',
+            transition: 'box-shadow 0.15s, transform 0.15s, border-color 0.15s',
+          }}
+            onMouseOver={e => { e.currentTarget.style.boxShadow = '0 6px 16px rgba(37,99,235,0.14)'; e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.borderColor = '#93C5FD' }}
+            onMouseOut={e => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(37,99,235,0.08)'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.borderColor = '#BFDBFE' }}
+          >
+            <ArrowUpRight size={15} /> Apply Now
+          </button>
+        )}
       </div>
     </div>
   )
@@ -404,7 +399,7 @@ function JobModal({ job, onClose, onApply, onPrepare, onGenerateResume, onViewRo
             <button onClick={onPrepare} disabled={isPreparing} style={{ flex: 1, height: 42, borderRadius: 13, border: '1.5px solid #E2E8F0', background: job.is_prepared ? `${c1}08` : 'white', color: job.is_prepared ? c1 : '#374151', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, transition: 'all 0.2s' }}>
               {isPreparing ? <div style={{ width: 14, height: 14, border: `2px solid ${c1}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /> : <><BookOpen size={13} />{job.is_prepared ? '✓ In Prep List' : 'Add to Prep List'}</>}
             </button>
-            <button onClick={isApplied ? undefined : onApply} disabled={isApplied} style={{ flex: 1, height: 42, borderRadius: 13, background: isApplied ? 'rgba(16,185,129,0.08)' : `linear-gradient(135deg, ${c1}, ${c2})`, color: isApplied ? '#059669' : 'white', border: isApplied ? '1.5px solid rgba(16,185,129,0.25)' : 'none', fontSize: 13, fontWeight: 700, cursor: isApplied ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, boxShadow: isApplied ? 'none' : `0 4px 18px ${c1}45`, transition: 'all 0.2s' }}>
+            <button onClick={isApplied ? undefined : onApply} disabled={isApplied} style={{ flex: 1, height: 42, borderRadius: 13, background: isApplied ? 'rgba(16,185,129,0.08)' : 'white', color: isApplied ? '#059669' : c1, border: isApplied ? '1.5px solid rgba(16,185,129,0.25)' : `1.5px solid ${c1}40`, fontSize: 13, fontWeight: 700, cursor: isApplied ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, boxShadow: isApplied ? 'none' : `0 2px 8px ${c1}15`, transition: 'all 0.2s' }}>
               {isApplied ? <><CheckCircle2 size={13} /> Applied</> : <><ExternalLink size={13} /> Apply Now</>}
             </button>
           </div>
@@ -519,13 +514,8 @@ export default function DashboardPage() {
   const [applyJob,       setApplyJob]       = useState<LiveJob | null>(null)
   const [preparingJobId, setPreparingJobId] = useState<string | null>(null)
   const [skillGapJob,    setSkillGapJob]    = useState<LiveJob | null>(null)
-  const [ready,          setReady]          = useState(false)
   const [jobPage,        setJobPage]        = useState(0)
   const JOBS_PER_PAGE = 1
-
-  useEffect(() => {
-    if (data) { const t = setTimeout(() => setReady(true), 100); return () => clearTimeout(t) }
-  }, [data])
 
   const handlePrepare = async (job: LiveJob) => {
     setPreparingJobId(job.id)
@@ -610,188 +600,88 @@ export default function DashboardPage() {
   const pageJobs         = recommendedJobs.slice(safeJobPage * JOBS_PER_PAGE, safeJobPage * JOBS_PER_PAGE + JOBS_PER_PAGE)
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F0F4F8', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
       <AppSidebar activePath="/app/dashboard" />
 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
 
         {/* ── Top bar ── */}
         <header style={{
-          background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(20px)',
-          borderBottom: '1px solid rgba(226,232,240,0.8)',
-          padding: '0 28px', height: 60,
+          background: 'white',
+          borderBottom: '1px solid #F1F5F9',
+          padding: '0 32px', height: 66,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           position: 'sticky', top: 0, zIndex: 20,
-          boxShadow: '0 1px 8px rgba(15,23,42,0.05)',
-          animation: 'slideDown 0.4s ease both',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Sparkles size={13} color="white" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #818CF8, #6366F1)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 10px rgba(99,102,241,0.3)',
+            }}>
+              <Sparkles size={15} color="white" />
             </div>
-            <span style={{ fontFamily: 'Hind, sans-serif', fontSize: 16, fontWeight: 800, color: '#0F172A' }}>Dashboard</span>
+            <span style={{ fontSize: 15.5, fontWeight: 700, color: '#111827' }}>Dashboard</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button style={{ width: 36, height: 36, borderRadius: 10, background: 'white', border: '1.5px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748B', transition: 'all 0.2s' }}
-              onMouseOver={e => { e.currentTarget.style.borderColor = '#3B82F6'; e.currentTarget.style.color = '#3B82F6' }}
-              onMouseOut={e => { e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.color = '#64748B' }}
-            >
-              <Bell size={14} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+            <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', display: 'flex' }}>
+              <Bell size={17} />
             </button>
             <button onClick={() => navigate('/app/profile')} style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px',
-              borderRadius: 10, background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
-              color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none',
-              boxShadow: '0 3px 12px rgba(59,130,246,0.3)', transition: 'all 0.2s',
+              background: '#EEF2FF', border: 'none', padding: '8px 16px', borderRadius: 10,
+              color: '#6366F1', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6,
             }}>
-              Edit Profile <ArrowUpRight size={11} />
+              Edit Profile <ArrowUpRight size={12} />
             </button>
           </div>
         </header>
 
-        <main style={{ padding: '24px 28px', flex: 1 }}>
+        <main style={{ padding: '32px 32px 48px', flex: 1, background: '#FAFBFD' }}>
 
           {isLoading && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-              <div style={{ width: 34, height: 34, border: '3px solid rgba(59,130,246,0.2)', borderTopColor: '#3B82F6', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+              <div style={{ width: 32, height: 32, border: '3px solid #6366F1', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
             </div>
           )}
           {error && (
-            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 14, padding: '14px 18px', color: '#DC2626', fontSize: 14 }}>
-              Could not load. Please refresh.
-            </div>
+            getApiError(error).toLowerCase().includes('onboarding incomplete') ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24, alignItems: 'start' }}>
+                <div style={{
+                  background: 'linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%)',
+                  border: '1px solid #E0E7FF', borderRadius: 18, padding: '32px 28px', textAlign: 'center',
+                }}>
+                  <Sparkles size={28} color="#6366F1" style={{ marginBottom: 10 }} />
+                  <p style={{ fontSize: 16, fontWeight: 700, color: '#1E293B', marginBottom: 6 }}>
+                    Complete your profile to unlock job matches
+                  </p>
+                  <p style={{ fontSize: 13, color: '#64748B', maxWidth: 380, margin: '0 auto' }}>
+                    Your KRS score and tailored job recommendations need a bit more info — add a few
+                    details from the checklist to the right and they'll appear here automatically.
+                  </p>
+                </div>
+                <ProfileCompletionCard />
+              </div>
+            ) : (
+              <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, padding: '14px 18px', color: '#DC2626', fontSize: 14 }}>
+                Could not load. Please refresh.
+              </div>
+            )
           )}
 
           {data && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-              {/* ── HERO BANNER ── */}
-              <div style={{
-                borderRadius: 26, overflow: 'hidden', position: 'relative',
-                background: '#DBEAFE',
-                boxShadow: '0 4px 32px rgba(59,130,246,0.15), 0 1px 4px rgba(15,23,42,0.04)',
-                border: '1.5px solid rgba(59,130,246,0.15)',
-                animation: 'slideDown 0.5s cubic-bezier(0.34,1.1,0.64,1) both',
-                minHeight: 220,
-              }}>
-                {/* ── Aurora blobs (large morphing colored shapes) ── */}
-                <div style={{ position: 'absolute', width: 520, height: 520, top: -200, right: -120, background: '#93C5FD', borderRadius: '50%', filter: 'blur(90px)', opacity: 0.65, pointerEvents: 'none', animation: 'morphA 9s ease-in-out infinite' }} />
-                <div style={{ position: 'absolute', width: 380, height: 380, top: -80, left: -100, background: '#93C5FD', borderRadius: '50%', filter: 'blur(80px)', opacity: 0.45, pointerEvents: 'none', animation: 'morphB 11s ease-in-out 1.5s infinite' }} />
-                <div style={{ position: 'absolute', width: 300, height: 300, bottom: -100, left: '38%', background: '#60A5FA', borderRadius: '50%', filter: 'blur(70px)', opacity: 0.45, pointerEvents: 'none', animation: 'morphC 8s ease-in-out 3s infinite' }} />
-
-
-                {/* ── Orbiting dot ring (top-right corner) ── */}
-                <div style={{ position: 'absolute', width: 200, height: 200, top: -40, right: 220, pointerEvents: 'none', animation: 'spinSlow 18s linear infinite' }}>
-                  {[0,60,120,180,240,300].map(deg => (
-                    <div key={deg} style={{
-                      position: 'absolute', width: 8, height: 8, borderRadius: '50%',
-                      background: deg % 120 === 0 ? '#3B82F6' : '#A5B4FC',
-                      top: `${50 + 44 * Math.sin(deg * Math.PI / 180)}%`,
-                      left: `${50 + 44 * Math.cos(deg * Math.PI / 180)}%`,
-                      transform: 'translate(-50%,-50%)',
-                      boxShadow: deg % 120 === 0 ? '0 0 8px #3B82F688' : 'none',
-                      opacity: 0.6,
-                    }} />
-                  ))}
-                </div>
-                <div style={{ position: 'absolute', width: 130, height: 130, top: 10, right: 255, pointerEvents: 'none', animation: 'spinSlow 12s linear reverse infinite' }}>
-                  {[0,90,180,270].map(deg => (
-                    <div key={deg} style={{
-                      position: 'absolute', width: 5, height: 5, borderRadius: '50%',
-                      background: '#6366F1', opacity: 0.5,
-                      top: `${50 + 44 * Math.sin(deg * Math.PI / 180)}%`,
-                      left: `${50 + 44 * Math.cos(deg * Math.PI / 180)}%`,
-                      transform: 'translate(-50%,-50%)',
-                    }} />
-                  ))}
-                </div>
-
-                {/* ── Content ── */}
-                <div style={{ padding: '32px 36px', position: 'relative', zIndex: 2 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 28 }}>
-
-                    {/* Left */}
-                    <div>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.18)', borderRadius: 20, padding: '4px 12px', marginBottom: 14 }}>
-                        <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981', boxShadow: '0 0 6px #10B98188', animation: 'pulseGreen 2s ease-in-out infinite' }} />
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#1D4ED8' }}>AI Career Intelligence</span>
-                      </div>
-                      <h2 style={{
-                        fontFamily: 'Hind, sans-serif', fontSize: 32, fontWeight: 900,
-                        color: '#0F172A', letterSpacing: '-0.8px', marginBottom: 8, lineHeight: 1.15,
-                        animation: ready ? 'slideInLeft 0.6s ease both' : 'none',
-                      }}>
-                        {greeting()},&nbsp;
-                        <span style={{ background: 'linear-gradient(135deg, #2563EB, #7C3AED)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                          {data.full_name?.split(' ')[0] ?? 'Aspirant'}
-                        </span>
-                        &nbsp;👋
-                      </h2>
-                      <p style={{ fontSize: 13, color: '#64748B', marginBottom: 22, fontWeight: 500 }}>
-                        {data.skills.length} skills · {liveJobs?.length ?? 0} personalised job matches
-                      </p>
-                      <div style={{ display: 'flex', gap: 10 }}>
-                        <button onClick={() => navigate('/app/jobs')} style={{
-                          display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px',
-                          borderRadius: 11, background: '#1D4ED8', border: 'none',
-                          color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                          boxShadow: '0 4px 14px rgba(29,78,216,0.28)', transition: 'all 0.2s',
-                        }}
-                          onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 18px rgba(29,78,216,0.36)' }}
-                          onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(29,78,216,0.28)' }}
-                        >
-                          <BookOpen size={12} /> Browse Jobs
-                        </button>
-                        <button onClick={() => navigate('/app/roadmap/history')} style={{
-                          display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px',
-                          borderRadius: 11, background: 'rgba(219,234,254,0.7)',
-                          border: '1.5px solid rgba(59,130,246,0.3)',
-                          color: '#1D4ED8', fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                          boxShadow: '0 2px 8px rgba(59,130,246,0.08)', transition: 'all 0.2s',
-                        }}
-                          onMouseOver={e => { e.currentTarget.style.borderColor = '#1D4ED8'; e.currentTarget.style.transform = 'translateY(-1px)' }}
-                          onMouseOut={e => { e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)'; e.currentTarget.style.transform = 'translateY(0)' }}
-                        >
-                          <Target size={12} /> My Roadmap
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Right: KRS rings */}
-                    <div style={{ display: 'flex', gap: 8, background: 'rgba(255,255,255,0.45)', borderRadius: 20, padding: '20px 26px', border: '1.5px solid rgba(255,255,255,0.7)', backdropFilter: 'blur(12px)' }}>
-                      <ScoreRing label="Knowledge" value={data.krs.k_score} color="#2563EB" run={ready} />
-                      <div style={{ width: 1, background: 'rgba(59,130,246,0.15)', margin: '0 4px' }} />
-                      <ScoreRing label="Readiness" value={data.krs.r_score} color="#7C3AED" run={ready} />
-                      <div style={{ width: 1, background: 'rgba(59,130,246,0.15)', margin: '0 4px' }} />
-                      <ScoreRing label="Skills"    value={data.krs.s_score} color="#059669" run={ready} />
-                    </div>
-                  </div>
-
-                  {/* Stats strip */}
-                  <div style={{ marginTop: 24, paddingTop: 18, borderTop: '1px solid rgba(59,130,246,0.08)', display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-                    {[
-                      { label: 'Job Matches',    value: liveJobs?.length ?? 0,  icon: <BriefcaseBusiness size={13} color="#3B82F6" />, color: '#1D4ED8' },
-                      { label: 'Avg Match Score', value: liveJobs?.length ? `${Math.round(liveJobs.reduce((s, j) => s + j.match_score, 0) / liveJobs.length)}%` : '—', icon: <Target size={13} color="#7C3AED" />, color: '#7C3AED' },
-                      { label: 'Skill Coverage', value: `${skillPct}%`,          icon: <Zap size={13} color="#059669" />,    color: '#059669' },
-                    ].map(s => (
-                      <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 14px', background: 'rgba(219,234,254,0.65)', borderRadius: 20, border: '1px solid rgba(59,130,246,0.18)', backdropFilter: 'blur(6px)' }}>
-                        {s.icon}
-                        <span style={{ fontSize: 14, fontWeight: 900, color: s.color, fontFamily: 'Hind, sans-serif' }}>{s.value}</span>
-                        <span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 500 }}>{s.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
               {/* ── RECOMMENDED JOBS + SIDEBAR ── */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 264px', gap: 20, alignItems: 'start' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24, alignItems: 'start' }}>
 
                 {/* Jobs — top 10, shown one at a time */}
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                    <div style={{ width: 4, height: 16, background: '#15130F', borderRadius: 4 }} />
-                    <span style={{ fontSize: 13, fontWeight: 800, color: '#0F172A', letterSpacing: '-0.2px' }}>Top matches for you</span>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14 }}>
+                    <p style={{ fontSize: 15, fontWeight: 700, color: '#111827', margin: 0 }}>Top matches for you</p>
+                    {!jobsLoading && recommendedJobs.length > 0 && (
+                      <span style={{ fontSize: 12, color: '#9CA3AF' }}>{recommendedJobs.length} roles found</span>
+                    )}
                   </div>
 
                   {tailorResumeError && (
@@ -801,18 +691,52 @@ export default function DashboardPage() {
                   )}
 
                   {jobsLoading && (
-                    <div style={{ borderRadius: 24, overflow: 'hidden', animation: 'pulse 1.5s infinite' }}>
-                      <div style={{ height: 90, background: '#CBD5E1' }} />
-                      <div style={{ height: 260, background: 'rgba(255,255,255,0.8)', padding: 20 }}>
-                        <div style={{ height: 10, background: '#E2E8F0', borderRadius: 6, marginBottom: 12, width: '40%' }} />
-                        <div style={{ height: 16, background: '#E2E8F0', borderRadius: 6, marginBottom: 10, width: '70%' }} />
-                        <div style={{ height: 10, background: '#F1F5F9', borderRadius: 6, width: '50%' }} />
+                    <div style={{ borderRadius: 18, overflow: 'hidden', border: '1px solid #EEF2F9', boxShadow: '0 10px 28px rgba(15,23,42,0.06)' }}>
+                      <div style={{ height: 90, background: '#F1F5F9', animation: 'pulse 1.5s infinite' }} />
+                      <div style={{ height: 260, background: 'white', padding: 22 }}>
+                        <div style={{ height: 10, background: '#F1F5F9', borderRadius: 6, marginBottom: 12, width: '40%', animation: 'pulse 1.5s infinite' }} />
+                        <div style={{ height: 16, background: '#F1F5F9', borderRadius: 6, marginBottom: 10, width: '70%', animation: 'pulse 1.5s infinite' }} />
+                        <div style={{ height: 10, background: '#F1F5F9', borderRadius: 6, width: '50%', animation: 'pulse 1.5s infinite' }} />
                       </div>
                     </div>
                   )}
 
                   {!jobsLoading && pageJobs.length > 0 && (
-                    <>
+                    <div style={{ position: 'relative' }}>
+                      {/* Side nav arrows — float over the card edges so users don't need to scroll down */}
+                      <button
+                        onClick={() => setJobPage(p => Math.max(0, p - 1))}
+                        disabled={safeJobPage === 0}
+                        aria-label="Previous job"
+                        style={{
+                          position: 'absolute', left: -18, top: '50%', transform: 'translateY(-50%)', zIndex: 5,
+                          width: 38, height: 38, borderRadius: '50%', border: '1px solid #EEF2F9',
+                          background: safeJobPage === 0 ? '#F8FAFC' : 'white',
+                          boxShadow: safeJobPage === 0 ? 'none' : '0 8px 20px rgba(15,23,42,0.12)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          cursor: safeJobPage === 0 ? 'default' : 'pointer',
+                          color: safeJobPage === 0 ? '#CBD5E1' : '#6366F1', transition: 'all 0.2s',
+                        }}
+                      >
+                        <ChevronRight size={16} style={{ transform: 'rotate(180deg)' }} />
+                      </button>
+                      <button
+                        onClick={() => setJobPage(p => Math.min(totalJobPages - 1, p + 1))}
+                        disabled={safeJobPage >= totalJobPages - 1}
+                        aria-label="Next job"
+                        style={{
+                          position: 'absolute', right: -18, top: '50%', transform: 'translateY(-50%)', zIndex: 5,
+                          width: 38, height: 38, borderRadius: '50%', border: '1px solid #EEF2F9',
+                          background: safeJobPage >= totalJobPages - 1 ? '#F8FAFC' : 'white',
+                          boxShadow: safeJobPage >= totalJobPages - 1 ? 'none' : '0 8px 20px rgba(15,23,42,0.12)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          cursor: safeJobPage >= totalJobPages - 1 ? 'default' : 'pointer',
+                          color: safeJobPage >= totalJobPages - 1 ? '#CBD5E1' : '#6366F1', transition: 'all 0.2s',
+                        }}
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+
                       {pageJobs.map(job => (
                         <JobSpotlight key={job.id} job={job}
                           onOpen={() => setSelectedJob(job)}
@@ -829,157 +753,116 @@ export default function DashboardPage() {
                         />
                       ))}
 
-                      {/* Pagination controls */}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginTop: 18 }}>
-                        <button
-                          onClick={() => setJobPage(p => Math.max(0, p - 1))}
-                          disabled={safeJobPage === 0}
-                          style={{
-                            width: 34, height: 34, borderRadius: 10, border: '1.5px solid #E2E8F0',
-                            background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            cursor: safeJobPage === 0 ? 'default' : 'pointer', opacity: safeJobPage === 0 ? 0.4 : 1,
-                            color: '#475569', transition: 'all 0.2s',
-                          }}
-                        >
-                          <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} />
-                        </button>
-                        <span style={{ fontSize: 12, color: '#64748B', fontWeight: 600 }}>
-                          {safeJobPage + 1} / {totalJobPages}
-                        </span>
-                        <button
-                          onClick={() => setJobPage(p => Math.min(totalJobPages - 1, p + 1))}
-                          disabled={safeJobPage >= totalJobPages - 1}
-                          style={{
-                            width: 34, height: 34, borderRadius: 10, border: '1.5px solid #E2E8F0',
-                            background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            cursor: safeJobPage >= totalJobPages - 1 ? 'default' : 'pointer',
-                            opacity: safeJobPage >= totalJobPages - 1 ? 0.4 : 1,
-                            color: '#475569', transition: 'all 0.2s',
-                          }}
-                        >
-                          <ChevronRight size={14} />
-                        </button>
+                      {/* Page indicator dots */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 16 }}>
+                        {Array.from({ length: totalJobPages }).map((_, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setJobPage(i)}
+                            aria-label={`Go to job ${i + 1}`}
+                            style={{
+                              width: i === safeJobPage ? 18 : 6, height: 6, borderRadius: 3, border: 'none',
+                              background: i === safeJobPage ? '#6366F1' : '#E2E8F0',
+                              cursor: 'pointer', transition: 'all 0.2s', padding: 0,
+                            }}
+                          />
+                        ))}
                       </div>
-                    </>
+                    </div>
                   )}
 
                   {!jobsLoading && recommendedJobs.length === 0 && (
-                    <div style={{ background: 'rgba(255,255,255,0.85)', border: '1.5px solid rgba(226,232,240,0.8)', borderRadius: 20, padding: '48px 24px', textAlign: 'center' }}>
-                      <div style={{ fontSize: 36, marginBottom: 10 }}>📋</div>
-                      <p style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', marginBottom: 4 }}>No openings yet</p>
-                      <p style={{ fontSize: 12, color: '#94A3B8' }}>Employers are posting roles — check back soon.</p>
+                    <div style={{ border: '1px solid #F1F5F9', borderRadius: 14, padding: '48px 24px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>
+                      <p style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 4 }}>No openings yet</p>
+                      <p style={{ fontSize: 12, color: '#9CA3AF' }}>Employers are posting roles — check back soon.</p>
                     </div>
                   )}
                 </div>
 
-                {/* Right sidebar — premium skill intelligence card */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14, animation: 'slideInRight 0.5s ease both', animationDelay: '160ms' }}>
-                  <div style={{
-                    borderRadius: 22, overflow: 'hidden',
-                    boxShadow: '0 8px 32px rgba(15,23,42,0.12), 0 1px 4px rgba(15,23,42,0.06)',
-                    border: '1px solid rgba(255,255,255,0.18)',
-                    position: 'relative',
-                  }}>
-                    {/* Header */}
+                {/* Right sidebar — profile completion + skill intelligence */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, position: 'sticky', top: 16 }}>
+                <ProfileCompletionCard />
+                <div style={{
+                  background: 'white', border: '1px solid #EEF2F9', borderRadius: 18, padding: '20px',
+                  boxShadow: '0 10px 28px rgba(15,23,42,0.06)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 4 }}>
                     <div style={{
-                      background: 'linear-gradient(135deg, #0F172A 0%, #1E3A5F 60%, #1D4ED8 100%)',
-                      padding: '20px 20px 16px', position: 'relative', overflow: 'hidden',
+                      width: 26, height: 26, borderRadius: 8, flexShrink: 0,
+                      background: 'linear-gradient(150deg, #A78BFA, #7C3AED)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      boxShadow: '0 3px 8px rgba(124,58,237,0.25)',
                     }}>
-                      {/* Glow blobs */}
-                      <div style={{ position: 'absolute', width: 140, height: 140, top: -50, right: -40, background: '#3B82F6', borderRadius: '50%', filter: 'blur(50px)', opacity: 0.35, pointerEvents: 'none' }} />
-                      <div style={{ position: 'absolute', width: 90, height: 90, bottom: -30, left: 10, background: '#818CF8', borderRadius: '50%', filter: 'blur(36px)', opacity: 0.28, pointerEvents: 'none' }} />
-                      <div style={{ position: 'relative', zIndex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                          <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Zap size={13} color="#FCD34D" />
-                          </div>
-                          <span style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase', letterSpacing: '1px' }}>Skill Intelligence</span>
-                        </div>
-                        <p style={{ fontSize: 17, fontWeight: 900, color: 'white', fontFamily: 'Hind, sans-serif', lineHeight: 1.25, marginBottom: 4 }}>
-                          Your Gap Analysis
-                        </p>
-                        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 500 }}>
-                          Based on your top {liveJobs?.length ?? 0} job matches
-                        </p>
-                      </div>
+                      <Zap size={13} color="white" />
                     </div>
-
-                    {/* Skill coverage meter */}
-                    <div style={{ background: '#F8FAFC', padding: '16px 20px', borderBottom: '1px solid #F1F5F9' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Skill coverage</span>
-                        <span style={{ fontFamily: 'Hind, sans-serif', fontSize: 22, fontWeight: 900, color: skillPct >= 60 ? '#059669' : skillPct >= 30 ? '#D97706' : '#DC2626' }}>{skillPct}%</span>
-                      </div>
-                      <div style={{ height: 8, borderRadius: 8, background: '#E2E8F0', overflow: 'hidden' }}>
-                        <div style={{
-                          height: '100%', borderRadius: 8,
-                          width: `${skillPct}%`,
-                          background: skillPct >= 60
-                            ? 'linear-gradient(90deg, #059669, #10B981)'
-                            : skillPct >= 30
-                            ? 'linear-gradient(90deg, #D97706, #F59E0B)'
-                            : 'linear-gradient(90deg, #DC2626, #EF4444)',
-                          transition: 'width 1.2s cubic-bezier(0.34,1.1,0.64,1)',
-                          boxShadow: skillPct >= 60 ? '0 0 8px rgba(5,150,105,0.4)' : skillPct >= 30 ? '0 0 8px rgba(217,119,6,0.4)' : '0 0 8px rgba(220,38,38,0.4)',
-                        }} />
-                      </div>
-                      <p style={{ fontSize: 10, color: '#94A3B8', marginTop: 6, fontWeight: 500 }}>
-                        {skillPct >= 60 ? 'Strong alignment with job requirements' : skillPct >= 30 ? 'Growing — add a few more skills' : 'Complete your profile to improve this'}
-                      </p>
-                    </div>
-
-                    {/* Skills to build */}
-                    {topGaps.length > 0 && (
-                      <div style={{ background: 'white', padding: '16px 20px' }}>
-                        <p style={{ fontSize: 11, fontWeight: 800, color: '#0F172A', marginBottom: 4 }}>Priority Skills to Build</p>
-                        <p style={{ fontSize: 10, color: '#94A3B8', marginBottom: 12, fontWeight: 500 }}>Appear most in jobs you're matched to</p>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          {topGaps.map((sk, i) => (
-                            <div key={sk} style={{
-                              display: 'flex', alignItems: 'center', gap: 10,
-                              padding: '8px 12px',
-                              background: i === 0 ? 'linear-gradient(90deg, rgba(29,78,216,0.05), rgba(124,58,237,0.04))' : '#F8FAFC',
-                              border: i === 0 ? '1px solid rgba(29,78,216,0.14)' : '1px solid #F1F5F9',
-                              borderRadius: 10,
-                              animation: 'fadeIn 0.3s ease both', animationDelay: `${i * 60}ms`,
-                            }}>
-                              <div style={{
-                                width: 20, height: 20, borderRadius: 6, flexShrink: 0,
-                                background: i === 0 ? 'linear-gradient(135deg, #1D4ED8, #7C3AED)' : '#E2E8F0',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                fontSize: 9, fontWeight: 900, color: i === 0 ? 'white' : '#94A3B8',
-                              }}>
-                                {i + 1}
-                              </div>
-                              <span style={{ fontSize: 12, fontWeight: 600, color: i === 0 ? '#1E3A5F' : '#475569', flex: 1, textTransform: 'capitalize' }}>{sk}</span>
-                              {i === 0 && <span style={{ fontSize: 9, fontWeight: 700, color: '#7C3AED', background: 'rgba(124,58,237,0.08)', padding: '2px 6px', borderRadius: 5, border: '1px solid rgba(124,58,237,0.15)', whiteSpace: 'nowrap' }}>Top gap</span>}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* CTA */}
-                    <div style={{ background: 'white', padding: '0 20px 18px' }}>
-                      <button
-                        onClick={() => {
-                          const topJob = liveJobs?.[0]
-                          if (topJob) setSkillGapJob(topJob)
-                        }}
-                        style={{
-                          width: '100%', height: 40, borderRadius: 11,
-                          background: 'linear-gradient(135deg, #1D4ED8, #7C3AED)',
-                          color: 'white', border: 'none', fontSize: 12, fontWeight: 700,
-                          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                          boxShadow: '0 4px 14px rgba(29,78,216,0.28)', transition: 'all 0.2s',
-                        }}
-                        onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(29,78,216,0.36)' }}
-                        onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(29,78,216,0.28)' }}
-                      >
-                        Full Skill Report <ArrowUpRight size={12} />
-                      </button>
-                    </div>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: '#111827', margin: 0 }}>Your Gap Analysis</p>
                   </div>
+                  <p style={{ fontSize: 11.5, color: '#9CA3AF', margin: '6px 0 18px' }}>
+                    Based on your top {liveJobs?.length ?? 0} job matches
+                  </p>
+
+                  {/* Skill coverage meter */}
+                  <div style={{ paddingBottom: 18, borderBottom: '1px solid #F4F6F9', marginBottom: 18 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 9 }}>
+                      <span style={{ fontSize: 11.5, fontWeight: 600, color: '#9CA3AF' }}>Skill coverage</span>
+                      <span style={{ fontSize: 17, fontWeight: 700, color: skillPct >= 60 ? '#16A34A' : skillPct >= 30 ? '#D97706' : '#DC2626' }}>{skillPct}%</span>
+                    </div>
+                    <div style={{ height: 6, borderRadius: 6, background: '#F1F5F9', overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%', borderRadius: 6,
+                        width: `${skillPct}%`,
+                        background: skillPct >= 60 ? 'linear-gradient(90deg, #34D399, #16A34A)' : skillPct >= 30 ? 'linear-gradient(90deg, #FBBF24, #D97706)' : 'linear-gradient(90deg, #F87171, #DC2626)',
+                        transition: 'width 1s ease',
+                      }} />
+                    </div>
+                    <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 9, lineHeight: 1.5 }}>
+                      {skillPct >= 60 ? 'Strong alignment with job requirements' : skillPct >= 30 ? 'Growing — add a few more skills' : 'Complete your profile to improve this'}
+                    </p>
+                  </div>
+
+                  {/* Skills to build */}
+                  {topGaps.length > 0 && (
+                    <div style={{ marginBottom: 18 }}>
+                      <p style={{ fontSize: 11.5, fontWeight: 700, color: '#111827', marginBottom: 2 }}>Priority Skills to Build</p>
+                      <p style={{ fontSize: 10.5, color: '#9CA3AF', marginBottom: 12 }}>Appear most in jobs you're matched to</p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {topGaps.map((sk, i) => (
+                          <div key={sk} style={{
+                            display: 'flex', alignItems: 'center', gap: 10,
+                            padding: '7px 9px', borderRadius: 10,
+                            background: i === 0 ? '#F5F3FF' : 'transparent',
+                          }}>
+                            <span style={{
+                              width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                              background: i === 0 ? 'linear-gradient(150deg, #A78BFA, #7C3AED)' : '#F1F5F9',
+                              color: i === 0 ? 'white' : '#9CA3AF',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 10, fontWeight: 700,
+                            }}>{i + 1}</span>
+                            <span style={{ fontSize: 12.5, fontWeight: 600, color: i === 0 ? '#111827' : '#4B5563', flex: 1, textTransform: 'capitalize' }}>{sk}</span>
+                            {i === 0 && <span style={{ fontSize: 9.5, fontWeight: 700, color: '#7C3AED' }}>TOP GAP</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* CTA */}
+                  <button
+                    onClick={() => {
+                      const topJob = liveJobs?.[0]
+                      if (topJob) setSkillGapJob(topJob)
+                    }}
+                    style={{
+                      width: '100%', background: '#EEF2FF', border: 'none', borderRadius: 11, padding: '11px 0',
+                      fontSize: 12.5, fontWeight: 700, color: '#6366F1', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    }}
+                  >
+                    Full Skill Report <ArrowUpRight size={13} />
+                  </button>
+                </div>
                 </div>
               </div>
             </div>
@@ -1009,21 +892,15 @@ export default function DashboardPage() {
       )}
 
       <style>{`
-        @keyframes spin        { to { transform: rotate(360deg) } }
-        @keyframes fadeIn      { from { opacity:0 } to { opacity:1 } }
-        @keyframes pulse       { 0%,100%{opacity:1} 50%{opacity:.4} }
-        @keyframes slideDown   { from { opacity:0; transform:translateY(-14px) } to { opacity:1; transform:translateY(0) } }
-        @keyframes slideInLeft { from { opacity:0; transform:translateX(-20px) } to { opacity:1; transform:translateX(0) } }
-        @keyframes slideInRight{ from { opacity:0; transform:translateX(20px) } to { opacity:1; transform:translateX(0) } }
-        @keyframes cardIn      { from { opacity:0; transform:translateY(20px) scale(0.97) } to { opacity:1; transform:translateY(0) scale(1) } }
-        @keyframes rowIn       { from { opacity:0; transform:translateX(-14px) } to { opacity:1; transform:translateX(0) } }
-        @keyframes popIn       { from { opacity:0; transform:scale(0.86) translateY(16px) } to { opacity:1; transform:scale(1) translateY(0) } }
-        @keyframes morphA      { 0%,100%{border-radius:60% 40% 55% 45%/50% 60% 40% 50%;transform:scale(1)} 40%{border-radius:40% 60% 35% 65%/60% 35% 65% 40%;transform:scale(1.08)} 70%{border-radius:55% 45% 60% 40%/45% 55% 45% 55%;transform:scale(0.96)} }
-        @keyframes morphB      { 0%,100%{border-radius:50% 50% 60% 40%/55% 45% 55% 45%;transform:scale(1) rotate(0deg)} 50%{border-radius:65% 35% 45% 55%/40% 60% 40% 60%;transform:scale(1.1) rotate(15deg)} }
-        @keyframes morphC      { 0%,100%{border-radius:55% 45% 50% 50%/60% 40% 60% 40%;transform:scale(1)} 60%{border-radius:40% 60% 65% 35%/50% 55% 45% 55%;transform:scale(1.12)} }
-        @keyframes chipFloat   { 0%,100%{transform:translateY(0px);opacity:0.7} 50%{transform:translateY(-10px);opacity:0.9} }
-        @keyframes spinSlow    { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        @keyframes pulseGreen  { 0%,100%{box-shadow:0 0 6px #10B98188} 50%{box-shadow:0 0 12px #10B981cc} }
+        @keyframes spin  { to { transform: rotate(360deg) } }
+        @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+        @keyframes rowIn { from { opacity:0; transform:translateX(-14px) } to { opacity:1; transform:translateX(0) } }
+        @keyframes popIn { from { opacity:0; transform:scale(0.86) translateY(16px) } to { opacity:1; transform:scale(1) translateY(0) } }
+        .dash-link-btn { position: relative; }
+        .dash-link-btn::after { content: ''; position: absolute; left: 0; bottom: -3px; width: 0; height: 1.5px; background: #6366F1; transition: width 0.2s ease; }
+        .dash-link-btn:hover::after { width: 100%; }
+        .dash-action-card:hover { transform: translateY(-2px); border-color: #DBEAFE; box-shadow: 0 10px 24px rgba(15,23,42,0.08); }
       `}</style>
     </div>
   )

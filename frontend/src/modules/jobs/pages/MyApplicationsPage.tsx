@@ -13,13 +13,19 @@ import {
 
 // ── Status config ─────────────────────────────────────────────────────────────
 
+// Colors mirror the employer-side pipeline (CandidatePipelinePage STATUS_STYLE)
+// so a candidate's status reads the same way on both sides of the platform.
 const STATUS_CFG: Record<string, { label: string; text: string; accent: string }> = {
-  applied:      { label: 'Applied',       text: '#1D4ED8', accent: '#3B82F6' },
-  under_review: { label: 'Under Review',  text: '#92400E', accent: '#F59E0B' },
-  shortlisted:  { label: 'Shortlisted',   text: '#166534', accent: '#22C55E' },
-  rejected:     { label: 'Not Selected',  text: '#BE123C', accent: '#F43F5E' },
-  hired:        { label: 'Hired',         text: '#065F46', accent: '#10B981' },
-  withdrawn:    { label: 'Withdrawn',     text: '#64748B', accent: '#94A3B8' },
+  applied:              { label: 'Applied',              text: '#1D4ED8', accent: '#3B82F6' },
+  under_review:         { label: 'Under Review',         text: '#92400E', accent: '#F59E0B' },
+  screening:            { label: 'Under Review',         text: '#92400E', accent: '#F59E0B' },
+  shortlisted:          { label: 'Shortlisted',           text: '#166534', accent: '#22C55E' },
+  interview_scheduled:  { label: 'Interview Scheduled',   text: '#1D4ED8', accent: '#3B82F6' },
+  interview_completed:  { label: 'Interview Completed',   text: '#0369A1', accent: '#0EA5E9' },
+  offer_sent:           { label: 'Offer Sent',            text: '#6D28D9', accent: '#7C3AED' },
+  rejected:             { label: 'Not Selected',          text: '#BE123C', accent: '#F43F5E' },
+  hired:                { label: 'Hired',                 text: '#6D28D9', accent: '#7C3AED' },
+  withdrawn:            { label: 'Withdrawn',             text: '#64748B', accent: '#94A3B8' },
 }
 
 const WITHDRAW_REASONS = [
@@ -31,19 +37,24 @@ const WITHDRAW_REASONS = [
 ]
 
 const CLOSED_STATUSES = new Set(['rejected', 'hired', 'withdrawn'])
+// "Advanced" = candidate has been shortlisted or further — withdrawing now is a bigger deal.
+const ADVANCED_STATUSES = new Set(['shortlisted', 'interview_scheduled', 'interview_completed', 'offer_sent'])
 
 // ── Delivery-style progress tracker ────────────────────────────────────────────
-// A single horizontal line — Applied → Under Review → Shortlisted → outcome —
+// A single horizontal line — Applied → Screening → Shortlisted → Interview → Offer → outcome —
 // same pattern as a food-delivery/courier tracker, instead of separate columns.
 
-const TRACK_STEPS = ['Applied', 'Under Review', 'Shortlisted']
+const TRACK_STEPS = ['Applied', 'Screening', 'Shortlisted', 'Interview', 'Offer']
 
 function trackInfo(status: string): { stepIndex: number; finalLabel: string; finalColor: string; isPending: boolean } {
-  if (status === 'hired') return { stepIndex: 3, finalLabel: 'Hired', finalColor: '#16A34A', isPending: false }
-  if (status === 'rejected') return { stepIndex: 3, finalLabel: 'Not Selected', finalColor: '#E11D48', isPending: false }
-  if (status === 'withdrawn') return { stepIndex: 3, finalLabel: 'Withdrawn', finalColor: '#9CA3AF', isPending: false }
+  const FINAL = TRACK_STEPS.length   // beyond the last real step = "all steps reached"
+  if (status === 'hired') return { stepIndex: FINAL, finalLabel: 'Hired', finalColor: '#16A34A', isPending: false }
+  if (status === 'rejected') return { stepIndex: FINAL, finalLabel: 'Not Selected', finalColor: '#E11D48', isPending: false }
+  if (status === 'withdrawn') return { stepIndex: FINAL, finalLabel: 'Withdrawn', finalColor: '#9CA3AF', isPending: false }
+  if (status === 'offer_sent') return { stepIndex: 4, finalLabel: 'Decision', finalColor: '#D1D5DB', isPending: true }
+  if (status === 'interview_scheduled' || status === 'interview_completed') return { stepIndex: 3, finalLabel: 'Decision', finalColor: '#D1D5DB', isPending: true }
   if (status === 'shortlisted') return { stepIndex: 2, finalLabel: 'Decision', finalColor: '#D1D5DB', isPending: true }
-  if (status === 'under_review') return { stepIndex: 1, finalLabel: 'Decision', finalColor: '#D1D5DB', isPending: true }
+  if (status === 'under_review' || status === 'screening') return { stepIndex: 1, finalLabel: 'Decision', finalColor: '#D1D5DB', isPending: true }
   return { stepIndex: 0, finalLabel: 'Decision', finalColor: '#D1D5DB', isPending: true } // applied
 }
 
@@ -99,31 +110,44 @@ function matchColor(s: number) {
   return '#E11D48'
 }
 
+const AVATAR_PALETTE = [
+  ['#EEF2FF', '#4F46E5'], ['#ECFDF5', '#059669'], ['#FFF7ED', '#EA580C'],
+  ['#FDF2F8', '#DB2777'], ['#F0F9FF', '#0284C7'], ['#FAF5FF', '#9333EA'],
+]
+function avatarColors(name: string) {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
+  return AVATAR_PALETTE[h % AVATAR_PALETTE.length]
+}
+
 // ── Application card — one per application, with a delivery-style tracker ─────
 
 function ApplicationCard({ app, onOpen }: { app: ApplicationOut; onOpen: () => void }) {
   const [hov, setHov] = useState(false)
+  const [bg, fg] = avatarColors(app.company_name)
+  const cfg = STATUS_CFG[app.status] ?? STATUS_CFG.applied
   return (
     <div
       onClick={onOpen}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        background: 'white', borderRadius: 16, padding: '18px 22px',
-        border: `1px solid ${hov ? '#BFDBFE' : '#E5EDFB'}`,
+        background: 'white', borderRadius: 16, overflow: 'hidden',
+        border: `1px solid ${hov ? '#DBEAFE' : '#EEF2F9'}`,
         cursor: 'pointer', transition: 'box-shadow 0.18s, border-color 0.18s, transform 0.18s',
-        boxShadow: hov ? '0 10px 28px rgba(37,99,235,0.14)' : '0 2px 8px rgba(15,23,42,0.04)',
-        transform: hov ? 'translateY(-2px)' : 'none',
+        boxShadow: hov ? '0 16px 36px rgba(37,99,235,0.14)' : '0 8px 22px rgba(15,23,42,0.06)',
+        transform: hov ? 'translateY(-3px)' : 'none',
       }}
     >
+      <div style={{ height: 3, background: cfg.accent }} />
+      <div style={{ padding: '18px 22px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 18 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
           <div style={{
-            width: 42, height: 42, borderRadius: 12, flexShrink: 0,
-            background: 'linear-gradient(135deg, #15130F, #3B342B)',
+            width: 44, height: 44, borderRadius: 13, flexShrink: 0,
+            background: bg,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 16, fontWeight: 700, color: '#F1EAE0',
-            boxShadow: '0 3px 10px rgba(21,19,15,0.3)',
+            fontSize: 17, fontWeight: 700, color: fg,
           }}>
             {app.company_name.charAt(0).toUpperCase()}
           </div>
@@ -153,6 +177,7 @@ function ApplicationCard({ app, onOpen }: { app: ApplicationOut; onOpen: () => v
       </div>
       <div style={{ paddingTop: 16, borderTop: '1px solid #F1F5F9' }}>
         <ProgressTracker status={app.status} />
+      </div>
       </div>
     </div>
   )
@@ -202,7 +227,7 @@ function WithdrawPanel({ app, onDone, onCancel }: {
     mutationFn: () => withdrawApplication(app.id, reason, note || undefined),
     onSuccess: onDone,
   })
-  const isAdvanced = app.status === 'shortlisted'
+  const isAdvanced = ADVANCED_STATUSES.has(app.status)
 
   return (
     <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 12, padding: 16 }}>
@@ -406,8 +431,10 @@ export default function MyApplicationsPage() {
   })
 
   const all = applications ?? []
-  const shortlisted = all.filter(a => a.status === 'shortlisted').length
-  const inProgress  = all.filter(a => a.status === 'applied' || a.status === 'under_review').length
+  // "Shortlisted" = reached shortlisted stage or further (including hired) — not just sitting exactly at 'shortlisted'.
+  const shortlisted = all.filter(a => ADVANCED_STATUSES.has(a.status) || a.status === 'hired').length
+  // "In Progress" = still early-stage and not yet shortlisted, not closed.
+  const inProgress  = all.filter(a => !CLOSED_STATUSES.has(a.status) && !ADVANCED_STATUSES.has(a.status)).length
   const respRate    = all.length > 0
     ? Math.round(((all.length - all.filter(a => a.status === 'applied').length) / all.length) * 100)
     : 0
@@ -415,10 +442,10 @@ export default function MyApplicationsPage() {
   const sorted = [...all].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'white' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#FAFBFD' }}>
       <AppSidebar activePath="/app/jobs/applications" />
 
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: '#FAFBFD' }}>
         {/* Header */}
         <header style={{
           background: 'white',
@@ -445,43 +472,48 @@ export default function MyApplicationsPage() {
             onClick={() => navigate('/app/jobs')}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
-              fontSize: 13, fontWeight: 700, color: 'white',
-              background: '#2563EB', border: 'none', borderRadius: 10,
+              fontSize: 13, fontWeight: 700, color: '#2563EB',
+              background: 'white', border: '1.5px solid #BFDBFE', borderRadius: 10,
               padding: '9px 16px', cursor: 'pointer',
-              boxShadow: '0 3px 10px rgba(37,99,235,0.25)',
+              boxShadow: '0 2px 8px rgba(37,99,235,0.08)', transition: 'all 0.15s',
             }}
+            onMouseOver={e => { e.currentTarget.style.borderColor = '#93C5FD'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(37,99,235,0.14)' }}
+            onMouseOut={e => { e.currentTarget.style.borderColor = '#BFDBFE'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(37,99,235,0.08)' }}
           >
             Browse Jobs <ArrowUpRight size={14} />
           </button>
         </header>
 
-      <main style={{ flex: 1, minWidth: 0, padding: '28px 36px' }}>
+      <main style={{ flex: 1, minWidth: 0, padding: '28px 36px 48px', maxWidth: 1000, margin: '0 auto', width: '100%' }}>
 
-        {/* Stat cards — cream/black icon badge as a secondary accent against the page's blue */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(140px, 1fr))', gap: 14, marginBottom: 28 }}>
+        {/* Stat cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(160px, 1fr))', gap: 14, marginBottom: 28 }}>
           {[
-            { label: 'Total Applications', value: all.length, Icon: ListChecks },
-            { label: 'In Progress',         value: inProgress, Icon: Hourglass },
-            { label: 'Shortlisted',         value: shortlisted, Icon: Star },
-            { label: 'Response Rate',       value: `${respRate}%`, Icon: TrendingUp },
+            { label: 'Total Applications', value: all.length, Icon: ListChecks, bg: '#EEF2FF', fg: '#4F46E5' },
+            { label: 'In Progress',         value: inProgress, Icon: Hourglass, bg: '#FFF7ED', fg: '#D97706' },
+            { label: 'Shortlisted',         value: shortlisted, Icon: Star, bg: '#ECFDF5', fg: '#059669' },
+            { label: 'Response Rate',       value: `${respRate}%`, Icon: TrendingUp, bg: '#F0F9FF', fg: '#0284C7' },
           ].map(s => (
             <div key={s.label} style={{
-              background: 'linear-gradient(160deg, #F5F8FF 0%, #FFFFFF 100%)',
-              border: '1px solid #DBEAFE', borderRadius: 14, padding: '16px 18px',
-              display: 'flex', alignItems: 'center', gap: 12,
-              boxShadow: '0 2px 10px rgba(37,99,235,0.06)',
-            }}>
+              background: 'white',
+              border: '1px solid #EEF2F9', borderRadius: 14, padding: '18px 20px',
+              display: 'flex', alignItems: 'center', gap: 14,
+              boxShadow: '0 6px 18px rgba(15,23,42,0.05)',
+              transition: 'box-shadow 0.18s, transform 0.18s',
+            }}
+              onMouseOver={e => { e.currentTarget.style.boxShadow = '0 12px 28px rgba(15,23,42,0.08)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
+              onMouseOut={e => { e.currentTarget.style.boxShadow = '0 6px 18px rgba(15,23,42,0.05)'; e.currentTarget.style.transform = 'none' }}
+            >
               <div style={{
-                width: 38, height: 38, borderRadius: 11, flexShrink: 0,
-                background: 'linear-gradient(135deg, #15130F, #3B342B)',
+                width: 40, height: 40, borderRadius: 12, flexShrink: 0,
+                background: s.bg,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 3px 8px rgba(21,19,15,0.3)',
               }}>
-                <s.Icon size={17} color="#F1EAE0" />
+                <s.Icon size={18} color={s.fg} />
               </div>
               <div>
-                <p style={{ fontSize: 19, fontWeight: 800, color: '#0F172A', margin: 0, lineHeight: 1 }}>{s.value}</p>
-                <p style={{ fontSize: 11, color: '#64748B', margin: '3px 0 0', fontWeight: 500 }}>{s.label}</p>
+                <p style={{ fontSize: 20, fontWeight: 700, color: '#0F172A', margin: 0, lineHeight: 1 }}>{s.value}</p>
+                <p style={{ fontSize: 11.5, color: '#9CA3AF', margin: '4px 0 0', fontWeight: 500 }}>{s.label}</p>
               </div>
             </div>
           ))}
@@ -500,14 +532,19 @@ export default function MyApplicationsPage() {
         )}
 
         {!isLoading && !isError && all.length === 0 && (
-          <div style={{ border: '1px solid #DBEAFE', background: '#F5F8FF', borderRadius: 14, padding: '64px 24px', textAlign: 'center' }}>
-            <div style={{ fontSize: 32, marginBottom: 14 }}>📋</div>
+          <div style={{ background: 'white', border: '1px solid #EEF2F9', borderRadius: 16, boxShadow: '0 6px 18px rgba(15,23,42,0.05)', padding: '64px 24px', textAlign: 'center' }}>
+            <div style={{
+              width: 56, height: 56, borderRadius: 16, background: '#EEF2FF',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
+            }}>
+              <FileText size={24} color="#4F46E5" />
+            </div>
             <h3 style={{ fontSize: 16, fontWeight: 700, color: '#0F172A', margin: '0 0 8px' }}>No applications yet</h3>
-            <p style={{ fontSize: 13, color: '#64748B', margin: '0 0 18px' }}>Once you apply to jobs, they'll show up here as a pipeline.</p>
+            <p style={{ fontSize: 13, color: '#9CA3AF', margin: '0 0 18px' }}>Once you apply to jobs, they'll show up here as a pipeline.</p>
             <button
               type="button"
               onClick={() => navigate('/app/jobs')}
-              style={{ fontSize: 13, fontWeight: 700, color: '#fff', background: '#2563EB', border: 'none', borderRadius: 10, padding: '10px 22px', cursor: 'pointer' }}
+              style={{ fontSize: 13, fontWeight: 700, color: '#2563EB', background: 'white', border: '1.5px solid #BFDBFE', borderRadius: 10, padding: '10px 22px', cursor: 'pointer' }}
             >
               Browse Jobs →
             </button>
@@ -515,7 +552,7 @@ export default function MyApplicationsPage() {
         )}
 
         {!isLoading && !isError && all.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 760 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 18 }}>
             {sorted.map(app => (
               <ApplicationCard key={app.id} app={app} onOpen={() => setActive(app)} />
             ))}

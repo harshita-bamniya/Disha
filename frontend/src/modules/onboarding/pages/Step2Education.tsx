@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { GraduationCap } from 'lucide-react'
 import OnboardingLayout from '@/layouts/OnboardingLayout'
 import Input from '@/components/ui/Input'
@@ -28,6 +29,7 @@ export default function Step2Education() {
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const { education } = useOnboardingSteps()
+  const navigate = useNavigate()
 
   const set = (f: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((p) => ({ ...p, [f]: e.target.value }))
@@ -55,7 +57,7 @@ export default function Step2Education() {
   const serverError = education.error ? getApiError(education.error) : null
 
   return (
-    <OnboardingLayout currentStep={2} title="Your education" subtitle="Help us understand your academic background.">
+    <OnboardingLayout currentStep={2} title="Your education" subtitle="Help us understand your academic background." onSkip={() => navigate('/app/onboarding/step/3')}>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-gray-700">Highest qualification</label>

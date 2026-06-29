@@ -1,5 +1,12 @@
 export type Language = 'en' | 'hi'
-export type UserRole = 'aspirant' | 'admin' | 'super_admin' | 'employer'
+export type UserRole =
+  | 'aspirant' | 'admin' | 'super_admin' | 'employer'
+  | 'moderator' | 'verification_officer' | 'finance_manager' | 'support_executive'
+  | 'employer_owner' | 'hr_manager' | 'recruiter' | 'interviewer'
+
+export const PLATFORM_ADMIN_ROLES: UserRole[] = [
+  'admin', 'super_admin', 'moderator', 'verification_officer', 'finance_manager', 'support_executive',
+]
 export type CompanySize = '1-10' | '11-50' | '51-200' | '201-500' | '501-1000' | '1000+'
 
 export interface User {

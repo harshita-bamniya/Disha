@@ -43,6 +43,24 @@ def decode_access_token(token: str) -> dict[str, Any]:
     return jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
 
 
+def create_2fa_challenge_token(user_id: str) -> str:
+    """Short-lived token proving the password step already succeeded — issued
+    by /auth/login when 2FA is enabled, consumed by /auth/2fa/verify-login."""
+    expire = datetime.now(timezone.utc) + timedelta(minutes=5)
+    return jwt.encode(
+        {"sub": user_id, "type": "2fa_challenge", "exp": expire},
+        settings.jwt_secret_key, algorithm=settings.jwt_algorithm,
+    )
+
+
+def decode_2fa_challenge_token(token: str) -> str:
+    """Returns the user_id, or raises JWTError if invalid/expired/wrong type."""
+    payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
+    if payload.get("type") != "2fa_challenge":
+        raise JWTError("Not a 2FA challenge token")
+    return payload["sub"]
+
+
 def decode_refresh_token(token: str) -> dict[str, Any]:
     return jwt.decode(token, settings.jwt_refresh_secret_key, algorithms=[settings.jwt_algorithm])
 

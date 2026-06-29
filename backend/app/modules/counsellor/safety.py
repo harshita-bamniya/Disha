@@ -1,5 +1,5 @@
 """
-Safety layer for DISHA AI Counsellor.
+Safety layer for BeginablAI Counsellor.
 
 This is non-negotiable infrastructure. UPSC aspirants carry real psychological weight.
 The system must detect distress signals and respond with empathy + escalation paths.

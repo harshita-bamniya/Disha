@@ -219,7 +219,7 @@ function Step3Device({ cam, mic, net, videoRef, checkAll }: ReturnType<typeof us
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 24 }}>
         <div style={{ background: 'white', borderRadius: 14, padding: '16px 20px', border: '1.5px solid rgba(226,232,240,0.8)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-            <Video size={16} color="#15130F" />
+            <Video size={16} color="#3B82F6" />
             <span style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>Camera</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
@@ -242,9 +242,9 @@ function Step3Device({ cam, mic, net, videoRef, checkAll }: ReturnType<typeof us
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {[
-            { icon: <Mic size={16} color="#15130F" />, label: 'Microphone', state: mic, name: 'Mic' },
-            { icon: <Wifi size={16} color="#15130F" />, label: 'Connection', state: net, name: 'Network' },
-            { icon: <Monitor size={16} color="#15130F" />, label: 'Browser', state: 'ok' as const, name: 'Browser' },
+            { icon: <Mic size={16} color="#3B82F6" />, label: 'Microphone', state: mic, name: 'Mic' },
+            { icon: <Wifi size={16} color="#3B82F6" />, label: 'Connection', state: net, name: 'Network' },
+            { icon: <Monitor size={16} color="#3B82F6" />, label: 'Browser', state: 'ok' as const, name: 'Browser' },
           ].map(item => (
             <div key={item.label} style={{
               background: 'white', borderRadius: 12, padding: '14px 16px',
@@ -312,16 +312,16 @@ function Step4Instructions({ role, level, totalQ }: { role: string; level: strin
       <h2 style={styles.stepTitle}>You're almost ready</h2>
 
       <div style={{
-        background: '#FAF7F1',
+        background: '#F8FAFC',
         borderRadius: 16, padding: '20px 24px', marginBottom: 24,
-        border: '1.5px solid #F1EAE0',
+        border: '1px solid #EEF1F5',
       }}>
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
           {[
-            { icon: <Briefcase size={16} color="#15130F" />, label: 'Role', value: role },
-            { icon: <User size={16} color="#15130F" />, label: 'Level', value: level },
-            { icon: <Clock size={16} color="#15130F" />, label: 'Questions', value: `${totalQ} questions` },
-            { icon: <Shield size={16} color="#15130F" />, label: 'Mode', value: 'AI Interview' },
+            { icon: <Briefcase size={16} color="#475569" />, label: 'Role', value: role },
+            { icon: <User size={16} color="#475569" />, label: 'Level', value: level },
+            { icon: <Clock size={16} color="#475569" />, label: 'Questions', value: `${totalQ} questions` },
+            { icon: <Shield size={16} color="#475569" />, label: 'Mode', value: 'AI Interview' },
           ].map(item => (
             <div key={item.label}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
@@ -342,7 +342,7 @@ function Step4Instructions({ role, level, totalQ }: { role: string; level: strin
           {rules.map((rule, i) => (
             <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <div style={{
-                width: 20, height: 20, borderRadius: '50%', background: '#15130F',
+                width: 20, height: 20, borderRadius: '50%', background: '#3B82F6',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 fontSize: 9, color: 'white', fontWeight: 800,
               }}>{i + 1}</div>
@@ -354,10 +354,10 @@ function Step4Instructions({ role, level, totalQ }: { role: string; level: strin
 
       <div style={{
         padding: '14px 16px', borderRadius: 12,
-        background: '#FAF7F1', border: '1px solid #F1EAE0',
+        background: '#F5F8FF', border: '1px solid #DBEAFE',
         display: 'flex', gap: 10,
       }}>
-        <Volume2 size={16} color="#15130F" style={{ flexShrink: 0, marginTop: 1 }} />
+        <Volume2 size={16} color="#3B82F6" style={{ flexShrink: 0, marginTop: 1 }} />
         <p style={{ fontSize: 12, color: '#4A453D', margin: 0 }}>
           The AI interviewer will speak questions aloud. Ensure your speakers are on.
           You can also read the question in the transcript panel.
@@ -442,24 +442,8 @@ export default function InterviewSetupPage() {
   const isLast = step === STEPS.length - 1
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #FAF7F1 0%, #FFFFFF 55%, #F1EAE0 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
+    <div style={{ minHeight: '100vh', background: '#FAFBFD', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
       <div style={{ width: '100%', maxWidth: 680 }}>
-        {/* Back button */}
-        <button
-          onClick={() => navigate(-1)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: 'white', border: '1.5px solid rgba(226,232,240,0.8)',
-            borderRadius: 10, padding: '8px 14px', marginBottom: 24,
-            fontSize: 13, fontWeight: 600, color: '#6B7280', cursor: 'pointer',
-            boxShadow: '0 2px 8px rgba(15,23,42,0.04)', transition: 'all 0.2s',
-          }}
-          onMouseOver={e => { e.currentTarget.style.color = '#15130F'; e.currentTarget.style.borderColor = '#15130F' }}
-          onMouseOut={e => { e.currentTarget.style.color = '#6B7280'; e.currentTarget.style.borderColor = 'rgba(226,232,240,0.8)' }}
-        >
-          <ChevronLeft size={15} /> Back
-        </button>
-
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{ fontSize: 28, marginBottom: 8 }}>🎯</div>
@@ -476,12 +460,12 @@ export default function InterviewSetupPage() {
           <div style={{
             display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
             borderRadius: 14, marginBottom: 24,
-            background: '#FAF7F1',
-            border: '1.5px solid #F1EAE0',
+            background: '#F5F8FF',
+            border: '1.5px solid #DBEAFE',
           }}>
-            <Sparkles size={16} color="#15130F" style={{ flexShrink: 0 }} />
+            <Sparkles size={16} color="#3B82F6" style={{ flexShrink: 0 }} />
             <div style={{ flex: 1 }}>
-              <span style={{ fontSize: 12, fontWeight: 800, color: '#15130F' }}>
+              <span style={{ fontSize: 12, fontWeight: 800, color: '#2563EB' }}>
                 {cardJobContext ? 'Interviewing for — ' : 'Interviewing for your active prep job — '}
               </span>
               <span style={{ fontSize: 12, color: '#374151', fontWeight: 700 }}>{jobContext.job_title}</span>
@@ -535,19 +519,17 @@ export default function InterviewSetupPage() {
 
         {/* Navigation */}
         <div style={{ display: 'flex', gap: 12 }}>
-          {step > 0 && (
-            <button
-              onClick={() => setStep(s => s - 1)}
-              style={{
-                flex: 1, padding: '13px 0', borderRadius: 12, cursor: 'pointer',
-                border: '1.5px solid rgba(226,232,240,0.8)', background: 'white',
-                fontSize: 13, fontWeight: 700, color: '#374151',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              }}
-            >
-              <ChevronLeft size={15} /> Back
-            </button>
-          )}
+          <button
+            onClick={() => step > 0 ? setStep(s => s - 1) : navigate(-1)}
+            style={{
+              flex: 1, padding: '13px 0', borderRadius: 12, cursor: 'pointer',
+              border: '1.5px solid rgba(226,232,240,0.8)', background: 'white',
+              fontSize: 13, fontWeight: 700, color: '#374151',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}
+          >
+            <ChevronLeft size={15} /> Back
+          </button>
           <button
             onClick={() => {
               if (isLast) {
@@ -564,12 +546,13 @@ export default function InterviewSetupPage() {
             disabled={!canNext || createMutation.isPending}
             style={{
               flex: 3, padding: '13px 0', borderRadius: 12, cursor: canNext ? 'pointer' : 'not-allowed',
-              border: 'none',
-              background: canNext ? '#3B82F6' : '#E2E8F0',
-              color: canNext ? 'white' : '#94A3B8',
+              border: canNext ? '1.5px solid #BFDBFE' : '1.5px solid #E2E8F0',
+              background: 'white',
+              color: canNext ? '#2563EB' : '#94A3B8',
               fontSize: 14, fontWeight: 700,
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               opacity: createMutation.isPending ? 0.8 : 1,
+              boxShadow: canNext ? '0 2px 8px rgba(37,99,235,0.08)' : 'none',
             }}
           >
             {createMutation.isPending

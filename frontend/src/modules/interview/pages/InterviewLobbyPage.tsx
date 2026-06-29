@@ -268,14 +268,14 @@ export default function InterviewLobbyPage() {
                 navigate(`/app/interview/room/${sessionId}`)
               }}
               style={{
-                width: '100%', padding: '15px 0', borderRadius: 14, cursor: 'pointer',
+                width: '100%', padding: '13px 0', borderRadius: 14, cursor: 'pointer',
                 background: 'white',
-                border: 'none', color: '#15130F', fontSize: 15, fontWeight: 800,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-                boxShadow: '0 4px 24px rgba(255,255,255,0.2)',
+                border: '1.5px solid #3B82F6', color: '#2563EB', fontSize: 12.5, fontWeight: 800,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                boxShadow: '0 4px 24px rgba(59,130,246,0.25)',
               }}
             >
-              <Play size={16} fill="#15130F" />
+              <Play size={13} fill="#2563EB" />
               Begin Interview
             </button>
             <p style={{ textAlign: 'center', fontSize: 11, color: 'rgba(255,255,255,0.25)', marginTop: 10 }}>

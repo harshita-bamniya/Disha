@@ -47,22 +47,21 @@ export default function QuizPage() {
   const allAnswered = !!quiz && quiz.questions.every(q => !!answers[q.id])
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #FAF7F1 0%, #FFFFFF 55%, #F1EAE0 100%)', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
       <AppSidebar activePath="/app/roadmap" />
 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <header style={{
-          background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(20px)',
-          borderBottom: '1px solid rgba(226,232,240,0.8)',
-          padding: '0 28px', height: 60,
+          background: 'white',
+          borderBottom: '1px solid #F1F5F9',
+          padding: '0 28px', height: 64,
           display: 'flex', alignItems: 'center', gap: 12,
           position: 'sticky', top: 0, zIndex: 20,
-          boxShadow: '0 1px 8px rgba(15,23,42,0.05)',
         }}>
-          <button onClick={() => navigate('/app/roadmap')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 8, color: '#64748B', display: 'flex', alignItems: 'center' }}>
+          <button onClick={() => navigate('/app/roadmap')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 8, color: '#9CA3AF', display: 'flex', alignItems: 'center' }}>
             <ArrowLeft size={18} />
           </button>
-          <span style={{ fontFamily: 'Hind, sans-serif', fontSize: 15, fontWeight: 800, color: '#0F172A' }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>
             Quiz{module ? ` · ${module.skill}` : ''}
           </span>
         </header>
@@ -70,7 +69,7 @@ export default function QuizPage() {
         <main style={{ padding: '28px', maxWidth: 680, margin: '0 auto', width: '100%' }}>
           {isLoading && (
             <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
-              <Loader2 size={28} color="#15130F" style={{ animation: 'spin 0.8s linear infinite' }} />
+              <Loader2 size={28} color="#6366F1" style={{ animation: 'spin 0.8s linear infinite' }} />
             </div>
           )}
 
@@ -79,8 +78,8 @@ export default function QuizPage() {
           )}
 
           {!isLoading && module && !quiz && (
-            <div style={{ background: 'white', borderRadius: 20, border: '1.5px solid rgba(226,232,240,0.8)', padding: '40px 32px', textAlign: 'center' }}>
-              <h2 style={{ fontSize: 18, fontWeight: 900, color: '#0F172A', marginBottom: 10, fontFamily: 'Hind, sans-serif' }}>
+            <div style={{ background: 'white', borderRadius: 20, border: '1px solid #F1F5F9', padding: '40px 32px', textAlign: 'center' }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: '#0F172A', marginBottom: 10 }}>
                 No quiz yet for {module.skill}
               </h2>
               <p style={{ fontSize: 13, color: '#64748B', marginBottom: 24, lineHeight: 1.6 }}>
@@ -91,7 +90,7 @@ export default function QuizPage() {
                 disabled={generateMutation.isPending}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 8, margin: '0 auto',
-                  background: 'linear-gradient(135deg, #15130F 0%, #1E3A5F 55%, #2563EB 100%)', color: 'white',
+                  background: '#2563EB', color: 'white',
                   border: 'none', borderRadius: 12, padding: '12px 24px', fontSize: 13.5, fontWeight: 700,
                   cursor: generateMutation.isPending ? 'wait' : 'pointer',
                 }}
@@ -115,10 +114,10 @@ export default function QuizPage() {
                 </div>
               )}
 
-              <div style={{ background: 'white', borderRadius: 20, border: '1.5px solid rgba(226,232,240,0.8)', padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 22 }}>
+              <div style={{ background: 'white', borderRadius: 20, border: '1px solid #F1F5F9', padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 22 }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                   <div>
-                    <h2 style={{ fontSize: 17, fontWeight: 900, color: '#0F172A', margin: 0, fontFamily: 'Hind, sans-serif' }}>{module.skill} — Quick Check</h2>
+                    <h2 style={{ fontSize: 17, fontWeight: 700, color: '#0F172A', margin: 0 }}>{module.skill} — Quick Check</h2>
                     <p style={{ fontSize: 12.5, color: '#94A3B8', margin: '4px 0 0' }}>{quiz.questions.length} questions covering this topic's resources</p>
                   </div>
                   {!result && (
@@ -157,7 +156,7 @@ export default function QuizPage() {
                                 display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
                                 borderRadius: 10, cursor: result ? 'default' : 'pointer',
                                 background: isCorrectOpt ? '#F0FDF4' : isWrongSelected ? '#FEF2F2' : isSelected ? '#FAFBFC' : 'transparent',
-                                border: `1.5px solid ${isCorrectOpt ? '#BBF7D0' : isWrongSelected ? '#FECACA' : isSelected ? '#15130F' : '#E2E8F0'}`,
+                                border: `1.5px solid ${isCorrectOpt ? '#BBF7D0' : isWrongSelected ? '#FECACA' : isSelected ? '#2563EB' : '#E2E8F0'}`,
                               }}
                             >
                               <input
@@ -185,7 +184,7 @@ export default function QuizPage() {
                       disabled={!allAnswered || submitMutation.isPending}
                       style={{
                         display: 'flex', alignItems: 'center', gap: 6,
-                        background: allAnswered ? 'linear-gradient(135deg, #15130F 0%, #1E3A5F 55%, #2563EB 100%)' : '#E2E8F0',
+                        background: allAnswered ? '#2563EB' : '#E2E8F0',
                         color: allAnswered ? 'white' : '#94A3B8', border: 'none', borderRadius: 12,
                         padding: '11px 22px', fontSize: 13.5, fontWeight: 700, cursor: allAnswered ? 'pointer' : 'not-allowed',
                       }}
@@ -214,7 +213,7 @@ export default function QuizPage() {
                       Score: {result.score_pct}% {result.passed ? '— Passed!' : '— Try again'}
                     </span>
                     {result.passed ? (
-                      <button onClick={() => navigate('/app/roadmap')} style={{ background: 'none', border: '1.5px solid #15130F', borderRadius: 10, padding: '8px 16px', fontSize: 12.5, fontWeight: 700, color: '#15130F', cursor: 'pointer' }}>
+                      <button onClick={() => navigate('/app/roadmap')} style={{ background: 'none', border: '1.5px solid #2563EB', borderRadius: 10, padding: '8px 16px', fontSize: 12.5, fontWeight: 700, color: '#2563EB', cursor: 'pointer' }}>
                         Back to Plan
                       </button>
                     ) : (

@@ -158,13 +158,15 @@ class PendingEmployerResponse(BaseModel):
     id: str                     # employer_profiles.id
     user_id: str
     company_name: str
-    industry: str
-    company_size: str
+    # Industry/size/contact/city are filled in later via the post-login setup
+    # wizard now — null at registration time, so these can't be required.
+    industry: Optional[str] = None
+    company_size: Optional[str] = None
     website: Optional[str] = None
     gst_number: Optional[str] = None
-    contact_person: str
+    contact_person: Optional[str] = None
     designation: Optional[str] = None
-    city: str
+    city: Optional[str] = None
     description: Optional[str] = None
     phone: str
     phone_verified: bool
@@ -233,3 +235,182 @@ class RejectRequest(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+
+# ── RBAC: Roles & Permissions ─────────────────────────────────────────────────
+
+class PermissionEntry(BaseModel):
+    id: str
+    resource: str
+    action: str
+    description: Optional[str] = None
+
+
+class RoleEntry(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    is_system: bool
+    permissions: list[str] = []   # "resource:action" strings
+    user_count: int = 0
+
+
+class RolePermissionsUpdateRequest(BaseModel):
+    permission_ids: list[str]   # full replacement set for this role
+
+
+# ── Sub-admin management ──────────────────────────────────────────────────────
+
+PLATFORM_ROLE_NAMES = {
+    "super_admin", "admin", "moderator",
+    "verification_officer", "finance_manager", "support_executive",
+}
+
+
+class SubAdminEntry(BaseModel):
+    user_id: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    full_name: Optional[str] = None
+    role_id: str
+    role_name: str
+    status: str
+    is_active: bool
+    last_login_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class SubAdminCreateRequest(BaseModel):
+    email: str
+    phone: Optional[str] = None
+    role_id: str
+    full_name: Optional[str] = None
+
+
+class SubAdminRoleUpdateRequest(BaseModel):
+    role_id: str
+
+
+# ── User management: status, login history, sessions ─────────────────────────
+
+class UserStatusUpdateRequest(BaseModel):
+    status: str   # active | suspended | banned
+    reason: Optional[str] = None
+
+
+class LoginHistoryEntry(BaseModel):
+    id: str
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    device_label: Optional[str] = None
+    success: bool
+    failure_reason: Optional[str] = None
+    created_at: datetime
+
+
+class DeviceSessionEntry(BaseModel):
+    id: str
+    device_label: Optional[str] = None
+    ip_address: Optional[str] = None
+    last_seen_at: datetime
+    is_current: bool = False
+    created_at: datetime
+
+
+# ── Employer KYC verification ─────────────────────────────────────────────────
+
+class VerificationDocumentEntry(BaseModel):
+    id: str
+    doc_type: str
+    file_url: str
+    original_filename: Optional[str] = None
+    status: str
+    notes: Optional[str] = None
+    uploaded_at: datetime
+
+
+class VerificationEventEntry(BaseModel):
+    id: str
+    actor_name: Optional[str] = None
+    from_status: Optional[str] = None
+    to_status: str
+    note: Optional[str] = None
+    created_at: datetime
+
+
+class EmployerVerificationEntry(BaseModel):
+    id: str
+    employer_id: str
+    company_name: str
+    status: str
+    rejection_reason: Optional[str] = None
+    submitted_at: datetime
+    reviewed_at: Optional[datetime] = None
+    document_count: int = 0
+
+
+class EmployerVerificationDetail(EmployerVerificationEntry):
+    reviewer_notes: Optional[str] = None
+    documents: list[VerificationDocumentEntry] = []
+    events: list[VerificationEventEntry] = []
+
+
+class VerificationReviewRequest(BaseModel):
+    action: str   # under_review | approve | reject
+    notes: Optional[str] = None
+    rejection_reason: Optional[str] = None
+
+
+class UserManagementEntry(BaseModel):
+    user_id: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    role_name: Optional[str] = None
+    full_name: Optional[str] = None
+    status: str
+    is_active: bool
+    failed_login_attempts: int = 0
+    last_login_at: Optional[datetime] = None
+    registered_at: datetime
+
+
+# ── Audit log ──────────────────────────────────────────────────────────────────
+
+class AuditLogEntry(BaseModel):
+    id: str
+    actor_email: Optional[str] = None
+    actor_phone: Optional[str] = None
+    action: str
+    resource: Optional[str] = None
+    resource_id: Optional[str] = None
+    ip_address: Optional[str] = None
+    previous_value: Optional[dict] = None
+    new_value: Optional[dict] = None
+    created_at: datetime
+
+
+class AuditLogPage(BaseModel):
+    total: int
+    items: list[AuditLogEntry]
+
+
+# ── Subscription plans (super_admin/finance_manager) ──────────────────────────
+
+class SubscriptionPlanAdminEntry(BaseModel):
+    id: str
+    name: str
+    price_monthly: int
+    max_active_jobs: Optional[int] = None
+    max_recruiter_seats: Optional[int] = None
+    resume_access: bool
+    candidate_search_limit: Optional[int] = None
+    is_active: bool
+
+
+class SubscriptionPlanUpdateRequest(BaseModel):
+    price_monthly: Optional[int] = None
+    max_active_jobs: Optional[int] = None
+    max_recruiter_seats: Optional[int] = None
+    resume_access: Optional[bool] = None
+    candidate_search_limit: Optional[int] = None
+    is_active: Optional[bool] = None

@@ -1,0 +1,114 @@
+from datetime import datetime
+from typing import Optional
+
+from pydantic import BaseModel, Field
+
+
+class CompanyProfileResponse(BaseModel):
+    id: str
+    name: str
+    industry: Optional[str] = None
+    company_size: Optional[str] = None
+    website: Optional[str] = None
+    logo_url: Optional[str] = None
+    cover_banner_url: Optional[str] = None
+    headquarters: Optional[str] = None
+    founded_year: Optional[int] = None
+    social_links: Optional[dict] = None
+    description: Optional[str] = None
+    verification_status: str
+    created_at: datetime
+
+
+class CompanyProfileUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    industry: Optional[str] = None
+    company_size: Optional[str] = None
+    website: Optional[str] = None
+    logo_url: Optional[str] = None
+    cover_banner_url: Optional[str] = None
+    headquarters: Optional[str] = None
+    founded_year: Optional[int] = None
+    social_links: Optional[dict] = None
+    description: Optional[str] = None
+
+
+class EmployerProfileUpdateRequest(BaseModel):
+    """Recruiter-side fields that live on EmployerProfile, not Company —
+    used by the post-login setup wizard's 'Recruiter information' step."""
+    contact_person: Optional[str] = None
+    designation: Optional[str] = None
+    city: Optional[str] = None
+    gst_number: Optional[str] = None
+
+
+class EmployerProfileSelfResponse(BaseModel):
+    id: str
+    contact_person: Optional[str] = None
+    designation: Optional[str] = None
+    city: Optional[str] = None
+    gst_number: Optional[str] = None
+
+
+class CompanyAssetUploadResponse(BaseModel):
+    url: str
+
+
+TEAM_ROLE_NAMES = ("hr_manager", "recruiter", "interviewer")
+
+
+class TeamMemberEntry(BaseModel):
+    user_id: str
+    employer_profile_id: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    contact_person: str
+    role_name: str
+    is_owner: bool
+    is_active: bool
+    created_at: datetime
+
+
+class TeamInviteRequest(BaseModel):
+    email: str
+    contact_person: str = Field(..., min_length=1, max_length=150)
+    role_name: str = Field(..., pattern="^(hr_manager|recruiter|interviewer)$")
+
+
+class TransferOwnershipRequest(BaseModel):
+    new_owner_employer_profile_id: str
+
+
+class MessageResponse(BaseModel):
+    message: str
+
+
+# ── Subscriptions ──────────────────────────────────────────────────────────────
+
+class SubscriptionPlanEntry(BaseModel):
+    id: str
+    name: str
+    price_monthly: int
+    max_active_jobs: Optional[int] = None
+    max_recruiter_seats: Optional[int] = None
+    resume_access: bool
+    candidate_search_limit: Optional[int] = None
+    is_active: bool
+
+
+class CompanySubscriptionResponse(BaseModel):
+    plan: SubscriptionPlanEntry
+    status: str
+    current_period_start: datetime
+    current_period_end: datetime
+
+
+class SubscriptionUsageResponse(BaseModel):
+    active_jobs_used: int
+    active_jobs_limit: Optional[int] = None
+    recruiter_seats_used: int
+    recruiter_seats_limit: Optional[int] = None
+
+
+class SubscriptionUpgradeRequest(BaseModel):
+    plan_id: str

@@ -1,102 +1,122 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Briefcase, MapPin, Wifi, AlertCircle, ChevronLeft, ChevronRight, SlidersHorizontal, ArrowUpRight } from 'lucide-react'
+import { Briefcase, MapPin, Wifi, AlertCircle, ChevronLeft, ChevronRight, ChevronDown, SlidersHorizontal, ArrowUpRight, IndianRupee, X } from 'lucide-react'
 import AppSidebar from '@/components/layout/AppSidebar'
 import { getJobs, type JobListItem } from '@/api/matching'
 
 const SECTORS = ['Policy', 'ESG', 'EdTech', 'NGO', 'Consulting', 'Public Affairs', 'Research']
 const JOB_TYPES = ['remote', 'pan_india', 'hybrid', 'onsite']
 
+const AVATAR_PALETTE = [
+  ['#EEF2FF', '#4F46E5'], ['#ECFDF5', '#059669'], ['#FFF7ED', '#EA580C'],
+  ['#FDF2F8', '#DB2777'], ['#F0F9FF', '#0284C7'], ['#FAF5FF', '#9333EA'],
+]
+function avatarColors(name: string) {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
+  return AVATAR_PALETTE[h % AVATAR_PALETTE.length]
+}
+
+function matchTier(score: number) {
+  if (score >= 70) return { bg: '#ECFDF5', fg: '#059669', bar: '#10B981' }
+  if (score >= 45) return { bg: '#EEF2FF', fg: '#4F46E5', bar: '#6366F1' }
+  return { bg: '#F8FAFC', fg: '#64748B', bar: '#CBD5E1' }
+}
+
 function JobCard({ job }: { job: JobListItem }) {
   const [hov, setHov] = useState(false)
+  const [bg, fg] = avatarColors(job.company_name)
+  const tier = matchTier(job.match_score ?? 0)
 
   return (
     <div
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        background: '#fff', borderRadius: 16, border: `1px solid ${hov ? '#BFDBFE' : '#F1F5F9'}`, overflow: 'hidden',
-        boxShadow: hov ? '0 12px 30px rgba(37,99,235,0.12)' : '0 2px 8px rgba(15,23,42,0.04)',
-        transform: hov ? 'translateY(-3px)' : 'translateY(0)',
-        transition: 'all 0.2s cubic-bezier(0.34,1.1,0.64,1)',
+        background: '#fff', borderRadius: 18, border: `1px solid ${hov ? '#DBEAFE' : '#EEF2F9'}`, overflow: 'hidden',
+        boxShadow: hov ? '0 18px 40px rgba(37,99,235,0.15)' : '0 8px 22px rgba(15,23,42,0.06)',
+        transform: hov ? 'translateY(-4px)' : 'translateY(0)',
+        transition: 'all 0.25s cubic-bezier(0.34,1.1,0.64,1)',
+        position: 'relative',
       }}
     >
-      <div style={{ padding: '18px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flex: 1, minWidth: 0 }}>
-            <div style={{
-              width: 38, height: 38, borderRadius: 11, flexShrink: 0,
-              background: 'linear-gradient(135deg, #15130F, #3B342B)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 15, fontWeight: 700, color: '#F1EAE0',
-              boxShadow: '0 3px 10px rgba(21,19,15,0.3)',
-            }}>
-              {job.company_name.charAt(0).toUpperCase()}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <h3 style={{ fontWeight: 700, color: '#111827', fontSize: 15, margin: 0 }}>{job.title}</h3>
+      <div style={{ height: 3, background: tier.bar }} />
+      <div style={{ padding: '20px 22px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: 13, flexShrink: 0,
+            background: bg,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 17, fontWeight: 700, color: fg,
+          }}>
+            {job.company_name.charAt(0).toUpperCase()}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+              <h3 style={{ fontWeight: 700, color: '#0F172A', fontSize: 15.5, margin: 0, lineHeight: 1.35 }}>{job.title}</h3>
               {job.match_score !== null && (
                 <span style={{
-                  fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 20,
-                  background: 'rgba(37,99,235,0.1)', color: '#1D4ED8',
+                  fontSize: 11.5, fontWeight: 700, padding: '4px 10px', borderRadius: 20, flexShrink: 0,
+                  background: tier.bg, color: tier.fg, whiteSpace: 'nowrap',
                 }}>
                   {job.match_score}% match
                 </span>
               )}
             </div>
-            <p style={{ fontSize: 13, color: '#6B7280', margin: '3px 0 0' }}>{job.company_name}</p>
-
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-              {job.sector && (
-                <span style={{ fontSize: 11, background: 'rgba(37,99,235,0.08)', color: '#1D4ED8', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>
-                  {job.sector}
-                </span>
-              )}
-              {job.location && (
-                <span style={{ fontSize: 11, background: '#F1F5F9', color: '#475569', padding: '2px 8px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <MapPin size={10} /> {job.location}
-                </span>
-              )}
-              {job.job_type && (
-                <span style={{ fontSize: 11, background: '#F1F5F9', color: '#475569', padding: '2px 8px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <Wifi size={10} /> {job.job_type.replace('_', ' ')}
-                </span>
-              )}
-              {job.employment_type && (
-                <span style={{ fontSize: 11, background: '#F1F5F9', color: '#475569', padding: '2px 8px', borderRadius: 20 }}>
-                  {job.employment_type.replace('_', ' ')}
-                </span>
-              )}
-            </div>
-
-            {(job.salary_min || job.salary_max) && (
-              <p style={{ fontSize: 13, color: '#374151', marginTop: 8, fontWeight: 600 }}>
-                ₹{job.salary_min ?? '?'}–{job.salary_max ?? '?'} LPA
-              </p>
-            )}
-            {job.skill_overlap_pct !== null && (
-              <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>
-                You have {job.skill_overlap_pct}% of required skills
-              </p>
-            )}
-            </div>
+            <p style={{ fontSize: 13, color: '#6B7280', margin: '2px 0 0', fontWeight: 500 }}>{job.company_name}</p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 }}>
+          {job.sector && (
+            <span style={{ fontSize: 11, background: '#EEF2FF', color: '#4F46E5', padding: '3px 9px', borderRadius: 20, fontWeight: 600 }}>
+              {job.sector}
+            </span>
+          )}
+          {job.location && (
+            <span style={{ fontSize: 11, background: '#F8FAFC', color: '#475569', padding: '3px 9px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 3, fontWeight: 500 }}>
+              <MapPin size={10} /> {job.location}
+            </span>
+          )}
+          {job.job_type && (
+            <span style={{ fontSize: 11, background: '#F8FAFC', color: '#475569', padding: '3px 9px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 3, fontWeight: 500 }}>
+              <Wifi size={10} /> {job.job_type.replace('_', ' ')}
+            </span>
+          )}
+          {job.employment_type && (
+            <span style={{ fontSize: 11, background: '#F8FAFC', color: '#475569', padding: '3px 9px', borderRadius: 20, fontWeight: 500 }}>
+              {job.employment_type.replace('_', ' ')}
+            </span>
+          )}
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, paddingTop: 14, borderTop: '1px solid #F8FAFC' }}>
+          <div>
+            {(job.salary_min || job.salary_max) ? (
+              <p style={{ fontSize: 14, color: '#0F172A', margin: 0, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 2 }}>
+                <IndianRupee size={13} />{job.salary_min ?? '?'}–{job.salary_max ?? '?'} LPA
+              </p>
+            ) : (
+              <p style={{ fontSize: 12.5, color: '#CBD5E1', margin: 0 }}>Salary not disclosed</p>
+            )}
+            {job.skill_overlap_pct !== null && (
+              <p style={{ fontSize: 11, color: '#9CA3AF', margin: '3px 0 0' }}>
+                You have {job.skill_overlap_pct}% of required skills
+              </p>
+            )}
+          </div>
           <Link
             to={`/app/jobs/${job.id}`}
             style={{
-              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              textAlign: 'center', fontSize: 13, fontWeight: 700,
-              color: 'white', background: '#2563EB', borderRadius: 10,
-              padding: '9px 0', textDecoration: 'none', transition: 'background 0.15s',
-              boxShadow: '0 3px 10px rgba(37,99,235,0.25)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+              fontSize: 13, fontWeight: 700, flexShrink: 0,
+              color: '#2563EB', background: 'white', border: '1.5px solid #BFDBFE', borderRadius: 10,
+              padding: '9px 16px', textDecoration: 'none', transition: 'all 0.15s',
+              boxShadow: '0 2px 8px rgba(37,99,235,0.08)',
             }}
-            onMouseOver={e => { (e.currentTarget as HTMLAnchorElement).style.background = '#1D4ED8' }}
-            onMouseOut={e => { (e.currentTarget as HTMLAnchorElement).style.background = '#2563EB' }}
+            onMouseOver={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = '#93C5FD'; (e.currentTarget as HTMLAnchorElement).style.boxShadow = '0 6px 16px rgba(37,99,235,0.14)' }}
+            onMouseOut={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = '#BFDBFE'; (e.currentTarget as HTMLAnchorElement).style.boxShadow = '0 2px 8px rgba(37,99,235,0.08)' }}
           >
             View Details <ArrowUpRight size={13} />
           </Link>
@@ -159,7 +179,7 @@ export default function JobsPage() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'white' }}>
       <AppSidebar activePath="/app/jobs" />
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: '#FAFBFD' }}>
         {/* Header */}
         <header style={{
           background: 'white',
@@ -177,49 +197,69 @@ export default function JobsPage() {
           </div>
           <div>
             <p style={{ fontSize: 14.5, fontWeight: 700, color: '#0F172A', margin: 0 }}>Job Opportunities</p>
-            <p style={{ fontSize: 11.5, color: '#9CA3AF', margin: 0 }}>Ranked by your DISHA profile match score</p>
+            <p style={{ fontSize: 11.5, color: '#9CA3AF', margin: 0 }}>Ranked by your BeginablAI profile match score</p>
           </div>
         </header>
 
-      <main style={{ flex: 1, padding: '28px 36px', maxWidth: 960 }}>
+      <main style={{ flex: 1, padding: '28px 36px 48px', maxWidth: 1000, margin: '0 auto', width: '100%' }}>
 
         {/* Filters */}
         <div style={{
-          display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 24, alignItems: 'center',
-          background: '#F5F8FF', border: '1px solid #DBEAFE', borderRadius: 14, padding: '12px 16px',
+          display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 24, alignItems: 'center',
         }}>
-          <SlidersHorizontal size={15} color="#2563EB" />
-          <select
-            value={sector}
-            onChange={e => { setSector(e.target.value); setPage(0) }}
-            style={{
-              border: '1px solid #E2E8F0', borderRadius: 9, padding: '7px 12px',
-              fontSize: 13, background: '#fff', color: '#374151', cursor: 'pointer', outline: 'none',
-            }}
-          >
-            <option value="">All Sectors</option>
-            {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <select
-            value={jobType}
-            onChange={e => { setJobType(e.target.value); setPage(0) }}
-            style={{
-              border: '1px solid #E2E8F0', borderRadius: 9, padding: '7px 12px',
-              fontSize: 13, background: '#fff', color: '#374151', cursor: 'pointer', outline: 'none',
-            }}
-          >
-            <option value="">All Types</option>
-            {JOB_TYPES.map(t => <option key={t} value={t} style={{ textTransform: 'capitalize' }}>{t.replace('_', ' ')}</option>)}
-          </select>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 7,
+            background: '#EEF2FF', borderRadius: 9, padding: '7px 11px',
+          }}>
+            <SlidersHorizontal size={13} color="#4F46E5" />
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#4F46E5' }}>Filters</span>
+          </div>
+
+          <div style={{ position: 'relative' }}>
+            <select
+              value={sector}
+              onChange={e => { setSector(e.target.value); setPage(0) }}
+              style={{
+                appearance: 'none', border: '1px solid #E2E8F0', borderRadius: 10, padding: '8px 32px 8px 14px',
+                fontSize: 13, fontWeight: 500, background: '#fff', color: sector ? '#0F172A' : '#6B7280',
+                cursor: 'pointer', outline: 'none', transition: 'border-color 0.15s',
+              }}
+              onFocus={e => { e.currentTarget.style.borderColor = '#A5B4FC' }}
+              onBlur={e => { e.currentTarget.style.borderColor = '#E2E8F0' }}
+            >
+              <option value="">All Sectors</option>
+              {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <ChevronDown size={13} color="#9CA3AF" style={{ position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+          </div>
+
+          <div style={{ position: 'relative' }}>
+            <select
+              value={jobType}
+              onChange={e => { setJobType(e.target.value); setPage(0) }}
+              style={{
+                appearance: 'none', border: '1px solid #E2E8F0', borderRadius: 10, padding: '8px 32px 8px 14px',
+                fontSize: 13, fontWeight: 500, background: '#fff', color: jobType ? '#0F172A' : '#6B7280',
+                cursor: 'pointer', outline: 'none', transition: 'border-color 0.15s',
+              }}
+              onFocus={e => { e.currentTarget.style.borderColor = '#A5B4FC' }}
+              onBlur={e => { e.currentTarget.style.borderColor = '#E2E8F0' }}
+            >
+              <option value="">All Types</option>
+              {JOB_TYPES.map(t => <option key={t} value={t} style={{ textTransform: 'capitalize' }}>{t.replace('_', ' ')}</option>)}
+            </select>
+            <ChevronDown size={13} color="#9CA3AF" style={{ position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+          </div>
+
           {hasFilters && (
             <button
               onClick={() => { setSector(''); setJobType(''); setPage(0) }}
               style={{
-                fontSize: 12, color: '#6B7280', background: 'none', border: '1px solid #E2E8F0',
-                borderRadius: 9, padding: '7px 12px', cursor: 'pointer',
+                fontSize: 12.5, fontWeight: 600, color: '#EF4444', background: 'none', border: 'none',
+                padding: '8px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
               }}
             >
-              Clear filters
+              <X size={13} /> Clear filters
             </button>
           )}
         </div>
@@ -259,7 +299,7 @@ export default function JobsPage() {
             {data.jobs.length === 0
               ? <EmptyState hasFilters={hasFilters} />
               : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 18 }}>
                   {data.jobs.map(job => <JobCard key={job.id} job={job} />)}
                 </div>
               )

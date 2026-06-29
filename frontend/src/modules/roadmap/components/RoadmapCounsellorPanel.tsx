@@ -140,7 +140,7 @@ export default function RoadmapCounsellorPanel({ jobId, jobTitle, company, secto
           <Sparkles size={14} color="white" />
         </div>
         <div>
-          <p style={{ fontSize: 14, fontWeight: 700, color: '#111827', margin: 0 }}>Ask DISHA</p>
+          <p style={{ fontSize: 14, fontWeight: 700, color: '#111827', margin: 0 }}>Ask BeginablAI</p>
           <p style={{ fontSize: 11.5, color: '#9CA3AF', margin: 0 }}>
             About {jobTitle ?? 'this role'} only
           </p>

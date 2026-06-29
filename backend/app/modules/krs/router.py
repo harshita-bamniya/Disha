@@ -9,8 +9,8 @@ from app.database import get_db, get_redis
 from app.models.user import User
 from app.modules.krs import service
 from app.modules.krs.schemas import (
-    ActivePrepJobContext, KrsDashboardResponse, KrsScoreResponse,
-    LiveJobResponse, PrepareJobResponse,
+    ActivePrepJobContext, JobFitAnalysisRequest, JobFitAnalysisResponse,
+    KrsDashboardResponse, KrsScoreResponse, LiveJobResponse, PrepareJobResponse,
 )
 
 router = APIRouter(prefix="/krs", tags=["KRS Intelligence"])
@@ -147,6 +147,25 @@ def clear_prep(
     except Exception:
         pass
     return result
+
+
+@router.post("/jobs/fit-analysis", response_model=JobFitAnalysisResponse, status_code=200)
+async def job_fit_analysis(
+    body: JobFitAnalysisRequest,
+    current_user: User = Depends(get_current_verified_user),
+):
+    """AI-generated natural-language explanation of why a job is (or isn't) a good fit."""
+    summary = await service.get_job_fit_analysis(
+        job_title=body.job_title,
+        company_name=body.company_name,
+        description=body.description,
+        required_skills=body.required_skills,
+        skills_you_have=body.skills_you_have,
+        skills_to_develop=body.skills_to_develop,
+        min_k_score=body.min_k_score,
+        k_score=body.k_score,
+    )
+    return JobFitAnalysisResponse(summary=summary)
 
 
 @router.post("/compute", response_model=KrsScoreResponse, status_code=200)

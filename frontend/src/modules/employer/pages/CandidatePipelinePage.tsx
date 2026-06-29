@@ -7,33 +7,50 @@ import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useMemo } from 'react'
 import {
-  getJobPipeline, updateApplicationStatus, updateApplicationNote,
+  getJobPipeline, updateApplicationStatus, updateApplicationNote, bulkUpdateApplicationStatus,
+  scheduleInterview, submitInterviewFeedback, cancelInterview,
   type CandidateOut,
 } from '@/api/matching'
 import {
   Search, X, Download, ChevronDown, ChevronUp, SlidersHorizontal,
   FileText, Briefcase, GraduationCap, Brain, TrendingUp, MapPin,
   CheckCircle2, Clock, AlertCircle, Star, Users, ArrowLeft,
-  MessageSquare, BookOpen,
+  MessageSquare, BookOpen, LayoutGrid, List as ListIcon,
+  CalendarPlus, Video, Ban,
 } from 'lucide-react'
+import { useHasPermission } from '../hooks/useJobs'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const STATUS_OPTIONS = [
-  { value: 'under_review', label: 'Mark Under Review', color: '#D97706' },
-  { value: 'shortlisted',  label: 'Shortlist',         color: '#059669' },
-  { value: 'rejected',     label: 'Reject',            color: '#DC2626' },
-  { value: 'hired',        label: 'Mark as Hired',     color: '#7C3AED' },
+  { value: 'screening',           label: 'Move to Screening',  color: '#D97706' },
+  { value: 'shortlisted',         label: 'Shortlist',          color: '#059669' },
+  { value: 'interview_scheduled', label: 'Schedule Interview', color: '#3B82F6' },
+  { value: 'interview_completed', label: 'Mark Interviewed',   color: '#0EA5E9' },
+  { value: 'offer_sent',          label: 'Send Offer',         color: '#7C3AED' },
+  { value: 'rejected',            label: 'Reject',             color: '#DC2626' },
+  { value: 'hired',               label: 'Mark as Hired',      color: '#7C3AED' },
 ]
 
 const STATUS_STYLE: Record<string, { bg: string; text: string }> = {
-  applied:      { bg: 'rgba(59,130,246,0.1)',   text: '#2563EB' },
-  under_review: { bg: 'rgba(217,119,6,0.1)',    text: '#D97706' },
-  shortlisted:  { bg: 'rgba(5,150,105,0.1)',    text: '#059669' },
-  rejected:     { bg: 'rgba(220,38,38,0.1)',    text: '#DC2626' },
-  hired:        { bg: 'rgba(124,58,237,0.1)',   text: '#7C3AED' },
-  withdrawn:    { bg: 'rgba(107,114,128,0.08)', text: '#9CA3AF' },
+  applied:              { bg: 'rgba(59,130,246,0.1)',   text: '#2563EB' },
+  under_review:         { bg: 'rgba(217,119,6,0.1)',    text: '#D97706' },
+  screening:            { bg: 'rgba(217,119,6,0.1)',    text: '#D97706' },
+  shortlisted:          { bg: 'rgba(5,150,105,0.1)',    text: '#059669' },
+  interview_scheduled:  { bg: 'rgba(59,130,246,0.1)',   text: '#3B82F6' },
+  interview_completed:  { bg: 'rgba(14,165,233,0.1)',   text: '#0EA5E9' },
+  offer_sent:           { bg: 'rgba(124,58,237,0.1)',   text: '#7C3AED' },
+  rejected:             { bg: 'rgba(220,38,38,0.1)',    text: '#DC2626' },
+  hired:                { bg: 'rgba(124,58,237,0.1)',   text: '#7C3AED' },
+  withdrawn:            { bg: 'rgba(107,114,128,0.08)', text: '#9CA3AF' },
 }
+
+// Kanban columns, in pipeline order — excludes the terminal 'withdrawn' state
+// (aspirant-initiated; employer can't drag into/out of it).
+const KANBAN_STAGES = [
+  'applied', 'screening', 'shortlisted', 'interview_scheduled',
+  'interview_completed', 'offer_sent', 'hired', 'rejected',
+] as const
 
 const SORT_OPTIONS = [
   { value: 'match_score', label: 'Best Match' },
@@ -122,6 +139,8 @@ function StatChip({label,value,color}:{label:string;value:string;color:string}){
 
 function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:string;onClose:()=>void}){
   const qc=useQueryClient()
+  const canMoveCandidate=useHasPermission('candidates:shortlist')
+  const canInterview=useHasPermission('candidates:interview')
   const [selectedStatus,setSelectedStatus]=useState('')
   const [statusNote,setStatusNote]=useState('')
   const [recruiterNote,setRecruiterNote]=useState(candidate.employer_note??'')
@@ -134,6 +153,26 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
   const noteMutation=useMutation({
     mutationFn:()=>updateApplicationNote(candidate.application_id,recruiterNote),
     onSuccess:()=>{qc.invalidateQueries({queryKey:['pipeline',jobId]});setNoteSaved(true);setTimeout(()=>setNoteSaved(false),2500)},
+  })
+
+  const [scheduleAt,setScheduleAt]=useState('')
+  const [meetingLink,setMeetingLink]=useState('')
+  const [showScheduleForm,setShowScheduleForm]=useState(false)
+  const [feedbackForId,setFeedbackForId]=useState<string|null>(null)
+  const [feedbackRecommendation,setFeedbackRecommendation]=useState('')
+  const [feedbackText,setFeedbackText]=useState('')
+
+  const scheduleMutation=useMutation({
+    mutationFn:()=>scheduleInterview(candidate.application_id,{scheduled_at:new Date(scheduleAt).toISOString(),meeting_link:meetingLink||undefined}),
+    onSuccess:()=>{qc.invalidateQueries({queryKey:['pipeline',jobId]});setShowScheduleForm(false);setScheduleAt('');setMeetingLink('')},
+  })
+  const feedbackMutation=useMutation({
+    mutationFn:(interviewId:string)=>submitInterviewFeedback(candidate.application_id,interviewId,{recommendation:feedbackRecommendation||undefined,feedback:feedbackText||undefined}),
+    onSuccess:()=>{qc.invalidateQueries({queryKey:['pipeline',jobId]});setFeedbackForId(null);setFeedbackRecommendation('');setFeedbackText('')},
+  })
+  const cancelInterviewMutation=useMutation({
+    mutationFn:(interviewId:string)=>cancelInterview(candidate.application_id,interviewId),
+    onSuccess:()=>qc.invalidateQueries({queryKey:['pipeline',jobId]}),
   })
 
   const isTerminal=['withdrawn','hired','rejected'].includes(candidate.status)
@@ -264,6 +303,80 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
             </Section>
           )}
 
+          <Section icon={<Video size={13}/>} title="Interviews">
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              {candidate.interview_feedback.length===0&&!showScheduleForm&&(
+                <p style={{fontSize:12,color:'#94A3B8',margin:0}}>No interviews scheduled yet.</p>
+              )}
+              {candidate.interview_feedback.map(iv=>(
+                <div key={iv.id} style={{border:'1px solid #E2E8F0',borderRadius:10,padding:'10px 12px'}}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+                    <span style={{fontSize:12,fontWeight:700,color:'#1E293B'}}>
+                      {iv.scheduled_at?new Date(iv.scheduled_at).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'—'}
+                    </span>
+                    <span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,
+                      background:iv.status==='scheduled'?'rgba(59,130,246,0.1)':iv.status==='completed'?'rgba(5,150,105,0.1)':'rgba(220,38,38,0.1)',
+                      color:iv.status==='scheduled'?'#3B82F6':iv.status==='completed'?'#059669':'#DC2626'}}>
+                      {iv.status}
+                    </span>
+                  </div>
+                  {iv.meeting_link&&(
+                    <a href={iv.meeting_link} target="_blank" rel="noreferrer" style={{fontSize:11,color:'#3B82F6',display:'block',marginTop:4}}>{iv.meeting_link}</a>
+                  )}
+                  {iv.recommendation&&<p style={{fontSize:11,color:'#475569',marginTop:6}}><strong>Recommendation:</strong> {iv.recommendation.replace('_',' ')}</p>}
+                  {iv.feedback&&<p style={{fontSize:11,color:'#475569',marginTop:2}}>{iv.feedback}</p>}
+
+                  {iv.status==='scheduled'&&feedbackForId!==iv.id&&canInterview&&(
+                    <div style={{display:'flex',gap:8,marginTop:8}}>
+                      <button onClick={()=>setFeedbackForId(iv.id)} style={{fontSize:11,fontWeight:700,color:'#059669',background:'none',border:'none',cursor:'pointer'}}>Add feedback</button>
+                      <button onClick={()=>cancelInterviewMutation.mutate(iv.id)} disabled={cancelInterviewMutation.isPending} style={{fontSize:11,fontWeight:700,color:'#DC2626',background:'none',border:'none',cursor:'pointer',display:'flex',alignItems:'center',gap:3}}><Ban size={11}/>Cancel</button>
+                    </div>
+                  )}
+                  {feedbackForId===iv.id&&(
+                    <div style={{marginTop:8,display:'flex',flexDirection:'column',gap:6}}>
+                      <select value={feedbackRecommendation} onChange={e=>setFeedbackRecommendation(e.target.value)}
+                        style={{border:'1px solid #E2E8F0',borderRadius:8,padding:'6px 8px',fontSize:12}}>
+                        <option value="">Recommendation…</option>
+                        <option value="strong_yes">Strong Yes</option>
+                        <option value="yes">Yes</option>
+                        <option value="no">No</option>
+                        <option value="strong_no">Strong No</option>
+                      </select>
+                      <textarea value={feedbackText} onChange={e=>setFeedbackText(e.target.value)} rows={2} placeholder="Feedback notes…"
+                        style={{border:'1px solid #E2E8F0',borderRadius:8,padding:'6px 8px',fontSize:12,resize:'none',fontFamily:'inherit'}}/>
+                      <div style={{display:'flex',gap:6}}>
+                        <button onClick={()=>setFeedbackForId(null)} style={{flex:1,padding:6,borderRadius:8,border:'1px solid #E2E8F0',background:'#fff',fontSize:11,fontWeight:600,cursor:'pointer'}}>Cancel</button>
+                        <button onClick={()=>feedbackMutation.mutate(iv.id)} disabled={feedbackMutation.isPending} style={{flex:1,padding:6,borderRadius:8,border:'none',background:'#059669',color:'#fff',fontSize:11,fontWeight:700,cursor:'pointer'}}>
+                          {feedbackMutation.isPending?'Saving…':'Submit'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {canInterview&&(showScheduleForm?(
+                <div style={{border:'1px dashed #93C5FD',borderRadius:10,padding:10,display:'flex',flexDirection:'column',gap:6}}>
+                  <input type="datetime-local" value={scheduleAt} onChange={e=>setScheduleAt(e.target.value)}
+                    style={{border:'1px solid #E2E8F0',borderRadius:8,padding:'6px 8px',fontSize:12}}/>
+                  <input type="url" value={meetingLink} onChange={e=>setMeetingLink(e.target.value)} placeholder="Meeting link (optional)"
+                    style={{border:'1px solid #E2E8F0',borderRadius:8,padding:'6px 8px',fontSize:12}}/>
+                  <div style={{display:'flex',gap:6}}>
+                    <button onClick={()=>setShowScheduleForm(false)} style={{flex:1,padding:6,borderRadius:8,border:'1px solid #E2E8F0',background:'#fff',fontSize:11,fontWeight:600,cursor:'pointer'}}>Cancel</button>
+                    <button onClick={()=>scheduleMutation.mutate()} disabled={!scheduleAt||scheduleMutation.isPending}
+                      style={{flex:1,padding:6,borderRadius:8,border:'none',background:'#3B82F6',color:'#fff',fontSize:11,fontWeight:700,cursor:'pointer',opacity:!scheduleAt?0.5:1}}>
+                      {scheduleMutation.isPending?'Scheduling…':'Schedule'}
+                    </button>
+                  </div>
+                </div>
+              ):(
+                <button onClick={()=>setShowScheduleForm(true)} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:8,borderRadius:8,border:'1px dashed #93C5FD',background:'none',color:'#3B82F6',fontSize:12,fontWeight:700,cursor:'pointer'}}>
+                  <CalendarPlus size={13}/>Schedule Interview
+                </button>
+              ))}
+            </div>
+          </Section>
+
           <Section icon={<MessageSquare size={13}/>} title="Private Recruiter Note">
             <textarea value={recruiterNote} onChange={e=>setRecruiterNote(e.target.value)} placeholder="Internal notes (not visible to applicant)..." rows={3} maxLength={1000}
               style={{width:'100%',border:'1px solid #E2E8F0',borderRadius:10,padding:'10px 12px',fontSize:13,resize:'none',outline:'none',color:'#1E293B',fontFamily:'inherit',boxSizing:'border-box'}}/>
@@ -276,7 +389,7 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
             </div>
           </Section>
 
-          {!isTerminal&&(
+          {!isTerminal&&canMoveCandidate&&(
             <Section icon={<CheckCircle2 size={13}/>} title="Update Application Status">
               <div style={{display:'flex',flexDirection:'column',gap:8}}>
                 <select value={selectedStatus} onChange={e=>setSelectedStatus(e.target.value)}
@@ -350,6 +463,102 @@ function CandidateCard({candidate,jobId,selected,onSelect}:{candidate:CandidateO
   )
 }
 
+// ── Kanban Board ──────────────────────────────────────────────────────────────
+
+const STAGE_LABELS: Record<string, string> = {
+  applied: 'Applied', screening: 'Screening', shortlisted: 'Shortlisted',
+  interview_scheduled: 'Interview Scheduled', interview_completed: 'Interview Completed',
+  offer_sent: 'Offer Sent', hired: 'Hired', rejected: 'Rejected',
+}
+
+function KanbanCard({ candidate, jobId, onDragStart }: {
+  candidate: CandidateOut; jobId: string; onDragStart: (id: string) => void
+}) {
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  return (
+    <>
+      <div
+        draggable
+        onDragStart={() => onDragStart(candidate.application_id)}
+        onClick={() => setDrawerOpen(true)}
+        style={{
+          background: '#fff', borderRadius: 12, border: '1px solid #E5E7EB',
+          padding: '12px 14px', marginBottom: 10, cursor: 'grab',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+        }}
+      >
+        <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', margin: 0 }}>{candidate.full_name ?? 'Anonymous'}</p>
+        <p style={{ fontSize: 11, color: '#64748B', margin: '2px 0 8px' }}>
+          {[candidate.city, candidate.state].filter(Boolean).join(', ') || 'Location N/A'}
+        </p>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {candidate.match_score !== null && <StatChip label="Match" value={`${candidate.match_score}%`} color={candidate.match_score >= 70 ? '#059669' : candidate.match_score >= 40 ? '#D97706' : '#DC2626'} />}
+          {candidate.avg_rating !== null && <StatChip label="★" value={candidate.avg_rating.toFixed(1)} color="#D97706" />}
+        </div>
+      </div>
+      {drawerOpen && <ProfileDrawer candidate={candidate} jobId={jobId} onClose={() => setDrawerOpen(false)} />}
+    </>
+  )
+}
+
+function KanbanBoard({ candidates, jobId, onMove }: {
+  candidates: CandidateOut[]; jobId: string
+  onMove: (applicationId: string, toStatus: string) => void
+}) {
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dragOverStage, setDragOverStage] = useState<string | null>(null)
+
+  const byStage = useMemo(() => {
+    const map = new Map<string, CandidateOut[]>()
+    KANBAN_STAGES.forEach(s => map.set(s, []))
+    candidates.forEach(c => {
+      const stage = c.status === 'under_review' ? 'screening' : c.status
+      if (map.has(stage)) map.get(stage)!.push(c)
+    })
+    return map
+  }, [candidates])
+
+  return (
+    <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 12 }}>
+      {KANBAN_STAGES.map(stage => {
+        const items = byStage.get(stage) ?? []
+        const isDragOver = dragOverStage === stage
+        return (
+          <div
+            key={stage}
+            onDragOver={e => { e.preventDefault(); setDragOverStage(stage) }}
+            onDragLeave={() => setDragOverStage(prev => prev === stage ? null : prev)}
+            onDrop={e => {
+              e.preventDefault()
+              if (draggingId) onMove(draggingId, stage)
+              setDraggingId(null)
+              setDragOverStage(null)
+            }}
+            style={{
+              minWidth: 260, flexShrink: 0, borderRadius: 14,
+              background: isDragOver ? 'rgba(59,130,246,0.06)' : '#F1F5F9',
+              border: isDragOver ? '2px dashed #3B82F6' : '1px solid #E5E7EB',
+              padding: 10,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, padding: '0 4px' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>{STAGE_LABELS[stage]}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', background: '#fff', borderRadius: 20, padding: '1px 8px' }}>{items.length}</span>
+            </div>
+            {items.length === 0 ? (
+              <p style={{ fontSize: 11, color: '#CBD5E1', textAlign: 'center', padding: '20px 0' }}>No candidates</p>
+            ) : (
+              items.map(c => (
+                <KanbanCard key={c.application_id} candidate={c} jobId={jobId} onDragStart={setDraggingId} />
+              ))
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function CandidatePipelinePage() {
@@ -364,6 +573,8 @@ export default function CandidatePipelinePage() {
   const [bulkNote,setBulkNote]=useState('')
   const [showFilters,setShowFilters]=useState(false)
   const [minKrs,setMinKrs]=useState(0)
+  const [view,setView]=useState<'list'|'kanban'>('kanban')
+  const canMoveCandidates=useHasPermission('candidates:shortlist')
 
   const {data:pipeline,isLoading,isError}=useQuery({
     queryKey:['pipeline',jobId],
@@ -372,10 +583,13 @@ export default function CandidatePipelinePage() {
   })
 
   const bulkMutation=useMutation({
-    mutationFn:async()=>{
-      await Promise.all([...selectedIds].map(id=>updateApplicationStatus(id,bulkStatus,bulkNote||undefined)))
-    },
+    mutationFn:()=>bulkUpdateApplicationStatus([...selectedIds],bulkStatus,bulkNote||undefined),
     onSuccess:()=>{qc.invalidateQueries({queryKey:['pipeline',jobId]});setSelectedIds(new Set());setBulkStatus('');setBulkNote('')},
+  })
+
+  const moveMutation=useMutation({
+    mutationFn:({id,status}:{id:string;status:string})=>updateApplicationStatus(id,status),
+    onSuccess:()=>qc.invalidateQueries({queryKey:['pipeline',jobId]}),
   })
 
   const filtered=useMemo(()=>{
@@ -427,6 +641,16 @@ export default function CandidatePipelinePage() {
           <h1 style={{fontSize:16,fontWeight:800,color:'#0F172A',margin:0}}>{pipeline.job_title}</h1>
           <p style={{fontSize:11,color:'#94A3B8',margin:0}}>{pipeline.total_applications} total application{pipeline.total_applications!==1?'s':''}</p>
         </div>
+        <div style={{display:'flex',gap:2,background:'#F1F5F9',borderRadius:10,padding:2}}>
+          <button onClick={()=>setView('kanban')} title="Kanban view"
+            style={{display:'flex',alignItems:'center',gap:6,padding:'6px 12px',borderRadius:8,border:'none',background:view==='kanban'?'#fff':'transparent',boxShadow:view==='kanban'?'0 1px 3px rgba(0,0,0,0.08)':'none',fontSize:12,fontWeight:700,color:view==='kanban'?'#0F172A':'#94A3B8',cursor:'pointer'}}>
+            <LayoutGrid size={13}/>Kanban
+          </button>
+          <button onClick={()=>setView('list')} title="List view"
+            style={{display:'flex',alignItems:'center',gap:6,padding:'6px 12px',borderRadius:8,border:'none',background:view==='list'?'#fff':'transparent',boxShadow:view==='list'?'0 1px 3px rgba(0,0,0,0.08)':'none',fontSize:12,fontWeight:700,color:view==='list'?'#0F172A':'#94A3B8',cursor:'pointer'}}>
+            <ListIcon size={13}/>List
+          </button>
+        </div>
         <button onClick={()=>exportToCSV(filtered,pipeline.job_title)}
           style={{display:'flex',alignItems:'center',gap:7,padding:'8px 14px',borderRadius:10,border:'1px solid #E5E7EB',background:'#fff',fontSize:12,fontWeight:700,color:'#374151',cursor:'pointer'}}>
           <Download size={13}/>Export CSV
@@ -470,7 +694,7 @@ export default function CandidatePipelinePage() {
         )}
 
         {/* Bulk action bar */}
-        {selectedIds.size>0&&(
+        {selectedIds.size>0&&canMoveCandidates&&(
           <div style={{background:'#1E293B',borderRadius:12,padding:'12px 18px',display:'flex',alignItems:'center',gap:12,marginBottom:14,flexWrap:'wrap'}}>
             <span style={{fontSize:12,fontWeight:700,color:'#fff'}}>{selectedIds.size} selected</span>
             <select value={bulkStatus} onChange={e=>setBulkStatus(e.target.value)} style={{height:32,padding:'0 10px',borderRadius:8,border:'none',fontSize:12,background:'#334155',color:'#fff',cursor:'pointer'}}>
@@ -486,7 +710,7 @@ export default function CandidatePipelinePage() {
         )}
 
         {/* Select all */}
-        {filtered.length>0&&(
+        {filtered.length>0&&canMoveCandidates&&(
           <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:12}}>
             <input type="checkbox" checked={selectedIds.size===filtered.length&&filtered.length>0} onChange={toggleSelectAll} style={{accentColor:'#3B82F6',width:15,height:15}}/>
             <span style={{fontSize:12,color:'#64748B'}}>
@@ -495,13 +719,19 @@ export default function CandidatePipelinePage() {
           </div>
         )}
 
-        {/* Grid */}
+        {/* Kanban or Grid */}
         {filtered.length===0?(
           <div style={{textAlign:'center',padding:'60px 24px',color:'#94A3B8'}}>
             <Users size={40} style={{margin:'0 auto 12px',opacity:0.3,display:'block'}}/>
             <p style={{fontSize:15,fontWeight:600,margin:'0 0 4px'}}>No candidates found</p>
             <p style={{fontSize:13,margin:0}}>Try adjusting your filters or search.</p>
           </div>
+        ):view==='kanban'?(
+          <KanbanBoard
+            candidates={filtered}
+            jobId={jobId!}
+            onMove={canMoveCandidates?(applicationId,toStatus)=>moveMutation.mutate({id:applicationId,status:toStatus}):()=>{}}
+          />
         ):(
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(320px,1fr))',gap:14}}>
             {filtered.map(c=>(

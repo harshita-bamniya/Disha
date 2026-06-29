@@ -3,6 +3,7 @@ import logging
 from celery import Celery
 from celery.schedules import crontab
 
+import app.models  # noqa: F401 — registers every model class before any task's mappers configure
 from app.config import get_settings
 
 settings = get_settings()
@@ -346,3 +347,22 @@ def revoke_expired_refresh_tokens() -> dict:
         return {"deleted": 0, "error": str(exc)}
     finally:
         db.close()
+
+
+@celery_app.task(
+    bind=True,
+    name="app.tasks.worker.send_notification_email",
+    max_retries=3,
+    default_retry_delay=30,
+    autoretry_for=(Exception,),
+)
+def send_notification_email(self, to: str, subject: str, html: str) -> None:
+    """Sends a single notification email out-of-band, so request handlers
+    (new application, status change, interview scheduled, etc.) never wait
+    on the email provider. Raises on failure so Celery's autoretry kicks in —
+    unlike app.core.email.send_email, which swallows errors for direct callers."""
+    import asyncio
+    from app.core.email import get_email_provider
+
+    provider = get_email_provider()
+    asyncio.run(provider.send(to, subject, html))

@@ -58,6 +58,41 @@ def require_role(*roles: str):
 require_admin = require_role("admin", "super_admin")
 require_super_admin = require_role("super_admin")
 
+# Any company-side role — the original "employer" role (registering owner)
+# plus the Phase 4 team roles, all of which need access to job/candidate
+# endpoints scoped to their own EmployerProfile / shared Company.
+require_employer = require_role("employer", "employer_owner", "hr_manager", "recruiter", "interviewer")
+
+
+def require_permission(resource: str, action: str):
+    """Factory that returns a dependency enforcing a (resource, action) permission,
+    looked up via the user's role -> RolePermission -> Permission chain.
+
+    Use this instead of require_role for fine-grained admin/employer endpoints so
+    sub-admin and recruiter roles work without hardcoding role names per route.
+    """
+    def _check(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> User:
+        if not current_user.role_id:
+            raise ForbiddenException("No role assigned to this account.")
+
+        from app.models.user import Permission, RolePermission
+
+        has_permission = (
+            db.query(RolePermission)
+            .join(Permission, RolePermission.permission_id == Permission.id)
+            .filter(
+                RolePermission.role_id == current_user.role_id,
+                Permission.resource == resource,
+                Permission.action == action,
+            )
+            .first()
+            is not None
+        )
+        if not has_permission:
+            raise ForbiddenException(f"Missing permission: {resource}.{action}")
+        return current_user
+    return _check
+
 
 def get_current_aspirant(current_user: User = Depends(get_current_verified_user)) -> User:
     """Dependency: user must be an aspirant (not employer, not admin)."""

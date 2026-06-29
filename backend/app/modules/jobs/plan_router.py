@@ -84,6 +84,27 @@ def get_my_learning_plans(
     return out
 
 
+@router.delete("/{job_id}/learning-plan", status_code=200)
+def delete_plan(
+    job_id: str,
+    user: User = Depends(get_current_aspirant),
+    db: Session = Depends(get_db),
+):
+    """Delete a generated roadmap for a job. If it's the user's active prep job,
+    clears that pointer too so prep tools revert to generic mode."""
+    plan = _get_plan(user.id, job_id, db)
+    if not plan:
+        raise HTTPException(status_code=404, detail="No roadmap found for this job.")
+
+    profile = db.query(AspirantProfile).filter(AspirantProfile.user_id == user.id).first()
+    if profile and str(profile.active_prep_job_id) == str(job_id):
+        profile.active_prep_job_id = None
+
+    db.delete(plan)
+    db.commit()
+    return {"job_id": job_id, "deleted": True}
+
+
 @router.post("/{job_id}/learning-plan", status_code=202)
 async def generate_plan(
     job_id: str,
@@ -139,6 +160,9 @@ async def generate_plan(
         "required_skills": job.required_skills or [],
     }
 
+    class _Cancelled(Exception):
+        pass
+
     async def _bg(pid=plan_id, js=job_snapshot, us=user_skills, gs=gap_skills):
         from app.database import SessionLocal
         bg_db = SessionLocal()
@@ -149,6 +173,13 @@ async def generate_plan(
                 values["generation_detail"] = detail
             bg_db.query(JobLearningPlan).filter(JobLearningPlan.id == pid).update(values)
             bg_db.commit()
+
+        def _still_generating() -> bool:
+            """The user can cancel by deleting the plan row (DELETE /jobs/{id}/learning-plan)
+            while it's still generating. Check between steps and bail out cooperatively —
+            we can't interrupt a single in-flight LLM call, but we stop before the next one."""
+            current = bg_db.query(JobLearningPlan).filter(JobLearningPlan.id == pid).first()
+            return current is not None and current.status == "generating"
 
         try:
             bg_plan = bg_db.query(JobLearningPlan).filter(JobLearningPlan.id == pid).first()
@@ -167,6 +198,9 @@ async def generate_plan(
                     gap_skills=gs,
                 )
 
+                if not _still_generating():
+                    raise _Cancelled()
+
                 # Step 2: replace hallucinated YouTube links with real searched videos,
                 # reporting real per-resource progress as it happens (no canned copy).
                 _set_step("resources", {
@@ -178,9 +212,14 @@ async def generate_plan(
                 })
 
                 async def _on_progress(detail: dict):
+                    if not _still_generating():
+                        raise _Cancelled()
                     _set_step("resources", detail)
 
                 result = await enrich_plan_with_real_videos(result, on_progress=_on_progress)
+
+                if not _still_generating():
+                    raise _Cancelled()
 
                 # Step 3: finalize and persist.
                 _set_step("finalizing", {"modules_planned": len(result.get("modules", []))})
@@ -188,12 +227,15 @@ async def generate_plan(
                 bg_plan.plan = result
                 bg_plan.status = "ready"
                 bg_db.commit()
+            except _Cancelled:
+                logger.info("Plan generation %s cancelled by user.", pid)
             except Exception as exc:
                 logger.error("Plan gen failed %s: %s", pid, exc, exc_info=True)
                 bg_plan = bg_db.query(JobLearningPlan).filter(JobLearningPlan.id == pid).first()
-                bg_plan.status = "failed"
-                bg_plan.error_msg = str(exc)
-                bg_db.commit()
+                if bg_plan:
+                    bg_plan.status = "failed"
+                    bg_plan.error_msg = str(exc)
+                    bg_db.commit()
         finally:
             bg_db.close()
 

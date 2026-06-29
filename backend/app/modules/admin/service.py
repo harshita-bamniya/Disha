@@ -4,14 +4,21 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import NotFoundException
+from app.core.exceptions import ForbiddenException, NotFoundException
+from app.models.employer_verification import (
+    EmployerVerification, EmployerVerificationDocument, EmployerVerificationEvent,
+)
+from app.models.subscription import SubscriptionPlan
 from app.models.user import (
-    AspirantProfile, CareerTrack, EmployerProfile, JobPosting,
-    KrsScore, PsychologicalAssessment, User, UserCareerSelection,
+    AspirantProfile, AuditLog, CareerTrack, DeviceSession, EmployerProfile, JobPosting,
+    KrsScore, LoginHistory, Permission, PsychologicalAssessment, Role,
+    RolePermission, User, UserCareerSelection,
 )
 from app.modules.admin.schemas import (
     AdminActivityItem,
     AdminApplicationEntry,
+    AuditLogEntry,
+    AuditLogPage,
     AdminJobEntry,
     AdminStatsResponse,
     AspirantCareerPreferences,
@@ -26,9 +33,36 @@ from app.modules.admin.schemas import (
     CareerTrackAdminEntry,
     CareerTrackCreateRequest,
     CareerTrackUpdateRequest,
+    DeviceSessionEntry,
+    EmployerVerificationDetail,
+    EmployerVerificationEntry,
+    LoginHistoryEntry,
     MessageResponse,
     PendingEmployerResponse,
+    PermissionEntry,
+    PLATFORM_ROLE_NAMES,
+    RoleEntry,
+    SubAdminCreateRequest,
+    SubAdminEntry,
+    SubscriptionPlanAdminEntry,
+    SubscriptionPlanUpdateRequest,
+    UserManagementEntry,
+    VerificationDocumentEntry,
+    VerificationEventEntry,
 )
+
+
+def _write_audit(
+    db: Session, actor_id: str | None, action: str, resource: str | None = None,
+    resource_id: str | None = None, previous_value: dict | None = None, new_value: dict | None = None,
+) -> None:
+    """Records a moderation action for the audit log viewer. Caller still owns db.commit()."""
+    db.add(AuditLog(
+        user_id=uuid.UUID(actor_id) if actor_id else None,
+        action=action, resource=resource,
+        resource_id=uuid.UUID(resource_id) if resource_id else None,
+        previous_value=previous_value, new_value=new_value,
+    ))
 
 
 def _employer_to_response(profile: EmployerProfile, user: User, job_count: int = 0, app_count: int = 0) -> PendingEmployerResponse:
@@ -116,38 +150,14 @@ def list_employers(db: Session, status: str = "pending") -> list[PendingEmployer
     ]
 
 
-def approve_employer(profile_id: str, admin_user_id: str, db: Session) -> MessageResponse:
-    profile = db.query(EmployerProfile).filter(EmployerProfile.id == profile_id).first()
-    if not profile:
-        raise NotFoundException("Employer profile not found.")
-
-    user = db.query(User).filter(User.id == profile.user_id).first()
-    if not user:
-        raise NotFoundException("Associated user not found.")
-
-    profile.is_approved = True
-    profile.approved_by = uuid.UUID(admin_user_id)
-    profile.approved_at = datetime.now(timezone.utc)
-    profile.rejection_reason = None
-    user.is_active = True
-
-    db.commit()
-    return MessageResponse(message=f"'{profile.company_name}' has been approved. They can now log in.")
+    # approve_employer / reject_employer were removed — they used to flip
+    # profile.is_approved directly, completely bypassing the KYC document
+    # review, which let an admin grant job-posting access with zero documents
+    # checked. The KYC verification queue (review_employer_verification,
+    # further down) is now the only path that sets is_approved=True.
 
 
-def reject_employer(profile_id: str, reason: str, db: Session) -> MessageResponse:
-    profile = db.query(EmployerProfile).filter(EmployerProfile.id == profile_id).first()
-    if not profile:
-        raise NotFoundException("Employer profile not found.")
-
-    profile.rejection_reason = reason
-    profile.is_approved = False
-
-    db.commit()
-    return MessageResponse(message=f"'{profile.company_name}' registration rejected.")
-
-
-def revoke_employer(profile_id: str, db: Session) -> MessageResponse:
+def revoke_employer(profile_id: str, admin_user_id: str, db: Session) -> MessageResponse:
     """Revoke a previously approved employer — disables their login."""
     profile = db.query(EmployerProfile).filter(EmployerProfile.id == profile_id).first()
     if not profile:
@@ -159,6 +169,8 @@ def revoke_employer(profile_id: str, db: Session) -> MessageResponse:
     if user:
         user.is_active = False
 
+    _write_audit(db, admin_user_id, "employer.revoked", resource="employer_profile",
+                 resource_id=str(profile.id), previous_value={"is_approved": True}, new_value={"is_approved": False})
     db.commit()
     return MessageResponse(message=f"'{profile.company_name}' approval revoked.")
 
@@ -673,3 +685,486 @@ def get_activity_feed(db: Session, limit: int = 25) -> list[AdminActivityItem]:
     # Sort all by timestamp descending, take top N
     items.sort(key=lambda x: x.timestamp, reverse=True)
     return items[:limit]
+
+
+# ── RBAC: Roles & permission matrix ───────────────────────────────────────────
+
+def list_permissions(db: Session) -> list[PermissionEntry]:
+    perms = db.query(Permission).order_by(Permission.resource, Permission.action).all()
+    return [
+        PermissionEntry(id=str(p.id), resource=p.resource, action=p.action, description=p.description)
+        for p in perms
+    ]
+
+
+def list_roles(db: Session) -> list[RoleEntry]:
+    roles = db.query(Role).order_by(Role.name).all()
+
+    user_counts = dict(
+        db.query(User.role_id, func.count(User.id))
+        .filter(User.deleted_at == None)
+        .group_by(User.role_id)
+        .all()
+    )
+
+    result = []
+    for role in roles:
+        perms = (
+            db.query(Permission)
+            .join(RolePermission, RolePermission.permission_id == Permission.id)
+            .filter(RolePermission.role_id == role.id)
+            .all()
+        )
+        result.append(RoleEntry(
+            id=str(role.id),
+            name=role.name,
+            description=role.description,
+            is_system=role.is_system,
+            permissions=[f"{p.resource}:{p.action}" for p in perms],
+            user_count=user_counts.get(role.id, 0),
+        ))
+    return result
+
+
+def update_role_permissions(role_id: str, permission_ids: list[str], actor_id: str, db: Session) -> RoleEntry:
+    role = db.query(Role).filter(Role.id == role_id).first()
+    if not role:
+        raise NotFoundException("Role not found.")
+
+    old_perms = [
+        f"{p.resource}:{p.action}" for p in
+        db.query(Permission).join(RolePermission, RolePermission.permission_id == Permission.id)
+        .filter(RolePermission.role_id == role_id).all()
+    ]
+
+    db.query(RolePermission).filter(RolePermission.role_id == role_id).delete()
+    for pid in permission_ids:
+        db.add(RolePermission(role_id=role.id, permission_id=uuid.UUID(pid)))
+
+    _write_audit(db, actor_id, "role.permissions_updated", resource="role", resource_id=role_id,
+                 previous_value={"permissions": old_perms}, new_value={"permission_ids": permission_ids})
+    db.commit()
+
+    perms = (
+        db.query(Permission)
+        .join(RolePermission, RolePermission.permission_id == Permission.id)
+        .filter(RolePermission.role_id == role.id)
+        .all()
+    )
+    return RoleEntry(
+        id=str(role.id), name=role.name, description=role.description,
+        is_system=role.is_system, permissions=[f"{p.resource}:{p.action}" for p in perms],
+    )
+
+
+# ── Sub-admin management (super_admin only) ───────────────────────────────────
+
+def _platform_role_or_404(role_id: str, db: Session) -> Role:
+    role = db.query(Role).filter(Role.id == role_id).first()
+    if not role or role.name not in PLATFORM_ROLE_NAMES:
+        raise NotFoundException("Platform role not found.")
+    return role
+
+
+def list_sub_admins(db: Session) -> list[SubAdminEntry]:
+    rows = (
+        db.query(User, Role)
+        .join(Role, User.role_id == Role.id)
+        .filter(Role.name.in_(PLATFORM_ROLE_NAMES), User.deleted_at == None)
+        .order_by(User.created_at.desc())
+        .all()
+    )
+    return [
+        SubAdminEntry(
+            user_id=str(user.id), email=user.email, phone=user.phone, full_name=user.full_name,
+            role_id=str(role.id), role_name=role.name,
+            status=user.status, is_active=user.is_active,
+            last_login_at=user.last_login_at, created_at=user.created_at,
+        )
+        for user, role in rows
+    ]
+
+
+def create_sub_admin(data: SubAdminCreateRequest, actor_id: str, db: Session) -> SubAdminEntry:
+    role = _platform_role_or_404(data.role_id, db)
+    if role.name == "super_admin":
+        raise ForbiddenException("super_admin cannot be assigned via this endpoint.")
+
+    existing = db.query(User).filter(User.email == data.email).first()
+    if existing:
+        raise ValueError(f"A user with email '{data.email}' already exists.")
+
+    user = User(
+        email=data.email,
+        phone=data.phone,
+        full_name=data.full_name,
+        role_id=role.id,
+        email_verified=True,   # admin-created accounts skip OTP verification
+        is_active=True,
+    )
+    db.add(user)
+    db.flush()
+
+    _write_audit(db, actor_id, "sub_admin.created", resource="user", resource_id=str(user.id),
+                 new_value={"email": data.email, "role": role.name})
+    db.commit()
+    db.refresh(user)
+
+    return SubAdminEntry(
+        user_id=str(user.id), email=user.email, phone=user.phone, full_name=user.full_name,
+        role_id=str(role.id), role_name=role.name,
+        status=user.status, is_active=user.is_active,
+        last_login_at=user.last_login_at, created_at=user.created_at,
+    )
+
+
+def update_sub_admin_role(user_id: str, role_id: str, actor_id: str, db: Session) -> SubAdminEntry:
+    user = db.query(User).filter(User.id == user_id, User.deleted_at == None).first()
+    if not user:
+        raise NotFoundException("User not found.")
+    old_role_name = user.role_name
+    role = _platform_role_or_404(role_id, db)
+
+    user.role_id = role.id
+    _write_audit(db, actor_id, "sub_admin.role_changed", resource="user", resource_id=user_id,
+                 previous_value={"role": old_role_name}, new_value={"role": role.name})
+    db.commit()
+    db.refresh(user)
+
+    return SubAdminEntry(
+        user_id=str(user.id), email=user.email, phone=user.phone, full_name=user.full_name,
+        role_id=str(role.id), role_name=role.name,
+        status=user.status, is_active=user.is_active,
+        last_login_at=user.last_login_at, created_at=user.created_at,
+    )
+
+
+def delete_sub_admin(user_id: str, actor_id: str, db: Session) -> MessageResponse:
+    user = db.query(User).filter(User.id == user_id, User.deleted_at == None).first()
+    if not user:
+        raise NotFoundException("User not found.")
+    if user.role_name not in PLATFORM_ROLE_NAMES:
+        raise NotFoundException("User is not a platform sub-admin.")
+
+    user.deleted_at = datetime.now(timezone.utc)
+    user.is_active = False
+    _write_audit(db, actor_id, "sub_admin.removed", resource="user", resource_id=user_id,
+                 previous_value={"role": user.role_name})
+    db.commit()
+    return MessageResponse(message="Sub-admin removed.")
+
+
+# ── User management: status / login history / sessions ───────────────────────
+
+def list_managed_users(db: Session, search: str | None = None, status: str | None = None) -> list[UserManagementEntry]:
+    query = (
+        db.query(User, AspirantProfile)
+        .outerjoin(AspirantProfile, AspirantProfile.user_id == User.id)
+        .outerjoin(Role, User.role_id == Role.id)
+        .filter(User.deleted_at == None)
+    )
+    if search:
+        query = query.filter(
+            or_(
+                User.email.ilike(f"%{search}%"),
+                User.phone.ilike(f"%{search}%"),
+                AspirantProfile.full_name.ilike(f"%{search}%"),
+            )
+        )
+    if status:
+        query = query.filter(User.status == status)
+
+    rows = query.order_by(User.created_at.desc()).all()
+    return [
+        UserManagementEntry(
+            user_id=str(user.id), email=user.email, phone=user.phone,
+            role_name=user.role_name, full_name=profile.full_name if profile else None,
+            status=user.status, is_active=user.is_active,
+            failed_login_attempts=user.failed_login_attempts,
+            last_login_at=user.last_login_at, registered_at=user.created_at,
+        )
+        for user, profile in rows
+    ]
+
+
+def update_user_status(user_id: str, status: str, reason: str | None, actor_id: str, db: Session) -> MessageResponse:
+    if status not in ("active", "suspended", "banned"):
+        raise ValueError("status must be one of: active, suspended, banned")
+
+    user = db.query(User).filter(User.id == user_id, User.deleted_at == None).first()
+    if not user:
+        raise NotFoundException("User not found.")
+
+    prev_status = user.status
+    user.status = status
+    user.status_reason = reason
+    user.status_changed_by = uuid.UUID(actor_id)
+    user.status_changed_at = datetime.now(timezone.utc)
+    user.is_active = (status == "active")
+
+    _write_audit(db, actor_id, "user.status_changed", resource="user", resource_id=user_id,
+                 previous_value={"status": prev_status}, new_value={"status": status, "reason": reason})
+    db.commit()
+    return MessageResponse(message=f"User status set to '{status}'.")
+
+
+def get_login_history(user_id: str, db: Session, limit: int = 50) -> list[LoginHistoryEntry]:
+    rows = (
+        db.query(LoginHistory)
+        .filter(LoginHistory.user_id == user_id)
+        .order_by(LoginHistory.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        LoginHistoryEntry(
+            id=str(r.id), ip_address=str(r.ip_address) if r.ip_address else None,
+            user_agent=r.user_agent, device_label=r.device_label,
+            success=r.success, failure_reason=r.failure_reason, created_at=r.created_at,
+        )
+        for r in rows
+    ]
+
+
+def get_device_sessions(user_id: str, db: Session) -> list[DeviceSessionEntry]:
+    rows = (
+        db.query(DeviceSession)
+        .filter(DeviceSession.user_id == user_id, DeviceSession.revoked_at == None)
+        .order_by(DeviceSession.last_seen_at.desc())
+        .all()
+    )
+    return [
+        DeviceSessionEntry(
+            id=str(r.id), device_label=r.device_label,
+            ip_address=str(r.ip_address) if r.ip_address else None,
+            last_seen_at=r.last_seen_at, created_at=r.created_at,
+        )
+        for r in rows
+    ]
+
+
+# ── Employer KYC verification (admin/verification_officer side) ──────────────
+
+def list_employer_verifications(db: Session, status: str | None = None) -> list[EmployerVerificationEntry]:
+    query = (
+        db.query(EmployerVerification, EmployerProfile)
+        .join(EmployerProfile, EmployerVerification.employer_id == EmployerProfile.id)
+    )
+    if status:
+        query = query.filter(EmployerVerification.status == status)
+    rows = query.order_by(EmployerVerification.submitted_at.desc()).all()
+
+    doc_counts = dict(
+        db.query(EmployerVerificationDocument.verification_id, func.count(EmployerVerificationDocument.id))
+        .group_by(EmployerVerificationDocument.verification_id)
+        .all()
+    )
+
+    return [
+        EmployerVerificationEntry(
+            id=str(v.id), employer_id=str(v.employer_id), company_name=emp.company_name,
+            status=v.status, rejection_reason=v.rejection_reason,
+            submitted_at=v.submitted_at, reviewed_at=v.reviewed_at,
+            document_count=doc_counts.get(v.id, 0),
+        )
+        for v, emp in rows
+    ]
+
+
+def get_employer_verification_detail(verification_id: str, db: Session) -> EmployerVerificationDetail:
+    v = db.query(EmployerVerification).filter(EmployerVerification.id == verification_id).first()
+    if not v:
+        raise NotFoundException("Verification not found.")
+    emp = db.query(EmployerProfile).filter(EmployerProfile.id == v.employer_id).first()
+
+    return EmployerVerificationDetail(
+        id=str(v.id), employer_id=str(v.employer_id), company_name=emp.company_name if emp else "—",
+        status=v.status, rejection_reason=v.rejection_reason, reviewer_notes=v.reviewer_notes,
+        submitted_at=v.submitted_at, reviewed_at=v.reviewed_at,
+        document_count=len(v.documents),
+        documents=[
+            VerificationDocumentEntry(
+                id=str(d.id), doc_type=d.doc_type, file_url=d.file_url,
+                original_filename=d.original_filename, status=d.status,
+                notes=d.notes, uploaded_at=d.uploaded_at,
+            )
+            for d in v.documents
+        ],
+        events=[
+            VerificationEventEntry(
+                id=str(e.id), actor_name=(e.actor.email or e.actor.phone) if e.actor else None,
+                from_status=e.from_status, to_status=e.to_status, note=e.note, created_at=e.created_at,
+            )
+            for e in v.events
+        ],
+    )
+
+
+def get_verification_document_path(verification_id: str, document_id: str, db: Session):
+    """Resolves a verification document to its on-disk path for the admin
+    download endpoint — never exposed publicly, only through an authenticated,
+    permission-gated route."""
+    from app.core.storage import get_path
+
+    doc = (
+        db.query(EmployerVerificationDocument)
+        .filter(
+            EmployerVerificationDocument.id == document_id,
+            EmployerVerificationDocument.verification_id == verification_id,
+        )
+        .first()
+    )
+    if not doc:
+        raise NotFoundException("Document not found.")
+    path = get_path(doc.file_url)
+    if not path.exists():
+        raise NotFoundException("Document file is missing from storage.")
+    return path, doc.original_filename
+
+
+def review_employer_verification(
+    verification_id: str, action: str, notes: str | None, rejection_reason: str | None,
+    actor_id: str, db: Session,
+) -> EmployerVerificationDetail:
+    v = db.query(EmployerVerification).filter(EmployerVerification.id == verification_id).first()
+    if not v:
+        raise NotFoundException("Verification not found.")
+
+    transitions = {
+        "under_review": "under_review",
+        "approve": "approved",
+        "reject": "rejected",
+    }
+    if action not in transitions:
+        raise ValueError("action must be one of: under_review, approve, reject")
+
+    new_status = transitions[action]
+    old_status = v.status
+
+    v.status = new_status
+    v.reviewer_id = uuid.UUID(actor_id)
+    v.reviewer_notes = notes
+    if action == "reject":
+        if not rejection_reason:
+            raise ValueError("rejection_reason is required when rejecting.")
+        v.rejection_reason = rejection_reason
+    if action in ("approve", "reject"):
+        v.reviewed_at = datetime.now(timezone.utc)
+
+    db.add(EmployerVerificationEvent(
+        verification_id=v.id, actor_id=uuid.UUID(actor_id),
+        from_status=old_status, to_status=new_status, note=notes or rejection_reason,
+    ))
+
+    emp = db.query(EmployerProfile).filter(EmployerProfile.id == v.employer_id).first()
+    if action == "approve" and emp:
+        emp.is_approved = True
+        emp.approved_by = uuid.UUID(actor_id)
+        emp.approved_at = datetime.now(timezone.utc)
+
+    if emp and action in ("approve", "reject"):
+        from app.core.notifications import employer_verification_email, notify
+        recipient = db.query(User).filter(User.id == emp.user_id).first()
+        subject, html = employer_verification_email(emp.company_name, action == "approve", rejection_reason)
+        notify(recipient.email if recipient else None, subject, html)
+
+    _write_audit(db, actor_id, "employer_verification.reviewed", resource="employer_verification",
+                 resource_id=verification_id, previous_value={"status": old_status},
+                 new_value={"status": new_status, "notes": notes, "rejection_reason": rejection_reason})
+    db.commit()
+    return get_employer_verification_detail(verification_id, db)
+
+
+def revoke_device_session(user_id: str, session_id: str, db: Session) -> MessageResponse:
+    from app.models.user import RefreshToken
+
+    session = (
+        db.query(DeviceSession)
+        .filter(DeviceSession.id == session_id, DeviceSession.user_id == user_id)
+        .first()
+    )
+    if not session:
+        raise NotFoundException("Session not found.")
+
+    session.revoked_at = datetime.now(timezone.utc)
+    token = db.query(RefreshToken).filter(RefreshToken.id == session.refresh_token_id).first()
+    if token:
+        token.revoked_at = datetime.now(timezone.utc)
+    db.commit()
+    return MessageResponse(message="Session revoked.")
+
+
+# ── Audit log ──────────────────────────────────────────────────────────────────
+
+def list_audit_logs(
+    db: Session,
+    user_id: str | None = None,
+    action: str | None = None,
+    from_date: datetime | None = None,
+    to_date: datetime | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> AuditLogPage:
+    query = db.query(AuditLog, User).outerjoin(User, AuditLog.user_id == User.id)
+
+    if user_id:
+        query = query.filter(AuditLog.user_id == user_id)
+    if action:
+        query = query.filter(AuditLog.action.ilike(f"%{action}%"))
+    if from_date:
+        query = query.filter(AuditLog.created_at >= from_date)
+    if to_date:
+        query = query.filter(AuditLog.created_at <= to_date)
+
+    total = query.count()
+    rows = query.order_by(AuditLog.created_at.desc()).offset(offset).limit(limit).all()
+
+    return AuditLogPage(
+        total=total,
+        items=[
+            AuditLogEntry(
+                id=str(log.id), actor_email=actor.email if actor else None,
+                actor_phone=actor.phone if actor else None,
+                action=log.action, resource=log.resource,
+                resource_id=str(log.resource_id) if log.resource_id else None,
+                ip_address=str(log.ip_address) if log.ip_address else None,
+                previous_value=log.previous_value, new_value=log.new_value,
+                created_at=log.created_at,
+            )
+            for log, actor in rows
+        ],
+    )
+
+
+# ── Subscription plans ────────────────────────────────────────────────────────
+
+def _plan_to_admin_entry(plan: SubscriptionPlan) -> SubscriptionPlanAdminEntry:
+    return SubscriptionPlanAdminEntry(
+        id=str(plan.id), name=plan.name, price_monthly=plan.price_monthly,
+        max_active_jobs=plan.max_active_jobs, max_recruiter_seats=plan.max_recruiter_seats,
+        resume_access=plan.resume_access, candidate_search_limit=plan.candidate_search_limit,
+        is_active=plan.is_active,
+    )
+
+
+def list_subscription_plans(db: Session) -> list[SubscriptionPlanAdminEntry]:
+    plans = db.query(SubscriptionPlan).order_by(SubscriptionPlan.price_monthly).all()
+    return [_plan_to_admin_entry(p) for p in plans]
+
+
+def update_subscription_plan(plan_id: str, data: SubscriptionPlanUpdateRequest, actor_id: str, db: Session) -> SubscriptionPlanAdminEntry:
+    plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.id == plan_id).first()
+    if not plan:
+        raise NotFoundException("Subscription plan not found.")
+
+    before = _plan_to_admin_entry(plan).model_dump()
+    for field in ("price_monthly", "max_active_jobs", "max_recruiter_seats", "resume_access", "candidate_search_limit", "is_active"):
+        val = getattr(data, field)
+        if val is not None:
+            setattr(plan, field, val)
+
+    _write_audit(db, actor_id, "subscription_plan.updated", resource="subscription_plan",
+                 resource_id=plan_id, previous_value=before, new_value=_plan_to_admin_entry(plan).model_dump())
+    db.commit()
+    db.refresh(plan)
+    return _plan_to_admin_entry(plan)

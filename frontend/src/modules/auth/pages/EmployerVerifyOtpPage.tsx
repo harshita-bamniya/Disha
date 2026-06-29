@@ -14,8 +14,12 @@ export default function EmployerVerifyOtpPage() {
   const [countdown, setCountdown] = useState(RESEND_COOLDOWN)
 
   const navigate = useNavigate()
-  const phone = sessionStorage.getItem('pending_phone') ?? ''
-  const devOtp = sessionStorage.getItem('dev_otp')
+  // Snapshot once at mount — these mutate (cleared by useVerifyEmployerPhone's onSuccess)
+  // as part of the same successful verification that navigates this page away. Re-reading
+  // sessionStorage live on every render would re-run the bounce-back effect below right
+  // after a successful verify, racing against the correct navigation to employer-pending.
+  const [phone] = useState(() => sessionStorage.getItem('pending_phone') ?? '')
+  const [devOtp, setDevOtp] = useState(() => sessionStorage.getItem('dev_otp'))
 
   const verifyPhone = useVerifyEmployerPhone()
   const sendOtp = useSendOtp()
@@ -39,7 +43,10 @@ export default function EmployerVerifyOtpPage() {
   const handleResend = () => {
     sendOtp.mutate({ phone, purpose: 'register' }, {
       onSuccess: (data) => {
-        if (data.dev_otp) sessionStorage.setItem('dev_otp', data.dev_otp)
+        if (data.dev_otp) {
+          sessionStorage.setItem('dev_otp', data.dev_otp)
+          setDevOtp(data.dev_otp)
+        }
         setOtp('')
         setCountdown(RESEND_COOLDOWN)
       },

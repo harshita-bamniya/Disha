@@ -14,13 +14,16 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # App
-    app_name: str = "DISHA AI"
+    app_name: str = "BeginablAI"
     environment: str = "local"
     log_level: str = "DEBUG"
     debug: bool = True
 
     # CORS — comma-separated list of allowed origins
     allowed_origins: str = "http://localhost:5173,http://localhost:3000"
+
+    # File storage — local disk for now; swap for S3/GCS in production
+    upload_dir: str = "uploads"
 
     # Database
     database_url: str = "postgresql://disha:disha_dev@postgres:5432/disha_db"
@@ -46,10 +49,22 @@ class Settings(BaseSettings):
     # SMS (MSG91)
     msg91_api_key: str = ""
     msg91_template_id: str = ""
-    msg91_sender_id: str = "DISHA"
+    msg91_sender_id: str = "BEGNBL"   # India DLT sender IDs must be exactly 6 alphanumeric chars
+
+    # Email (Brevo SMTP relay — free tier: 300 emails/day)
+    brevo_smtp_host: str = "smtp-relay.brevo.com"
+    brevo_smtp_port: int = 587
+    brevo_smtp_login: str = ""        # your Brevo account email
+    brevo_smtp_key: str = ""          # Brevo SMTP key (not your account password)
+    email_from_address: str = "no-reply@beginablai.in"
+    email_from_name: str = "BeginablAI"
 
     # Google OAuth
     google_client_id: str = ""
+
+    # CAPTCHA (Google reCAPTCHA v3) — verification no-ops until secret key is set
+    recaptcha_site_key: str = ""    # public, safe to expose to frontend
+    recaptcha_secret_key: str = ""  # server-side only, never expose
 
     # Monitoring
     sentry_dsn: str = ""
