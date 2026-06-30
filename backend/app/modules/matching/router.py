@@ -17,7 +17,7 @@ import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from redis import Redis
 from sqlalchemy.orm import Session
 
@@ -28,10 +28,14 @@ from app.models.user import User
 from app.modules.matching import service
 from app.modules.matching.schemas import (
     ApplyRequest, ApplicationDetailOut, ApplicationOut, ApplicationTrendResponse,
-    BulkStatusUpdateRequest, CandidateNoteCreateRequest, CandidateNoteOut,
+    BulkEmailRequest, BulkEmailResponse,
+    BulkStatusUpdateRequest, CandidateEmailLogOut, CandidateNoteCreateRequest, CandidateNoteOut,
     CandidateRatingRequest, DashboardKpis, EmployerFunnelResponse,
-    InterviewFeedbackOut, InterviewFeedbackSubmitRequest, ScheduleInterviewRequest, UpcomingInterviewEntry,
+    InterviewFeedbackOut, InterviewFeedbackSubmitRequest, OfferLetterRequest, RequestRescheduleRequest,
+    ScheduleInterviewRequest, SendCandidateEmailRequest,
+    UpcomingInterviewEntry,
     JobDetail, JobPerformanceResponse, JobRecommendationsResponse, JobCandidatePipeline,
+    RecruiterPerformanceResponse,
     UpdateApplicationStatusRequest, WithdrawRequest,
 )
 from pydantic import BaseModel, Field
@@ -179,6 +183,37 @@ def withdraw_application(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.get("/jobs/applications/{application_id}/interviews", response_model=list[InterviewFeedbackOut])
+def list_my_interviews(
+    application_id: str,
+    current_user: User = Depends(_aspirant),
+    db: Session = Depends(get_db),
+):
+    """Aspirant-facing interview visibility — previously only available via email."""
+    try:
+        return service.list_my_interviews(application_id, current_user, db)
+    except NotFoundException as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/jobs/applications/{application_id}/interviews/{interview_id}/request-reschedule", response_model=InterviewFeedbackOut)
+def request_interview_reschedule(
+    application_id: str,
+    interview_id: str,
+    body: RequestRescheduleRequest,
+    current_user: User = Depends(_aspirant),
+    db: Session = Depends(get_db),
+):
+    """Self-serve reschedule request — flags the interview for the employer
+    with the candidate's note; the candidate can't change the time directly."""
+    try:
+        return service.request_interview_reschedule(application_id, interview_id, body.note, current_user, db)
+    except NotFoundException as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except BadRequestException as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 # ── Employer: candidate pipeline ──────────────────────────────────────────────
 
 @router.get("/employer/pipeline/{job_id}", response_model=JobCandidatePipeline)
@@ -249,6 +284,56 @@ def bulk_update_status(
         raise HTTPException(status_code=404, detail=str(e))
 
 
+@router.post("/employer/pipeline/applications/bulk-email", response_model=BulkEmailResponse, status_code=200)
+async def bulk_email_candidates(
+    body: BulkEmailRequest,
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    """Send one email to multiple candidates selected from the pipeline."""
+    try:
+        return await service.bulk_email_candidates(
+            body.application_ids, body.subject, body.body, current_user, db
+        )
+    except (AuthException, BadRequestException) as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/employer/pipeline/applications/{application_id}/offer-letter")
+def generate_offer_letter(
+    application_id: str,
+    body: OfferLetterRequest,
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    """Generate and return a PDF offer letter for a candidate.
+
+    Returns the PDF as a downloadable file. No external API required —
+    generated fully in-process using reportlab.
+    """
+    from fastapi.responses import Response as FastAPIResponse
+
+    try:
+        pdf_bytes = service.build_offer_letter_pdf(
+            application_id=application_id,
+            body=body,
+            user=current_user,
+            db=db,
+        )
+    except NotFoundException as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except BadRequestException as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return FastAPIResponse(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="offer_letter_{application_id[:8]}.pdf"'},
+    )
+
+
 @router.post("/employer/pipeline/applications/{application_id}/notes", response_model=CandidateNoteOut, status_code=201)
 def add_candidate_note(
     application_id: str,
@@ -258,6 +343,35 @@ def add_candidate_note(
 ):
     try:
         return service.add_candidate_note(application_id, body.note, body.is_internal, current_user, db)
+    except (AuthException, NotFoundException) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/employer/pipeline/applications/{application_id}/email", response_model=CandidateEmailLogOut, status_code=201)
+async def send_candidate_email(
+    application_id: str,
+    body: SendCandidateEmailRequest,
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    """Employer emails a candidate directly from the pipeline. Persists a log row."""
+    try:
+        return await service.send_candidate_email(application_id, body.subject, body.body, current_user, db)
+    except (AuthException, NotFoundException) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except BadRequestException as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/employer/pipeline/applications/{application_id}/email", response_model=list[CandidateEmailLogOut])
+def list_candidate_emails(
+    application_id: str,
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    """History of emails sent to this candidate from the pipeline."""
+    try:
+        return service.list_candidate_emails(application_id, current_user, db)
     except (AuthException, NotFoundException) as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -286,6 +400,46 @@ def schedule_interview(
         return service.schedule_interview(application_id, body.scheduled_at, body.meeting_link, current_user, db)
     except (AuthException, NotFoundException) as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.patch("/employer/pipeline/applications/{application_id}/interviews/{interview_id}/reschedule", response_model=InterviewFeedbackOut)
+def reschedule_interview(
+    application_id: str,
+    interview_id: str,
+    body: ScheduleInterviewRequest,
+    current_user: User = Depends(require_permission("candidates", "interview")),
+    db: Session = Depends(get_db),
+):
+    """Updates the existing interview's time (vs. schedule_interview, which
+    creates a new row) — also clears any pending reschedule request and
+    re-notifies the candidate with a fresh calendar invite."""
+    try:
+        return service.reschedule_interview(application_id, interview_id, body.scheduled_at, body.meeting_link, current_user, db)
+    except (AuthException, NotFoundException) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except BadRequestException as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/employer/pipeline/applications/{application_id}/interviews/{interview_id}/ics")
+def download_interview_ics(
+    application_id: str,
+    interview_id: str,
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    """Downloadable calendar invite — same content emailed to the candidate
+    when the interview was scheduled."""
+    try:
+        ics = service.get_interview_ics(application_id, interview_id, current_user, db)
+    except (AuthException, NotFoundException) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except BadRequestException as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return Response(
+        content=ics, media_type="text/calendar",
+        headers={"Content-Disposition": "attachment; filename=interview.ics"},
+    )
 
 
 @router.patch("/employer/pipeline/applications/{application_id}/interviews/{interview_id}/feedback", response_model=InterviewFeedbackOut)
@@ -349,6 +503,20 @@ def get_job_performance(
 ):
     try:
         return service.get_job_performance(current_user, db)
+    except AuthException as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/employer/analytics/recruiters", response_model=RecruiterPerformanceResponse)
+def get_recruiter_performance(
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    """Per-teammate activity (applications moved, interviews run, hires
+    closed) — lets a hiring manager see whether a recruiter seat is earning
+    its cost, which there was previously no visibility into at all."""
+    try:
+        return service.get_recruiter_performance(current_user, db)
     except AuthException as e:
         raise HTTPException(status_code=404, detail=str(e))
 

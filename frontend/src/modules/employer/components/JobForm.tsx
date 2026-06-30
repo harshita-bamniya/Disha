@@ -7,7 +7,7 @@ import {
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
-import { useSuggestSkills } from '../hooks/useJobs'
+import { useSuggestSkills, useGenerateDescription, useJobTemplates, useCreateJobTemplate } from '../hooks/useJobs'
 import { getApiError } from '@/api/client'
 import type { JobPostingPayload, GrowthOutlook, JobPosting, JobType, EmploymentType } from '@/api/jobs'
 
@@ -127,9 +127,46 @@ export default function JobForm({ initial, onSubmit, loading, onCancel }: JobFor
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const suggestSkills = useSuggestSkills()
+  const generateDescription = useGenerateDescription()
+  const { data: templates } = useJobTemplates()
+  const createTemplate = useCreateJobTemplate()
 
   const selectedType  = JOB_TYPES.find(t => t.value === jobType)
   const needsLocation = selectedType?.needsLocation ?? false
+
+  const applyTemplate = (templateId: string) => {
+    const t = templates?.find(t => t.id === templateId)
+    if (!t) return
+    setTitle(t.title)
+    setDescription(t.description)
+    setSector(t.sector)
+    setIsCustomSector(!SECTORS.includes(t.sector))
+    setSelectedSkills(new Set(t.required_skills))
+    setMinKScore(t.min_k_score)
+    if (t.job_type) handleJobTypeChange(t.job_type)
+    if (t.employment_type) setEmploymentType(t.employment_type)
+  }
+
+  const handleSaveAsTemplate = () => {
+    const name = window.prompt('Name this template (e.g. "Standard Analyst Req"):', title)
+    if (!name?.trim()) return
+    createTemplate.mutate({
+      name: name.trim(), title, description, sector,
+      required_skills: Array.from(selectedSkills),
+      job_type: (jobType || null) as JobType | null,
+      employment_type: (employmentType || null) as EmploymentType | null,
+      min_k_score: minKScore,
+    })
+  }
+
+  const handleGenerateDescription = () => {
+    generateDescription.mutate({ title, sector, keyPoints: description }, {
+      onSuccess: (data) => {
+        setDescription(data.description)
+        setErrors(p => ({ ...p, description: '' }))
+      },
+    })
+  }
 
   const handleSuggestSkills = () => {
     suggestSkills.mutate({ title, description }, {
@@ -242,6 +279,21 @@ export default function JobForm({ initial, onSubmit, loading, onCancel }: JobFor
         <p className="text-xs text-blue-700">Fields marked with <span className="text-danger font-semibold">*</span> are required.</p>
       </div>
 
+      {!initial && templates && templates.length > 0 && (
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent/5 border border-accent/15">
+          <FileSignature className="w-3.5 h-3.5 text-accent shrink-0" />
+          <span className="text-xs font-semibold text-gray-700 whitespace-nowrap">Start from a template:</span>
+          <select
+            defaultValue=""
+            onChange={e => { if (e.target.value) applyTemplate(e.target.value) }}
+            className="flex-1 h-8 rounded-lg border border-gray-200 bg-white px-2 text-xs text-gray-700 outline-none"
+          >
+            <option value="">Select a saved template…</option>
+            {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </div>
+      )}
+
       {/* ── Basic details ── */}
       <FormSection title="Basic details">
         <Input
@@ -254,11 +306,26 @@ export default function JobForm({ initial, onSubmit, loading, onCancel }: JobFor
         />
 
         <div className="flex flex-col gap-1.5">
-          <FieldLabel required>Job description</FieldLabel>
+          <div className="flex items-start justify-between gap-3">
+            <FieldLabel required>Job description</FieldLabel>
+            <button
+              type="button"
+              onClick={handleGenerateDescription}
+              disabled={generateDescription.isPending || !title.trim() || !sector}
+              title={!title.trim() || !sector ? 'Enter a job title and sector first' : 'Replaces the text below — write key points first to guide it, or leave blank for a generic first draft'}
+              className="shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-xl bg-accent/10 text-accent text-xs font-semibold hover:bg-accent/15 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              {generateDescription.isPending ? 'Writing…' : 'Generate with AI'}
+            </button>
+          </div>
+          {generateDescription.isError && (
+            <p className="text-xs text-danger">{getApiError(generateDescription.error, 'Could not generate a description. Please try again.')}</p>
+          )}
           <textarea
             value={description}
             onChange={e => { setDescription(e.target.value); setErrors(p => ({ ...p, description: '' })) }}
-            placeholder="Describe the role, responsibilities, and why this candidate profile is a great fit…"
+            placeholder="Describe the role, responsibilities, and why this candidate profile is a great fit… (or jot a few key points and click Generate with AI)"
             rows={5}
             className={cn(
               'w-full rounded-xl border-[1.5px] bg-white/80 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400',
@@ -616,6 +683,18 @@ export default function JobForm({ initial, onSubmit, loading, onCancel }: JobFor
         </div>
         {errors.skills && <p className="text-xs text-danger">{errors.skills}</p>}
       </FormSection>
+
+      {!initial && (
+        <button
+          type="button"
+          onClick={handleSaveAsTemplate}
+          disabled={!title.trim() || !sector || createTemplate.isPending}
+          className="self-start inline-flex items-center gap-1.5 text-xs font-semibold text-accent hover:underline disabled:opacity-40 disabled:cursor-not-allowed bg-transparent border-none cursor-pointer p-0"
+        >
+          <FileSignature className="w-3.5 h-3.5" />
+          {createTemplate.isPending ? 'Saving…' : createTemplate.isSuccess ? 'Saved as template ✓' : 'Save these details as a template'}
+        </button>
+      )}
 
       {/* ── Actions ── */}
       <div className="flex gap-3 pt-1">

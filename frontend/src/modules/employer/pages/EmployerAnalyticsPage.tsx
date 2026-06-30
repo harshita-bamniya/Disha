@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, TrendingUp, Briefcase } from 'lucide-react'
+import { ArrowLeft, TrendingUp, Briefcase, Users } from 'lucide-react'
 import { analyticsApi } from '@/api/analytics'
 
 const STAGE_LABELS: Record<string, string> = {
@@ -17,6 +17,10 @@ export default function EmployerAnalyticsPage() {
   const { data: perf, isLoading: perfLoading } = useQuery({
     queryKey: ['employer', 'analytics', 'jobs'],
     queryFn: analyticsApi.getJobPerformance,
+  })
+  const { data: recruiterPerf, isLoading: recruiterLoading } = useQuery({
+    queryKey: ['employer', 'analytics', 'recruiters'],
+    queryFn: analyticsApi.getRecruiterPerformance,
   })
 
   return (
@@ -84,6 +88,46 @@ export default function EmployerAnalyticsPage() {
                     <td style={{ textAlign: 'right', padding: '12px' }}>{j.interviewed}</td>
                     <td style={{ textAlign: 'right', padding: '12px', color: '#059669', fontWeight: 700 }}>{j.hired}</td>
                     <td style={{ textAlign: 'right', padding: '12px 20px', fontWeight: 700, color: '#7C3AED' }}>{j.conversion_rate_pct}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Recruiter performance */}
+        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #E5E7EB', overflow: 'hidden', marginTop: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 20px', borderBottom: '1px solid #F1F5F9' }}>
+            <Users size={16} color="#3B82F6" />
+            <h2 style={{ fontSize: 14, fontWeight: 800, color: '#1E3A5F', margin: 0 }}>Recruiter Performance</h2>
+          </div>
+          {recruiterLoading ? (
+            <p style={{ padding: 20, fontSize: 13, color: '#9CA3AF' }}>Loading…</p>
+          ) : !recruiterPerf || recruiterPerf.recruiters.length === 0 ? (
+            <p style={{ padding: 20, fontSize: 13, color: '#9CA3AF' }}>No team activity yet.</p>
+          ) : (
+            <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: '#F8FAFC', color: '#94A3B8', textTransform: 'uppercase', fontSize: 10, fontWeight: 700 }}>
+                  <th style={{ textAlign: 'left', padding: '10px 20px' }}>Recruiter</th>
+                  <th style={{ textAlign: 'right', padding: '10px 12px' }}>Applications Moved</th>
+                  <th style={{ textAlign: 'right', padding: '10px 12px' }}>Interviews</th>
+                  <th style={{ textAlign: 'right', padding: '10px 12px' }}>Notes</th>
+                  <th style={{ textAlign: 'right', padding: '10px 12px' }}>Hires Closed</th>
+                  <th style={{ textAlign: 'right', padding: '10px 20px' }}>Avg. Time to Hire</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recruiterPerf.recruiters.map(r => (
+                  <tr key={r.user_id} style={{ borderTop: '1px solid #F1F5F9' }}>
+                    <td style={{ padding: '12px 20px', fontWeight: 700, color: '#0F172A' }}>{r.name ?? 'Unknown'}</td>
+                    <td style={{ textAlign: 'right', padding: '12px' }}>{r.applications_moved}</td>
+                    <td style={{ textAlign: 'right', padding: '12px' }}>{r.interviews_conducted}</td>
+                    <td style={{ textAlign: 'right', padding: '12px' }}>{r.notes_added}</td>
+                    <td style={{ textAlign: 'right', padding: '12px', color: '#059669', fontWeight: 700 }}>{r.hires_closed}</td>
+                    <td style={{ textAlign: 'right', padding: '12px 20px', fontWeight: 700, color: '#7C3AED' }}>
+                      {r.avg_days_to_hire !== null ? `${r.avg_days_to_hire}d` : '—'}
+                    </td>
                   </tr>
                 ))}
               </tbody>

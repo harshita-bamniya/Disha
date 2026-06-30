@@ -4,13 +4,15 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import AuthException, BadRequestException, ForbiddenException, NotFoundException
-from app.models.company import Company, CompanyInvite
+from app.models.company import Company, CompanyDepartment, CompanyInvite, CompanyOffice
 from app.models.subscription import CompanySubscription, SubscriptionPlan
 from app.models.user import EmployerProfile, JobPosting, Role, User
 from app.modules.companies.schemas import (
     CompanyProfileResponse, CompanyProfileUpdateRequest, CompanySubscriptionResponse,
+    DepartmentCreateRequest, DepartmentOut,
     EmployerProfileSelfResponse, EmployerProfileUpdateRequest,
-    MessageResponse, SubscriptionPlanEntry, SubscriptionUsageResponse,
+    MessageResponse, OfficeCreateRequest, OfficeOut,
+    SubscriptionPlanEntry, SubscriptionUsageResponse,
     TeamInviteRequest, TeamMemberEntry, TEAM_ROLE_NAMES,
 )
 
@@ -298,3 +300,69 @@ def upgrade_subscription(user: User, plan_id: str, db: Session) -> CompanySubscr
 def list_subscription_plans(db: Session) -> list[SubscriptionPlanEntry]:
     plans = db.query(SubscriptionPlan).order_by(SubscriptionPlan.price_monthly).all()
     return [_plan_to_entry(p) for p in plans]
+
+
+# ── Offices & departments ──────────────────────────────────────────────────────
+
+def list_offices(user: User, db: Session) -> list[OfficeOut]:
+    profile = _get_own_profile(user, db)
+    company = _get_company_or_404(profile, db)
+    rows = db.query(CompanyOffice).filter(CompanyOffice.company_id == company.id).order_by(CompanyOffice.created_at).all()
+    return [OfficeOut(id=str(r.id), name=r.name, city=r.city, state=r.state, is_headquarters=r.is_headquarters) for r in rows]
+
+
+def create_office(user: User, data: OfficeCreateRequest, db: Session) -> OfficeOut:
+    profile = _get_own_profile(user, db)
+    company = _get_company_or_404(profile, db)
+    row = CompanyOffice(
+        company_id=company.id, name=data.name, city=data.city,
+        state=data.state, is_headquarters=data.is_headquarters,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return OfficeOut(id=str(row.id), name=row.name, city=row.city, state=row.state, is_headquarters=row.is_headquarters)
+
+
+def delete_office(user: User, office_id: str, db: Session) -> MessageResponse:
+    profile = _get_own_profile(user, db)
+    company = _get_company_or_404(profile, db)
+    row = db.query(CompanyOffice).filter(CompanyOffice.id == office_id, CompanyOffice.company_id == company.id).first()
+    if not row:
+        raise NotFoundException("Office not found.")
+    db.delete(row)
+    db.commit()
+    return MessageResponse(message="Office removed.")
+
+
+def list_departments(user: User, db: Session) -> list[DepartmentOut]:
+    profile = _get_own_profile(user, db)
+    company = _get_company_or_404(profile, db)
+    rows = db.query(CompanyDepartment).filter(CompanyDepartment.company_id == company.id).order_by(CompanyDepartment.name).all()
+    return [DepartmentOut(id=str(r.id), name=r.name) for r in rows]
+
+
+def create_department(user: User, data: DepartmentCreateRequest, db: Session) -> DepartmentOut:
+    profile = _get_own_profile(user, db)
+    company = _get_company_or_404(profile, db)
+    existing = db.query(CompanyDepartment).filter(
+        CompanyDepartment.company_id == company.id, CompanyDepartment.name == data.name,
+    ).first()
+    if existing:
+        raise BadRequestException(f"Department '{data.name}' already exists.")
+    row = CompanyDepartment(company_id=company.id, name=data.name)
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return DepartmentOut(id=str(row.id), name=row.name)
+
+
+def delete_department(user: User, department_id: str, db: Session) -> MessageResponse:
+    profile = _get_own_profile(user, db)
+    company = _get_company_or_404(profile, db)
+    row = db.query(CompanyDepartment).filter(CompanyDepartment.id == department_id, CompanyDepartment.company_id == company.id).first()
+    if not row:
+        raise NotFoundException("Department not found.")
+    db.delete(row)
+    db.commit()
+    return MessageResponse(message="Department removed.")

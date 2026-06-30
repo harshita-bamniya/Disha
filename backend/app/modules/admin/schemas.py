@@ -177,6 +177,19 @@ class PendingEmployerResponse(BaseModel):
     application_count: int = 0
 
 
+class GlobalSearchResult(BaseModel):
+    type: str            # "user" | "employer" | "job" | "application"
+    id: str
+    title: str
+    subtitle: Optional[str] = None
+    section: str         # admin dashboard Section value to navigate to
+
+
+class GlobalSearchResponse(BaseModel):
+    query: str
+    results: list[GlobalSearchResult]
+
+
 class AdminStatsResponse(BaseModel):
     total_aspirants: int
     completed_onboarding: int
@@ -414,3 +427,30 @@ class SubscriptionPlanUpdateRequest(BaseModel):
     resume_access: Optional[bool] = None
     candidate_search_limit: Optional[int] = None
     is_active: Optional[bool] = None
+
+
+class PlanRevenueEntry(BaseModel):
+    plan_id: str
+    plan_name: str
+    price_monthly: int          # paise
+    company_count: int
+    mrr: int                    # paise — price_monthly * company_count, active subs only
+
+
+class RevenueTrendPoint(BaseModel):
+    month: str                  # "2026-06"
+    new_subscriptions: int      # derived from CompanySubscription.created_at — real data
+
+
+class BillingOverviewResponse(BaseModel):
+    mrr: int                    # paise, sum over active subscriptions
+    arpa: int                   # paise, mrr / active_company_count (0 if none)
+    active_subscriptions: int
+    past_due_subscriptions: int
+    canceled_subscriptions: int
+    new_subscriptions_30d: int
+    plan_distribution: list[PlanRevenueEntry]
+    trend: list[RevenueTrendPoint]   # last 6 months, new subscriptions only —
+    # there's no cancellation timestamp in the data model yet (CompanySubscription
+    # has no canceled_at), so a churn-over-time trend would be fabricated. Once a
+    # real cancel flow exists, add canceled_at and extend this honestly.

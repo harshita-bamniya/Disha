@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Literal
 from datetime import date, datetime
 
@@ -139,6 +139,50 @@ class SuggestSkillsRequest(BaseModel):
 
 class SuggestSkillsResponse(BaseModel):
     suggested_skills: list[str]
+
+
+class GenerateDescriptionRequest(BaseModel):
+    title: str = Field(..., min_length=2, max_length=200)
+    sector: str = Field(..., min_length=2, max_length=100)
+    key_points: str = Field("", max_length=1000)   # optional bullet points the employer already has
+
+
+class GenerateDescriptionResponse(BaseModel):
+    description: str
+
+
+class BulkImportRowError(BaseModel):
+    row: int             # 1-based, matches the row number an employer sees in their spreadsheet
+    error: str
+
+
+class BulkImportResponse(BaseModel):
+    created: int
+    failed: list[BulkImportRowError]
+
+
+class JobTemplateCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=150)
+    title: str = Field(..., min_length=2, max_length=200)
+    description: str = Field(..., min_length=10)
+    sector: str = Field(..., min_length=2, max_length=100)
+    required_skills: list[str] = []
+    job_type: Literal["remote", "pan_india", "hybrid", "onsite"] | None = None
+    employment_type: Literal["full_time", "part_time", "internship", "contract", "freelance"] | None = None
+    min_k_score: int = 0
+
+
+class JobTemplateOut(BaseModel):
+    id: str
+    name: str
+    title: str
+    description: str
+    sector: str
+    required_skills: list[str]
+    job_type: str | None = None
+    employment_type: str | None = None
+    min_k_score: int
+    created_at: datetime
 
 
 class JobPostingResponse(BaseModel):

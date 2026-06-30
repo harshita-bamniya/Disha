@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Building2, Users, Plus, Trash2, Crown, X } from 'lucide-react'
+import { ArrowLeft, Building2, Users, Plus, Trash2, Crown, X, MapPin, Briefcase as BriefcaseIcon } from 'lucide-react'
 import {
   useCompanyProfile, useUpdateCompanyProfile,
   useTeamMembers, useInviteTeamMember, useRemoveTeamMember, useTransferOwnership,
+  useOffices, useCreateOffice, useDeleteOffice,
+  useDepartments, useCreateDepartment, useDeleteDepartment,
   useHasPermission,
 } from '../hooks/useJobs'
 import { getApiError } from '@/api/client'
@@ -56,6 +58,94 @@ function InviteModal({ onClose }: { onClose: () => void }) {
               style={{ flex: 1, height: 38, borderRadius: 10, border: 'none', background: '#3B82F6', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: invite.isPending ? 0.6 : 1 }}
             >{invite.isPending ? 'Inviting…' : 'Invite'}</button>
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function OfficesAndDepartments({ canEdit }: { canEdit: boolean }) {
+  const { data: offices } = useOffices()
+  const createOffice = useCreateOffice()
+  const deleteOffice = useDeleteOffice()
+  const { data: departments } = useDepartments()
+  const createDepartment = useCreateDepartment()
+  const deleteDepartment = useDeleteDepartment()
+
+  const [officeForm, setOfficeForm] = useState({ name: '', city: '' })
+  const [deptName, setDeptName] = useState('')
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 24 }}>
+      {/* Offices */}
+      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #E5E7EB', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 18px', borderBottom: '1px solid #F1F5F9' }}>
+          <MapPin size={15} color="#3B82F6" />
+          <h2 style={{ fontSize: 13, fontWeight: 800, color: '#1E3A5F', margin: 0 }}>Offices</h2>
+        </div>
+        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {!offices || offices.length === 0 ? (
+            <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0 }}>No offices added yet.</p>
+          ) : (
+            offices.map(o => (
+              <div key={o.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <div>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#0F172A', margin: 0 }}>
+                    {o.name}{o.is_headquarters && <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, color: '#D97706', background: 'rgba(217,119,6,0.1)', padding: '1px 6px', borderRadius: 20 }}>HQ</span>}
+                  </p>
+                  <p style={{ fontSize: 11, color: '#94A3B8', margin: 0 }}>{[o.city, o.state].filter(Boolean).join(', ')}</p>
+                </div>
+                {canEdit && (
+                  <button onClick={() => deleteOffice.mutate(o.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#CBD5E1' }}><Trash2 size={13} /></button>
+                )}
+              </div>
+            ))
+          )}
+          {canEdit && (
+            <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+              <input value={officeForm.name} onChange={e => setOfficeForm({ ...officeForm, name: e.target.value })} placeholder="Office name" style={{ flex: 1, height: 32, borderRadius: 8, border: '1px solid #E5E7EB', padding: '0 8px', fontSize: 12 }} />
+              <input value={officeForm.city} onChange={e => setOfficeForm({ ...officeForm, city: e.target.value })} placeholder="City" style={{ flex: 1, height: 32, borderRadius: 8, border: '1px solid #E5E7EB', padding: '0 8px', fontSize: 12 }} />
+              <button
+                onClick={() => officeForm.name.trim() && officeForm.city.trim() && createOffice.mutate(officeForm, { onSuccess: () => setOfficeForm({ name: '', city: '' }) })}
+                disabled={!officeForm.name.trim() || !officeForm.city.trim() || createOffice.isPending}
+                style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: '#3B82F6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+              ><Plus size={14} /></button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Departments */}
+      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #E5E7EB', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 18px', borderBottom: '1px solid #F1F5F9' }}>
+          <BriefcaseIcon size={15} color="#3B82F6" />
+          <h2 style={{ fontSize: 13, fontWeight: 800, color: '#1E3A5F', margin: 0 }}>Departments</h2>
+        </div>
+        <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {!departments || departments.length === 0 ? (
+            <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0 }}>No departments added yet.</p>
+          ) : (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {departments.map(d => (
+                <span key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: '#374151', background: '#F8FAFC', border: '1px solid #E5E7EB', borderRadius: 20, padding: '4px 6px 4px 10px' }}>
+                  {d.name}
+                  {canEdit && (
+                    <button onClick={() => deleteDepartment.mutate(d.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#CBD5E1', display: 'flex' }}><X size={11} /></button>
+                  )}
+                </span>
+              ))}
+            </div>
+          )}
+          {canEdit && (
+            <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+              <input value={deptName} onChange={e => setDeptName(e.target.value)} placeholder="e.g. Engineering" style={{ flex: 1, height: 32, borderRadius: 8, border: '1px solid #E5E7EB', padding: '0 8px', fontSize: 12 }} />
+              <button
+                onClick={() => deptName.trim() && createDepartment.mutate(deptName.trim(), { onSuccess: () => setDeptName('') })}
+                disabled={!deptName.trim() || createDepartment.isPending}
+                style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: '#3B82F6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+              ><Plus size={14} /></button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -184,6 +274,8 @@ export default function CompanyTeamPage() {
             ))
           )}
         </div>
+
+        <OfficesAndDepartments canEdit={canEditCompany} />
       </div>
 
       {showInvite && <InviteModal onClose={() => setShowInvite(false)} />}

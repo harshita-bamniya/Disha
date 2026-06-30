@@ -13,6 +13,7 @@ from __future__ import annotations
 import logging
 import smtplib
 from abc import ABC, abstractmethod
+from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -21,19 +22,24 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
+# (filename, content, mime_subtype) — mime_subtype e.g. "calendar" for .ics
+Attachment = tuple[str, str, str]
+
 
 class EmailProvider(ABC):
     @abstractmethod
-    async def send(self, to: str, subject: str, html: str) -> None: ...
+    async def send(self, to: str, subject: str, html: str, attachment: Attachment | None = None) -> None: ...
 
 
 class ConsoleEmailProvider(EmailProvider):
     """Console-only provider for local/test environments."""
 
-    async def send(self, to: str, subject: str, html: str) -> None:
+    async def send(self, to: str, subject: str, html: str, attachment: Attachment | None = None) -> None:
         logger.info("=" * 60)
         logger.info("[EMAIL CONSOLE] To: %s | Subject: %s", to, subject)
         logger.info(html)
+        if attachment:
+            logger.info("[EMAIL CONSOLE] Attachment: %s", attachment[0])
         logger.info("=" * 60)
 
 
@@ -41,18 +47,25 @@ class BrevoSMTPProvider(EmailProvider):
     """Sends via Brevo's SMTP relay. Runs the blocking smtplib call in a
     thread so it doesn't block the asyncio event loop."""
 
-    async def send(self, to: str, subject: str, html: str) -> None:
+    async def send(self, to: str, subject: str, html: str, attachment: Attachment | None = None) -> None:
         if not settings.brevo_smtp_login or not settings.brevo_smtp_key:
             raise RuntimeError(
                 "BREVO_SMTP_LOGIN / BREVO_SMTP_KEY are not set. Cannot send email in production. "
                 "Sign up at https://brevo.com, create an SMTP key, and add both to your .env file."
             )
 
-        msg = MIMEMultipart("alternative")
+        msg = MIMEMultipart("mixed" if attachment else "alternative")
         msg["Subject"] = subject
         msg["From"] = f"{settings.email_from_name} <{settings.email_from_address}>"
         msg["To"] = to
         msg.attach(MIMEText(html, "html"))
+
+        if attachment:
+            filename, content, subtype = attachment
+            part = MIMEBase("text", subtype)
+            part.set_payload(content, "utf-8")
+            part.add_header("Content-Disposition", "attachment", filename=filename)
+            msg.attach(part)
 
         import asyncio
         await asyncio.to_thread(self._send_sync, to, msg)
@@ -75,12 +88,12 @@ def get_email_provider() -> EmailProvider:
     return ConsoleEmailProvider()
 
 
-async def send_email(to: str, subject: str, html: str) -> None:
+async def send_email(to: str, subject: str, html: str, attachment: Attachment | None = None) -> None:
     """Send an email. Swallows and logs failures — email delivery should
     never break the calling request (e.g. a job application shouldn't fail
     just because a notification email didn't go out)."""
     try:
         provider = get_email_provider()
-        await provider.send(to, subject, html)
+        await provider.send(to, subject, html, attachment)
     except Exception as exc:
         logger.error("[EMAIL] Failed to send to %s: %s", to, exc)

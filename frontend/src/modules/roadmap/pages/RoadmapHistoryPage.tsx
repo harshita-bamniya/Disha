@@ -109,6 +109,11 @@ export default function RoadmapHistoryPage() {
                         {p.is_active && (
                           <span style={{ fontSize: 10, fontWeight: 700, color: '#16A34A' }}>Active</span>
                         )}
+                        {!p.job_is_open && (
+                          <span style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', background: '#F1F5F9', padding: '1px 7px', borderRadius: 20 }}>
+                            Job closed
+                          </span>
+                        )}
                       </div>
                       <p style={{ fontSize: 12, color: '#9CA3AF', margin: '3px 0 0' }}>
                         {p.company_name} · {p.generated_at ? `Generated ${new Date(p.generated_at).toLocaleDateString()}` : 'Not generated yet'}
@@ -123,6 +128,16 @@ export default function RoadmapHistoryPage() {
                         <span style={{ fontSize: 12.5, fontWeight: 700, color: '#4B5563' }}>{p.progress_pct}%</span>
                       </div>
                     )}
+                    <button
+                      onClick={e => { e.stopPropagation(); navigate(`/app/jobs/${p.job_id}`) }}
+                      title="View job posting"
+                      style={{
+                        flexShrink: 0, fontSize: 12, fontWeight: 700, color: '#6366F1',
+                        background: 'none', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+                      }}
+                    >
+                      View job
+                    </button>
                     <button
                       onClick={e => {
                         e.stopPropagation()

@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom'
 import {
   LogOut, CheckCircle2, User, GraduationCap, ClipboardList,
-  Briefcase, Zap, Target, Brain, ChevronRight,
+  Briefcase, Zap, Target, Brain,
 } from 'lucide-react'
 import { useLogout } from '@/modules/auth/hooks/useAuth'
+import { cn } from '@/lib/utils'
 
 const STEPS = [
   { label: 'Personal',     icon: User },
@@ -20,67 +21,42 @@ interface OnboardingLayoutProps {
   currentStep: number   // 1-based
   title: string
   subtitle?: string
-  /** Renders a "Skip for now" link in the header — omit on the mandatory step 1. */
-  onSkip?: () => void
 }
 
-export default function OnboardingLayout({ children, currentStep, title, subtitle, onSkip }: OnboardingLayoutProps) {
+// Colors here are kept as literal #3B82F6/#1D4ED8 (not the bg-primary design
+// token, which is navy #1E3A6B) — this matches Button.tsx's "primary" variant
+// and every employer/onboarding page already built against this same blue.
+// Unifying that with the navy admin-side token is a separate, larger design
+// decision (which blue is "correct") — see docs/ENTERPRISE_AUDIT_ROADMAP.md.
+
+export default function OnboardingLayout({ children, currentStep, title, subtitle }: OnboardingLayoutProps) {
   const pct = Math.round(((currentStep - 1) / STEPS.length) * 100)
   const logout = useLogout()
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #F0F7FF 0%, #FFFFFF 55%, #EFF6FF 100%)', display: 'flex', flexDirection: 'column' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(160deg, #F0F7FF 0%, #FFFFFF 55%, #EFF6FF 100%)' }}>
 
       {/* Top bar */}
-      <header style={{
-        background: 'rgba(255,255,255,0.88)',
-        backdropFilter: 'blur(16px)',
-        borderBottom: '1px solid rgba(59,130,246,0.08)',
-        padding: '0 24px', height: 64,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        position: 'sticky', top: 0, zIndex: 20,
-        boxShadow: '0 2px 20px rgba(30,58,95,0.05)',
-      }}>
-        <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: 9,
-            background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 3px 10px rgba(59,130,246,0.3)',
-          }}>
-            <span style={{ color: 'white', fontWeight: 800, fontSize: 14 }}>D</span>
+      <header className="sticky top-0 z-20 flex items-center justify-between h-16 px-6 border-b border-[#3B82F6]/[0.08] shadow-[0_2px_20px_rgba(30,58,95,0.05)]" style={{ background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(16px)' }}>
+        <Link to="/" className="flex items-center gap-2.5 no-underline">
+          <div className="w-[34px] h-[34px] rounded-[9px] flex items-center justify-center shadow-[0_3px_10px_rgba(59,130,246,0.3)]" style={{ background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)' }}>
+            <span className="text-white font-extrabold text-sm">D</span>
           </div>
-          <span style={{ fontFamily: 'Hind, sans-serif', fontWeight: 800, fontSize: 17, color: '#1E3A5F' }}>BeginablAI</span>
+          <span className="font-display font-extrabold text-[17px] text-[#1E3A5F]">BeginablAI</span>
         </Link>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.12)',
-            borderRadius: 20, padding: '4px 12px',
-          }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#3B82F6' }}>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 bg-[#3B82F6]/[0.06] border border-[#3B82F6]/[0.12] rounded-full px-3 py-1">
+            <span className="text-xs font-semibold text-[#3B82F6]">
               Step {currentStep} of {STEPS.length}
             </span>
-            <div style={{
-              width: 36, height: 5, borderRadius: 10, background: 'rgba(59,130,246,0.12)', overflow: 'hidden',
-            }}>
-              <div style={{
-                height: '100%', width: `${pct}%`,
-                background: 'linear-gradient(90deg, #3B82F6, #93C5FD)',
-                borderRadius: 10, transition: 'width 0.5s ease',
-              }} />
+            <div className="w-9 h-[5px] rounded-full bg-[#3B82F6]/[0.12] overflow-hidden">
+              <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #3B82F6, #93C5FD)' }} />
             </div>
           </div>
           <button
             onClick={() => logout.mutate()}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              fontSize: 12, color: '#9CA3AF', background: 'none', border: 'none',
-              cursor: 'pointer', transition: 'color 0.2s', padding: '4px 8px', borderRadius: 6,
-            }}
-            onMouseOver={e => e.currentTarget.style.color = '#DC2626'}
-            onMouseOut={e => e.currentTarget.style.color = '#9CA3AF'}
+            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-[#DC2626] bg-transparent border-none cursor-pointer transition-colors px-2 py-1 rounded-md"
           >
             <LogOut size={13} />
             Log out
@@ -89,47 +65,34 @@ export default function OnboardingLayout({ children, currentStep, title, subtitl
       </header>
 
       {/* Progress bar */}
-      <div style={{ height: 3, background: 'rgba(59,130,246,0.08)' }}>
-        <div style={{
-          height: 3,
-          width: `${pct}%`,
-          background: 'linear-gradient(90deg, #3B82F6, #93C5FD)',
-          transition: 'width 0.6s ease',
-        }} />
+      <div className="h-[3px] bg-[#3B82F6]/[0.08]">
+        <div className="h-[3px] transition-[width] duration-[600ms] ease-out" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #3B82F6, #93C5FD)' }} />
       </div>
 
       {/* Step pills — horizontal scroll */}
-      <div style={{
-        background: 'rgba(255,255,255,0.7)',
-        backdropFilter: 'blur(12px)',
-        borderBottom: '1px solid rgba(59,130,246,0.06)',
-        padding: '10px 24px', overflowX: 'auto',
-      }}>
-        <div style={{ display: 'flex', gap: 6, minWidth: 'max-content', maxWidth: 780, margin: '0 auto' }}>
+      <div className="border-b border-[#3B82F6]/[0.06] px-6 py-2.5 overflow-x-auto" style={{ background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(12px)' }}>
+        <div className="flex gap-1.5 w-max max-w-[780px] mx-auto">
           {STEPS.map((s, i) => {
             const stepNum = i + 1
             const done   = stepNum < currentStep
             const active = stepNum === currentStep
             const Icon = s.icon
             return (
-              <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
-                  transition: 'all 0.25s',
-                  background: done ? 'rgba(59,130,246,0.08)' : active ? 'linear-gradient(135deg, #3B82F6, #1D4ED8)' : 'rgba(0,0,0,0.04)',
-                  color: done ? '#3B82F6' : active ? 'white' : '#9CA3AF',
-                  border: active ? 'none' : done ? '1px solid rgba(59,130,246,0.15)' : '1px solid transparent',
-                  boxShadow: active ? '0 3px 10px rgba(59,130,246,0.3)' : 'none',
-                }}>
+              <div key={s.label} className="flex items-center gap-1">
+                <div
+                  className={cn(
+                    'flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200',
+                    active ? 'text-white shadow-[0_3px_10px_rgba(59,130,246,0.3)]' : done ? 'text-[#3B82F6] border border-[#3B82F6]/[0.15]' : 'text-gray-400 border border-transparent',
+                    done && !active && 'bg-[#3B82F6]/[0.08]',
+                    !done && !active && 'bg-black/[0.04]',
+                  )}
+                  style={active ? { background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)' } : undefined}
+                >
                   {done ? <CheckCircle2 size={13} /> : <Icon size={13} />}
                   {s.label}
                 </div>
                 {i < STEPS.length - 1 && (
-                  <div style={{
-                    width: 16, height: 1.5,
-                    background: done ? 'rgba(59,130,246,0.3)' : 'rgba(0,0,0,0.08)',
-                  }} />
+                  <div className={cn('w-4 h-[1.5px]', done ? 'bg-[#3B82F6]/30' : 'bg-black/[0.08]')} />
                 )}
               </div>
             )
@@ -138,62 +101,27 @@ export default function OnboardingLayout({ children, currentStep, title, subtitl
       </div>
 
       {/* Content */}
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '40px 16px' }}>
-        <div style={{ width: '100%', maxWidth: 540 }}>
-          <div style={{ marginBottom: 28 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: 10,
-                  background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: 'white', fontFamily: 'Hind, sans-serif', fontWeight: 800, fontSize: 13,
-                  boxShadow: '0 4px 12px rgba(59,130,246,0.3)',
-                }}>
+      <main className="flex-1 flex flex-col items-center px-4 py-10">
+        <div className="w-full max-w-[540px]">
+          <div className="mb-7">
+            <div className="flex items-center justify-between gap-2.5 mb-2">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-[10px] flex items-center justify-center text-white font-display font-extrabold text-[13px] shadow-[0_4px_12px_rgba(59,130,246,0.3)]" style={{ background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)' }}>
                   {String(currentStep).padStart(2, '0')}
                 </div>
-                <div style={{
-                  fontSize: 11, fontWeight: 700, color: '#3B82F6',
-                  background: 'rgba(59,130,246,0.07)', padding: '3px 10px',
-                  borderRadius: 20, textTransform: 'uppercase', letterSpacing: '0.5px',
-                }}>
+                <div className="text-[11px] font-bold text-[#3B82F6] bg-[#3B82F6]/[0.07] px-2.5 py-0.5 rounded-full uppercase tracking-wide">
                   {STEPS[currentStep - 1]?.label}
                 </div>
               </div>
-              {onSkip && (
-                <button
-                  onClick={onSkip}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 3,
-                    fontSize: 12.5, fontWeight: 600, color: '#9CA3AF',
-                    background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px',
-                    transition: 'color 0.15s',
-                  }}
-                  onMouseOver={e => e.currentTarget.style.color = '#3B82F6'}
-                  onMouseOut={e => e.currentTarget.style.color = '#9CA3AF'}
-                >
-                  Skip for now <ChevronRight size={13} />
-                </button>
-              )}
             </div>
-            <h1 style={{
-              fontFamily: 'Hind, sans-serif', fontSize: 24, fontWeight: 900,
-              color: '#1E3A5F', marginBottom: 6, letterSpacing: '-0.3px',
-            }}>{title}</h1>
+            <h1 className="font-display text-2xl font-black text-[#1E3A5F] mb-1.5 tracking-tight">{title}</h1>
             {subtitle && (
-              <p style={{ fontSize: 14, color: '#6B7280', lineHeight: 1.65 }}>{subtitle}</p>
+              <p className="text-sm text-gray-500 leading-relaxed">{subtitle}</p>
             )}
           </div>
 
           {/* Form card */}
-          <div style={{
-            background: 'rgba(255,255,255,0.88)',
-            backdropFilter: 'blur(20px)',
-            borderRadius: 24,
-            border: '1px solid rgba(255,255,255,0.95)',
-            boxShadow: '0 12px 40px rgba(30,58,95,0.08), 0 2px 8px rgba(30,58,95,0.04)',
-            padding: '32px 28px',
-          }}>
+          <div className="rounded-3xl border border-white/95 shadow-[0_12px_40px_rgba(30,58,95,0.08),0_2px_8px_rgba(30,58,95,0.04)] px-7 py-8" style={{ background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(20px)' }}>
             {children}
           </div>
         </div>

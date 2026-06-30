@@ -80,6 +80,9 @@ def get_my_learning_plans(
             "generated_at": p.generated_at.isoformat() if p.generated_at else None,
             "updated_at": p.updated_at.isoformat() if p.updated_at else None,
             "is_active": str(p.job_id) == active_job_id,
+            # Lets the roadmap list flag plans for jobs that have since closed —
+            # previously these stayed in the list indistinguishable from open ones.
+            "job_is_open": bool(job.is_active),
         })
     return out
 

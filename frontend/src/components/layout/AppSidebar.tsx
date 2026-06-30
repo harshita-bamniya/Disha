@@ -5,6 +5,7 @@ import { useKrsDashboard } from '@/modules/dashboard/hooks/useKrs'
 import { useLogout } from '@/modules/auth/hooks/useAuth'
 import { useQuery } from '@tanstack/react-query'
 import { xpApi } from '@/api/xp'
+import NotificationBell from '@/components/NotificationBell'
 
 type NavPath =
   | '/app/dashboard'
@@ -55,7 +56,7 @@ export default function AppSidebar({ activePath }: { activePath?: NavPath }) {
       background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(20px)',
       borderRight: '1px solid rgba(59,130,246,0.08)',
       display: 'flex', flexDirection: 'column',
-      position: 'sticky', top: 0, height: '100vh', overflow: 'hidden',
+      position: 'sticky', top: 0, height: '100vh', overflow: 'visible',
       boxShadow: '4px 0 24px rgba(30,58,95,0.04)',
       transition: 'width 0.25s cubic-bezier(0.4,0,0.2,1)',
     }}>
@@ -110,10 +111,11 @@ export default function AppSidebar({ activePath }: { activePath?: NavPath }) {
                 background: '#16A34A', border: '2px solid white',
               }} />
             </div>
-            <div style={{ overflow: 'hidden' }}>
+            <div style={{ overflow: 'hidden', flex: 1 }}>
               <p style={{ fontSize: 13, fontWeight: 700, color: '#1E3A5F', whiteSpace: 'nowrap' }}>{name}</p>
               <p style={{ fontSize: 11, color: '#94A3B8', whiteSpace: 'nowrap' }}>{skills.length} skills · UPSC aspirant</p>
             </div>
+            <NotificationBell audience="aspirant" />
           </div>
         </div>
       )}

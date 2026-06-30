@@ -3,7 +3,7 @@ import { forwardRef, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  label?: string
+  label?: React.ReactNode
   error?: string
   hint?: string
   prefix?: React.ReactNode
@@ -13,7 +13,7 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ label, error, hint, prefix, className, id, type, required, ...props }, ref) => {
-    const inputId = id ?? label?.toLowerCase().replace(/\s+/g, '-')
+    const inputId = id ?? (typeof label === 'string' ? label.toLowerCase().replace(/\s+/g, '-') : undefined)
     const isPassword = type === 'password'
     const [showPassword, setShowPassword] = useState(false)
 

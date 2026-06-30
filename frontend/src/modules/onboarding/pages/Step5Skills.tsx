@@ -88,7 +88,6 @@ export default function Step5Skills() {
       currentStep={5}
       title="Your core skills"
       subtitle={`Select up to ${MAX_SKILLS} skills that best describe your strengths. Can't find yours? Add it below.`}
-      onSkip={() => navigate('/app/onboarding/step/6')}
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
 
@@ -193,16 +192,24 @@ export default function Step5Skills() {
           </p>
         )}
 
-        <Button
-          type="submit"
-          fullWidth
-          size="lg"
-          loading={skills.isPending}
-          disabled={selected.size === 0}
-          className="mt-2"
-        >
-          Continue →
-        </Button>
+        <div className="flex items-center gap-3 mt-2">
+          <button
+            type="button"
+            onClick={() => navigate('/app/onboarding/step/6')}
+            className="text-sm font-medium text-gray-500 hover:text-primary transition-colors px-2 py-2 whitespace-nowrap"
+          >
+            Skip for now
+          </button>
+          <Button
+            type="submit"
+            fullWidth
+            size="lg"
+            loading={skills.isPending}
+            disabled={selected.size === 0}
+          >
+            Continue →
+          </Button>
+        </div>
       </form>
     </OnboardingLayout>
   )

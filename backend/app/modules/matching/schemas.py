@@ -158,6 +158,43 @@ class BulkStatusUpdateRequest(BaseModel):
     note: Optional[str] = Field(None, max_length=500)
 
 
+class SendCandidateEmailRequest(BaseModel):
+    subject: str = Field(..., min_length=1, max_length=255)
+    body: str = Field(..., min_length=1, max_length=10_000)
+
+
+class BulkEmailRequest(BaseModel):
+    application_ids: list[str] = Field(..., min_length=1, max_length=100)
+    subject: str = Field(..., min_length=1, max_length=255)
+    body: str = Field(..., min_length=1, max_length=10_000)
+
+
+class BulkEmailResponse(BaseModel):
+    sent: int
+    skipped: int
+
+
+class OfferLetterRequest(BaseModel):
+    role_title: str = Field(..., min_length=1, max_length=200)
+    salary_ctc: str = Field(..., min_length=1, max_length=100, description="e.g. '₹12,00,000 per annum'")
+    start_date: str = Field(..., min_length=1, max_length=50, description="e.g. '01 August 2026'")
+    work_location: str = Field(..., min_length=1, max_length=200)
+    employment_type: str = Field("Full-Time", max_length=50)
+    company_address: Optional[str] = Field(None, max_length=300)
+    hiring_manager_name: str = Field(..., min_length=1, max_length=150)
+    hiring_manager_designation: str = Field(..., min_length=1, max_length=150)
+    extra_clauses: Optional[str] = Field(None, max_length=2000)
+
+
+class CandidateEmailLogOut(BaseModel):
+    id: str
+    sender_name: Optional[str] = None
+    recipient_email: str
+    subject: str
+    body: str
+    created_at: datetime
+
+
 class CandidateNoteCreateRequest(BaseModel):
     note: str = Field(..., min_length=1, max_length=2000)
     is_internal: bool = True
@@ -195,6 +232,12 @@ class InterviewFeedbackOut(BaseModel):
     recommendation: Optional[str] = None
     feedback: Optional[str] = None
     created_at: datetime
+    reschedule_requested_at: Optional[datetime] = None
+    reschedule_note: Optional[str] = None
+
+
+class RequestRescheduleRequest(BaseModel):
+    note: str = Field(..., min_length=1, max_length=500)
 
 
 class UpcomingInterviewEntry(BaseModel):
@@ -251,6 +294,20 @@ class JobPerformanceEntry(BaseModel):
 
 class JobPerformanceResponse(BaseModel):
     jobs: list[JobPerformanceEntry]
+
+
+class RecruiterPerformanceEntry(BaseModel):
+    user_id: str
+    name: Optional[str] = None
+    applications_moved: int      # status_history rows this recruiter authored
+    interviews_conducted: int    # CandidateInterviewFeedback rows where they were interviewer
+    notes_added: int             # CandidateNote rows they authored
+    hires_closed: int            # applications they moved to 'hired'
+    avg_days_to_hire: Optional[float] = None   # for hires they closed, applied_at -> hired_at
+
+
+class RecruiterPerformanceResponse(BaseModel):
+    recruiters: list[RecruiterPerformanceEntry]
 
 
 # ── Dashboard KPIs (Module 05 Phase 8) ─────────────────────────────────────────

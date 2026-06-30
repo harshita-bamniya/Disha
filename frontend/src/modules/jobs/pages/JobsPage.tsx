@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Briefcase, MapPin, Wifi, AlertCircle, ChevronLeft, ChevronRight, ChevronDown, SlidersHorizontal, ArrowUpRight, IndianRupee, X } from 'lucide-react'
+import { Briefcase, MapPin, Wifi, AlertCircle, ChevronLeft, ChevronRight, ChevronDown, SlidersHorizontal, ArrowUpRight, IndianRupee, X, Map as MapIcon } from 'lucide-react'
 import AppSidebar from '@/components/layout/AppSidebar'
 import { getJobs, type JobListItem } from '@/api/matching'
+import { jobPlanApi } from '@/api/jobPlan'
 
 const SECTORS = ['Policy', 'ESG', 'EdTech', 'NGO', 'Consulting', 'Public Affairs', 'Research']
 const JOB_TYPES = ['remote', 'pan_india', 'hybrid', 'onsite']
@@ -24,7 +25,7 @@ function matchTier(score: number) {
   return { bg: '#F8FAFC', fg: '#64748B', bar: '#CBD5E1' }
 }
 
-function JobCard({ job }: { job: JobListItem }) {
+function JobCard({ job, hasRoadmap }: { job: JobListItem; hasRoadmap: boolean }) {
   const [hov, setHov] = useState(false)
   const [bg, fg] = avatarColors(job.company_name)
   const tier = matchTier(job.match_score ?? 0)
@@ -87,6 +88,11 @@ function JobCard({ job }: { job: JobListItem }) {
           {job.employment_type && (
             <span style={{ fontSize: 11, background: '#F8FAFC', color: '#475569', padding: '3px 9px', borderRadius: 20, fontWeight: 500 }}>
               {job.employment_type.replace('_', ' ')}
+            </span>
+          )}
+          {hasRoadmap && (
+            <span style={{ fontSize: 11, background: '#EEF2FF', color: '#6366F1', padding: '3px 9px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 3, fontWeight: 600 }}>
+              <MapIcon size={10} /> Roadmap started
             </span>
           )}
         </div>
@@ -175,6 +181,9 @@ export default function JobsPage() {
     queryKey: ['jobs', sector, jobType, page],
     queryFn: () => getJobs({ sector: sector || undefined, job_type: jobType || undefined, limit, offset: page * limit }),
   })
+
+  const { data: jobPlans } = useQuery({ queryKey: ['job-plans-all'], queryFn: jobPlanApi.getAllMine })
+  const roadmapJobIds = new Set(jobPlans?.map(p => p.job_id) ?? [])
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'white' }}>
@@ -300,7 +309,7 @@ export default function JobsPage() {
               ? <EmptyState hasFilters={hasFilters} />
               : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 18 }}>
-                  {data.jobs.map(job => <JobCard key={job.id} job={job} />)}
+                  {data.jobs.map(job => <JobCard key={job.id} job={job} hasRoadmap={roadmapJobIds.has(job.id)} />)}
                 </div>
               )
             }

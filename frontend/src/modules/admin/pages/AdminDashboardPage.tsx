@@ -6,7 +6,7 @@ import {
   ChevronDown, ChevronUp, Compass, LayoutDashboard, FileText,
   TrendingUp, Activity, ToggleLeft, ToggleRight, Shield, ShieldOff,
   UserCheck, UserX, Zap, Star, Award, BarChart3, Eye, RefreshCw,
-  UserCog, KeyRound, Trash,
+  UserCog, KeyRound, Trash, Settings, Flag, IndianRupee, Download,
 } from 'lucide-react'
 import {
   useAdminStats, useAdminEmployers, useRevokeEmployer,
@@ -20,6 +20,8 @@ import {
   useEmployerVerifications, useEmployerVerificationDetail, useReviewEmployerVerification,
   useAuditLogs,
   useSubscriptionPlansAdmin, useUpdateSubscriptionPlan,
+  usePlatformSettings, useUpdatePlatformSetting, useFeatureFlags, useUpdateFeatureFlag,
+  useBillingOverview,
 } from '../hooks/useAdmin'
 import { analyticsApi } from '@/api/analytics'
 import { adminApi } from '@/api/admin'
@@ -35,7 +37,7 @@ import type {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Section = 'dashboard' | 'users' | 'employers' | 'jobs' | 'applications' | 'tracks' | 'subadmins' | 'roles' | 'verifications' | 'auditlog' | 'subscriptions'
+type Section = 'dashboard' | 'users' | 'employers' | 'jobs' | 'applications' | 'tracks' | 'subadmins' | 'roles' | 'verifications' | 'auditlog' | 'subscriptions' | 'platform' | 'billing'
 
 const NAV: { label: string; value: Section; icon: React.ElementType; badge?: string }[] = [
   { label: 'Dashboard',    value: 'dashboard',    icon: LayoutDashboard },
@@ -48,7 +50,9 @@ const NAV: { label: string; value: Section; icon: React.ElementType; badge?: str
   { label: 'Sub-Admins',   value: 'subadmins',    icon: UserCog         },
   { label: 'Roles & Permissions', value: 'roles', icon: KeyRound        },
   { label: 'Audit Log',    value: 'auditlog',     icon: Activity        },
+  { label: 'Revenue',      value: 'billing',      icon: IndianRupee     },
   { label: 'Subscriptions', value: 'subscriptions', icon: Award          },
+  { label: 'Platform Settings', value: 'platform', icon: Settings        },
 ]
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -84,6 +88,34 @@ function Badge({ children, color = 'gray' }: { children: React.ReactNode; color?
     <span className={cn('px-2 py-0.5 rounded-full text-xs font-semibold', cls[color] ?? cls.gray)}>
       {children}
     </span>
+  )
+}
+
+function downloadCSV<T extends Record<string, unknown>>(rows: T[], filename: string) {
+  if (rows.length === 0) return
+  const headers = Object.keys(rows[0])
+  const csv = [
+    headers.join(','),
+    ...rows.map(row => headers.map(h => `"${String(row[h] ?? '').replace(/"/g, '""')}"`).join(',')),
+  ].join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function ExportButton<T extends Record<string, unknown>>({ rows, filename }: { rows: T[]; filename: string }) {
+  return (
+    <button
+      onClick={() => downloadCSV(rows, filename)}
+      disabled={rows.length === 0}
+      className="flex items-center gap-1.5 h-8 px-3 rounded-xl border border-gray-200 bg-white text-xs font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+    >
+      <Download size={12} />Export CSV
+    </button>
   )
 }
 
@@ -666,13 +698,25 @@ function UsersSection() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
           <h2 className="text-sm font-bold text-gray-900">Aspirant Users</h2>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-            <input
-              value={search}
-              onChange={e => handleSearch(e.target.value)}
-              placeholder="Search name, phone, city…"
-              className="pl-8 pr-3 h-8 rounded-xl border border-gray-200 text-xs text-gray-700 placeholder:text-gray-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 bg-white w-64"
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+              <input
+                value={search}
+                onChange={e => handleSearch(e.target.value)}
+                placeholder="Search name, phone, city…"
+                className="pl-8 pr-3 h-8 rounded-xl border border-gray-200 text-xs text-gray-700 placeholder:text-gray-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 bg-white w-64"
+              />
+            </div>
+            <ExportButton
+              rows={(users ?? []).map(u => ({
+                full_name: u.full_name ?? '', phone: u.phone, email: u.email ?? '',
+                city: u.city ?? '', state: u.state ?? '', is_active: u.is_active,
+                is_completed: u.is_completed, current_step: u.current_step,
+                krs_composite: u.krs_composite ?? '', application_count: u.application_count,
+                registered_at: u.registered_at,
+              }))}
+              filename="aspirant_users.csv"
             />
           </div>
         </div>
@@ -780,19 +824,31 @@ function EmployersSection({ onNav }: { onNav: (s: Section) => void }) {
               </button>
             </p>
           </div>
-          <div className="flex bg-white border border-gray-200 rounded-xl p-0.5 gap-0.5">
-            {(['pending', 'approved', 'all'] as EmployerStatus[]).map(t => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={cn('px-3 py-1 rounded-lg text-xs font-semibold capitalize transition-all', tab === t ? 'bg-primary text-white' : 'text-gray-500 hover:text-gray-700')}
-              >
-                {t}
-                {t === 'pending' && stats && stats.pending_employers > 0 && (
-                  <span className="ml-1 px-1.5 py-0.5 bg-amber-500 text-white text-xs rounded-full">{stats.pending_employers}</span>
-                )}
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <div className="flex bg-white border border-gray-200 rounded-xl p-0.5 gap-0.5">
+              {(['pending', 'approved', 'all'] as EmployerStatus[]).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setTab(t)}
+                  className={cn('px-3 py-1 rounded-lg text-xs font-semibold capitalize transition-all', tab === t ? 'bg-primary text-white' : 'text-gray-500 hover:text-gray-700')}
+                >
+                  {t}
+                  {t === 'pending' && stats && stats.pending_employers > 0 && (
+                    <span className="ml-1 px-1.5 py-0.5 bg-amber-500 text-white text-xs rounded-full">{stats.pending_employers}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+            <ExportButton
+              rows={(employers ?? []).map(e => ({
+                company_name: e.company_name, contact_person: e.contact_person ?? '',
+                phone: e.phone, city: e.city ?? '', industry: e.industry ?? '',
+                company_size: e.company_size ?? '', is_approved: e.is_approved,
+                job_count: e.job_count, application_count: e.application_count,
+                registered_at: e.registered_at,
+              }))}
+              filename={`employers_${tab}.csv`}
+            />
           </div>
         </div>
 
@@ -938,6 +994,16 @@ function JobsSection() {
                 className="pl-8 pr-3 h-8 rounded-xl border border-gray-200 text-xs text-gray-700 placeholder:text-gray-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 bg-white w-60"
               />
             </div>
+            <ExportButton
+              rows={(jobs ?? []).map(j => ({
+                title: j.title, company_name: j.company_name, sector: j.sector,
+                location: j.location ?? '', employment_type: j.employment_type ?? '',
+                salary_min: j.salary_min ?? '', salary_max: j.salary_max ?? '',
+                is_active: j.is_active, applicant_count: j.applicant_count,
+                created_at: j.created_at, expires_at: j.expires_at ?? '',
+              }))}
+              filename="job_postings.csv"
+            />
           </div>
         </div>
 
@@ -1095,13 +1161,23 @@ function ApplicationsSection() {
             Applications {statusFilter !== 'all' ? `· ${fmt(statusFilter)}` : ''}
             {apps && <span className="ml-2 text-gray-400 font-normal">({apps.length})</span>}
           </h2>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-            <input
-              value={search}
-              onChange={e => handleSearch(e.target.value)}
-              placeholder="Search aspirant, job, company…"
-              className="pl-8 pr-3 h-8 rounded-xl border border-gray-200 text-xs text-gray-700 placeholder:text-gray-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 bg-white w-64"
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+              <input
+                value={search}
+                onChange={e => handleSearch(e.target.value)}
+                placeholder="Search aspirant, job, company…"
+                className="pl-8 pr-3 h-8 rounded-xl border border-gray-200 text-xs text-gray-700 placeholder:text-gray-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 bg-white w-64"
+              />
+            </div>
+            <ExportButton
+              rows={(apps ?? []).map(a => ({
+                aspirant_name: a.aspirant_name ?? '', aspirant_phone: a.aspirant_phone,
+                job_title: a.job_title, company_name: a.company_name,
+                status: a.status, match_score: a.match_score ?? '', applied_at: a.applied_at,
+              }))}
+              filename="applications.csv"
             />
           </div>
         </div>
@@ -1701,13 +1777,23 @@ function AuditLogSection() {
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
           <h2 className="text-sm font-bold text-gray-900">Audit Log</h2>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-            <input
-              value={actionFilter}
-              onChange={e => { setActionFilter(e.target.value); setOffset(0) }}
-              placeholder="Filter by action…"
-              className="pl-8 pr-3 h-8 rounded-xl border border-gray-200 text-xs text-gray-700 placeholder:text-gray-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 bg-white w-56"
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+              <input
+                value={actionFilter}
+                onChange={e => { setActionFilter(e.target.value); setOffset(0) }}
+                placeholder="Filter by action…"
+                className="pl-8 pr-3 h-8 rounded-xl border border-gray-200 text-xs text-gray-700 placeholder:text-gray-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 bg-white w-56"
+              />
+            </div>
+            <ExportButton
+              rows={(data?.items ?? []).map(log => ({
+                action: log.action, actor: log.actor_email ?? log.actor_phone ?? 'System',
+                resource: log.resource ?? '', resource_id: log.resource_id ?? '',
+                ip_address: log.ip_address ?? '', created_at: log.created_at,
+              }))}
+              filename="audit_log_page.csv"
             />
           </div>
         </div>
@@ -1843,6 +1929,299 @@ function SubscriptionPlansSection() {
   )
 }
 
+function formatPaise(paise: number): string {
+  return `₹${(paise / 100).toLocaleString('en-IN')}`
+}
+
+function BillingSection() {
+  const { data, isLoading } = useBillingOverview()
+
+  if (isLoading) return <Spinner />
+  if (!data) return <Empty icon={IndianRupee} text="Could not load billing data" />
+
+  const maxTrend = Math.max(1, ...data.trend.map(t => t.new_subscriptions))
+
+  return (
+    <section className="flex flex-col gap-6">
+      {/* KPI cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <p className="text-xs text-gray-400 font-semibold mb-1">MRR</p>
+          <p className="text-xl font-black text-gray-900">{formatPaise(data.mrr)}</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <p className="text-xs text-gray-400 font-semibold mb-1">ARPA</p>
+          <p className="text-xl font-black text-gray-900">{formatPaise(data.arpa)}</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <p className="text-xs text-gray-400 font-semibold mb-1">Active Subscriptions</p>
+          <p className="text-xl font-black text-gray-900">{data.active_subscriptions}</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <p className="text-xs text-gray-400 font-semibold mb-1">New (30d)</p>
+          <p className="text-xl font-black text-gray-900">{data.new_subscriptions_30d}</p>
+        </div>
+      </div>
+
+      {(data.past_due_subscriptions > 0 || data.canceled_subscriptions > 0) && (
+        <div className="flex gap-3">
+          {data.past_due_subscriptions > 0 && (
+            <span className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-200">
+              {data.past_due_subscriptions} past due
+            </span>
+          )}
+          {data.canceled_subscriptions > 0 && (
+            <span className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-red-50 text-red-700 border border-red-200">
+              {data.canceled_subscriptions} canceled
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* New subscriptions trend */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-4">
+        <p className="text-xs font-semibold text-gray-500 mb-3">New subscriptions — last 6 months</p>
+        {data.trend.length === 0 ? (
+          <p className="text-xs text-gray-400">No subscriptions created in this window yet.</p>
+        ) : (
+          <div className="flex items-end gap-2 h-20">
+            {data.trend.map(t => (
+              <div key={t.month} className="flex-1 flex flex-col items-center gap-1">
+                <div
+                  title={`${t.month}: ${t.new_subscriptions}`}
+                  style={{ height: `${(t.new_subscriptions / maxTrend) * 100}%`, minHeight: 2, width: '100%' }}
+                  className="bg-primary rounded"
+                />
+                <span className="text-[10px] text-gray-400">{t.month.slice(5)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Plan distribution */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-100">
+          <h2 className="text-sm font-bold text-gray-900">Revenue by Plan</h2>
+        </div>
+        {data.plan_distribution.length === 0 ? (
+          <Empty icon={Award} text="No subscription plans configured" />
+        ) : (
+          data.plan_distribution.map((p, idx) => (
+            <div key={p.plan_id} className={cn('px-4 py-3 flex items-center justify-between', idx < data.plan_distribution.length - 1 && 'border-b border-gray-50')}>
+              <div>
+                <p className="text-sm font-semibold text-gray-900 capitalize">{p.plan_name}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{p.company_count} compan{p.company_count === 1 ? 'y' : 'ies'} · {formatPaise(p.price_monthly)}/mo each</p>
+              </div>
+              <p className="text-sm font-black text-gray-900">{formatPaise(p.mrr)}</p>
+            </div>
+          ))
+        )}
+      </div>
+
+      <p className="text-[11px] text-gray-400">
+        Computed from active subscription records, not a reconciled payment ledger — there's no Payment/Invoice model yet.
+      </p>
+    </section>
+  )
+}
+
+function PlatformSection() {
+  const { data: settings, isLoading: settingsLoading } = usePlatformSettings()
+  const { data: flags, isLoading: flagsLoading } = useFeatureFlags()
+  const updateSetting = useUpdatePlatformSetting()
+  const updateFlag = useUpdateFeatureFlag()
+
+  const [editingKey, setEditingKey] = useState<string | null>(null)
+  const [settingValue, setSettingValue] = useState('')
+
+  const [editingFlag, setEditingFlag] = useState<string | null>(null)
+  const [flagForm, setFlagForm] = useState<{ rollout_pct: string }>({ rollout_pct: '0' })
+
+  return (
+    <section className="flex flex-col gap-6">
+      {/* Platform settings */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+          <Settings size={14} className="text-gray-400" />
+          <h2 className="text-sm font-bold text-gray-900">Platform Settings</h2>
+        </div>
+
+        {settingsLoading ? <Spinner /> : !settings || settings.length === 0 ? (
+          <Empty icon={Settings} text="No platform settings configured" />
+        ) : (
+          settings.map((s, idx) => (
+            <div key={s.id} className={cn('px-4 py-3', idx < settings.length - 1 && 'border-b border-gray-50')}>
+              {editingKey === s.key ? (
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="flex-1 min-w-[200px]">
+                    <p className="text-[10px] text-gray-400 mb-1">{s.key}</p>
+                    <input
+                      value={settingValue}
+                      onChange={e => setSettingValue(e.target.value)}
+                      className="h-8 w-full rounded-lg border border-gray-200 px-2 text-xs font-mono"
+                    />
+                  </div>
+                  <button
+                    onClick={() => {
+                      let parsed: unknown = settingValue
+                      try { parsed = JSON.parse(settingValue) } catch { /* keep as raw string */ }
+                      updateSetting.mutate({ key: s.key, value: parsed }, { onSuccess: () => setEditingKey(null) })
+                    }}
+                    disabled={updateSetting.isPending}
+                    className="h-8 px-3 rounded-lg bg-primary text-white text-xs font-semibold"
+                  >Save</button>
+                  <button onClick={() => setEditingKey(null)} className="h-8 px-3 rounded-lg border border-gray-200 text-xs font-medium text-gray-600">Cancel</button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900">{s.key}</p>
+                    <p className="text-xs text-gray-400 mt-0.5 truncate font-mono">{JSON.stringify(s.value)}</p>
+                    {s.description && <p className="text-xs text-gray-400 mt-0.5">{s.description}</p>}
+                  </div>
+                  <button
+                    onClick={() => { setEditingKey(s.key); setSettingValue(JSON.stringify(s.value)) }}
+                    className="shrink-0 text-xs font-semibold text-primary hover:underline"
+                  >Edit</button>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Feature flags */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+          <Flag size={14} className="text-gray-400" />
+          <h2 className="text-sm font-bold text-gray-900">Feature Flags</h2>
+        </div>
+
+        {flagsLoading ? <Spinner /> : !flags || flags.length === 0 ? (
+          <Empty icon={Flag} text="No feature flags configured" />
+        ) : (
+          flags.map((f, idx) => (
+            <div key={f.id} className={cn('px-4 py-3', idx < flags.length - 1 && 'border-b border-gray-50')}>
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900">{f.flag_name}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {f.rollout_pct}% rollout
+                    {f.target_roles && f.target_roles.length > 0 && ` · ${f.target_roles.join(', ')}`}
+                  </p>
+                  {f.description && <p className="text-xs text-gray-400 mt-0.5">{f.description}</p>}
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  {editingFlag === f.flag_name && (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number" min={0} max={100}
+                        value={flagForm.rollout_pct}
+                        onChange={e => setFlagForm({ rollout_pct: e.target.value })}
+                        className="h-8 w-16 rounded-lg border border-gray-200 px-2 text-xs"
+                      />
+                      <button
+                        onClick={() => {
+                          updateFlag.mutate({
+                            flagName: f.flag_name,
+                            payload: { is_enabled: f.is_enabled, rollout_pct: Number(flagForm.rollout_pct) || 0, target_roles: f.target_roles },
+                          }, { onSuccess: () => setEditingFlag(null) })
+                        }}
+                        className="h-8 px-2 rounded-lg bg-primary text-white text-xs font-semibold"
+                      >Save</button>
+                    </div>
+                  )}
+                  {editingFlag !== f.flag_name && (
+                    <button
+                      onClick={() => { setEditingFlag(f.flag_name); setFlagForm({ rollout_pct: String(f.rollout_pct) }) }}
+                      className="text-xs font-semibold text-primary hover:underline"
+                    >Rollout %</button>
+                  )}
+                  <button
+                    onClick={() => updateFlag.mutate({
+                      flagName: f.flag_name,
+                      payload: { is_enabled: !f.is_enabled, rollout_pct: f.rollout_pct, target_roles: f.target_roles },
+                    })}
+                    disabled={updateFlag.isPending}
+                    className={cn(
+                      'h-7 w-12 rounded-full transition-colors relative shrink-0',
+                      f.is_enabled ? 'bg-primary' : 'bg-gray-200',
+                    )}
+                  >
+                    <span className={cn(
+                      'absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform',
+                      f.is_enabled && 'translate-x-5',
+                    )} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </section>
+  )
+}
+
+function GlobalSearchBar({ onNavigate }: { onNavigate: (s: Section) => void }) {
+  const [query, setQuery] = useState('')
+  const [debounced, setDebounced] = useState('')
+  const [open, setOpen] = useState(false)
+
+  const handleChange = (v: string) => {
+    setQuery(v)
+    setOpen(true)
+    clearTimeout((handleChange as any)._t)
+    ;(handleChange as any)._t = setTimeout(() => setDebounced(v), 300)
+  }
+
+  const { data, isFetching } = useQuery({
+    queryKey: ['admin', 'search', debounced],
+    queryFn: () => adminApi.globalSearch(debounced),
+    enabled: debounced.trim().length >= 2,
+  })
+
+  const TYPE_LABELS: Record<string, string> = { user: 'Aspirant', employer: 'Employer', job: 'Job', application: 'Application' }
+
+  return (
+    <div className="relative w-72">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+      <input
+        value={query}
+        onChange={e => handleChange(e.target.value)}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder="Search anything — users, employers, jobs…"
+        className="w-full pl-8 pr-3 h-9 rounded-xl border border-gray-200 text-xs text-gray-700 placeholder:text-gray-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 bg-white"
+      />
+      {open && debounced.trim().length >= 2 && (
+        <div className="absolute top-10 left-0 right-0 bg-white rounded-xl border border-gray-100 shadow-lg z-50 max-h-80 overflow-y-auto">
+          {isFetching ? (
+            <p className="px-4 py-3 text-xs text-gray-400">Searching…</p>
+          ) : !data || data.results.length === 0 ? (
+            <p className="px-4 py-3 text-xs text-gray-400">No matches for "{debounced}"</p>
+          ) : (
+            data.results.map(r => (
+              <button
+                key={`${r.type}-${r.id}`}
+                onClick={() => { onNavigate(r.section as Section); setOpen(false); setQuery('') }}
+                className="w-full text-left px-4 py-2.5 hover:bg-primary/5 border-b border-gray-50 last:border-0 flex items-center justify-between gap-2"
+              >
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-gray-900 truncate">{r.title}</p>
+                  {r.subtitle && <p className="text-[11px] text-gray-400 truncate">{r.subtitle}</p>}
+                </div>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide shrink-0">{TYPE_LABELS[r.type] ?? r.type}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AdminDashboardPage() {
@@ -1860,6 +2239,13 @@ export default function AdminDashboardPage() {
     jobs: 'Jobs',
     applications: 'Applications',
     tracks: 'Career Tracks',
+    subadmins: 'Sub-Admins',
+    roles: 'Roles & Permissions',
+    verifications: 'KYC Verification',
+    auditlog: 'Audit Log',
+    subscriptions: 'Subscriptions',
+    platform: 'Platform Settings',
+    billing: 'Revenue',
   }
 
   return (
@@ -1943,6 +2329,7 @@ export default function AdminDashboardPage() {
             <p className="text-xs text-gray-400">BeginablAI platform administration</p>
           </div>
           <div className="flex items-center gap-3">
+            <GlobalSearchBar onNavigate={setSection} />
             {pendingCount > 0 && (
               <button
                 onClick={() => setSection('employers')}
@@ -1971,6 +2358,8 @@ export default function AdminDashboardPage() {
           {section === 'verifications' && <VerificationsSection />}
           {section === 'auditlog' && <AuditLogSection />}
           {section === 'subscriptions' && <SubscriptionPlansSection />}
+          {section === 'platform' && <PlatformSection />}
+          {section === 'billing' && <BillingSection />}
         </main>
       </div>
     </div>

@@ -1,17 +1,19 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import NotificationBell from '@/components/NotificationBell'
 import {
   Plus, Pencil, Trash2, Clock,
   CheckCircle2, LogOut, LayoutDashboard, Building2,
   TrendingUp, PauseCircle, X, Users, ShieldCheck, Users2, BarChart3, CreditCard,
   Rocket, PlayCircle, XCircle, Archive, Copy,
   Briefcase, CalendarClock, Send, Award, Activity, Video, Sparkles, ArrowRight,
+  Star, CalendarDays, Upload, Download,
 } from 'lucide-react'
 import {
   useEmployerDashboard, useCreateJob, useUpdateJob, useDeleteJob,
   usePublishJob, usePauseJob, useCloseJob, useReopenJob, useArchiveJob, useDuplicateJob,
   useDashboardKpis, useApplicationTrend, useUpcomingInterviews, useHasPermission,
-  useCompanyProfile,
+  useCompanyProfile, useBulkImportJobs,
 } from '../hooks/useJobs'
 import { useLogout } from '@/modules/auth/hooks/useAuth'
 import JobForm from '../components/JobForm'
@@ -201,6 +203,24 @@ function Sidebar({
           fontSize: 14, fontWeight: 600,
         }}>
           <Users2 size={16} />Company & Team
+        </Link>
+
+        <Link to="/app/employer/talent-pool" style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 12px', borderRadius: 12, marginTop: 2,
+          color: '#1E3A5F', textDecoration: 'none',
+          fontSize: 14, fontWeight: 600,
+        }}>
+          <Star size={16} />Talent Pool
+        </Link>
+
+        <Link to="/app/employer/calendar" style={{
+          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+          padding: '10px 12px', borderRadius: 12, marginTop: 2,
+          color: '#1E3A5F', textDecoration: 'none',
+          fontSize: 14, fontWeight: 600,
+        }}>
+          <CalendarDays size={16} />Calendar
         </Link>
 
         <Link to="/app/employer/analytics" style={{
@@ -603,6 +623,90 @@ function SetupWizardBanner() {
   )
 }
 
+// ── Bulk job import modal ────────────────────────────────────────────────────
+
+const BULK_IMPORT_TEMPLATE_CSV =
+  'title,description,sector,required_skills,job_type,location,employment_type,expires_at,min_k_score,salary_min,salary_max,growth_outlook\n' +
+  '"Policy Research Associate","Support senior analysts on policy research projects, drafting briefs and conducting data analysis.","Government & Civil Services","Policy Research;Data Analysis;Report Writing","hybrid","New Delhi","full_time","2026-12-31",40,8,14,medium\n'
+
+function downloadBulkImportTemplate() {
+  const blob = new Blob([BULK_IMPORT_TEMPLATE_CSV], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'job_import_template.csv'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function BulkImportModal({ onClose }: { onClose: () => void }) {
+  const bulkImport = useBulkImportJobs()
+  const [file, setFile] = useState<File | null>(null)
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16 }}>
+      <div style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 460, width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 800, color: '#1E3A5F', margin: 0 }}>Bulk import jobs</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF' }}><X size={16} /></button>
+        </div>
+
+        <p style={{ fontSize: 12, color: '#6B7280', marginBottom: 12, lineHeight: 1.5 }}>
+          Upload a CSV to create multiple job postings at once. All are saved as <strong>drafts</strong> —
+          review and publish each one individually afterward.
+        </p>
+
+        <button
+          onClick={downloadBulkImportTemplate}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: '#3B82F6', background: 'rgba(59,130,246,0.06)', border: 'none', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', marginBottom: 14 }}
+        >
+          <Download size={13} />Download CSV template
+        </button>
+
+        <input
+          type="file"
+          accept=".csv,text/csv"
+          onChange={e => setFile(e.target.files?.[0] ?? null)}
+          style={{ width: '100%', fontSize: 12, marginBottom: 14 }}
+        />
+
+        {bulkImport.isError && (
+          <p style={{ fontSize: 12, color: '#DC2626', marginBottom: 10 }}>{getApiError(bulkImport.error, 'Import failed. Please check your file and try again.')}</p>
+        )}
+
+        {bulkImport.data && (
+          <div style={{ marginBottom: 14 }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: '#059669', marginBottom: 6 }}>
+              {bulkImport.data.created} job{bulkImport.data.created !== 1 ? 's' : ''} created as drafts.
+            </p>
+            {bulkImport.data.failed.length > 0 && (
+              <div style={{ background: '#FEF2F2', borderRadius: 8, padding: 10 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: '#DC2626', marginBottom: 4 }}>{bulkImport.data.failed.length} row(s) failed:</p>
+                {bulkImport.data.failed.map(f => (
+                  <p key={f.row} style={{ fontSize: 11, color: '#991B1B', margin: '2px 0' }}>Row {f.row}: {f.error}</p>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} style={{ flex: 1, height: 38, borderRadius: 10, border: '1px solid #E5E7EB', background: '#fff', fontSize: 13, fontWeight: 600, color: '#6B7280', cursor: 'pointer' }}>
+            {bulkImport.data ? 'Done' : 'Cancel'}
+          </button>
+          {!bulkImport.data && (
+            <button
+              onClick={() => file && bulkImport.mutate(file)}
+              disabled={!file || bulkImport.isPending}
+              style={{ flex: 1, height: 38, borderRadius: 10, border: 'none', background: '#3B82F6', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: !file ? 0.5 : 1 }}
+            >{bulkImport.isPending ? 'Importing…' : 'Import'}</button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 export default function EmployerDashboardPage() {
   const { data, isLoading } = useEmployerDashboard()
@@ -618,6 +722,7 @@ export default function EmployerDashboardPage() {
   const canCreateJob = useHasPermission('jobs:create')
   const logout     = useLogout()
   const [view, setView] = useState<View>('list')
+  const [showBulkImport, setShowBulkImport] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [mutatingId, setMutatingId] = useState<string | null>(null)
 
@@ -678,29 +783,42 @@ export default function EmployerDashboardPage() {
                 : 'Fill in the details below'}
             </p>
           </div>
-          {data?.is_approved && view === 'list' && canCreateJob && (
-            <button onClick={() => setView('new')} style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '9px 18px', borderRadius: 11,
-              background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
-              color: 'white', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-              boxShadow: '0 4px 14px rgba(59,130,246,0.3)', transition: 'all 0.2s',
-            }}
-              onMouseOver={e => e.currentTarget.style.opacity = '0.9'}
-              onMouseOut={e => e.currentTarget.style.opacity = '1'}
-            >
-              <Plus size={15} />Post a Job
-            </button>
-          )}
-          {view !== 'list' && (
-            <button onClick={() => setView('list')} style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10,
-              background: 'rgba(107,114,128,0.07)', border: '1px solid rgba(107,114,128,0.15)',
-              color: '#6B7280', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            }}>
-              <X size={14} />Cancel
-            </button>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <NotificationBell />
+            {data?.is_approved && view === 'list' && canCreateJob && (
+              <button onClick={() => setShowBulkImport(true)} style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '9px 14px', borderRadius: 10,
+                background: '#fff', border: '1px solid #E5E7EB',
+                color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}>
+                <Upload size={14} />Bulk Import
+              </button>
+            )}
+            {data?.is_approved && view === 'list' && canCreateJob && (
+              <button onClick={() => setView('new')} style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '9px 18px', borderRadius: 11,
+                background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
+                color: 'white', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(59,130,246,0.3)', transition: 'all 0.2s',
+              }}
+                onMouseOver={e => e.currentTarget.style.opacity = '0.9'}
+                onMouseOut={e => e.currentTarget.style.opacity = '1'}
+              >
+                <Plus size={15} />Post a Job
+              </button>
+            )}
+            {view !== 'list' && (
+              <button onClick={() => setView('list')} style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10,
+                background: 'rgba(107,114,128,0.07)', border: '1px solid rgba(107,114,128,0.15)',
+                color: '#6B7280', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+              }}>
+                <X size={14} />Cancel
+              </button>
+            )}
+          </div>
         </header>
 
         <main style={{ padding: '28px 32px', flex: 1 }}>
@@ -866,6 +984,8 @@ export default function EmployerDashboardPage() {
           )}
         </main>
       </div>
+
+      {showBulkImport && <BulkImportModal onClose={() => setShowBulkImport(false)} />}
 
       {/* ── Delete confirm modal ── */}
       {confirmDelete && (

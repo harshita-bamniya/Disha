@@ -119,6 +119,15 @@ export interface CandidateOut {
   interview_feedback: InterviewFeedbackOut[]
 }
 
+export interface CandidateEmailLogOut {
+  id: string
+  sender_name: string | null
+  recipient_email: string
+  subject: string
+  body: string
+  created_at: string
+}
+
 export interface CandidateNoteOut {
   id: string
   author_name: string | null
@@ -137,6 +146,8 @@ export interface InterviewFeedbackOut {
   recommendation: string | null
   feedback: string | null
   created_at: string
+  reschedule_requested_at: string | null
+  reschedule_note: string | null
 }
 
 export interface UpcomingInterviewEntry {
@@ -156,6 +167,20 @@ export interface JobCandidatePipeline {
   total_applications: number
   by_status: Record<string, number>
   candidates: CandidateOut[]
+}
+
+export interface SavedCandidateOut {
+  aspirant_id: string
+  full_name: string | null
+  city: string | null
+  state: string | null
+  highest_qualification: string | null
+  last_designation: string | null
+  skills: string[]
+  composite: number | null
+  note: string | null
+  saved_by_name: string | null
+  saved_at: string
 }
 
 // ── Aspirant: job discovery ───────────────────────────────────────────────────
@@ -189,6 +214,14 @@ export const withdrawApplication = (
   id: string, reason?: string, note?: string,
 ): Promise<{ status: string }> =>
   apiClient.post(`/jobs/applications/${id}/withdraw`, { reason: reason || null, note: note || null }).then((r) => r.data)
+
+export const getMyInterviews = (applicationId: string): Promise<InterviewFeedbackOut[]> =>
+  apiClient.get(`/jobs/applications/${applicationId}/interviews`).then((r) => r.data)
+
+export const requestInterviewReschedule = (
+  applicationId: string, interviewId: string, note: string,
+): Promise<InterviewFeedbackOut> =>
+  apiClient.post(`/jobs/applications/${applicationId}/interviews/${interviewId}/request-reschedule`, { note }).then((r) => r.data)
 
 // ── Employer: candidate pipeline ──────────────────────────────────────────────
 
@@ -230,6 +263,53 @@ export const addCandidateNote = (
     .post(`/employer/pipeline/applications/${applicationId}/notes`, { note, is_internal: isInternal })
     .then((r) => r.data)
 
+export const sendCandidateEmail = (
+  applicationId: string,
+  subject: string,
+  body: string,
+): Promise<CandidateEmailLogOut> =>
+  apiClient
+    .post(`/employer/pipeline/applications/${applicationId}/email`, { subject, body })
+    .then((r) => r.data)
+
+export const getCandidateEmails = (applicationId: string): Promise<CandidateEmailLogOut[]> =>
+  apiClient.get(`/employer/pipeline/applications/${applicationId}/email`).then((r) => r.data)
+
+export const bulkEmailCandidates = (
+  applicationIds: string[],
+  subject: string,
+  body: string,
+): Promise<{ sent: number; skipped: number }> =>
+  apiClient
+    .post('/employer/pipeline/applications/bulk-email', { application_ids: applicationIds, subject, body })
+    .then((r) => r.data)
+
+export interface OfferLetterPayload {
+  role_title: string
+  salary_ctc: string
+  start_date: string
+  work_location: string
+  employment_type: string
+  company_address?: string
+  hiring_manager_name: string
+  hiring_manager_designation: string
+  extra_clauses?: string
+}
+
+export const generateOfferLetter = async (applicationId: string, payload: OfferLetterPayload): Promise<void> => {
+  const response = await apiClient.post(
+    `/employer/pipeline/applications/${applicationId}/offer-letter`,
+    payload,
+    { responseType: 'blob' },
+  )
+  const url = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `offer_letter_${applicationId}.pdf`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export const setCandidateRating = (
   applicationId: string,
   rating: number,
@@ -244,6 +324,15 @@ export const scheduleInterview = (
 ): Promise<InterviewFeedbackOut> =>
   apiClient
     .post(`/employer/pipeline/applications/${applicationId}/interviews`, payload)
+    .then((r) => r.data)
+
+export const rescheduleInterview = (
+  applicationId: string,
+  interviewId: string,
+  payload: { scheduled_at: string; meeting_link?: string },
+): Promise<InterviewFeedbackOut> =>
+  apiClient
+    .patch(`/employer/pipeline/applications/${applicationId}/interviews/${interviewId}/reschedule`, payload)
     .then((r) => r.data)
 
 export const submitInterviewFeedback = (
@@ -267,3 +356,30 @@ export const getUpcomingInterviews = (limit = 20): Promise<UpcomingInterviewEntr
   apiClient
     .get('/employer/interviews/upcoming', { params: { limit } })
     .then((r) => r.data)
+
+export const downloadInterviewIcs = async (applicationId: string, interviewId: string) => {
+  const res = await apiClient.get(
+    `/employer/pipeline/applications/${applicationId}/interviews/${interviewId}/ics`,
+    { responseType: 'blob' },
+  )
+  const url = URL.createObjectURL(res.data as Blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'interview.ics'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+// ── Employer: talent pool (saved candidates) ──────────────────────────────────
+
+export const getTalentPool = (): Promise<SavedCandidateOut[]> =>
+  apiClient.get('/employer/talent-pool').then((r) => r.data)
+
+export const saveCandidate = (aspirantId: string, note?: string): Promise<SavedCandidateOut> =>
+  apiClient.post(`/employer/talent-pool/${aspirantId}`, { note: note || null }).then((r) => r.data)
+
+export const unsaveCandidate = (aspirantId: string): Promise<{ aspirant_id: string; removed: boolean }> =>
+  apiClient.delete(`/employer/talent-pool/${aspirantId}`).then((r) => r.data)
+
+export const checkCandidateSaved = (aspirantId: string): Promise<{ aspirant_id: string; saved: boolean }> =>
+  apiClient.get(`/employer/talent-pool/${aspirantId}/is-saved`).then((r) => r.data)

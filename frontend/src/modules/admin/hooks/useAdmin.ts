@@ -262,6 +262,10 @@ export function useEmployerVerificationDetail(id: string | null) {
   })
 }
 
+export function useBillingOverview() {
+  return useQuery({ queryKey: ['admin', 'billing', 'overview'], queryFn: adminApi.getBillingOverview })
+}
+
 export function useSubscriptionPlansAdmin() {
   return useQuery({ queryKey: ['admin', 'subscription-plans'], queryFn: adminApi.listSubscriptionPlans })
 }
@@ -279,6 +283,37 @@ export function useAuditLogs(params?: { action?: string; limit?: number; offset?
   return useQuery({
     queryKey: ['admin', 'audit-logs', params?.action ?? '', params?.offset ?? 0],
     queryFn: () => adminApi.listAuditLogs(params),
+  })
+}
+
+// ── Platform settings & feature flags ─────────────────────────────────────────
+
+const PLATFORM_SETTINGS_KEY = ['admin', 'platform', 'settings']
+const FEATURE_FLAGS_KEY = ['admin', 'platform', 'flags']
+
+export function usePlatformSettings() {
+  return useQuery({ queryKey: PLATFORM_SETTINGS_KEY, queryFn: adminApi.listPlatformSettings })
+}
+
+export function useUpdatePlatformSetting() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ key, value, description }: { key: string; value: unknown; description?: string }) =>
+      adminApi.updatePlatformSetting(key, { value, description }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: PLATFORM_SETTINGS_KEY }),
+  })
+}
+
+export function useFeatureFlags() {
+  return useQuery({ queryKey: FEATURE_FLAGS_KEY, queryFn: adminApi.listFeatureFlags })
+}
+
+export function useUpdateFeatureFlag() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ flagName, payload }: { flagName: string; payload: { is_enabled: boolean; rollout_pct: number; target_roles?: string[] | null; description?: string } }) =>
+      adminApi.updateFeatureFlag(flagName, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: FEATURE_FLAGS_KEY }),
   })
 }
 

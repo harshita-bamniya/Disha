@@ -112,3 +112,29 @@ class SubscriptionUsageResponse(BaseModel):
 
 class SubscriptionUpgradeRequest(BaseModel):
     plan_id: str
+
+
+# ── Offices & departments (master data) ────────────────────────────────────────
+
+class OfficeCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=150)
+    city: str = Field(..., min_length=1, max_length=100)
+    state: Optional[str] = None
+    is_headquarters: bool = False
+
+
+class OfficeOut(BaseModel):
+    id: str
+    name: str
+    city: str
+    state: Optional[str] = None
+    is_headquarters: bool
+
+
+class DepartmentCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=150)
+
+
+class DepartmentOut(BaseModel):
+    id: str
+    name: str

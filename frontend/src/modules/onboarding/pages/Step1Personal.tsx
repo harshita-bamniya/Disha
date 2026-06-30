@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { User, MapPin, GraduationCap, Briefcase, Sparkles, ChevronDown } from 'lucide-react'
+import { User, MapPin, GraduationCap, Briefcase, Sparkles } from 'lucide-react'
 import OnboardingLayout from '@/layouts/OnboardingLayout'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
@@ -38,7 +38,6 @@ export default function Step1Personal() {
     full_name: '', current_status: '' as CurrentStatus | '', city: '',
     date_of_birth: '', gender: '' as Gender | '', state: '',
   })
-  const [showMore, setShowMore] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const { personal } = useOnboardingSteps()
 
@@ -115,54 +114,45 @@ export default function Step1Personal() {
           prefix={<MapPin className="w-4 h-4" />}
         />
 
-        <button
-          type="button"
-          onClick={() => setShowMore((v) => !v)}
-          className="flex items-center gap-1.5 text-sm font-medium text-primary self-start mt-1"
-        >
-          <ChevronDown className={cn('w-4 h-4 transition-transform', showMore && 'rotate-180')} />
-          Add more details (optional)
-        </button>
+        <div className="h-px bg-gray-100 my-1" />
 
-        {showMore && (
-          <div className="flex flex-col gap-4 bg-surface rounded-xl p-4 -mt-1">
-            <Input
-              label="Date of birth"
-              type="date"
-              value={form.date_of_birth}
-              onChange={set('date_of_birth')}
-            />
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-gray-700">Gender</label>
-              <div className="grid grid-cols-2 gap-2">
-                {GENDERS.map(({ value, label }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setForm((p) => ({ ...p, gender: value }))}
-                    className={cn(
-                      'h-10 rounded-xl border text-sm font-medium transition-all duration-150',
-                      form.gender === value ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary/50',
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-gray-700">State / UT</label>
-              <select
-                value={form.state}
-                onChange={set('state')}
-                className="w-full h-11 rounded-xl border bg-white px-4 text-sm text-gray-900 outline-none transition-all border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/10"
+        <Input
+          label={<>Date of birth <span className="text-gray-400 font-normal">(optional)</span></>}
+          type="date"
+          value={form.date_of_birth}
+          onChange={set('date_of_birth')}
+        />
+
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-gray-700">Gender <span className="text-gray-400 font-normal">(optional)</span></label>
+          <div className="grid grid-cols-2 gap-2">
+            {GENDERS.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setForm((p) => ({ ...p, gender: value }))}
+                className={cn(
+                  'h-10 rounded-xl border text-sm font-medium transition-all duration-150',
+                  form.gender === value ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary/50',
+                )}
               >
-                <option value="">Select state</option>
-                {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
+                {label}
+              </button>
+            ))}
           </div>
-        )}
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-gray-700">State / UT <span className="text-gray-400 font-normal">(optional)</span></label>
+          <select
+            value={form.state}
+            onChange={set('state')}
+            className="w-full h-11 rounded-xl border bg-white px-4 text-sm text-gray-900 outline-none transition-all border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/10"
+          >
+            <option value="">Select state</option>
+            {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
 
         {serverError && <p className="text-sm text-danger bg-danger/5 border border-danger/20 rounded-xl px-4 py-3">{serverError}</p>}
 

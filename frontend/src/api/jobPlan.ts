@@ -116,6 +116,7 @@ export interface JobPlanSummary {
   generated_at: string | null
   updated_at: string | null
   is_active: boolean
+  job_is_open: boolean
 }
 
 export const jobPlanApi = {

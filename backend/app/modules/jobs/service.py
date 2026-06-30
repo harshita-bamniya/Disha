@@ -11,10 +11,12 @@ from app.models.employer_verification import (
     DOCUMENT_TYPES, EmployerVerification, EmployerVerificationDocument, EmployerVerificationEvent,
 )
 from app.models.company import Company
+from app.models.mvp3 import JobTemplate
 from app.models.user import EmployerProfile, JobPosting, User
 from sqlalchemy import func
 from app.modules.jobs.schemas import (
-    EmployerDashboardResponse, JobPostingRequest, VALID_SKILLS,
+    BulkImportResponse, BulkImportRowError,
+    EmployerDashboardResponse, GenerateDescriptionResponse, JobPostingRequest, JobTemplateCreateRequest, JobTemplateOut, VALID_SKILLS,
     JobPostingResponse, SuggestSkillsResponse, VerificationDocumentOut, VerificationEventOut, VerificationStatusResponse,
 )
 
@@ -189,6 +191,40 @@ async def suggest_skills_for_job(title: str, description: str) -> SuggestSkillsR
     return SuggestSkillsResponse(suggested_skills=valid[:8])
 
 
+_GENERATE_DESCRIPTION_SYSTEM = """You are an expert technical recruiter writing job postings for a \
+careers platform aimed at UPSC/government-exam aspirants transitioning to private-sector roles. \
+Write a clear, honest job description in plain prose (2-4 short paragraphs, no markdown headers, \
+no bullet-point lists) covering: what the role actually involves day-to-day, what kind of \
+background/strengths suit it, and why it could be a good fit for someone coming from a rigorous \
+exam-prep background. Do not invent a company name, salary, or specific perks — none of that \
+context is given. Keep it under 220 words. Respond with ONLY the description text, nothing else \
+(no preamble, no quotes around it)."""
+
+
+async def generate_job_description(title: str, sector: str, key_points: str) -> GenerateDescriptionResponse:
+    """First-draft job description from a title + sector — the employer still
+    reviews and edits before publishing. Mirrors suggest_skills_for_job's
+    provider/error-handling pattern exactly."""
+    from app.ai.providers.groq import GroqProvider, RateLimitedError
+
+    provider = GroqProvider()
+    user_prompt = f"Job title: {title}\nSector: {sector}"
+    if key_points.strip():
+        user_prompt += f"\nKey points to include:\n{key_points.strip()[:1000]}"
+
+    try:
+        response = await provider.complete(
+            _GENERATE_DESCRIPTION_SYSTEM, [{"role": "user", "content": user_prompt}],
+            max_tokens=400, temperature=0.6,
+        )
+    except RateLimitedError as e:
+        raise BadRequestException(str(e))
+    except RuntimeError as e:
+        raise BadRequestException(f"Description generation is unavailable right now: {e}")
+
+    return GenerateDescriptionResponse(description=response.content.strip())
+
+
 def create_job(user: User, data: JobPostingRequest, db: Session) -> JobPostingResponse:
     profile = _get_approved_employer(user, db)
     if data.publish:
@@ -219,6 +255,107 @@ def create_job(user: User, data: JobPostingRequest, db: Session) -> JobPostingRe
     logger.info(f"[JOBS] {profile.company_name} {'published' if data.publish else 'saved draft'}: {job.title}")
     _embed_job(job)
     return _job_to_response(job)
+
+
+_BULK_IMPORT_REQUIRED_COLUMNS = (
+    "title", "description", "sector", "required_skills", "job_type", "location", "employment_type", "expires_at",
+)
+
+
+def bulk_import_jobs(user: User, csv_text: str, db: Session) -> BulkImportResponse:
+    """Creates multiple job postings from a CSV upload, all as drafts —
+    employers review and publish individually afterward rather than the
+    import silently going live, since a bad CSV shouldn't spam the platform
+    with live postings. Reuses create_job() per row so behavior (embeddings,
+    audit logging, approval gating) stays identical to a single manual post.
+
+    Expected columns: title, description, sector, required_skills
+    (semicolon-separated), job_type, location, employment_type, expires_at
+    (YYYY-MM-DD). Optional: min_k_score, salary_min, salary_max, growth_outlook.
+    """
+    import csv
+    import io
+
+    reader = csv.DictReader(io.StringIO(csv_text))
+    if not reader.fieldnames or not set(_BULK_IMPORT_REQUIRED_COLUMNS).issubset(set(reader.fieldnames)):
+        missing = set(_BULK_IMPORT_REQUIRED_COLUMNS) - set(reader.fieldnames or [])
+        raise BadRequestException(f"CSV is missing required column(s): {', '.join(sorted(missing))}")
+
+    created = 0
+    failed: list[BulkImportRowError] = []
+
+    for row_num, row in enumerate(reader, start=1):
+        try:
+            skills = [s.strip() for s in (row.get("required_skills") or "").split(";") if s.strip()]
+            payload = JobPostingRequest(
+                title=row.get("title", ""),
+                description=row.get("description", ""),
+                sector=row.get("sector", ""),
+                required_skills=skills,
+                min_k_score=int(row["min_k_score"]) if row.get("min_k_score") else 0,
+                salary_min=int(row["salary_min"]) if row.get("salary_min") else None,
+                salary_max=int(row["salary_max"]) if row.get("salary_max") else None,
+                growth_outlook=row.get("growth_outlook") or None,
+                job_type=row.get("job_type", ""),
+                location=row.get("location", ""),
+                employment_type=row.get("employment_type", ""),
+                expires_at=datetime.strptime(row["expires_at"], "%Y-%m-%d").date(),
+                publish=False,
+            )
+            create_job(user, payload, db)
+            created += 1
+        except Exception as exc:
+            db.rollback()
+            failed.append(BulkImportRowError(row=row_num, error=str(exc)))
+
+    return BulkImportResponse(created=created, failed=failed)
+
+
+def _template_to_out(t: JobTemplate) -> JobTemplateOut:
+    return JobTemplateOut(
+        id=str(t.id), name=t.name, title=t.title, description=t.description,
+        sector=t.sector, required_skills=t.required_skills or [],
+        job_type=t.job_type, employment_type=t.employment_type,
+        min_k_score=t.min_k_score, created_at=t.created_at,
+    )
+
+
+def list_job_templates(user: User, db: Session) -> list[JobTemplateOut]:
+    profile = _get_employer_profile(user, db)
+    company_employer_ids = _get_company_employer_ids(profile, db)
+    rows = (
+        db.query(JobTemplate)
+        .filter(JobTemplate.employer_id.in_(company_employer_ids))
+        .order_by(JobTemplate.created_at.desc())
+        .all()
+    )
+    return [_template_to_out(t) for t in rows]
+
+
+def create_job_template(user: User, data: JobTemplateCreateRequest, db: Session) -> JobTemplateOut:
+    profile = _get_employer_profile(user, db)
+    row = JobTemplate(
+        employer_id=profile.id, name=data.name, title=data.title, description=data.description,
+        sector=data.sector, required_skills=data.required_skills,
+        job_type=data.job_type, employment_type=data.employment_type, min_k_score=data.min_k_score,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return _template_to_out(row)
+
+
+def delete_job_template(user: User, template_id: str, db: Session) -> dict:
+    profile = _get_employer_profile(user, db)
+    company_employer_ids = _get_company_employer_ids(profile, db)
+    row = db.query(JobTemplate).filter(
+        JobTemplate.id == template_id, JobTemplate.employer_id.in_(company_employer_ids),
+    ).first()
+    if not row:
+        raise BadRequestException("Template not found.")
+    db.delete(row)
+    db.commit()
+    return {"message": "Template deleted."}
 
 
 def update_job(user: User, job_id: str, data: JobPostingRequest, db: Session) -> JobPostingResponse:

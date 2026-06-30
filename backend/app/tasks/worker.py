@@ -54,6 +54,18 @@ celery_app.conf.update(
             "task": "app.tasks.worker.reset_weekly_xp",
             "schedule": crontab(hour=6, minute=0, day_of_week=0),
         },
+        # Notify aspirants whose targeted-job (roadmap) deadlines are approaching
+        # but they haven't applied yet. Daily 7am IST.
+        "job-deadline-reminders": {
+            "task": "app.tasks.worker.send_deadline_reminders",
+            "schedule": crontab(hour=7, minute=0),
+        },
+        # Digest of new high-match jobs posted in the last day. Daily 8am IST —
+        # after the deadline reminder so a user doesn't get two pings back to back.
+        "job-match-digest": {
+            "task": "app.tasks.worker.send_job_match_digest",
+            "schedule": crontab(hour=8, minute=0),
+        },
     },
 )
 
@@ -349,6 +361,128 @@ def revoke_expired_refresh_tokens() -> dict:
         db.close()
 
 
+@celery_app.task(name="app.tasks.worker.send_deadline_reminders")
+def send_deadline_reminders() -> dict:
+    """Notifies an aspirant when a job they've targeted (generated a roadmap
+    for) is closing soon and they haven't applied yet — previously there was
+    no proactive nudge at all; the platform only let people pull, not receive.
+
+    Runs daily, so a job closing in 3 days can fire this up to 3 times as the
+    deadline approaches — no dedupe table is kept. Treated as a feature
+    (reminders intensify near the deadline), not a bug, but documented here
+    since it differs from a typical "send once" notification.
+    """
+    from datetime import date, timedelta
+    from app.database import SessionLocal
+    from app.models.job_plan import JobLearningPlan
+    from app.models.mvp3 import Application
+    from app.models.user import JobPosting
+    from app.modules.inbox.service import create_notification
+
+    db = SessionLocal()
+    sent = 0
+    try:
+        cutoff = date.today() + timedelta(days=3)
+        rows = (
+            db.query(JobLearningPlan, JobPosting)
+            .join(JobPosting, JobLearningPlan.job_id == JobPosting.id)
+            .filter(
+                JobPosting.is_active == True,
+                JobPosting.expires_at != None,
+                JobPosting.expires_at <= cutoff,
+                JobPosting.expires_at >= date.today(),
+            )
+            .all()
+        )
+        for plan, job in rows:
+            already_applied = (
+                db.query(Application)
+                .filter(Application.aspirant_id == plan.user_id, Application.job_id == job.id)
+                .first()
+            )
+            if already_applied:
+                continue
+            days_left = (job.expires_at - date.today()).days
+            create_notification(
+                db, plan.user_id, "deadline_reminder",
+                f"Closing soon: {job.title}",
+                f"You've been preparing for this role — applications close in {days_left} day{'s' if days_left != 1 else ''}.",
+                f"/app/jobs/{job.id}",
+            )
+            sent += 1
+        db.commit()
+        logger.info("[DEADLINE_REMINDER] Sent %d reminders", sent)
+        return {"sent": sent}
+    except Exception as exc:
+        logger.error("[DEADLINE_REMINDER] Failed: %s", exc)
+        db.rollback()
+        return {"sent": sent, "error": str(exc)}
+    finally:
+        db.close()
+
+
+@celery_app.task(name="app.tasks.worker.send_job_match_digest")
+def send_job_match_digest() -> dict:
+    """Daily digest notification for high-match jobs posted in the last 24h —
+    previously an aspirant had no way to learn about a new strong match
+    without manually re-browsing the jobs list."""
+    from datetime import datetime, timedelta, timezone
+    from app.database import SessionLocal
+    from app.models.user import AspirantProfile, JobPosting, KrsScore
+    from app.modules.inbox.service import create_notification
+    from app.modules.recommendations.ranker import rank_jobs_for_user
+
+    MATCH_THRESHOLD = 70
+
+    db = SessionLocal()
+    sent = 0
+    try:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=1)
+        recent_job_exists = db.query(JobPosting).filter(JobPosting.created_at >= cutoff, JobPosting.is_active == True).first()
+        if not recent_job_exists:
+            return {"sent": 0, "skipped": "no new jobs in the last 24h"}
+
+        profiles = (
+            db.query(AspirantProfile)
+            .filter(AspirantProfile.is_completed == True)
+            .all()
+        )
+        for profile in profiles:
+            krs = db.query(KrsScore).filter(KrsScore.user_id == profile.user_id).first()
+            try:
+                ranked, _ = rank_jobs_for_user(
+                    profile, krs, db,
+                    extra_sql_filters=[JobPosting.created_at >= cutoff],
+                    limit=5,
+                )
+            except Exception as exc:
+                logger.warning("[JOB_MATCH_DIGEST] Ranking failed for user %s: %s", profile.user_id, exc)
+                continue
+
+            strong_matches = [r for r in ranked if r.match_score >= MATCH_THRESHOLD]
+            if not strong_matches:
+                continue
+
+            top = strong_matches[0]
+            count = len(strong_matches)
+            create_notification(
+                db, profile.user_id, "job_match_digest",
+                f"{count} new job{'s' if count != 1 else ''} match your profile",
+                f"Top match: {top.job.title} ({top.match_score}% match)." + (f" Plus {count - 1} more." if count > 1 else ""),
+                "/app/jobs",
+            )
+            sent += 1
+        db.commit()
+        logger.info("[JOB_MATCH_DIGEST] Sent %d digests", sent)
+        return {"sent": sent}
+    except Exception as exc:
+        logger.error("[JOB_MATCH_DIGEST] Failed: %s", exc)
+        db.rollback()
+        return {"sent": sent, "error": str(exc)}
+    finally:
+        db.close()
+
+
 @celery_app.task(
     bind=True,
     name="app.tasks.worker.send_notification_email",
@@ -356,7 +490,10 @@ def revoke_expired_refresh_tokens() -> dict:
     default_retry_delay=30,
     autoretry_for=(Exception,),
 )
-def send_notification_email(self, to: str, subject: str, html: str) -> None:
+def send_notification_email(
+    self, to: str, subject: str, html: str,
+    ics_content: str | None = None, ics_filename: str | None = None,
+) -> None:
     """Sends a single notification email out-of-band, so request handlers
     (new application, status change, interview scheduled, etc.) never wait
     on the email provider. Raises on failure so Celery's autoretry kicks in —
@@ -364,5 +501,6 @@ def send_notification_email(self, to: str, subject: str, html: str) -> None:
     import asyncio
     from app.core.email import get_email_provider
 
+    attachment = (ics_filename, ics_content, "calendar") if ics_content else None
     provider = get_email_provider()
-    asyncio.run(provider.send(to, subject, html))
+    asyncio.run(provider.send(to, subject, html, attachment))

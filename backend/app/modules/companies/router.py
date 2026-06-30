@@ -9,8 +9,10 @@ from app.models.user import User
 from app.modules.companies import service
 from app.modules.companies.schemas import (
     CompanyAssetUploadResponse, CompanyProfileResponse, CompanyProfileUpdateRequest,
-    CompanySubscriptionResponse, EmployerProfileSelfResponse, EmployerProfileUpdateRequest,
-    MessageResponse, SubscriptionPlanEntry, SubscriptionUpgradeRequest, SubscriptionUsageResponse,
+    CompanySubscriptionResponse, DepartmentCreateRequest, DepartmentOut,
+    EmployerProfileSelfResponse, EmployerProfileUpdateRequest,
+    MessageResponse, OfficeCreateRequest, OfficeOut,
+    SubscriptionPlanEntry, SubscriptionUpgradeRequest, SubscriptionUsageResponse,
     TeamInviteRequest, TeamMemberEntry, TransferOwnershipRequest,
 )
 
@@ -147,6 +149,78 @@ def transfer_ownership(
 ):
     try:
         return service.transfer_ownership(current_user, body.new_owner_employer_profile_id, db)
+    except _company_errors as e:
+        raise HTTPException(status_code=_status_for(e), detail=str(e))
+
+
+# ── Offices & departments ──────────────────────────────────────────────────────
+
+@router.get("/offices", response_model=list[OfficeOut])
+def list_offices(
+    current_user: User = Depends(require_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.list_offices(current_user, db)
+    except _company_errors as e:
+        raise HTTPException(status_code=_status_for(e), detail=str(e))
+
+
+@router.post("/offices", response_model=OfficeOut, status_code=201)
+def create_office(
+    body: OfficeCreateRequest,
+    current_user: User = Depends(require_permission("companies", "edit")),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.create_office(current_user, body, db)
+    except _company_errors as e:
+        raise HTTPException(status_code=_status_for(e), detail=str(e))
+
+
+@router.delete("/offices/{office_id}", response_model=MessageResponse)
+def delete_office(
+    office_id: str,
+    current_user: User = Depends(require_permission("companies", "edit")),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.delete_office(current_user, office_id, db)
+    except _company_errors as e:
+        raise HTTPException(status_code=_status_for(e), detail=str(e))
+
+
+@router.get("/departments", response_model=list[DepartmentOut])
+def list_departments(
+    current_user: User = Depends(require_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.list_departments(current_user, db)
+    except _company_errors as e:
+        raise HTTPException(status_code=_status_for(e), detail=str(e))
+
+
+@router.post("/departments", response_model=DepartmentOut, status_code=201)
+def create_department(
+    body: DepartmentCreateRequest,
+    current_user: User = Depends(require_permission("companies", "edit")),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.create_department(current_user, body, db)
+    except _company_errors as e:
+        raise HTTPException(status_code=_status_for(e), detail=str(e))
+
+
+@router.delete("/departments/{department_id}", response_model=MessageResponse)
+def delete_department(
+    department_id: str,
+    current_user: User = Depends(require_permission("companies", "edit")),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.delete_department(current_user, department_id, db)
     except _company_errors as e:
         raise HTTPException(status_code=_status_for(e), detail=str(e))
 

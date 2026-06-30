@@ -59,6 +59,8 @@ const EmployerVerificationPage = lazy(() => import('@/modules/employer/pages/Emp
 const EmployerSetupWizardPage = lazy(() => import('@/modules/employer/pages/EmployerSetupWizardPage'))
 const CompanyTeamPage = lazy(() => import('@/modules/employer/pages/CompanyTeamPage'))
 const EmployerAnalyticsPage = lazy(() => import('@/modules/employer/pages/EmployerAnalyticsPage'))
+const TalentPoolPage = lazy(() => import('@/modules/employer/pages/TalentPoolPage'))
+const EmployerCalendarPage = lazy(() => import('@/modules/employer/pages/EmployerCalendarPage'))
 const SubscriptionPage = lazy(() => import('@/modules/employer/pages/SubscriptionPage'))
 import ForgotPasswordPage from '@/modules/auth/pages/ForgotPasswordPage'
 import { PLATFORM_ADMIN_ROLES } from '@/types'
@@ -201,6 +203,20 @@ function App() {
             <ProtectedRoute>
               <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
                 <EmployerAnalyticsPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/app/employer/talent-pool" element={
+            <ProtectedRoute>
+              <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
+                <TalentPoolPage />
+              </Suspense>
+            </ProtectedRoute>
+          } />
+          <Route path="/app/employer/calendar" element={
+            <ProtectedRoute>
+              <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
+                <EmployerCalendarPage />
               </Suspense>
             </ProtectedRoute>
           } />

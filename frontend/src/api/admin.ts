@@ -346,9 +346,67 @@ export interface EmployerVerificationDetail extends EmployerVerificationEntry {
   events: VerificationEventEntry[]
 }
 
+export interface GlobalSearchResult {
+  type: 'user' | 'employer' | 'job' | 'application'
+  id: string
+  title: string
+  subtitle: string | null
+  section: string
+}
+
+export interface GlobalSearchResponse {
+  query: string
+  results: GlobalSearchResult[]
+}
+
+export interface PlanRevenueEntry {
+  plan_id: string
+  plan_name: string
+  price_monthly: number
+  company_count: number
+  mrr: number
+}
+
+export interface RevenueTrendPoint {
+  month: string
+  new_subscriptions: number
+}
+
+export interface BillingOverviewResponse {
+  mrr: number
+  arpa: number
+  active_subscriptions: number
+  past_due_subscriptions: number
+  canceled_subscriptions: number
+  new_subscriptions_30d: number
+  plan_distribution: PlanRevenueEntry[]
+  trend: RevenueTrendPoint[]
+}
+
+export interface PlatformSettingEntry {
+  id: string
+  key: string
+  value: unknown
+  description: string | null
+  updated_at: string
+}
+
+export interface FeatureFlagEntry {
+  id: string
+  flag_name: string
+  is_enabled: boolean
+  rollout_pct: number
+  target_roles: string[] | null
+  description: string | null
+  updated_at: string
+}
+
 export const adminApi = {
   getStats: () =>
     apiClient.get<AdminStats>('/admin/stats').then(r => r.data),
+
+  globalSearch: (q: string) =>
+    apiClient.get<GlobalSearchResponse>('/admin/search', { params: { q } }).then(r => r.data),
 
   // ── Employers ────────────────────────────────────────────────────────────────
   listEmployers: (status: EmployerStatus = 'pending') =>
@@ -463,10 +521,27 @@ export const adminApi = {
   listAuditLogs: (params?: { user_id?: string; action?: string; from?: string; to?: string; limit?: number; offset?: number }) =>
     apiClient.get<AuditLogPage>('/admin/audit-logs', { params }).then(r => r.data),
 
+  // ── Billing overview (platform revenue) ──────────────────────────────────────
+  getBillingOverview: () =>
+    apiClient.get<BillingOverviewResponse>('/admin/billing/overview').then(r => r.data),
+
   // ── Subscription plans ────────────────────────────────────────────────────────
   listSubscriptionPlans: () =>
     apiClient.get<SubscriptionPlanAdminEntry[]>('/admin/subscription-plans').then(r => r.data),
 
   updateSubscriptionPlan: (planId: string, payload: Partial<Omit<SubscriptionPlanAdminEntry, 'id' | 'name'>>) =>
     apiClient.patch<SubscriptionPlanAdminEntry>(`/admin/subscription-plans/${planId}`, payload).then(r => r.data),
+
+  // ── Platform settings & feature flags ────────────────────────────────────────
+  listPlatformSettings: () =>
+    apiClient.get<PlatformSettingEntry[]>('/admin/platform/settings').then(r => r.data),
+
+  updatePlatformSetting: (key: string, payload: { value: unknown; description?: string }) =>
+    apiClient.put<{ key: string; value: unknown }>(`/admin/platform/settings/${key}`, payload).then(r => r.data),
+
+  listFeatureFlags: () =>
+    apiClient.get<FeatureFlagEntry[]>('/admin/platform/flags').then(r => r.data),
+
+  updateFeatureFlag: (flagName: string, payload: { is_enabled: boolean; rollout_pct: number; target_roles?: string[] | null; description?: string }) =>
+    apiClient.put<{ flag_name: string; is_enabled: boolean; rollout_pct: number }>(`/admin/platform/flags/${flagName}`, payload).then(r => r.data),
 }

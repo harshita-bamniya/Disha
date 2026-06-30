@@ -7,13 +7,16 @@ Each `*_email` function below returns (subject, html) for one event type.
 from __future__ import annotations
 
 
-def notify(to: str | None, subject: str, html: str) -> None:
+def notify(
+    to: str | None, subject: str, html: str,
+    ics_content: str | None = None, ics_filename: str | None = None,
+) -> None:
     """Fire-and-forget dispatch. No-ops if `to` is empty (many aspirant
     accounts only have a phone number, no email)."""
     if not to:
         return
     from app.tasks.worker import send_notification_email
-    send_notification_email.delay(to, subject, html)
+    send_notification_email.delay(to, subject, html, ics_content, ics_filename)
 
 
 def _wrap(title: str, body_html: str) -> str:

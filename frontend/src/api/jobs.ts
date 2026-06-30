@@ -21,6 +21,29 @@ export interface JobPostingPayload {
   publish?: boolean                // true = publish immediately, false/omitted = save as draft
 }
 
+export interface BulkImportRowError {
+  row: number
+  error: string
+}
+
+export interface BulkImportResponse {
+  created: number
+  failed: BulkImportRowError[]
+}
+
+export interface JobTemplateEntry {
+  id: string
+  name: string
+  title: string
+  description: string
+  sector: string
+  required_skills: string[]
+  job_type: JobType | null
+  employment_type: EmploymentType | null
+  min_k_score: number
+  created_at: string
+}
+
 export interface JobPosting {
   id: string
   title: string
@@ -113,6 +136,26 @@ export const jobsApi = {
 
   suggestSkills: (title: string, description: string) =>
     apiClient.post<{ suggested_skills: string[] }>('/employer/jobs/suggest-skills', { title, description }).then((r) => r.data),
+
+  generateDescription: (title: string, sector: string, keyPoints: string) =>
+    apiClient.post<{ description: string }>('/employer/jobs/generate-description', { title, sector, key_points: keyPoints }).then((r) => r.data),
+
+  bulkImportJobs: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return apiClient.post<BulkImportResponse>('/employer/jobs/bulk-import', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data)
+  },
+
+  listJobTemplates: () =>
+    apiClient.get<JobTemplateEntry[]>('/employer/jobs/templates').then((r) => r.data),
+
+  createJobTemplate: (payload: Omit<JobTemplateEntry, 'id' | 'created_at'>) =>
+    apiClient.post<JobTemplateEntry>('/employer/jobs/templates', payload).then((r) => r.data),
+
+  deleteJobTemplate: (templateId: string) =>
+    apiClient.delete<{ message: string }>(`/employer/jobs/templates/${templateId}`).then((r) => r.data),
 
   updateJob: (id: string, data: JobPostingPayload) =>
     apiClient.put<JobPosting>(`/employer/jobs/${id}`, data).then((r) => r.data),

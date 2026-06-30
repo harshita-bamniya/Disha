@@ -8,7 +8,7 @@ from app.core.exceptions import ForbiddenException, NotFoundException
 from app.models.employer_verification import (
     EmployerVerification, EmployerVerificationDocument, EmployerVerificationEvent,
 )
-from app.models.subscription import SubscriptionPlan
+from app.models.subscription import CompanySubscription, SubscriptionPlan
 from app.models.user import (
     AspirantProfile, AuditLog, CareerTrack, DeviceSession, EmployerProfile, JobPosting,
     KrsScore, LoginHistory, Permission, PsychologicalAssessment, Role,
@@ -30,7 +30,10 @@ from app.modules.admin.schemas import (
     AspirantUpscJourney,
     AspirantUserEntry,
     AspirantWorkExperience,
+    BillingOverviewResponse,
     CareerTrackAdminEntry,
+    GlobalSearchResponse,
+    GlobalSearchResult,
     CareerTrackCreateRequest,
     CareerTrackUpdateRequest,
     DeviceSessionEntry,
@@ -40,7 +43,9 @@ from app.modules.admin.schemas import (
     MessageResponse,
     PendingEmployerResponse,
     PermissionEntry,
+    PlanRevenueEntry,
     PLATFORM_ROLE_NAMES,
+    RevenueTrendPoint,
     RoleEntry,
     SubAdminCreateRequest,
     SubAdminEntry,
@@ -1144,6 +1149,143 @@ def _plan_to_admin_entry(plan: SubscriptionPlan) -> SubscriptionPlanAdminEntry:
         max_active_jobs=plan.max_active_jobs, max_recruiter_seats=plan.max_recruiter_seats,
         resume_access=plan.resume_access, candidate_search_limit=plan.candidate_search_limit,
         is_active=plan.is_active,
+    )
+
+
+def global_search(db: Session, q: str, limit_per_type: int = 5) -> GlobalSearchResponse:
+    """Cross-entity search across users/employers/jobs — previously each
+    section had its own isolated search box with no way to ask 'where is
+    this phone number / company / job title anywhere on the platform'."""
+    from app.models.mvp3 import Application
+
+    results: list[GlobalSearchResult] = []
+    pattern = f"%{q}%"
+
+    users = (
+        db.query(User, AspirantProfile)
+        .outerjoin(AspirantProfile, AspirantProfile.user_id == User.id)
+        .filter(
+            User.deleted_at == None,
+            or_(User.phone.ilike(pattern), User.email.ilike(pattern), AspirantProfile.full_name.ilike(pattern)),
+        )
+        .limit(limit_per_type)
+        .all()
+    )
+    for u, profile in users:
+        results.append(GlobalSearchResult(
+            type="user", id=str(u.id),
+            title=(profile.full_name if profile else None) or u.email or u.phone or "Unnamed user",
+            subtitle=u.phone or u.email, section="users",
+        ))
+
+    employers = (
+        db.query(EmployerProfile, User)
+        .join(User, EmployerProfile.user_id == User.id)
+        .filter(
+            User.deleted_at == None,
+            or_(EmployerProfile.company_name.ilike(pattern), User.phone.ilike(pattern), User.email.ilike(pattern)),
+        )
+        .limit(limit_per_type)
+        .all()
+    )
+    for emp, u in employers:
+        results.append(GlobalSearchResult(
+            type="employer", id=str(emp.id),
+            title=emp.company_name, subtitle=u.phone or u.email, section="employers",
+        ))
+
+    jobs = (
+        db.query(JobPosting, EmployerProfile)
+        .join(EmployerProfile, JobPosting.employer_id == EmployerProfile.id)
+        .filter(or_(JobPosting.title.ilike(pattern), EmployerProfile.company_name.ilike(pattern)))
+        .limit(limit_per_type)
+        .all()
+    )
+    for job, emp in jobs:
+        results.append(GlobalSearchResult(
+            type="job", id=str(job.id),
+            title=job.title, subtitle=emp.company_name, section="jobs",
+        ))
+
+    apps = (
+        db.query(Application, User, JobPosting)
+        .join(User, Application.aspirant_id == User.id)
+        .join(JobPosting, Application.job_id == JobPosting.id)
+        .outerjoin(AspirantProfile, AspirantProfile.user_id == User.id)
+        .filter(or_(User.phone.ilike(pattern), AspirantProfile.full_name.ilike(pattern), JobPosting.title.ilike(pattern)))
+        .limit(limit_per_type)
+        .all()
+    )
+    for app, u, job in apps:
+        results.append(GlobalSearchResult(
+            type="application", id=str(app.id),
+            title=f"{u.phone or u.email or 'Applicant'} → {job.title}",
+            subtitle=app.status, section="applications",
+        ))
+
+    return GlobalSearchResponse(query=q, results=results)
+
+
+def get_billing_overview(db: Session) -> BillingOverviewResponse:
+    """Platform-wide revenue visibility — previously completely absent.
+
+    Computed from CompanySubscription/SubscriptionPlan state, not a payment
+    ledger (no Payment/Invoice model exists yet, so this is MRR-by-subscription-
+    state, not reconciled-against-gateway revenue). Still real, queried data —
+    not mocked — and the only place an operator can see total MRR at all today.
+    """
+    active_subs = (
+        db.query(CompanySubscription)
+        .filter(CompanySubscription.status == "active")
+        .join(SubscriptionPlan, CompanySubscription.plan_id == SubscriptionPlan.id)
+        .all()
+    )
+    mrr = sum(s.plan.price_monthly for s in active_subs)
+    active_count = len(active_subs)
+    arpa = (mrr // active_count) if active_count else 0
+
+    past_due_count = db.query(CompanySubscription).filter(CompanySubscription.status == "past_due").count()
+    canceled_count = db.query(CompanySubscription).filter(CompanySubscription.status == "canceled").count()
+
+    thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
+    new_30d = db.query(CompanySubscription).filter(CompanySubscription.created_at >= thirty_days_ago).count()
+
+    plan_rows = (
+        db.query(SubscriptionPlan.id, SubscriptionPlan.name, SubscriptionPlan.price_monthly, func.count(CompanySubscription.id))
+        .outerjoin(
+            CompanySubscription,
+            (CompanySubscription.plan_id == SubscriptionPlan.id) & (CompanySubscription.status == "active"),
+        )
+        .group_by(SubscriptionPlan.id, SubscriptionPlan.name, SubscriptionPlan.price_monthly)
+        .order_by(SubscriptionPlan.price_monthly)
+        .all()
+    )
+    plan_distribution = [
+        PlanRevenueEntry(
+            plan_id=str(pid), plan_name=name, price_monthly=price,
+            company_count=count, mrr=price * count,
+        )
+        for pid, name, price, count in plan_rows
+    ]
+
+    six_months_ago = datetime.now(timezone.utc) - timedelta(days=180)
+    month_rows = (
+        db.query(
+            func.to_char(CompanySubscription.created_at, "YYYY-MM"),
+            func.count(CompanySubscription.id),
+        )
+        .filter(CompanySubscription.created_at >= six_months_ago)
+        .group_by(func.to_char(CompanySubscription.created_at, "YYYY-MM"))
+        .order_by(func.to_char(CompanySubscription.created_at, "YYYY-MM"))
+        .all()
+    )
+    trend = [RevenueTrendPoint(month=month, new_subscriptions=count) for month, count in month_rows]
+
+    return BillingOverviewResponse(
+        mrr=mrr, arpa=arpa,
+        active_subscriptions=active_count, past_due_subscriptions=past_due_count,
+        canceled_subscriptions=canceled_count, new_subscriptions_30d=new_30d,
+        plan_distribution=plan_distribution, trend=trend,
     )
 
 

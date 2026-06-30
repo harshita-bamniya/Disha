@@ -8,15 +8,19 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useMemo } from 'react'
 import {
   getJobPipeline, updateApplicationStatus, updateApplicationNote, bulkUpdateApplicationStatus,
-  scheduleInterview, submitInterviewFeedback, cancelInterview,
+  scheduleInterview, submitInterviewFeedback, cancelInterview, rescheduleInterview,
+  sendCandidateEmail, getCandidateEmails, bulkEmailCandidates, generateOfferLetter,
+  saveCandidate, unsaveCandidate, checkCandidateSaved,
+  downloadInterviewIcs,
   type CandidateOut,
 } from '@/api/matching'
+import { getApiError } from '@/api/client'
 import {
   Search, X, Download, ChevronDown, ChevronUp, SlidersHorizontal,
   FileText, Briefcase, GraduationCap, Brain, TrendingUp, MapPin,
   CheckCircle2, Clock, AlertCircle, Star, Users, ArrowLeft,
   MessageSquare, BookOpen, LayoutGrid, List as ListIcon,
-  CalendarPlus, Video, Ban,
+  CalendarPlus, Video, Ban, Mail, Send, Star as StarIcon, CalendarDays,
 } from 'lucide-react'
 import { useHasPermission } from '../hooks/useJobs'
 
@@ -166,6 +170,14 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
     mutationFn:()=>scheduleInterview(candidate.application_id,{scheduled_at:new Date(scheduleAt).toISOString(),meeting_link:meetingLink||undefined}),
     onSuccess:()=>{qc.invalidateQueries({queryKey:['pipeline',jobId]});setShowScheduleForm(false);setScheduleAt('');setMeetingLink('')},
   })
+
+  const [rescheduleForId,setRescheduleForId]=useState<string|null>(null)
+  const [rescheduleAt,setRescheduleAt]=useState('')
+  const [rescheduleLink,setRescheduleLink]=useState('')
+  const rescheduleMutation=useMutation({
+    mutationFn:(interviewId:string)=>rescheduleInterview(candidate.application_id,interviewId,{scheduled_at:new Date(rescheduleAt).toISOString(),meeting_link:rescheduleLink||undefined}),
+    onSuccess:()=>{qc.invalidateQueries({queryKey:['pipeline',jobId]});setRescheduleForId(null);setRescheduleAt('');setRescheduleLink('')},
+  })
   const feedbackMutation=useMutation({
     mutationFn:(interviewId:string)=>submitInterviewFeedback(candidate.application_id,interviewId,{recommendation:feedbackRecommendation||undefined,feedback:feedbackText||undefined}),
     onSuccess:()=>{qc.invalidateQueries({queryKey:['pipeline',jobId]});setFeedbackForId(null);setFeedbackRecommendation('');setFeedbackText('')},
@@ -174,6 +186,55 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
     mutationFn:(interviewId:string)=>cancelInterview(candidate.application_id,interviewId),
     onSuccess:()=>qc.invalidateQueries({queryKey:['pipeline',jobId]}),
   })
+
+  const [emailSubject,setEmailSubject]=useState('')
+  const [emailBody,setEmailBody]=useState('')
+  const [showEmailHistory,setShowEmailHistory]=useState(false)
+  const {data:emailHistory}=useQuery({
+    queryKey:['candidate-emails',candidate.application_id],
+    queryFn:()=>getCandidateEmails(candidate.application_id),
+  })
+  const sendEmailMutation=useMutation({
+    mutationFn:()=>sendCandidateEmail(candidate.application_id,emailSubject,emailBody),
+    onSuccess:()=>{
+      qc.invalidateQueries({queryKey:['candidate-emails',candidate.application_id]})
+      setEmailSubject('');setEmailBody('')
+    },
+  })
+
+  const [showOfferForm,setShowOfferForm]=useState(false)
+  const [offerForm,setOfferForm]=useState({
+    role_title: candidate.job_title ?? '',
+    salary_ctc: '',
+    start_date: '',
+    work_location: '',
+    employment_type: 'Full-Time',
+    company_address: '',
+    hiring_manager_name: '',
+    hiring_manager_designation: '',
+    extra_clauses: '',
+  })
+  const offerMutation=useMutation({
+    mutationFn:()=>generateOfferLetter(candidate.application_id,{
+      ...offerForm,
+      company_address: offerForm.company_address||undefined,
+      extra_clauses: offerForm.extra_clauses||undefined,
+    }),
+  })
+
+  const {data:savedState}=useQuery({
+    queryKey:['candidate-saved',candidate.aspirant_id],
+    queryFn:()=>checkCandidateSaved(candidate.aspirant_id),
+  })
+  const saveMutation=useMutation({
+    mutationFn:()=>saveCandidate(candidate.aspirant_id),
+    onSuccess:()=>qc.invalidateQueries({queryKey:['candidate-saved',candidate.aspirant_id]}),
+  })
+  const unsaveMutation=useMutation({
+    mutationFn:()=>unsaveCandidate(candidate.aspirant_id),
+    onSuccess:()=>qc.invalidateQueries({queryKey:['candidate-saved',candidate.aspirant_id]}),
+  })
+  const isSaved=savedState?.saved??false
 
   const isTerminal=['withdrawn','hired','rejected'].includes(candidate.status)
   const st=STATUS_STYLE[candidate.status]??{bg:'#F3F4F6',text:'#6B7280'}
@@ -198,6 +259,13 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
           </div>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
             <span style={{padding:'4px 12px',borderRadius:20,fontSize:11,fontWeight:700,background:st.bg,color:st.text,textTransform:'capitalize'}}>{candidate.status.replace('_',' ')}</span>
+            <button
+              onClick={()=>isSaved?unsaveMutation.mutate():saveMutation.mutate()}
+              disabled={saveMutation.isPending||unsaveMutation.isPending}
+              title={isSaved?'Remove from talent pool':'Save to talent pool'}
+              style={{width:32,height:32,border:'none',background:isSaved?'rgba(217,119,6,0.12)':'#F1F5F9',borderRadius:8,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+              <StarIcon size={16} color={isSaved?'#D97706':'#64748B'} fill={isSaved?'#D97706':'none'}/>
+            </button>
             <button onClick={onClose} style={{width:32,height:32,border:'none',background:'#F1F5F9',borderRadius:8,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><X size={16} color="#64748B"/></button>
           </div>
         </div>
@@ -219,6 +287,113 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
               </div>
             )}
           </div>
+
+          <Section icon={<Mail size={13}/>} title="Email Candidate">
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              <input value={emailSubject} onChange={e=>setEmailSubject(e.target.value)} placeholder="Subject…" maxLength={255}
+                style={{width:'100%',border:'1px solid #E2E8F0',borderRadius:10,padding:'9px 12px',fontSize:13,outline:'none',color:'#1E293B',boxSizing:'border-box'}}/>
+              <textarea value={emailBody} onChange={e=>setEmailBody(e.target.value)} placeholder="Write your message…" rows={4} maxLength={10000}
+                style={{width:'100%',border:'1px solid #E2E8F0',borderRadius:10,padding:'10px 12px',fontSize:13,resize:'none',outline:'none',color:'#1E293B',fontFamily:'inherit',boxSizing:'border-box'}}/>
+              {sendEmailMutation.isError&&(
+                <p style={{fontSize:12,color:'#DC2626',margin:0}}>{getApiError(sendEmailMutation.error)}</p>
+              )}
+              {sendEmailMutation.isSuccess&&(
+                <p style={{fontSize:12,color:'#059669',margin:0}}>✓ Email sent.</p>
+              )}
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:10}}>
+                <button onClick={()=>setShowEmailHistory(v=>!v)} style={{fontSize:11,fontWeight:700,color:'#64748B',background:'none',border:'none',cursor:'pointer'}}>
+                  {emailHistory?.length?`${emailHistory.length} email${emailHistory.length===1?'':'s'} sent`:'No emails sent yet'}{emailHistory?.length?(showEmailHistory?' ▲':' ▼'):''}
+                </button>
+                <button onClick={()=>sendEmailMutation.mutate()} disabled={!emailSubject.trim()||!emailBody.trim()||sendEmailMutation.isPending}
+                  style={{display:'flex',alignItems:'center',gap:6,padding:'8px 16px',borderRadius:8,border:'none',fontSize:12,fontWeight:700,
+                    background:(!emailSubject.trim()||!emailBody.trim())?'#E2E8F0':'#3B82F6',
+                    color:(!emailSubject.trim()||!emailBody.trim())?'#94A3B8':'#fff',
+                    cursor:(!emailSubject.trim()||!emailBody.trim()||sendEmailMutation.isPending)?'not-allowed':'pointer'}}>
+                  <Send size={12}/>{sendEmailMutation.isPending?'Sending…':'Send'}
+                </button>
+              </div>
+              {showEmailHistory&&emailHistory&&emailHistory.length>0&&(
+                <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:4,borderTop:'1px solid #E2E8F0',paddingTop:10}}>
+                  {emailHistory.map(e=>(
+                    <div key={e.id} style={{background:'#F8FAFC',borderRadius:8,padding:'8px 10px'}}>
+                      <div style={{display:'flex',justifyContent:'space-between',gap:8}}>
+                        <span style={{fontSize:12,fontWeight:700,color:'#1E293B'}}>{e.subject}</span>
+                        <span style={{fontSize:10,color:'#94A3B8',whiteSpace:'nowrap'}}>{new Date(e.created_at).toLocaleDateString('en-IN',{day:'numeric',month:'short'})}</span>
+                      </div>
+                      <p style={{fontSize:11,color:'#64748B',margin:'4px 0 0',whiteSpace:'pre-wrap'}}>{e.body}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </Section>
+
+          {['offer_sent','hired'].includes(candidate.status)&&(
+            <Section icon={<FileText size={13}/>} title="Offer Letter">
+              {!showOfferForm?(
+                <button
+                  onClick={()=>setShowOfferForm(true)}
+                  style={{display:'flex',alignItems:'center',gap:6,padding:'9px 16px',borderRadius:9,border:'none',background:'#7C3AED',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',width:'100%',justifyContent:'center'}}
+                >
+                  <FileText size={13}/>Generate Offer Letter PDF
+                </button>
+              ):(
+                <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                  {[
+                    {key:'role_title',label:'Role Title *',placeholder:'e.g. Policy Analyst'},
+                    {key:'salary_ctc',label:'Annual CTC *',placeholder:'e.g. ₹8,00,000 per annum'},
+                    {key:'start_date',label:'Start Date *',placeholder:'e.g. 01 August 2026'},
+                    {key:'work_location',label:'Work Location *',placeholder:'e.g. New Delhi (On-site)'},
+                    {key:'company_address',label:'Company Address',placeholder:'Optional — printed on letterhead'},
+                    {key:'hiring_manager_name',label:'Hiring Manager Name *',placeholder:'e.g. Rahul Sharma'},
+                    {key:'hiring_manager_designation',label:'Manager Designation *',placeholder:'e.g. Head of Talent'},
+                  ].map(({key,label,placeholder})=>(
+                    <div key={key}>
+                      <p style={{fontSize:11,fontWeight:600,color:'#64748B',margin:'0 0 4px'}}>{label}</p>
+                      <input
+                        value={offerForm[key as keyof typeof offerForm]}
+                        onChange={e=>setOfferForm(f=>({...f,[key]:e.target.value}))}
+                        placeholder={placeholder}
+                        style={{width:'100%',height:34,padding:'0 10px',borderRadius:8,border:'1px solid #E5E7EB',fontSize:12,outline:'none',boxSizing:'border-box'}}
+                      />
+                    </div>
+                  ))}
+                  <div>
+                    <p style={{fontSize:11,fontWeight:600,color:'#64748B',margin:'0 0 4px'}}>Employment Type</p>
+                    <select
+                      value={offerForm.employment_type}
+                      onChange={e=>setOfferForm(f=>({...f,employment_type:e.target.value}))}
+                      style={{width:'100%',height:34,padding:'0 10px',borderRadius:8,border:'1px solid #E5E7EB',fontSize:12,outline:'none',background:'#fff'}}
+                    >
+                      {['Full-Time','Part-Time','Contract','Internship','Consulting'].map(t=><option key={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <p style={{fontSize:11,fontWeight:600,color:'#64748B',margin:'0 0 4px'}}>Additional Clauses <span style={{fontWeight:400}}>(optional, one per line)</span></p>
+                    <textarea
+                      value={offerForm.extra_clauses}
+                      onChange={e=>setOfferForm(f=>({...f,extra_clauses:e.target.value}))}
+                      placeholder={'e.g. 3-month probation period\nStock options vest over 4 years'}
+                      rows={3}
+                      style={{width:'100%',padding:'8px 10px',borderRadius:8,border:'1px solid #E5E7EB',fontSize:12,outline:'none',resize:'vertical',boxSizing:'border-box',fontFamily:'inherit'}}
+                    />
+                  </div>
+                  {offerMutation.isError&&<p style={{fontSize:11,color:'#DC2626',margin:0}}>Failed to generate PDF. Please try again.</p>}
+                  {offerMutation.isSuccess&&<p style={{fontSize:11,color:'#059669',margin:0}}>✓ PDF downloaded.</p>}
+                  <div style={{display:'flex',gap:8}}>
+                    <button onClick={()=>setShowOfferForm(false)} style={{flex:1,height:34,borderRadius:8,border:'1px solid #E5E7EB',background:'none',fontSize:12,fontWeight:600,color:'#6B7280',cursor:'pointer'}}>Cancel</button>
+                    <button
+                      onClick={()=>offerMutation.mutate()}
+                      disabled={!offerForm.role_title.trim()||!offerForm.salary_ctc.trim()||!offerForm.start_date.trim()||!offerForm.work_location.trim()||!offerForm.hiring_manager_name.trim()||!offerForm.hiring_manager_designation.trim()||offerMutation.isPending}
+                      style={{flex:2,height:34,borderRadius:8,border:'none',background:'#7C3AED',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6,opacity:(offerMutation.isPending)?0.7:1}}
+                    >
+                      <Download size={13}/>{offerMutation.isPending?'Generating…':'Download PDF'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </Section>
+          )}
 
           {(candidate.k_score!==null||candidate.r_score!==null||candidate.s_score!==null)&&(
             <Section icon={<TrendingUp size={13}/>} title="KRS Score Breakdown">
@@ -323,12 +498,51 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
                   {iv.meeting_link&&(
                     <a href={iv.meeting_link} target="_blank" rel="noreferrer" style={{fontSize:11,color:'#3B82F6',display:'block',marginTop:4}}>{iv.meeting_link}</a>
                   )}
+                  {iv.status==='scheduled'&&(
+                    <button onClick={()=>downloadInterviewIcs(candidate.application_id,iv.id)}
+                      style={{display:'flex',alignItems:'center',gap:5,fontSize:11,fontWeight:700,color:'#64748B',background:'none',border:'none',cursor:'pointer',marginTop:6,padding:0}}>
+                      <CalendarDays size={12}/>Add to calendar
+                    </button>
+                  )}
+
+                  {iv.reschedule_requested_at&&rescheduleForId!==iv.id&&(
+                    <div style={{marginTop:8,background:'#FFFBEB',border:'1px solid #FDE68A',borderRadius:8,padding:'8px 10px'}}>
+                      <p style={{fontSize:11.5,fontWeight:700,color:'#92400E',margin:0}}>Candidate requested a reschedule</p>
+                      <p style={{fontSize:11.5,color:'#78350F',margin:'2px 0 6px'}}>"{iv.reschedule_note}"</p>
+                      {canInterview&&(
+                        <button onClick={()=>{setRescheduleForId(iv.id);setRescheduleAt('');setRescheduleLink(iv.meeting_link??'')}}
+                          style={{fontSize:11,fontWeight:700,color:'#3B82F6',background:'none',border:'none',cursor:'pointer',padding:0}}>
+                          Pick a new time
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {rescheduleForId===iv.id&&(
+                    <div style={{marginTop:8,display:'flex',flexDirection:'column',gap:6}}>
+                      <input type="datetime-local" value={rescheduleAt} onChange={e=>setRescheduleAt(e.target.value)}
+                        style={{border:'1px solid #E2E8F0',borderRadius:8,padding:'6px 8px',fontSize:12}}/>
+                      <input type="url" value={rescheduleLink} onChange={e=>setRescheduleLink(e.target.value)} placeholder="Meeting link (optional)"
+                        style={{border:'1px solid #E2E8F0',borderRadius:8,padding:'6px 8px',fontSize:12}}/>
+                      <div style={{display:'flex',gap:6}}>
+                        <button onClick={()=>setRescheduleForId(null)} style={{flex:1,padding:6,borderRadius:8,border:'1px solid #E2E8F0',background:'#fff',fontSize:11,fontWeight:600,cursor:'pointer'}}>Cancel</button>
+                        <button onClick={()=>rescheduleMutation.mutate(iv.id)} disabled={!rescheduleAt||rescheduleMutation.isPending}
+                          style={{flex:1,padding:6,borderRadius:8,border:'none',background:'#3B82F6',color:'#fff',fontSize:11,fontWeight:700,cursor:'pointer',opacity:!rescheduleAt?0.5:1}}>
+                          {rescheduleMutation.isPending?'Saving…':'Confirm new time'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {iv.recommendation&&<p style={{fontSize:11,color:'#475569',marginTop:6}}><strong>Recommendation:</strong> {iv.recommendation.replace('_',' ')}</p>}
                   {iv.feedback&&<p style={{fontSize:11,color:'#475569',marginTop:2}}>{iv.feedback}</p>}
 
-                  {iv.status==='scheduled'&&feedbackForId!==iv.id&&canInterview&&(
+                  {iv.status==='scheduled'&&feedbackForId!==iv.id&&rescheduleForId!==iv.id&&canInterview&&(
                     <div style={{display:'flex',gap:8,marginTop:8}}>
                       <button onClick={()=>setFeedbackForId(iv.id)} style={{fontSize:11,fontWeight:700,color:'#059669',background:'none',border:'none',cursor:'pointer'}}>Add feedback</button>
+                      {!iv.reschedule_requested_at&&(
+                        <button onClick={()=>{setRescheduleForId(iv.id);setRescheduleAt('');setRescheduleLink(iv.meeting_link??'')}} style={{fontSize:11,fontWeight:700,color:'#3B82F6',background:'none',border:'none',cursor:'pointer'}}>Reschedule</button>
+                      )}
                       <button onClick={()=>cancelInterviewMutation.mutate(iv.id)} disabled={cancelInterviewMutation.isPending} style={{fontSize:11,fontWeight:700,color:'#DC2626',background:'none',border:'none',cursor:'pointer',display:'flex',alignItems:'center',gap:3}}><Ban size={11}/>Cancel</button>
                     </div>
                   )}
@@ -571,6 +785,9 @@ export default function CandidatePipelinePage() {
   const [selectedIds,setSelectedIds]=useState<Set<string>>(new Set())
   const [bulkStatus,setBulkStatus]=useState('')
   const [bulkNote,setBulkNote]=useState('')
+  const [showBulkEmail,setShowBulkEmail]=useState(false)
+  const [bulkEmailSubject,setBulkEmailSubject]=useState('')
+  const [bulkEmailBody,setBulkEmailBody]=useState('')
   const [showFilters,setShowFilters]=useState(false)
   const [minKrs,setMinKrs]=useState(0)
   const [view,setView]=useState<'list'|'kanban'>('kanban')
@@ -585,6 +802,11 @@ export default function CandidatePipelinePage() {
   const bulkMutation=useMutation({
     mutationFn:()=>bulkUpdateApplicationStatus([...selectedIds],bulkStatus,bulkNote||undefined),
     onSuccess:()=>{qc.invalidateQueries({queryKey:['pipeline',jobId]});setSelectedIds(new Set());setBulkStatus('');setBulkNote('')},
+  })
+
+  const bulkEmailMutation=useMutation({
+    mutationFn:()=>bulkEmailCandidates([...selectedIds],bulkEmailSubject,bulkEmailBody),
+    onSuccess:()=>{setShowBulkEmail(false);setBulkEmailSubject('');setBulkEmailBody('')},
   })
 
   const moveMutation=useMutation({
@@ -705,7 +927,63 @@ export default function CandidatePipelinePage() {
             <button onClick={()=>bulkMutation.mutate()} disabled={!bulkStatus||bulkMutation.isPending} style={{height:32,padding:'0 14px',borderRadius:8,border:'none',background:'#3B82F6',color:'#fff',fontSize:12,fontWeight:700,cursor:(!bulkStatus||bulkMutation.isPending)?'not-allowed':'pointer',opacity:!bulkStatus?0.5:1}}>
               {bulkMutation.isPending?'Applying…':'Apply'}
             </button>
+            <button onClick={()=>setShowBulkEmail(true)} style={{height:32,padding:'0 14px',borderRadius:8,border:'none',background:'#0EA5E9',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+              <Mail size={13}/>Email All
+            </button>
             <button onClick={()=>setSelectedIds(new Set())} style={{height:32,padding:'0 12px',borderRadius:8,border:'1px solid #475569',background:'none',color:'#94A3B8',fontSize:12,cursor:'pointer'}}>Cancel</button>
+          </div>
+        )}
+
+        {/* Bulk email modal */}
+        {showBulkEmail&&(
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:50,padding:16}}>
+            <div style={{background:'#fff',borderRadius:18,padding:28,width:'100%',maxWidth:480,display:'flex',flexDirection:'column',gap:16}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <div>
+                  <h3 style={{margin:0,fontSize:16,fontWeight:800,color:'#0F172A'}}>Email {selectedIds.size} candidate{selectedIds.size!==1?'s':''}</h3>
+                  <p style={{margin:'4px 0 0',fontSize:12,color:'#94A3B8'}}>Each candidate receives a separate copy of this email.</p>
+                </div>
+                <button onClick={()=>setShowBulkEmail(false)} style={{background:'none',border:'none',cursor:'pointer',color:'#9CA3AF',padding:4}}>
+                  <X size={18}/>
+                </button>
+              </div>
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                <input
+                  value={bulkEmailSubject}
+                  onChange={e=>setBulkEmailSubject(e.target.value)}
+                  placeholder="Subject…"
+                  maxLength={255}
+                  style={{height:38,padding:'0 12px',borderRadius:10,border:'1px solid #E5E7EB',fontSize:13,outline:'none'}}
+                />
+                <textarea
+                  value={bulkEmailBody}
+                  onChange={e=>setBulkEmailBody(e.target.value)}
+                  placeholder="Write your message…"
+                  rows={6}
+                  maxLength={10000}
+                  style={{padding:'10px 12px',borderRadius:10,border:'1px solid #E5E7EB',fontSize:13,resize:'vertical',outline:'none',fontFamily:'inherit'}}
+                />
+              </div>
+              {bulkEmailMutation.isError&&(
+                <p style={{fontSize:12,color:'#DC2626',margin:0}}>{String(bulkEmailMutation.error)}</p>
+              )}
+              {bulkEmailMutation.isSuccess&&(
+                <p style={{fontSize:12,color:'#059669',margin:0}}>
+                  ✓ Sent to {(bulkEmailMutation.data as {sent:number;skipped:number}).sent} candidate{(bulkEmailMutation.data as {sent:number;skipped:number}).sent!==1?'s':''}
+                  {(bulkEmailMutation.data as {sent:number;skipped:number}).skipped>0&&` · ${(bulkEmailMutation.data as {sent:number;skipped:number}).skipped} skipped (no email on file)`}
+                </p>
+              )}
+              <div style={{display:'flex',gap:10}}>
+                <button onClick={()=>setShowBulkEmail(false)} style={{flex:1,height:40,borderRadius:10,border:'1px solid #E5E7EB',background:'none',fontSize:13,fontWeight:600,color:'#6B7280',cursor:'pointer'}}>Cancel</button>
+                <button
+                  onClick={()=>bulkEmailMutation.mutate()}
+                  disabled={!bulkEmailSubject.trim()||!bulkEmailBody.trim()||bulkEmailMutation.isPending}
+                  style={{flex:1,height:40,borderRadius:10,border:'none',background:(!bulkEmailSubject.trim()||!bulkEmailBody.trim())?'#E2E8F0':'#0EA5E9',color:(!bulkEmailSubject.trim()||!bulkEmailBody.trim())?'#94A3B8':'#fff',fontSize:13,fontWeight:700,cursor:(!bulkEmailSubject.trim()||!bulkEmailBody.trim()||bulkEmailMutation.isPending)?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}
+                >
+                  <Send size={13}/>{bulkEmailMutation.isPending?'Sending…':'Send Email'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

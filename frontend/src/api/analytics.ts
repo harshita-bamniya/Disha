@@ -41,6 +41,20 @@ export interface JobPerformanceResponse {
   jobs: JobPerformanceEntry[]
 }
 
+export interface RecruiterPerformanceEntry {
+  user_id: string
+  name: string | null
+  applications_moved: number
+  interviews_conducted: number
+  notes_added: number
+  hires_closed: number
+  avg_days_to_hire: number | null
+}
+
+export interface RecruiterPerformanceResponse {
+  recruiters: RecruiterPerformanceEntry[]
+}
+
 export interface DashboardKpis {
   active_jobs: number
   draft_jobs: number
@@ -75,6 +89,9 @@ export const analyticsApi = {
 
   getJobPerformance: () =>
     apiClient.get<JobPerformanceResponse>('/employer/analytics/jobs').then(r => r.data),
+
+  getRecruiterPerformance: () =>
+    apiClient.get<RecruiterPerformanceResponse>('/employer/analytics/recruiters').then(r => r.data),
 
   getDashboardKpis: () =>
     apiClient.get<DashboardKpis>('/employer/dashboard/kpis').then(r => r.data),

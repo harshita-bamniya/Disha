@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     # File storage — local disk for now; swap for S3/GCS in production
     upload_dir: str = "uploads"
 
+    # ClamAV — virus scanning for uploaded documents (resumes, KYC files).
+    # Empty host = scanning disabled, uploads proceed unscanned (same
+    # graceful-degradation pattern as Brevo/reCAPTCHA below). Set CLAMAV_HOST
+    # once the clamav container/service is reachable to enable real scanning.
+    clamav_host: str = ""
+    clamav_port: int = 3310
+
     # Database
     database_url: str = "postgresql://disha:disha_dev@postgres:5432/disha_db"
     db_pool_size: int = 10
@@ -59,8 +66,13 @@ class Settings(BaseSettings):
     email_from_address: str = "no-reply@beginablai.in"
     email_from_name: str = "BeginablAI"
 
-    # Google OAuth
+    # Google OAuth (login)
     google_client_id: str = ""
+
+    # Google Calendar OAuth (separate client for Calendar API scope)
+    google_calendar_client_id: str = ""
+    google_calendar_client_secret: str = ""
+    google_calendar_redirect_uri: str = "http://localhost:8000/api/auth/google/calendar/callback"
 
     # CAPTCHA (Google reCAPTCHA v3) — verification no-ops until secret key is set
     recaptcha_site_key: str = ""    # public, safe to expose to frontend

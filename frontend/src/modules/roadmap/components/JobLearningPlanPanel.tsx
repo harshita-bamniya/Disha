@@ -582,6 +582,7 @@ function ModuleCard({
 // ── Main panel ─────────────────────────────────────────────────────────────────
 
 export default function JobLearningPlanPanel({ activeJobId, activeJobTitle, activeCompany, highlightSkill, onlyMatching, onAskAI }: Props) {
+  const navigate = useNavigate()
   const qc = useQueryClient()
   const [pollingActive, setPollingActive] = useState(false)
   const [togglingId, setTogglingId] = useState<string | null>(null)
@@ -823,13 +824,25 @@ export default function JobLearningPlanPanel({ activeJobId, activeJobTitle, acti
     <div>
 
       {/* Plain header — title + stats, no card */}
-      <div style={{ marginBottom: 8 }}>
-        <h2 style={{ fontSize: 22, fontWeight: 800, color: '#111827', margin: '0 0 4px', fontFamily: 'Hind, sans-serif' }}>
-          {plan.job_title}
-        </h2>
-        <p style={{ fontSize: 13.5, color: '#9CA3AF', margin: 0 }}>
-          A learning path for {plan.company}
-        </p>
+      <div style={{ marginBottom: 8, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div>
+          <h2 style={{ fontSize: 22, fontWeight: 800, color: '#111827', margin: '0 0 4px', fontFamily: 'Hind, sans-serif' }}>
+            {plan.job_title}
+          </h2>
+          <p style={{ fontSize: 13.5, color: '#9CA3AF', margin: 0 }}>
+            A learning path for {plan.company}
+          </p>
+        </div>
+        <button
+          onClick={() => navigate(`/app/jobs/${activeJobId}`)}
+          style={{
+            flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6,
+            fontSize: 12.5, fontWeight: 700, color: '#6366F1',
+            background: '#EEF2FF', border: 'none', borderRadius: 8, padding: '7px 12px', cursor: 'pointer',
+          }}
+        >
+          <ExternalLink size={13} />View job & apply
+        </button>
       </div>
 
       <div style={{

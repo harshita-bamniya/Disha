@@ -12,6 +12,8 @@ const TREND_KEY = (days: number) => ['employer', 'dashboard', 'trend', days]
 const VERIFICATION_KEY = ['employer', 'verification']
 const COMPANY_KEY = ['employer', 'company']
 const TEAM_KEY = ['employer', 'company', 'team']
+const OFFICES_KEY = ['employer', 'company', 'offices']
+const DEPARTMENTS_KEY = ['employer', 'company', 'departments']
 const SUBSCRIPTION_KEY = ['employer', 'subscription']
 const SUBSCRIPTION_USAGE_KEY = ['employer', 'subscription', 'usage']
 const SUBSCRIPTION_PLANS_KEY = ['employer', 'subscription', 'plans']
@@ -61,10 +63,47 @@ export function useSuggestSkills() {
   })
 }
 
+export function useGenerateDescription() {
+  return useMutation({
+    mutationFn: ({ title, sector, keyPoints }: { title: string; sector: string; keyPoints: string }) =>
+      jobsApi.generateDescription(title, sector, keyPoints),
+  })
+}
+
 export function useCreateJob() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: JobPostingPayload) => jobsApi.createJob(data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }),
+  })
+}
+
+const JOB_TEMPLATES_KEY = ['employer', 'job-templates']
+
+export function useJobTemplates() {
+  return useQuery({ queryKey: JOB_TEMPLATES_KEY, queryFn: jobsApi.listJobTemplates })
+}
+
+export function useCreateJobTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: Parameters<typeof jobsApi.createJobTemplate>[0]) => jobsApi.createJobTemplate(payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: JOB_TEMPLATES_KEY }),
+  })
+}
+
+export function useDeleteJobTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (templateId: string) => jobsApi.deleteJobTemplate(templateId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: JOB_TEMPLATES_KEY }),
+  })
+}
+
+export function useBulkImportJobs() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (file: File) => jobsApi.bulkImportJobs(file),
     onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }),
   })
 }
@@ -223,6 +262,46 @@ export function useTransferOwnership() {
   return useMutation({
     mutationFn: (newOwnerEmployerProfileId: string) => companyApi.transferOwnership(newOwnerEmployerProfileId),
     onSuccess: () => qc.invalidateQueries({ queryKey: TEAM_KEY }),
+  })
+}
+
+export function useOffices() {
+  return useQuery({ queryKey: OFFICES_KEY, queryFn: companyApi.listOffices })
+}
+
+export function useCreateOffice() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: { name: string; city: string; state?: string; is_headquarters?: boolean }) => companyApi.createOffice(payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: OFFICES_KEY }),
+  })
+}
+
+export function useDeleteOffice() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (officeId: string) => companyApi.deleteOffice(officeId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: OFFICES_KEY }),
+  })
+}
+
+export function useDepartments() {
+  return useQuery({ queryKey: DEPARTMENTS_KEY, queryFn: companyApi.listDepartments })
+}
+
+export function useCreateDepartment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (name: string) => companyApi.createDepartment(name),
+    onSuccess: () => qc.invalidateQueries({ queryKey: DEPARTMENTS_KEY }),
+  })
+}
+
+export function useDeleteDepartment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (departmentId: string) => companyApi.deleteDepartment(departmentId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: DEPARTMENTS_KEY }),
   })
 }
 

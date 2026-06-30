@@ -16,7 +16,9 @@ from app.modules.admin.schemas import (
     AdminStatsResponse,
     AspirantDetailResponse,
     AspirantUserEntry,
+    BillingOverviewResponse,
     CareerTrackAdminEntry,
+    GlobalSearchResponse,
     CareerTrackCreateRequest,
     CareerTrackUpdateRequest,
     AuditLogPage,
@@ -48,6 +50,18 @@ def admin_stats(
     admin: User = Depends(require_admin),
 ):
     return service.get_stats(db)
+
+
+@router.get("/search", response_model=GlobalSearchResponse)
+def global_search(
+    q: str = Query(..., min_length=2, max_length=100),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Cross-entity search (users, employers, jobs, applications) — previously
+    each admin section had its own isolated search with no way to find an
+    entity without knowing which tab it lived in."""
+    return service.global_search(db, q)
 
 
 # ── Employers ─────────────────────────────────────────────────────────────────
@@ -389,6 +403,16 @@ def list_audit_logs(
 
 
 # ── Subscription plans ────────────────────────────────────────────────────────
+
+@router.get("/billing/overview", response_model=BillingOverviewResponse)
+def billing_overview(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_permission("subscriptions", "view")),
+):
+    """Platform-wide MRR, plan distribution, and subscription growth — there was
+    previously no way for an operator to see this without querying the DB directly."""
+    return service.get_billing_overview(db)
+
 
 @router.get("/subscription-plans", response_model=list[SubscriptionPlanAdminEntry])
 def list_subscription_plans(

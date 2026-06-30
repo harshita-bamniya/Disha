@@ -14,9 +14,11 @@ from typing import Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.email import send_email
 from app.core.exceptions import AuthException, BadRequestException, NotFoundException
 from app.models.mvp3 import (
-    Application, ApplicationStatusHistory, CandidateNote, CandidateRating, CandidateInterviewFeedback,
+    Application, ApplicationStatusHistory, CandidateEmailLog, CandidateNote, CandidateRating,
+    CandidateInterviewFeedback,
 )
 from app.models.user import (
     AspirantProfile, EmployerProfile, JobPosting, KrsScore, PsychologicalAssessment, User,
@@ -25,10 +27,11 @@ from app.models.user import (
 from app.modules.matching.schemas import (
     ApplicationDetailOut, ApplicationOut, ApplicationStatusHistoryItem,
     ApplicationTrendPoint, ApplicationTrendResponse,
-    ApplyRequest, CandidateNoteOut, CandidateOut, CandidatePsychProfile,
+    ApplyRequest, CandidateEmailLogOut, CandidateNoteOut, CandidateOut, CandidatePsychProfile,
     DashboardKpis, EmployerFunnelResponse, EmployerFunnelStage, InterviewFeedbackOut,
     JobCandidatePipeline, JobDetail, JobListItem, JobPerformanceEntry,
-    JobPerformanceResponse, JobRecommendationsResponse, UpcomingInterviewEntry,
+    JobPerformanceResponse, JobRecommendationsResponse,
+    RecruiterPerformanceEntry, RecruiterPerformanceResponse, UpcomingInterviewEntry,
     UpdateApplicationStatusRequest,
 )
 from app.modules.recommendations.ranker import RankedJob, rank_jobs_for_user
@@ -233,9 +236,17 @@ def apply_to_job(
 
     if employer:
         from app.core.notifications import new_application_email, notify
+        from app.modules.inbox.service import notify_company_team
         recipient = db.query(User).filter(User.id == employer.user_id).first()
         subject, html = new_application_email(job.title, profile.full_name if profile else None)
         notify(recipient.email if recipient else None, subject, html)
+        notify_company_team(
+            db, employer, "new_application",
+            f"New application: {job.title}",
+            f"{(profile.full_name if profile else None) or 'A candidate'} applied to {job.title}.",
+            f"/app/employer/pipeline/{job.id}",
+        )
+        db.commit()
 
     return ApplicationOut(
         id=str(application.id),
@@ -350,6 +361,122 @@ def withdraw_application(
     ))
     db.commit()
     return {"status": "withdrawn"}
+
+
+def list_my_interviews(application_id: str, user: User, db: Session) -> list[InterviewFeedbackOut]:
+    """Aspirant-facing interview visibility — previously a candidate could only
+    learn their interview time from an email; there was no in-product view at all."""
+    app = (
+        db.query(Application)
+        .filter(Application.id == application_id, Application.aspirant_id == user.id)
+        .first()
+    )
+    if not app:
+        raise NotFoundException("Application not found.")
+    rows = (
+        db.query(CandidateInterviewFeedback)
+        .filter(CandidateInterviewFeedback.application_id == app.id)
+        .order_by(CandidateInterviewFeedback.scheduled_at.desc())
+        .all()
+    )
+    out = []
+    for row in rows:
+        interviewer = db.query(User).filter(User.id == row.interviewer_id).first() if row.interviewer_id else None
+        out.append(_interview_to_out(row, interviewer))
+    return out
+
+
+def request_interview_reschedule(application_id: str, interview_id: str, note: str, user: User, db: Session) -> InterviewFeedbackOut:
+    """Self-serve reschedule request — the candidate flags a conflict with a
+    note; the employer team sees it on the interview card and can reschedule.
+    The candidate cannot directly change the time themselves, only ask."""
+    app = (
+        db.query(Application)
+        .filter(Application.id == application_id, Application.aspirant_id == user.id)
+        .first()
+    )
+    if not app:
+        raise NotFoundException("Application not found.")
+    row = (
+        db.query(CandidateInterviewFeedback)
+        .filter(CandidateInterviewFeedback.id == interview_id, CandidateInterviewFeedback.application_id == app.id)
+        .first()
+    )
+    if not row:
+        raise NotFoundException("Interview not found.")
+    if row.status != "scheduled":
+        raise BadRequestException("Can only request a reschedule for a scheduled interview.")
+
+    row.reschedule_requested_at = datetime.now(timezone.utc)
+    row.reschedule_note = note
+    db.commit()
+    db.refresh(row)
+
+    job = db.query(JobPosting).filter(JobPosting.id == app.job_id).first()
+    employer = db.query(EmployerProfile).filter(EmployerProfile.id == job.employer_id).first() if job else None
+    if employer:
+        from app.modules.inbox.service import notify_company_team
+        notify_company_team(
+            db, employer, "interview_reschedule_requested",
+            f"Reschedule requested — {job.title}",
+            f"Candidate requested a new time: \"{note}\"",
+            f"/app/employer/pipeline/{job.id}",
+        )
+        db.commit()
+
+    interviewer = db.query(User).filter(User.id == row.interviewer_id).first() if row.interviewer_id else None
+    return _interview_to_out(row, interviewer)
+
+
+def reschedule_interview(application_id: str, interview_id: str, scheduled_at, meeting_link: str | None, user: User, db: Session) -> InterviewFeedbackOut:
+    """Employer updates the time on an existing interview (rather than
+    creating a duplicate row via schedule_interview) — clears any pending
+    reschedule request and re-notifies the candidate with a fresh ICS."""
+    row = _get_employer_interview(application_id, interview_id, user, db)
+    if row.status != "scheduled":
+        raise BadRequestException(f"Cannot reschedule an interview with status '{row.status}'.")
+
+    row.scheduled_at = scheduled_at
+    if meeting_link is not None:
+        row.meeting_link = meeting_link
+    row.reschedule_requested_at = None
+    row.reschedule_note = None
+    db.commit()
+    db.refresh(row)
+
+    app = db.query(Application).filter(Application.id == row.application_id).first()
+    job = db.query(JobPosting).filter(JobPosting.id == app.job_id).first() if app else None
+    employer = db.query(EmployerProfile).filter(EmployerProfile.id == job.employer_id).first() if job else None
+    candidate = db.query(User).filter(User.id == app.aspirant_id).first() if app else None
+
+    if candidate and job and employer:
+        from app.core.calendar import build_interview_ics
+        from app.core.notifications import interview_scheduled_email, notify
+        from app.modules.inbox.service import create_notification
+
+        subject, html = interview_scheduled_email(
+            job.title, employer.company_name, scheduled_at.strftime("%d %b %Y, %I:%M %p UTC"), row.meeting_link,
+        )
+        ics_content = None
+        if candidate.email:
+            ics_content = build_interview_ics(
+                uid=f"interview-{row.id}@beginablai.in",
+                summary=f"Interview: {job.title} at {employer.company_name}",
+                description=f"Interview for {job.title} at {employer.company_name} (rescheduled).",
+                scheduled_at=scheduled_at, location=row.meeting_link,
+                organizer_email=user.email, attendee_email=candidate.email,
+            )
+        notify(candidate.email, subject, html, ics_content, "interview.ics")
+        create_notification(
+            db, candidate.id, "interview_scheduled",
+            f"Interview rescheduled — {job.title}",
+            f"Your interview for {job.title} at {employer.company_name} is now on {scheduled_at.strftime('%d %b, %I:%M %p')}.",
+            "/app/jobs/applications",
+        )
+        db.commit()
+
+    interviewer = db.query(User).filter(User.id == row.interviewer_id).first() if row.interviewer_id else None
+    return _interview_to_out(row, interviewer)
 
 
 # ── Employer: candidate pipeline ──────────────────────────────────────────────
@@ -575,11 +702,19 @@ def update_application_status(
     db.commit()
 
     from app.core.notifications import application_status_email, notify
+    from app.modules.inbox.service import create_notification
     candidate = db.query(User).filter(User.id == app.aspirant_id).first()
     job = db.query(JobPosting).filter(JobPosting.id == app.job_id).first()
     if candidate and job:
         subject, html = application_status_email(job.title, employer.company_name, body.status)
         notify(candidate.email, subject, html)
+        create_notification(
+            db, candidate.id, "application_status_changed",
+            f"Update on your application — {job.title}",
+            f"Your application to {job.title} at {employer.company_name} is now: {body.status.replace('_', ' ').title()}.",
+            f"/app/jobs/applications",
+        )
+        db.commit()
 
     logger.info(
         "[MATCHING] Application %s: %s → %s by employer %s",
@@ -604,6 +739,8 @@ def _get_employer_application(application_id: str, user: User, db: Session) -> A
 
 def bulk_update_status(application_ids: list[str], status: str, note: str | None, user: User, db: Session) -> dict:
     """Move multiple applications to the same stage in one transaction."""
+    from app.modules.inbox.service import create_notification
+
     employer = _get_employer_profile_approved(user, db)
     company_employer_ids = _get_company_employer_ids(employer, db)
     apps = (
@@ -623,6 +760,14 @@ def bulk_update_status(application_ids: list[str], status: str, note: str | None
         db.add(ApplicationStatusHistory(
             application_id=app.id, from_status=prev, to_status=status, changed_by=user.id, note=note,
         ))
+        job = db.query(JobPosting).filter(JobPosting.id == app.job_id).first()
+        if job:
+            create_notification(
+                db, app.aspirant_id, "application_status_changed",
+                f"Update on your application — {job.title}",
+                f"Your application to {job.title} at {employer.company_name} is now: {status.replace('_', ' ').title()}.",
+                "/app/jobs/applications",
+            )
         updated += 1
     db.commit()
     return {"updated": updated, "status": status}
@@ -638,6 +783,120 @@ def add_candidate_note(application_id: str, note: str, is_internal: bool, user: 
         id=str(row.id), author_name=(user.email or user.phone), note=row.note,
         is_internal=row.is_internal, created_at=row.created_at,
     )
+
+
+async def send_candidate_email(application_id: str, subject: str, body: str, user: User, db: Session) -> CandidateEmailLogOut:
+    """Recruiter emails a candidate directly from the pipeline.
+
+    This was the single biggest gap in the product — recruiters could track a
+    candidate through pipeline stages but had no way to actually contact them
+    without leaving the app. Persists a log row (compliance/team visibility)
+    in addition to actually sending the email.
+    """
+    app = _get_employer_application(application_id, user, db)
+    if not app.aspirant or not app.aspirant.email:
+        raise BadRequestException("This candidate has no email address on file.")
+
+    employer = _get_employer_profile_approved(user, db)
+    sender_name = employer.company_name or user.email or "Recruiting team"
+
+    html = "".join(f"<p>{line}</p>" for line in body.split("\n") if line.strip())
+    await send_email(app.aspirant.email, subject, html or f"<p>{body}</p>")
+
+    row = CandidateEmailLog(
+        application_id=app.id, sender_id=user.id,
+        recipient_email=app.aspirant.email, subject=subject, body=body,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return CandidateEmailLogOut(
+        id=str(row.id), sender_name=sender_name, recipient_email=row.recipient_email,
+        subject=row.subject, body=row.body, created_at=row.created_at,
+    )
+
+
+def build_offer_letter_pdf(application_id: str, body, user: User, db: Session) -> bytes:
+    """Fetch candidate + employer info and generate an offer letter PDF."""
+    from app.modules.matching.offer_pdf import generate_offer_letter_pdf
+
+    app = _get_employer_application(application_id, user, db)
+    if not app.aspirant:
+        raise NotFoundException("Candidate not found.")
+
+    employer = _get_employer_profile_approved(user, db)
+    return generate_offer_letter_pdf(
+        candidate_name=app.aspirant.full_name or "Candidate",
+        candidate_email=app.aspirant.email or "",
+        role_title=body.role_title,
+        company_name=employer.company_name or "Company",
+        company_address=body.company_address or "",
+        hiring_manager_name=body.hiring_manager_name,
+        hiring_manager_designation=body.hiring_manager_designation,
+        salary_ctc=body.salary_ctc,
+        start_date=body.start_date,
+        work_location=body.work_location,
+        employment_type=body.employment_type,
+        extra_clauses=body.extra_clauses,
+    )
+
+
+async def bulk_email_candidates(
+    application_ids: list[str], subject: str, body: str, user: User, db: Session
+) -> dict:
+    """Send the same email to multiple candidates in one action.
+
+    Skips any application where the candidate has no email address on file.
+    Persists a log row per send for compliance/team visibility.
+    """
+    employer = _get_employer_profile_approved(user, db)
+    company_employer_ids = _get_company_employer_ids(employer, db)
+    sender_name = employer.company_name or user.email or "Recruiting team"
+
+    apps = (
+        db.query(Application)
+        .join(JobPosting, Application.job_id == JobPosting.id)
+        .filter(Application.id.in_(application_ids), JobPosting.employer_id.in_(company_employer_ids))
+        .all()
+    )
+
+    html = "".join(f"<p>{line}</p>" for line in body.split("\n") if line.strip()) or f"<p>{body}</p>"
+    sent = 0
+    skipped = 0
+    for app in apps:
+        if not app.aspirant or not app.aspirant.email:
+            skipped += 1
+            continue
+        await send_email(app.aspirant.email, subject, html)
+        db.add(CandidateEmailLog(
+            application_id=app.id, sender_id=user.id,
+            recipient_email=app.aspirant.email, subject=subject, body=body,
+        ))
+        sent += 1
+
+    if sent:
+        db.commit()
+
+    return {"sent": sent, "skipped": skipped}
+
+
+def list_candidate_emails(application_id: str, user: User, db: Session) -> list[CandidateEmailLogOut]:
+    app = _get_employer_application(application_id, user, db)
+    rows = (
+        db.query(CandidateEmailLog)
+        .filter(CandidateEmailLog.application_id == app.id)
+        .order_by(CandidateEmailLog.created_at.desc())
+        .all()
+    )
+    return [
+        CandidateEmailLogOut(
+            id=str(r.id),
+            sender_name=(r.sender.full_name or r.sender.email if r.sender else None) or "Recruiting team",
+            recipient_email=r.recipient_email, subject=r.subject, body=r.body,
+            created_at=r.created_at,
+        )
+        for r in rows
+    ]
 
 
 def set_candidate_rating(application_id: str, rating: int, user: User, db: Session) -> dict:
@@ -687,6 +946,7 @@ def _interview_to_out(row: CandidateInterviewFeedback, interviewer: User | None)
         interviewer_name=(interviewer.email or interviewer.phone) if interviewer else None,
         scheduled_at=row.scheduled_at, meeting_link=row.meeting_link, status=row.status,
         recommendation=row.recommendation, feedback=row.feedback, created_at=row.created_at,
+        reschedule_requested_at=row.reschedule_requested_at, reschedule_note=row.reschedule_note,
     )
 
 
@@ -701,6 +961,7 @@ def schedule_interview(application_id: str, scheduled_at, meeting_link: str | No
     db.commit()
     db.refresh(row)
 
+    from app.core.calendar import build_interview_ics
     from app.core.notifications import interview_scheduled_email, notify
     candidate = db.query(User).filter(User.id == app.aspirant_id).first()
     job = db.query(JobPosting).filter(JobPosting.id == app.job_id).first()
@@ -709,9 +970,95 @@ def schedule_interview(application_id: str, scheduled_at, meeting_link: str | No
         subject, html = interview_scheduled_email(
             job.title, employer.company_name, scheduled_at.strftime("%d %b %Y, %I:%M %p UTC"), meeting_link,
         )
-        notify(candidate.email, subject, html)
+        ics_content = None
+        if candidate.email:
+            ics_content = build_interview_ics(
+                uid=f"interview-{row.id}@beginablai.in",
+                summary=f"Interview: {job.title} at {employer.company_name}",
+                description=f"Interview for {job.title} at {employer.company_name}." + (f"\nJoin: {meeting_link}" if meeting_link else ""),
+                scheduled_at=scheduled_at,
+                location=meeting_link,
+                organizer_email=user.email,
+                attendee_email=candidate.email,
+            )
+        notify(candidate.email, subject, html, ics_content, "interview.ics")
+
+        from app.modules.inbox.service import create_notification, notify_company_team
+        notify_company_team(
+            db, employer, "interview_scheduled",
+            f"Interview scheduled: {job.title}",
+            f"Interview with {candidate.email or 'a candidate'} on {scheduled_at.strftime('%d %b, %I:%M %p')}.",
+            f"/app/employer/pipeline/{job.id}",
+        )
+        create_notification(
+            db, candidate.id, "interview_scheduled",
+            f"Interview scheduled — {job.title}",
+            f"Your interview for {job.title} at {employer.company_name} is on {scheduled_at.strftime('%d %b, %I:%M %p')}." + (f" Meeting link: {meeting_link}" if meeting_link else ""),
+            "/app/jobs/applications",
+        )
+        db.commit()
+
+    # Push to recruiter's Google Calendar if they've connected
+    _push_interview_to_google_calendar(row, user, db)
 
     return _interview_to_out(row, user)
+
+
+def _push_interview_to_google_calendar(interview_row, user: User, db: Session) -> None:
+    """Best-effort push to Google Calendar — never raises, never blocks the request."""
+    import json as _json
+    try:
+        from app.models.mvp3 import GoogleCalendarToken
+        token_row = db.query(GoogleCalendarToken).filter(GoogleCalendarToken.user_id == user.id).first()
+        if not token_row:
+            return
+
+        from google.oauth2.credentials import Credentials
+        from googleapiclient.discovery import build as gcal_build
+        from app.config import get_settings as _gs
+
+        s = _gs()
+        creds_data = _json.loads(token_row.token)
+        creds = Credentials(
+            token=creds_data.get("token"),
+            refresh_token=creds_data.get("_refresh_token") or creds_data.get("refresh_token"),
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=s.google_calendar_client_id,
+            client_secret=s.google_calendar_client_secret,
+            scopes=creds_data.get("scopes", []),
+        )
+
+        service = gcal_build("calendar", "v3", credentials=creds, cache_discovery=False)
+
+        app_row = db.query(Application).filter(Application.id == interview_row.application_id).first()
+        job = db.query(JobPosting).filter(JobPosting.id == app_row.job_id).first() if app_row else None
+        candidate = db.query(User).filter(User.id == app_row.aspirant_id).first() if app_row else None
+
+        start = interview_row.scheduled_at
+        from datetime import timedelta
+        end = start + timedelta(minutes=45)
+
+        event = {
+            "summary": f"Interview: {job.title if job else 'Candidate'}" + (f" — {candidate.full_name}" if candidate and candidate.full_name else ""),
+            "description": f"Interview scheduled via Disha AI Platform." + (f"\nMeeting link: {interview_row.meeting_link}" if interview_row.meeting_link else ""),
+            "start": {"dateTime": start.isoformat(), "timeZone": "Asia/Kolkata"},
+            "end":   {"dateTime": end.isoformat(),   "timeZone": "Asia/Kolkata"},
+        }
+        if interview_row.meeting_link:
+            event["location"] = interview_row.meeting_link
+        if candidate and candidate.email:
+            event["attendees"] = [{"email": candidate.email}]
+
+        created = service.events().insert(calendarId="primary", body=event, sendUpdates="all").execute()
+        logger.info("[GCAL] Event created: %s", created.get("id"))
+
+        # Persist refreshed token if it was auto-refreshed
+        if creds.token != creds_data.get("token"):
+            token_row.token = creds.to_json()
+            db.commit()
+
+    except Exception as exc:
+        logger.warning("[GCAL] Could not push interview to Google Calendar (non-fatal): %s", exc)
 
 
 def _get_employer_interview(application_id: str, interview_id: str, user: User, db: Session) -> CandidateInterviewFeedback:
@@ -722,6 +1069,31 @@ def _get_employer_interview(application_id: str, interview_id: str, user: User, 
     if not row:
         raise NotFoundException("Interview not found.")
     return row
+
+
+def get_interview_ics(application_id: str, interview_id: str, user: User, db: Session) -> str:
+    """Lets the recruiter download the same calendar invite that was emailed
+    to the candidate — useful for adding it to their own calendar, or
+    resending if the original email landed in spam."""
+    row = _get_employer_interview(application_id, interview_id, user, db)
+    if not row.scheduled_at:
+        raise BadRequestException("This interview has no scheduled time.")
+
+    app = db.query(Application).filter(Application.id == row.application_id).first()
+    job = db.query(JobPosting).filter(JobPosting.id == app.job_id).first() if app else None
+    employer = db.query(EmployerProfile).filter(EmployerProfile.id == job.employer_id).first() if job else None
+    candidate = db.query(User).filter(User.id == app.aspirant_id).first() if app else None
+
+    from app.core.calendar import build_interview_ics
+    return build_interview_ics(
+        uid=f"interview-{row.id}@beginablai.in",
+        summary=f"Interview: {job.title if job else 'Candidate'} at {employer.company_name if employer else ''}",
+        description=f"Interview for {job.title if job else 'a role'}." + (f"\nJoin: {row.meeting_link}" if row.meeting_link else ""),
+        scheduled_at=row.scheduled_at,
+        location=row.meeting_link,
+        organizer_email=user.email,
+        attendee_email=candidate.email if candidate else None,
+    )
 
 
 def submit_interview_feedback(
@@ -864,6 +1236,82 @@ def get_job_performance(user: User, db: Session) -> JobPerformanceResponse:
             created_at=job.created_at,
         ))
     return JobPerformanceResponse(jobs=entries)
+
+
+def get_recruiter_performance(user: User, db: Session) -> RecruiterPerformanceResponse:
+    """Per-teammate activity across the company's jobs — there was previously
+    no way to see whether a recruiter seat was actually being used. Built
+    entirely from existing audit tables (status_history, notes, interview
+    feedback); no new model needed.
+    """
+    employer = _get_employer_profile_approved(user, db)
+    company_employer_ids = _get_company_employer_ids(employer, db)
+
+    team = (
+        db.query(EmployerProfile.user_id)
+        .filter(EmployerProfile.id.in_(company_employer_ids))
+        .all()
+    )
+    team_user_ids = [t[0] for t in team]
+    if not team_user_ids:
+        return RecruiterPerformanceResponse(recruiters=[])
+
+    job_ids = [
+        j[0] for j in db.query(JobPosting.id).filter(JobPosting.employer_id.in_(company_employer_ids)).all()
+    ]
+
+    entries: list[RecruiterPerformanceEntry] = []
+    for uid in team_user_ids:
+        member = db.query(User).filter(User.id == uid).first()
+        if not member:
+            continue
+
+        moved = (
+            db.query(ApplicationStatusHistory)
+            .join(Application, ApplicationStatusHistory.application_id == Application.id)
+            .filter(ApplicationStatusHistory.changed_by == uid, Application.job_id.in_(job_ids))
+            .count() if job_ids else 0
+        )
+        interviews = (
+            db.query(CandidateInterviewFeedback)
+            .join(Application, CandidateInterviewFeedback.application_id == Application.id)
+            .filter(CandidateInterviewFeedback.interviewer_id == uid, Application.job_id.in_(job_ids))
+            .count() if job_ids else 0
+        )
+        notes = (
+            db.query(CandidateNote)
+            .join(Application, CandidateNote.application_id == Application.id)
+            .filter(CandidateNote.author_id == uid, Application.job_id.in_(job_ids))
+            .count() if job_ids else 0
+        )
+
+        hire_events = []
+        if job_ids:
+            hire_events = (
+                db.query(ApplicationStatusHistory.created_at, Application.created_at)
+                .join(Application, ApplicationStatusHistory.application_id == Application.id)
+                .filter(
+                    ApplicationStatusHistory.changed_by == uid,
+                    ApplicationStatusHistory.to_status == "hired",
+                    Application.job_id.in_(job_ids),
+                )
+                .all()
+            )
+        hires_closed = len(hire_events)
+        avg_days_to_hire = None
+        if hire_events:
+            total_days = sum((hired_at - applied_at).total_seconds() / 86400 for hired_at, applied_at in hire_events)
+            avg_days_to_hire = round(total_days / len(hire_events), 1)
+
+        entries.append(RecruiterPerformanceEntry(
+            user_id=str(uid),
+            name=member.full_name or member.email or member.phone,
+            applications_moved=moved, interviews_conducted=interviews,
+            notes_added=notes, hires_closed=hires_closed, avg_days_to_hire=avg_days_to_hire,
+        ))
+
+    entries.sort(key=lambda e: e.hires_closed, reverse=True)
+    return RecruiterPerformanceResponse(recruiters=entries)
 
 
 # ── Dashboard KPIs (Module 05 Phase 8) ─────────────────────────────────────────

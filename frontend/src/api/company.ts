@@ -101,6 +101,19 @@ export const subscriptionApi = {
     apiClient.post<CompanySubscriptionResponse>('/employer/subscription/upgrade', { plan_id: planId }).then(r => r.data),
 }
 
+export interface OfficeEntry {
+  id: string
+  name: string
+  city: string
+  state: string | null
+  is_headquarters: boolean
+}
+
+export interface DepartmentEntry {
+  id: string
+  name: string
+}
+
 export const companyApi = {
   getProfile: () =>
     apiClient.get<CompanyProfile>('/employer/company').then(r => r.data),
@@ -140,4 +153,22 @@ export const companyApi = {
     apiClient.post<{ message: string }>('/employer/company/team/transfer-ownership', {
       new_owner_employer_profile_id: newOwnerEmployerProfileId,
     }).then(r => r.data),
+
+  listOffices: () =>
+    apiClient.get<OfficeEntry[]>('/employer/company/offices').then(r => r.data),
+
+  createOffice: (payload: { name: string; city: string; state?: string; is_headquarters?: boolean }) =>
+    apiClient.post<OfficeEntry>('/employer/company/offices', payload).then(r => r.data),
+
+  deleteOffice: (officeId: string) =>
+    apiClient.delete<{ message: string }>(`/employer/company/offices/${officeId}`).then(r => r.data),
+
+  listDepartments: () =>
+    apiClient.get<DepartmentEntry[]>('/employer/company/departments').then(r => r.data),
+
+  createDepartment: (name: string) =>
+    apiClient.post<DepartmentEntry>('/employer/company/departments', { name }).then(r => r.data),
+
+  deleteDepartment: (departmentId: string) =>
+    apiClient.delete<{ message: string }>(`/employer/company/departments/${departmentId}`).then(r => r.data),
 }

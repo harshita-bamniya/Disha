@@ -7,7 +7,7 @@ flagged is_owner=True. Team members are additional EmployerProfile rows
 sharing the same company_id with a non-owner role (hr_manager/recruiter/interviewer).
 """
 import uuid
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -35,6 +35,42 @@ class Company(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     members = relationship("EmployerProfile", back_populates="company")
+
+
+class CompanyOffice(Base):
+    """A physical hiring location for a company. Master data only in this
+    pass — job postings still store location as free text (`location`);
+    wiring a job-posting dropdown to pick from these is a fast follow-up,
+    not done here, to avoid a migration on the high-traffic job_postings
+    table in the same change as this master-data addition."""
+    __tablename__ = "company_offices"
+
+    id              = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id      = Column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    name            = Column(String(150), nullable=False)   # e.g. "Bangalore HQ", "Mumbai Office"
+    city            = Column(String(100), nullable=False)
+    state           = Column(String(100), nullable=True)
+    is_headquarters = Column(Boolean, nullable=False, default=False)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+
+    company         = relationship("Company")
+
+
+class CompanyDepartment(Base):
+    """A department/team name a company hires for (Engineering, Sales, …) —
+    same master-data role as CompanyOffice."""
+    __tablename__ = "company_departments"
+
+    id          = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id  = Column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    name        = Column(String(150), nullable=False)
+    created_at  = Column(DateTime(timezone=True), server_default=func.now())
+
+    company     = relationship("Company")
+
+    __table_args__ = (
+        UniqueConstraint("company_id", "name", name="uq_company_department_name"),
+    )
 
 
 class CompanyInvite(Base):

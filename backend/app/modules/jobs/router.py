@@ -7,7 +7,9 @@ from app.database import get_db
 from app.models.user import User
 from app.modules.jobs import service
 from app.modules.jobs.schemas import (
-    EmployerDashboardResponse, EmployerPermissionsResponse, JobPostingRequest, JobPostingResponse,
+    BulkImportResponse,
+    EmployerDashboardResponse, EmployerPermissionsResponse, GenerateDescriptionRequest, GenerateDescriptionResponse,
+    JobPostingRequest, JobPostingResponse, JobTemplateCreateRequest, JobTemplateOut,
     SuggestSkillsRequest, SuggestSkillsResponse, VerificationStatusResponse,
 )
 
@@ -47,6 +49,22 @@ async def suggest_skills(
         raise HTTPException(status_code=400, detail=e.detail)
 
 
+@router.post("/jobs/generate-description", response_model=GenerateDescriptionResponse)
+async def generate_description(
+    body: GenerateDescriptionRequest,
+    current_user: User = Depends(require_permission("jobs", "create")),
+):
+    """AI first-draft of the job description from title + sector — employer
+    reviews/edits before publishing. Skill suggestion already existed
+    (suggest-skills above, already wired into the form); description writing
+    itself was the remaining piece of the audit's 'no AI-assisted job
+    creation' gap."""
+    try:
+        return await service.generate_job_description(body.title, body.sector, body.key_points)
+    except (AuthException, BadRequestException) as e:
+        raise HTTPException(status_code=400, detail=e.detail)
+
+
 @router.post("/jobs", response_model=JobPostingResponse, status_code=201)
 def create_job(
     body: JobPostingRequest,
@@ -57,6 +75,62 @@ def create_job(
         return service.create_job(current_user, body, db)
     except (AuthException, BadRequestException) as e:
         raise HTTPException(status_code=403, detail=e.detail)
+
+
+@router.post("/jobs/bulk-import", response_model=BulkImportResponse)
+async def bulk_import_jobs(
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_permission("jobs", "create")),
+    db: Session = Depends(get_db),
+):
+    """Bulk-create job postings from a CSV — all saved as drafts for the
+    employer to review and publish individually."""
+    if file.content_type not in ("text/csv", "application/vnd.ms-excel", "application/csv", "text/plain"):
+        raise HTTPException(status_code=400, detail="Please upload a .csv file.")
+    raw = await file.read()
+    try:
+        csv_text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=400, detail="Could not read file — please save as UTF-8 CSV.")
+    try:
+        return service.bulk_import_jobs(current_user, csv_text, db)
+    except (AuthException, BadRequestException) as e:
+        raise HTTPException(status_code=400, detail=e.detail)
+
+
+@router.get("/jobs/templates", response_model=list[JobTemplateOut])
+def list_job_templates(
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.list_job_templates(current_user, db)
+    except AuthException as e:
+        raise HTTPException(status_code=403, detail=e.detail)
+
+
+@router.post("/jobs/templates", response_model=JobTemplateOut, status_code=201)
+def create_job_template(
+    body: JobTemplateCreateRequest,
+    current_user: User = Depends(require_permission("jobs", "create")),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.create_job_template(current_user, body, db)
+    except (AuthException, BadRequestException) as e:
+        raise HTTPException(status_code=400, detail=e.detail)
+
+
+@router.delete("/jobs/templates/{template_id}")
+def delete_job_template(
+    template_id: str,
+    current_user: User = Depends(require_permission("jobs", "create")),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.delete_job_template(current_user, template_id, db)
+    except (AuthException, BadRequestException) as e:
+        raise HTTPException(status_code=400, detail=e.detail)
 
 
 @router.put("/jobs/{job_id}", response_model=JobPostingResponse)

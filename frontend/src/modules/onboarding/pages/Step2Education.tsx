@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { GraduationCap } from 'lucide-react'
 import OnboardingLayout from '@/layouts/OnboardingLayout'
 import Input from '@/components/ui/Input'
@@ -29,7 +28,6 @@ export default function Step2Education() {
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const { education } = useOnboardingSteps()
-  const navigate = useNavigate()
 
   const set = (f: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((p) => ({ ...p, [f]: e.target.value }))
@@ -57,10 +55,10 @@ export default function Step2Education() {
   const serverError = education.error ? getApiError(education.error) : null
 
   return (
-    <OnboardingLayout currentStep={2} title="Your education" subtitle="Help us understand your academic background." onSkip={() => navigate('/app/onboarding/step/3')}>
+    <OnboardingLayout currentStep={2} title="Your education" subtitle="Help us understand your academic background.">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-gray-700">Highest qualification</label>
+          <label className="text-sm font-medium text-gray-700">Highest qualification<span className="text-danger ml-0.5">*</span></label>
           <div className="flex flex-col gap-2">
             {QUALIFICATIONS.map(({ value, label }) => (
               <button
@@ -81,10 +79,10 @@ export default function Step2Education() {
           {errors.highest_qualification && <p className="text-xs text-danger mt-0.5">{errors.highest_qualification}</p>}
         </div>
 
-        <Input label="Degree" placeholder="B.A., B.Sc., B.Tech, M.A.…" value={form.degree} onChange={set('degree')} error={errors.degree} />
-        <Input label="Field of study" placeholder="Political Science, Economics, Engineering…" value={form.field_of_study} onChange={set('field_of_study')} error={errors.field_of_study} />
-        <Input label="Institution" placeholder="University / College name" value={form.institution} onChange={set('institution')} error={errors.institution} prefix={<GraduationCap className="w-4 h-4" />} />
-        <Input label="Graduation year" type="number" placeholder={String(CURRENT_YEAR)} value={form.graduation_year} onChange={set('graduation_year')} error={errors.graduation_year} min={1970} max={2030} />
+        <Input label="Degree" required placeholder="B.A., B.Sc., B.Tech, M.A.…" value={form.degree} onChange={set('degree')} error={errors.degree} />
+        <Input label="Field of study" required placeholder="Political Science, Economics, Engineering…" value={form.field_of_study} onChange={set('field_of_study')} error={errors.field_of_study} />
+        <Input label="Institution" required placeholder="University / College name" value={form.institution} onChange={set('institution')} error={errors.institution} prefix={<GraduationCap className="w-4 h-4" />} />
+        <Input label="Graduation year" required type="number" placeholder={String(CURRENT_YEAR)} value={form.graduation_year} onChange={set('graduation_year')} error={errors.graduation_year} min={1970} max={2030} />
 
         {serverError && <p className="text-sm text-danger bg-danger/5 border border-danger/20 rounded-xl px-4 py-3">{serverError}</p>}
 

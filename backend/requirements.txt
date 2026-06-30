@@ -14,8 +14,11 @@ passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
 python-multipart==0.0.17
 google-auth==2.37.0
+google-auth-oauthlib==1.2.1
+google-api-python-client==2.154.0
 pyotp==2.9.0
 qrcode[pil]==8.0
+clamd==1.0.2
 
 # Rate limiting
 slowapi==0.1.9

@@ -143,6 +143,12 @@ class CandidateInterviewFeedback(Base):
     feedback        = Column(Text, nullable=True)
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
 
+    # Self-serve reschedule request from the candidate — previously a
+    # recruiter-picked time was final with no way for the candidate to flag
+    # a conflict short of emailing outside the product.
+    reschedule_requested_at = Column(DateTime(timezone=True), nullable=True)
+    reschedule_note         = Column(Text, nullable=True)
+
     application     = relationship("Application")
     interviewer     = relationship("User", foreign_keys=[interviewer_id])
 
@@ -156,6 +162,52 @@ class CandidateInterviewFeedback(Base):
             name="ck_interview_feedback_status",
         ),
     )
+
+
+class SavedCandidate(Base):
+    """Talent pool — a recruiter bookmarks a candidate (by aspirant, not by a
+    specific application) so they aren't lost once the req they applied to closes.
+
+    Scoped to the saving recruiter's EmployerProfile; listing/removal queries
+    expand to the whole company's EmployerProfile ids (same pattern used for
+    applications/jobs) so any teammate sees and can manage the shared pool.
+    """
+    __tablename__ = "saved_candidates"
+
+    id              = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    employer_id     = Column(UUID(as_uuid=True), ForeignKey("employer_profiles.id", ondelete="CASCADE"), nullable=False, index=True)
+    aspirant_id     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    saved_by        = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    note            = Column(Text, nullable=True)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+
+    aspirant        = relationship("User", foreign_keys=[aspirant_id])
+    saver           = relationship("User", foreign_keys=[saved_by])
+
+    __table_args__ = (
+        UniqueConstraint("employer_id", "aspirant_id", name="uq_saved_candidate_employer_aspirant"),
+    )
+
+
+class CandidateEmailLog(Base):
+    """Audit trail of every email a recruiter sends a candidate from the pipeline.
+
+    Recruiter outreach previously had no in-product channel at all — emails sent
+    here are also persisted (not just fired-and-forgotten) so there's a record of
+    what contact happened, for compliance and for other teammates on the req.
+    """
+    __tablename__ = "candidate_email_logs"
+
+    id              = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    application_id  = Column(UUID(as_uuid=True), ForeignKey("applications.id", ondelete="CASCADE"), nullable=False, index=True)
+    sender_id       = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    recipient_email = Column(String(255), nullable=False)
+    subject         = Column(String(255), nullable=False)
+    body            = Column(Text, nullable=False)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+
+    application     = relationship("Application")
+    sender          = relationship("User", foreign_keys=[sender_id])
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -262,6 +314,86 @@ class UserEvent(Base):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# IN-APP NOTIFICATION INBOX + RECRUITER TASKS — there was previously no
+# in-product notification surface at all (only outbound email); recruiters
+# had to live in their inbox instead of the app. This closes that gap.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+NOTIFICATION_TYPES = (
+    "new_application", "interview_scheduled", "candidate_saved",
+    # Aspirant-side — added when the inbox was extended beyond employers
+    "application_status_changed", "job_match_digest", "deadline_reminder",
+    "interview_reschedule_requested",
+)
+
+
+class Notification(Base):
+    """In-app notification for any user — employer-side or aspirant-side.
+    Distinct from the email-only notify() helper in app.core.notifications —
+    this is what populates the bell icon / inbox inside the product itself."""
+    __tablename__ = "notifications"
+
+    id          = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    user_id     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    type        = Column(String(30), nullable=False)
+    title       = Column(String(255), nullable=False)
+    body        = Column(Text, nullable=True)
+    link_url    = Column(Text, nullable=True)   # frontend route to deep-link to, e.g. /app/employer/pipeline/<job_id>
+    is_read     = Column(Boolean, nullable=False, default=False, index=True)
+    created_at  = Column(DateTime(timezone=True), server_default=func.now())
+
+    user        = relationship("User", foreign_keys=[user_id])
+
+    __table_args__ = (
+        CheckConstraint(f"type IN {NOTIFICATION_TYPES}", name="ck_notification_type"),
+        Index("ix_notifications_user_unread", "user_id", "is_read"),
+    )
+
+
+class JobTemplate(Base):
+    """Reusable job-posting boilerplate — distinct from a draft JobPosting,
+    which is a specific dated requisition. A template has no expires_at or
+    salary; an employer picks one to pre-fill a new posting, then fills in
+    the req-specific details (dates, comp) before publishing."""
+    __tablename__ = "job_templates"
+
+    id              = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    employer_id     = Column(UUID(as_uuid=True), ForeignKey("employer_profiles.id", ondelete="CASCADE"), nullable=False, index=True)
+    name            = Column(String(150), nullable=False)   # employer's own label, e.g. "Standard Analyst Req"
+    title           = Column(String(200), nullable=False)
+    description     = Column(Text, nullable=False)
+    sector          = Column(String(100), nullable=False)
+    required_skills = Column(JSONB, nullable=False)
+    job_type        = Column(String(20), nullable=True)
+    employment_type = Column(String(30), nullable=True)
+    min_k_score     = Column(Integer, nullable=False, default=0)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+
+    employer        = relationship("EmployerProfile")
+
+
+class EmployerTask(Base):
+    """A recruiter's personal to-do, optionally linked to a candidate's
+    application (e.g. "follow up with Priya next week"). Simple, manual —
+    not auto-generated; this is the to-do list recruiters didn't have inside
+    the product before, so they tracked follow-ups in their own notes app."""
+    __tablename__ = "employer_tasks"
+
+    id              = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    assigned_to     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    application_id  = Column(UUID(as_uuid=True), ForeignKey("applications.id", ondelete="SET NULL"), nullable=True)
+    title           = Column(String(255), nullable=False)
+    due_at          = Column(DateTime(timezone=True), nullable=True)
+    is_done         = Column(Boolean, nullable=False, default=False, index=True)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+
+    assignee        = relationship("User", foreign_keys=[assigned_to])
+    creator         = relationship("User", foreign_keys=[created_by])
+    application     = relationship("Application")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # OAUTH PROVIDERS — Reserved for Phase 3 Google/LinkedIn login
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -283,3 +415,20 @@ class OAuthProvider(Base):
         UniqueConstraint("provider", "provider_uid", name="uq_oauth_provider_uid"),
         CheckConstraint("provider IN ('google','linkedin')", name="ck_oauth_provider"),
     )
+
+
+class GoogleCalendarToken(Base):
+    """Stores Google Calendar OAuth2 tokens per employer user.
+    One row per user — upserted on each auth callback.
+    Tokens are encrypted at rest in production via DB-level encryption;
+    for local dev they are stored as plain JSON.
+    """
+    __tablename__ = "google_calendar_tokens"
+
+    user_id       = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    token         = Column(Text, nullable=False)          # JSON: access_token, refresh_token, expiry
+    calendar_id   = Column(String(255), nullable=True, default="primary")
+    connected_at  = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at    = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    user          = relationship("User")

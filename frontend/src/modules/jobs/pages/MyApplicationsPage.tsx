@@ -3,11 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowUpRight, Clock, X, AlertTriangle, ChevronRight, FileText,
-  ListChecks, Hourglass, Star, TrendingUp,
+  ListChecks, Hourglass, Star, TrendingUp, Download,
 } from 'lucide-react'
 import AppSidebar from '@/components/layout/AppSidebar'
 import {
   getMyApplications, getApplicationDetail, withdrawApplication,
+  getMyInterviews, requestInterviewReschedule,
   type ApplicationOut, type ApplicationStatusHistoryItem,
 } from '@/api/matching'
 
@@ -289,6 +290,95 @@ function WithdrawPanel({ app, onDone, onCancel }: {
   )
 }
 
+// ── Interviews section ────────────────────────────────────────────────────────
+
+function InterviewsSection({ applicationId }: { applicationId: string }) {
+  const qc = useQueryClient()
+  const [requestingId, setRequestingId] = useState<string | null>(null)
+  const [note, setNote] = useState('')
+
+  const { data: interviews } = useQuery({
+    queryKey: ['my-interviews', applicationId],
+    queryFn: () => getMyInterviews(applicationId),
+  })
+
+  const requestMutation = useMutation({
+    mutationFn: (interviewId: string) => requestInterviewReschedule(applicationId, interviewId, note),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['my-interviews', applicationId] })
+      setRequestingId(null)
+      setNote('')
+    },
+  })
+
+  if (!interviews || interviews.length === 0) return null
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <p style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'flex', alignItems: 'center', gap: 5 }}>
+        <Clock size={12} /> Interviews
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {interviews.map(iv => (
+          <div key={iv.id} style={{ border: '1px solid #E2E8F0', borderRadius: 10, padding: '10px 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>
+                {iv.scheduled_at ? new Date(iv.scheduled_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
+              </span>
+              <span style={{
+                fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                background: iv.status === 'scheduled' ? 'rgba(59,130,246,0.1)' : iv.status === 'completed' ? 'rgba(5,150,105,0.1)' : 'rgba(220,38,38,0.1)',
+                color: iv.status === 'scheduled' ? '#3B82F6' : iv.status === 'completed' ? '#059669' : '#DC2626',
+              }}>
+                {iv.status}
+              </span>
+            </div>
+            {iv.meeting_link && (
+              <a href={iv.meeting_link} target="_blank" rel="noreferrer" style={{ fontSize: 11.5, color: '#3B82F6', display: 'block', marginTop: 4 }}>{iv.meeting_link}</a>
+            )}
+
+            {iv.reschedule_requested_at ? (
+              <p style={{ fontSize: 11.5, color: '#92400E', background: '#FFFBEB', borderRadius: 8, padding: '6px 8px', marginTop: 6 }}>
+                Reschedule requested: "{iv.reschedule_note}" — waiting on the employer.
+              </p>
+            ) : iv.status === 'scheduled' && (
+              requestingId === iv.id ? (
+                <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <textarea
+                    value={note}
+                    onChange={e => setNote(e.target.value)}
+                    placeholder="e.g. I have a clash that day — could we do the following morning instead?"
+                    rows={2}
+                    maxLength={500}
+                    style={{ border: '1px solid #E2E8F0', borderRadius: 8, padding: '6px 8px', fontSize: 12, resize: 'none', fontFamily: 'inherit' }}
+                  />
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button onClick={() => { setRequestingId(null); setNote('') }} style={{ flex: 1, padding: 6, borderRadius: 8, border: '1px solid #E2E8F0', background: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+                    <button
+                      onClick={() => requestMutation.mutate(iv.id)}
+                      disabled={!note.trim() || requestMutation.isPending}
+                      style={{ flex: 1, padding: 6, borderRadius: 8, border: 'none', background: '#3B82F6', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', opacity: !note.trim() ? 0.5 : 1 }}
+                    >
+                      {requestMutation.isPending ? 'Sending…' : 'Send request'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setRequestingId(iv.id)}
+                  style={{ fontSize: 11.5, fontWeight: 700, color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer', marginTop: 6, padding: 0 }}
+                >
+                  Request a different time
+                </button>
+              )
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── Detail drawer ─────────────────────────────────────────────────────────────
 
 function DetailDrawer({ app, onClose }: { app: ApplicationOut; onClose: () => void }) {
@@ -360,6 +450,8 @@ function DetailDrawer({ app, onClose }: { app: ApplicationOut; onClose: () => vo
               <p style={{ fontSize: 13, color: '#374151', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{app.cover_note}</p>
             </div>
           )}
+
+          <InterviewsSection applicationId={app.id} />
 
           <p style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', margin: '0 0 12px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
             Timeline
@@ -441,6 +533,23 @@ export default function MyApplicationsPage() {
 
   const sorted = [...all].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
+  function exportToCSV() {
+    const headers = ['Job Title', 'Company', 'Status', 'Match Score', 'Applied On', 'Last Updated']
+    const rows = sorted.map(a => [
+      a.job_title, a.company_name, STATUS_CFG[a.status]?.label ?? a.status,
+      a.match_score ?? '', new Date(a.created_at).toLocaleDateString('en-IN'),
+      new Date(a.updated_at).toLocaleDateString('en-IN'),
+    ])
+    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'my_applications.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#FAFBFD' }}>
       <AppSidebar activePath="/app/jobs/applications" />
@@ -467,21 +576,37 @@ export default function MyApplicationsPage() {
               <p style={{ fontSize: 11.5, color: '#9CA3AF', margin: 0 }}>Track every application from submission to offer</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => navigate('/app/jobs')}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              fontSize: 13, fontWeight: 700, color: '#2563EB',
-              background: 'white', border: '1.5px solid #BFDBFE', borderRadius: 10,
-              padding: '9px 16px', cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(37,99,235,0.08)', transition: 'all 0.15s',
-            }}
-            onMouseOver={e => { e.currentTarget.style.borderColor = '#93C5FD'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(37,99,235,0.14)' }}
-            onMouseOut={e => { e.currentTarget.style.borderColor = '#BFDBFE'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(37,99,235,0.08)' }}
-          >
-            Browse Jobs <ArrowUpRight size={14} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button
+              type="button"
+              onClick={exportToCSV}
+              disabled={all.length === 0}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                fontSize: 13, fontWeight: 600, color: '#475569',
+                background: 'white', border: '1.5px solid #E2E8F0', borderRadius: 10,
+                padding: '9px 14px', cursor: all.length === 0 ? 'not-allowed' : 'pointer',
+                opacity: all.length === 0 ? 0.5 : 1,
+              }}
+            >
+              <Download size={14} />Export CSV
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/app/jobs')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                fontSize: 13, fontWeight: 700, color: '#2563EB',
+                background: 'white', border: '1.5px solid #BFDBFE', borderRadius: 10,
+                padding: '9px 16px', cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(37,99,235,0.08)', transition: 'all 0.15s',
+              }}
+              onMouseOver={e => { e.currentTarget.style.borderColor = '#93C5FD'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(37,99,235,0.14)' }}
+              onMouseOut={e => { e.currentTarget.style.borderColor = '#BFDBFE'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(37,99,235,0.08)' }}
+            >
+              Browse Jobs <ArrowUpRight size={14} />
+            </button>
+          </div>
         </header>
 
       <main style={{ flex: 1, minWidth: 0, padding: '28px 36px 48px', maxWidth: 1000, margin: '0 auto', width: '100%' }}>
