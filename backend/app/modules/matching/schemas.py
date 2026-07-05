@@ -57,6 +57,8 @@ class ApplicationOut(BaseModel):
     job_id: str
     job_title: str
     company_name: str
+    department_id: Optional[str] = None
+    department_name: Optional[str] = None
     status: str
     match_score: Optional[int]
     cover_note: Optional[str]
@@ -141,20 +143,20 @@ class CandidateOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+_VALID_ATS_STATUSES = (
+    "^(screening|shortlisted|assessment|hr_interview|technical_interview|manager_interview"
+    "|interview_scheduled|interview_completed|offer_sent|offer_declined|rejected|hired)$"
+)
+
+
 class UpdateApplicationStatusRequest(BaseModel):
-    status: str = Field(
-        ...,
-        pattern="^(screening|shortlisted|interview_scheduled|interview_completed|offer_sent|rejected|hired)$",
-    )
+    status: str = Field(..., pattern=_VALID_ATS_STATUSES)
     note: Optional[str] = Field(None, max_length=500)
 
 
 class BulkStatusUpdateRequest(BaseModel):
     application_ids: list[str]
-    status: str = Field(
-        ...,
-        pattern="^(screening|shortlisted|interview_scheduled|interview_completed|offer_sent|rejected|hired)$",
-    )
+    status: str = Field(..., pattern=_VALID_ATS_STATUSES)
     note: Optional[str] = Field(None, max_length=500)
 
 
@@ -184,6 +186,35 @@ class OfferLetterRequest(BaseModel):
     hiring_manager_name: str = Field(..., min_length=1, max_length=150)
     hiring_manager_designation: str = Field(..., min_length=1, max_length=150)
     extra_clauses: Optional[str] = Field(None, max_length=2000)
+
+
+class OfferLetterOut(BaseModel):
+    id: str
+    application_id: str
+    status: str  # sent | accepted | declined
+    role_title: str
+    salary_ctc: str
+    start_date: str
+    work_location: str
+    employment_type: str
+    company_address: Optional[str] = None
+    hiring_manager_name: str
+    hiring_manager_designation: str
+    extra_clauses: Optional[str] = None
+    sent_at: Optional[datetime] = None
+    responded_at: Optional[datetime] = None
+    signature_name: Optional[str] = None
+    decline_reason: Optional[str] = None
+    created_at: datetime
+
+
+class OfferLetterAcceptRequest(BaseModel):
+    signature_name: str = Field(..., min_length=2, max_length=150, description="Typed full legal name, used as the e-signature")
+    confirm: bool = Field(..., description="Must be true — confirms the candidate has read and agrees to the offer terms")
+
+
+class OfferLetterDeclineRequest(BaseModel):
+    reason: Optional[str] = Field(None, max_length=500)
 
 
 class CandidateEmailLogOut(BaseModel):
@@ -323,8 +354,9 @@ class DashboardKpis(BaseModel):
     interviews_scheduled: int
     offers_sent: int
     hires: int
-    response_rate_pct: float          # % of applications moved past 'applied' by a recruiter
-    avg_time_to_hire_days: Optional[float] = None   # null until at least one hire
+    rejected_count: int = 0
+    response_rate_pct: float
+    avg_time_to_hire_days: Optional[float] = None
 
 
 class ApplicationTrendPoint(BaseModel):

@@ -8,8 +8,9 @@ from app.models.company import Company, CompanyDepartment, CompanyInvite, Compan
 from app.models.subscription import CompanySubscription, SubscriptionPlan
 from app.models.user import EmployerProfile, JobPosting, Role, User
 from app.modules.companies.schemas import (
-    CompanyProfileResponse, CompanyProfileUpdateRequest, CompanySubscriptionResponse,
-    DepartmentCreateRequest, DepartmentOut,
+    AssignDepartmentRequest, CompanyProfileResponse, CompanyProfileUpdateRequest,
+    CompanySubscriptionResponse,
+    DepartmentCreateRequest, DepartmentOut, DepartmentUpdateRequest,
     EmployerProfileSelfResponse, EmployerProfileUpdateRequest,
     MessageResponse, OfficeCreateRequest, OfficeOut,
     SubscriptionPlanEntry, SubscriptionUsageResponse,
@@ -118,10 +119,14 @@ def list_team_members(user: User, db: Session) -> list[TeamMemberEntry]:
 
 def _member_to_entry(profile: EmployerProfile, user: User | None = None) -> TeamMemberEntry:
     u = user or profile.user
+    dept_name = profile.department.name if profile.department else None
     return TeamMemberEntry(
         user_id=str(u.id), employer_profile_id=str(profile.id), email=u.email, phone=u.phone,
         contact_person=profile.contact_person, role_name=u.role_name or "employer",
-        is_owner=profile.is_owner, is_active=u.is_active, created_at=profile.created_at,
+        is_owner=profile.is_owner, is_active=u.is_active,
+        department_id=str(profile.department_id) if profile.department_id else None,
+        department_name=dept_name,
+        created_at=profile.created_at,
     )
 
 
@@ -155,12 +160,23 @@ def invite_team_member(user: User, data: TeamInviteRequest, db: Session) -> Team
     db.add(new_user)
     db.flush()
 
+    dept_id = None
+    if data.department_id:
+        dept = db.query(CompanyDepartment).filter(
+            CompanyDepartment.id == data.department_id,
+            CompanyDepartment.company_id == company.id,
+        ).first()
+        if not dept:
+            raise BadRequestException("Department not found in this company.")
+        dept_id = dept.id
+
     new_profile = EmployerProfile(
         user_id=new_user.id,
         company_name=company.name, industry=company.industry, company_size=company.company_size,
         website=company.website, contact_person=data.contact_person, city=profile.city or "",
         is_approved=True,   # company already passed admin KYC — seats inherit that
         company_id=company.id, is_owner=False,
+        department_id=dept_id,
     )
     db.add(new_profile)
 
@@ -335,34 +351,190 @@ def delete_office(user: User, office_id: str, db: Session) -> MessageResponse:
     return MessageResponse(message="Office removed.")
 
 
+def _dept_to_out(dept: CompanyDepartment, db: Session) -> DepartmentOut:
+    from app.models.user import JobPosting
+    from app.models.mvp3 import Application
+
+    member_count = db.query(EmployerProfile).filter(
+        EmployerProfile.department_id == dept.id,
+    ).count()
+
+    job_ids_q = db.query(JobPosting.id).filter(JobPosting.department_id == dept.id)
+    active_job_count = db.query(JobPosting).filter(
+        JobPosting.department_id == dept.id, JobPosting.is_active == True,
+    ).count()
+    job_ids = [r[0] for r in job_ids_q.all()]
+    total_applicant_count = 0
+    if job_ids:
+        total_applicant_count = db.query(Application).filter(
+            Application.job_id.in_(job_ids),
+        ).count()
+
+    head_name = dept.head.contact_person if dept.head else None
+
+    return DepartmentOut(
+        id=str(dept.id), name=dept.name, description=dept.description,
+        head_employer_id=str(dept.head_employer_id) if dept.head_employer_id else None,
+        head_name=head_name,
+        member_count=member_count, active_job_count=active_job_count,
+        total_applicant_count=total_applicant_count,
+        created_at=dept.created_at,
+    )
+
+
 def list_departments(user: User, db: Session) -> list[DepartmentOut]:
     profile = _get_own_profile(user, db)
     company = _get_company_or_404(profile, db)
-    rows = db.query(CompanyDepartment).filter(CompanyDepartment.company_id == company.id).order_by(CompanyDepartment.name).all()
-    return [DepartmentOut(id=str(r.id), name=r.name) for r in rows]
+    rows = db.query(CompanyDepartment).filter(
+        CompanyDepartment.company_id == company.id,
+    ).order_by(CompanyDepartment.name).all()
+    return [_dept_to_out(r, db) for r in rows]
+
+
+def get_department(user: User, department_id: str, db: Session) -> DepartmentOut:
+    profile = _get_own_profile(user, db)
+    company = _get_company_or_404(profile, db)
+    dept = db.query(CompanyDepartment).filter(
+        CompanyDepartment.id == department_id,
+        CompanyDepartment.company_id == company.id,
+    ).first()
+    if not dept:
+        raise NotFoundException("Department not found.")
+    return _dept_to_out(dept, db)
 
 
 def create_department(user: User, data: DepartmentCreateRequest, db: Session) -> DepartmentOut:
     profile = _get_own_profile(user, db)
     company = _get_company_or_404(profile, db)
-    existing = db.query(CompanyDepartment).filter(
+    if db.query(CompanyDepartment).filter(
         CompanyDepartment.company_id == company.id, CompanyDepartment.name == data.name,
-    ).first()
-    if existing:
+    ).first():
         raise BadRequestException(f"Department '{data.name}' already exists.")
-    row = CompanyDepartment(company_id=company.id, name=data.name)
+
+    head_id = None
+    if data.head_employer_id:
+        head = db.query(EmployerProfile).filter(
+            EmployerProfile.id == data.head_employer_id,
+            EmployerProfile.company_id == company.id,
+        ).first()
+        if not head:
+            raise BadRequestException("Department head must be a member of this company.")
+        head_id = head.id
+
+    row = CompanyDepartment(
+        company_id=company.id, name=data.name,
+        description=data.description, head_employer_id=head_id,
+    )
     db.add(row)
     db.commit()
     db.refresh(row)
-    return DepartmentOut(id=str(row.id), name=row.name)
+    return _dept_to_out(row, db)
+
+
+def update_department(user: User, department_id: str, data: DepartmentUpdateRequest, db: Session) -> DepartmentOut:
+    profile = _get_own_profile(user, db)
+    company = _get_company_or_404(profile, db)
+    dept = db.query(CompanyDepartment).filter(
+        CompanyDepartment.id == department_id,
+        CompanyDepartment.company_id == company.id,
+    ).first()
+    if not dept:
+        raise NotFoundException("Department not found.")
+
+    if data.name is not None:
+        conflict = db.query(CompanyDepartment).filter(
+            CompanyDepartment.company_id == company.id,
+            CompanyDepartment.name == data.name,
+            CompanyDepartment.id != dept.id,
+        ).first()
+        if conflict:
+            raise BadRequestException(f"Department '{data.name}' already exists.")
+        dept.name = data.name
+
+    if data.description is not None:
+        dept.description = data.description
+
+    if "head_employer_id" in data.model_fields_set:
+        if data.head_employer_id:
+            head = db.query(EmployerProfile).filter(
+                EmployerProfile.id == data.head_employer_id,
+                EmployerProfile.company_id == company.id,
+            ).first()
+            if not head:
+                raise BadRequestException("Department head must be a member of this company.")
+            dept.head_employer_id = head.id
+        else:
+            dept.head_employer_id = None
+
+    db.commit()
+    db.refresh(dept)
+    return _dept_to_out(dept, db)
 
 
 def delete_department(user: User, department_id: str, db: Session) -> MessageResponse:
     profile = _get_own_profile(user, db)
+    if not profile.is_owner and user.role_name not in ("hr_manager",):
+        raise ForbiddenException("Only the company owner or HR manager can delete departments.")
     company = _get_company_or_404(profile, db)
-    row = db.query(CompanyDepartment).filter(CompanyDepartment.id == department_id, CompanyDepartment.company_id == company.id).first()
-    if not row:
+    dept = db.query(CompanyDepartment).filter(
+        CompanyDepartment.id == department_id,
+        CompanyDepartment.company_id == company.id,
+    ).first()
+    if not dept:
         raise NotFoundException("Department not found.")
-    db.delete(row)
+
+    from app.models.user import JobPosting
+    active_jobs = db.query(JobPosting).filter(
+        JobPosting.department_id == dept.id, JobPosting.is_active == True,
+    ).count()
+    if active_jobs:
+        raise BadRequestException(
+            f"Cannot delete department with {active_jobs} active job(s). "
+            "Close or reassign all jobs first."
+        )
+
+    assigned_members = db.query(EmployerProfile).filter(
+        EmployerProfile.department_id == dept.id,
+    ).count()
+    if assigned_members:
+        raise BadRequestException(
+            f"Cannot delete department with {assigned_members} assigned team member(s). "
+            "Reassign or remove them first."
+        )
+
+    db.delete(dept)
     db.commit()
     return MessageResponse(message="Department removed.")
+
+
+def assign_member_department(
+    user: User, employer_profile_id: str, data: AssignDepartmentRequest, db: Session
+) -> TeamMemberEntry:
+    """Assign or move a team member to a department (or clear to company-wide)."""
+    profile = _get_own_profile(user, db)
+    if not profile.is_owner and user.role_name not in ("hr_manager",):
+        raise ForbiddenException("Only the company owner or HR manager can reassign departments.")
+    company = _get_company_or_404(profile, db)
+
+    target = db.query(EmployerProfile).filter(
+        EmployerProfile.id == employer_profile_id,
+        EmployerProfile.company_id == company.id,
+    ).first()
+    if not target:
+        raise NotFoundException("Team member not found.")
+
+    if data.department_id:
+        dept = db.query(CompanyDepartment).filter(
+            CompanyDepartment.id == data.department_id,
+            CompanyDepartment.company_id == company.id,
+        ).first()
+        if not dept:
+            raise BadRequestException("Department not found in this company.")
+        target.department_id = dept.id
+    else:
+        target.department_id = None
+
+    db.commit()
+    db.refresh(target)
+    target_user = db.query(User).filter(User.id == target.user_id).first()
+    return _member_to_entry(target, target_user)

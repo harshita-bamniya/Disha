@@ -1,6 +1,6 @@
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from sqlalchemy.orm import Session
 
 from fastapi import UploadFile
@@ -10,7 +10,7 @@ from app.core.storage import save_upload
 from app.models.employer_verification import (
     DOCUMENT_TYPES, EmployerVerification, EmployerVerificationDocument, EmployerVerificationEvent,
 )
-from app.models.company import Company
+from app.models.company import Company, CompanyDepartment
 from app.models.mvp3 import JobTemplate
 from app.models.user import EmployerProfile, JobPosting, User
 from sqlalchemy import func
@@ -43,13 +43,32 @@ def _get_approved_employer(user: User, db: Session) -> EmployerProfile:
 
 
 def _get_company_employer_ids(profile: EmployerProfile, db: Session) -> list:
-    """All EmployerProfile.id values that share this profile's company — lets
-    team members (hr_manager/recruiter/interviewer) see company-wide jobs/candidates,
-    not just postings created under their own profile row."""
+    """All EmployerProfile.id values that share this profile's company."""
     if not profile.company_id:
         return [profile.id]
     rows = db.query(EmployerProfile.id).filter(EmployerProfile.company_id == profile.company_id).all()
     return [r[0] for r in rows]
+
+
+def _is_company_wide(profile: EmployerProfile, role_name: str | None) -> bool:
+    """Company-wide access: owner OR hr_manager OR no department assigned.
+    Everyone else (recruiter, interviewer, hiring_manager) with a department_id
+    is scoped to their department only — LinkedIn Recruiter / Naukri style."""
+    if profile.is_owner:
+        return True
+    if role_name in ("hr_manager", "admin", "super_admin"):
+        return True
+    if profile.department_id is None:
+        return True
+    return False
+
+
+def _scope_jobs_query(query, profile: EmployerProfile, role_name: str | None):
+    """Apply department scoping to a JobPosting query that already filters by
+    company employer_ids. Returns the query unchanged for company-wide users."""
+    if _is_company_wide(profile, role_name):
+        return query
+    return query.filter(JobPosting.department_id == profile.department_id)
 
 
 def _get_employer_profile(user: User, db: Session) -> EmployerProfile:
@@ -60,6 +79,7 @@ def _get_employer_profile(user: User, db: Session) -> EmployerProfile:
 
 
 def _job_to_response(job: JobPosting, applicant_count: int = 0) -> JobPostingResponse:
+    dept_name = job.department.name if job.department else None
     return JobPostingResponse(
         id=str(job.id),
         title=job.title,
@@ -76,22 +96,27 @@ def _job_to_response(job: JobPosting, applicant_count: int = 0) -> JobPostingRes
         expires_at=job.expires_at,
         is_active=job.is_active,
         status=job.status,
+        department_id=str(job.department_id) if job.department_id else None,
+        department_name=dept_name,
         created_at=job.created_at,
         updated_at=job.updated_at,
         applicant_count=applicant_count,
     )
 
 
-def get_dashboard(user: User, db: Session) -> EmployerDashboardResponse:
+def get_dashboard(user: User, db: Session, department_id: str | None = None) -> EmployerDashboardResponse:
     from app.models.mvp3 import Application
     profile = _get_employer_profile(user, db)
     company_employer_ids = _get_company_employer_ids(profile, db)
-    jobs = (
+    q = (
         db.query(JobPosting)
         .filter(JobPosting.employer_id.in_(company_employer_ids))
         .order_by(JobPosting.created_at.desc())
-        .all()
     )
+    q = _scope_jobs_query(q, profile, user.role_name)
+    if department_id:
+        q = q.filter(JobPosting.department_id == department_id)
+    jobs = q.all()
     # Batch count applicants per job
     job_ids = [j.id for j in jobs]
     counts = {}
@@ -225,14 +250,43 @@ async def generate_job_description(title: str, sector: str, key_points: str) -> 
     return GenerateDescriptionResponse(description=response.content.strip())
 
 
+def _resolve_department_id(profile: EmployerProfile, requested_id: str | None, db: Session):
+    """Determine the department_id for a new job posting.
+
+    Rules (mirrors LinkedIn Recruiter / Naukri employer portal):
+    - Dept-scoped user (recruiter/HM with dept assigned): always use their own
+      department. They cannot post to a different dept or bypass scoping.
+    - Company-wide user (owner / hr_manager / no dept): use the explicitly
+      requested department_id, or leave NULL if none provided.
+    """
+    if profile.department_id:
+        # Dept-scoped: ignore any requested_id — always inherit from profile
+        return profile.department_id
+
+    if requested_id is None:
+        return None
+
+    # Company-wide user specified a department — validate it belongs to this company
+    dept = db.query(CompanyDepartment).filter(
+        CompanyDepartment.id == requested_id,
+        CompanyDepartment.company_id == profile.company_id,
+    ).first()
+    if not dept:
+        raise BadRequestException("Department not found in this company.")
+    return dept.id
+
+
 def create_job(user: User, data: JobPostingRequest, db: Session) -> JobPostingResponse:
     profile = _get_approved_employer(user, db)
     if data.publish:
         _check_active_job_limit(profile, db)
 
+    department_id = _resolve_department_id(profile, data.department_id, db)
+
     status = "published" if data.publish else "draft"
     job = JobPosting(
         employer_id=profile.id,
+        department_id=department_id,
         title=data.title,
         description=data.description,
         sector=data.sector,
@@ -379,8 +433,8 @@ def update_job(user: User, job_id: str, data: JobPostingRequest, db: Session) ->
     job.location = data.location
     job.employment_type = data.employment_type
     job.expires_at = data.expires_at
+    job.department_id = _resolve_department_id(profile, data.department_id, db)
     job.updated_at = datetime.now(timezone.utc)
-    job.skill_extraction_status = "pending"
     job.skill_extraction_status = "done"
     db.commit()
     db.refresh(job)
@@ -403,9 +457,11 @@ VALID_TRANSITIONS: dict[str, set[str]] = {
 def _get_company_job(user: User, job_id: str, db: Session) -> tuple[EmployerProfile, JobPosting]:
     profile = _get_approved_employer(user, db)
     company_employer_ids = _get_company_employer_ids(profile, db)
-    job = db.query(JobPosting).filter(
+    q = db.query(JobPosting).filter(
         JobPosting.id == job_id, JobPosting.employer_id.in_(company_employer_ids)
-    ).first()
+    )
+    q = _scope_jobs_query(q, profile, user.role_name)
+    job = q.first()
     if not job:
         raise BadRequestException("Job posting not found.")
     return profile, job
@@ -417,6 +473,15 @@ def _transition_job(user: User, job_id: str, to_status: str, db: Session) -> Job
         raise BadRequestException(f"Cannot move a '{job.status}' job to '{to_status}'.")
     if to_status == "published":
         _check_active_job_limit(profile, db)
+        if not job.expires_at:
+            raise BadRequestException(
+                "Cannot publish a job with no expiry date. Set an expiry date before publishing."
+            )
+        if job.expires_at <= date.today():
+            raise BadRequestException(
+                "Cannot publish a job whose expiry date is today or in the past. "
+                "Update the expiry date first."
+            )
 
     job.status = to_status
     job.is_active = (to_status == "published")
@@ -454,6 +519,7 @@ def duplicate_job(user: User, job_id: str, db: Session) -> JobPostingResponse:
     _, source = _get_company_job(user, job_id, db)
     clone = JobPosting(
         employer_id=source.employer_id,
+        department_id=source.department_id,
         title=f"{source.title} (Copy)",
         description=source.description,
         sector=source.sector,
@@ -465,7 +531,7 @@ def duplicate_job(user: User, job_id: str, db: Session) -> JobPostingResponse:
         job_type=source.job_type,
         location=source.location,
         employment_type=source.employment_type,
-        expires_at=None,
+        expires_at=source.expires_at,
         status="draft",
         is_active=False,
         skill_extraction_status="done",
@@ -481,11 +547,22 @@ def duplicate_job(user: User, job_id: str, db: Session) -> JobPostingResponse:
 def delete_job(user: User, job_id: str, db: Session) -> None:
     profile = _get_approved_employer(user, db)
     company_employer_ids = _get_company_employer_ids(profile, db)
-    job = db.query(JobPosting).filter(
+    q = db.query(JobPosting).filter(
         JobPosting.id == job_id, JobPosting.employer_id.in_(company_employer_ids)
-    ).first()
+    )
+    q = _scope_jobs_query(q, profile, user.role_name)
+    job = q.first()
     if not job:
         raise BadRequestException("Job posting not found.")
+
+    from app.models.mvp3 import Application as _App
+    active_apps = db.query(_App).filter(_App.job_id == job.id).count()
+    if active_apps:
+        raise BadRequestException(
+            f"Cannot delete a job with {active_apps} application(s). "
+            "Close the job first so candidates are notified, then delete it."
+        )
+
     db.delete(job)
     db.commit()
     logger.info(f"[JOBS] Deleted job {job_id}")

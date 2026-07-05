@@ -3,12 +3,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowUpRight, Clock, X, AlertTriangle, ChevronRight, FileText,
-  ListChecks, Hourglass, Star, TrendingUp, Download,
+  ListChecks, Hourglass, Star, TrendingUp, Download, Gift, PenLine,
 } from 'lucide-react'
 import AppSidebar from '@/components/layout/AppSidebar'
 import {
   getMyApplications, getApplicationDetail, withdrawApplication,
   getMyInterviews, requestInterviewReschedule,
+  getMyOfferLetter, downloadMyOfferLetterPdf, acceptOfferLetter, declineOfferLetter,
   type ApplicationOut, type ApplicationStatusHistoryItem,
 } from '@/api/matching'
 
@@ -21,9 +22,14 @@ const STATUS_CFG: Record<string, { label: string; text: string; accent: string }
   under_review:         { label: 'Under Review',         text: '#92400E', accent: '#F59E0B' },
   screening:            { label: 'Under Review',         text: '#92400E', accent: '#F59E0B' },
   shortlisted:          { label: 'Shortlisted',           text: '#166534', accent: '#22C55E' },
+  assessment:           { label: 'Assessment',            text: '#0369A1', accent: '#0EA5E9' },
+  hr_interview:         { label: 'HR Interview',          text: '#0369A1', accent: '#0EA5E9' },
+  technical_interview:  { label: 'Technical Interview',   text: '#0369A1', accent: '#0EA5E9' },
+  manager_interview:    { label: 'Manager Interview',     text: '#0369A1', accent: '#0EA5E9' },
   interview_scheduled:  { label: 'Interview Scheduled',   text: '#1D4ED8', accent: '#3B82F6' },
   interview_completed:  { label: 'Interview Completed',   text: '#0369A1', accent: '#0EA5E9' },
   offer_sent:           { label: 'Offer Sent',            text: '#6D28D9', accent: '#7C3AED' },
+  offer_declined:       { label: 'Offer Declined',        text: '#BE123C', accent: '#F43F5E' },
   rejected:             { label: 'Not Selected',          text: '#BE123C', accent: '#F43F5E' },
   hired:                { label: 'Hired',                 text: '#6D28D9', accent: '#7C3AED' },
   withdrawn:            { label: 'Withdrawn',             text: '#64748B', accent: '#94A3B8' },
@@ -39,7 +45,10 @@ const WITHDRAW_REASONS = [
 
 const CLOSED_STATUSES = new Set(['rejected', 'hired', 'withdrawn'])
 // "Advanced" = candidate has been shortlisted or further — withdrawing now is a bigger deal.
-const ADVANCED_STATUSES = new Set(['shortlisted', 'interview_scheduled', 'interview_completed', 'offer_sent'])
+const ADVANCED_STATUSES = new Set([
+  'shortlisted', 'assessment', 'hr_interview', 'technical_interview', 'manager_interview',
+  'interview_scheduled', 'interview_completed', 'offer_sent',
+])
 
 // ── Delivery-style progress tracker ────────────────────────────────────────────
 // A single horizontal line — Applied → Screening → Shortlisted → Interview → Offer → outcome —
@@ -156,8 +165,13 @@ function ApplicationCard({ app, onOpen }: { app: ApplicationOut; onOpen: () => v
             <p style={{ fontSize: 14.5, fontWeight: 700, color: '#0F172A', margin: 0, lineHeight: 1.35 }}>
               {app.job_title}
             </p>
-            <p style={{ fontSize: 12, color: '#64748B', margin: '3px 0 0', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <p style={{ fontSize: 12, color: '#64748B', margin: '3px 0 0', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
               {app.company_name}
+              {app.department_name && (
+                <span style={{ fontSize: 10.5, fontWeight: 600, color: '#7C3AED', background: 'rgba(124,58,237,0.08)', borderRadius: 20, padding: '1px 7px' }}>
+                  {app.department_name}
+                </span>
+              )}
               <span style={{ display: 'flex', alignItems: 'center', gap: 3, color: '#94A3B8' }}>
                 <Clock size={10} /> {daysAgo(app.created_at)}
               </span>
@@ -379,6 +393,135 @@ function InterviewsSection({ applicationId }: { applicationId: string }) {
   )
 }
 
+// ── Offer letter section — self-serve e-signature (typed name + audit trail) ──
+
+function OfferLetterSection({ applicationId }: { applicationId: string }) {
+  const qc = useQueryClient()
+  const [mode, setMode] = useState<'idle' | 'accept' | 'decline'>('idle')
+  const [signatureName, setSignatureName] = useState('')
+  const [confirmChecked, setConfirmChecked] = useState(false)
+  const [declineReason, setDeclineReason] = useState('')
+
+  const { data: offer } = useQuery({
+    queryKey: ['my-offer-letter', applicationId],
+    queryFn: () => getMyOfferLetter(applicationId),
+  })
+
+  const acceptMutation = useMutation({
+    mutationFn: () => acceptOfferLetter(applicationId, signatureName.trim()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['my-offer-letter', applicationId] })
+      qc.invalidateQueries({ queryKey: ['my-applications'] })
+      setMode('idle')
+    },
+  })
+  const declineMutation = useMutation({
+    mutationFn: () => declineOfferLetter(applicationId, declineReason.trim() || undefined),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['my-offer-letter', applicationId] })
+      qc.invalidateQueries({ queryKey: ['my-applications'] })
+      setMode('idle')
+    },
+  })
+
+  if (!offer) return null
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <p style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', margin: '0 0 10px', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'flex', alignItems: 'center', gap: 5 }}>
+        <Gift size={12} /> Offer Letter
+      </p>
+      <div style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: '14px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#0F172A' }}>{offer.role_title}</span>
+          <span style={{
+            fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+            background: offer.status === 'accepted' ? 'rgba(5,150,105,0.1)' : offer.status === 'declined' ? 'rgba(220,38,38,0.1)' : 'rgba(124,58,237,0.1)',
+            color: offer.status === 'accepted' ? '#059669' : offer.status === 'declined' ? '#DC2626' : '#7C3AED',
+          }}>
+            {offer.status === 'sent' ? 'Action needed' : offer.status === 'accepted' ? 'Accepted' : 'Declined'}
+          </span>
+        </div>
+        <p style={{ fontSize: 12, color: '#64748B', margin: '0 0 10px' }}>{offer.salary_ctc} · {offer.work_location} · Starts {offer.start_date}</p>
+
+        <button
+          onClick={() => downloadMyOfferLetterPdf(applicationId)}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, fontWeight: 700, color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: offer.status === 'sent' ? 12 : 0 }}
+        >
+          <Download size={12} /> View / Download PDF
+        </button>
+
+        {offer.status === 'accepted' && (
+          <p style={{ fontSize: 11.5, color: '#059669', margin: '8px 0 0' }}>
+            Signed by <strong>{offer.signature_name}</strong>{offer.responded_at ? ` on ${new Date(offer.responded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}` : ''}.
+          </p>
+        )}
+        {offer.status === 'declined' && (
+          <p style={{ fontSize: 11.5, color: '#DC2626', margin: '8px 0 0' }}>
+            You declined this offer{offer.decline_reason ? `: "${offer.decline_reason}"` : '.'}
+          </p>
+        )}
+
+        {offer.status === 'sent' && mode === 'idle' && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => setMode('accept')} style={{ flex: 1, height: 34, borderRadius: 8, border: 'none', background: '#059669', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Accept &amp; Sign</button>
+            <button onClick={() => setMode('decline')} style={{ flex: 1, height: 34, borderRadius: 8, border: '1px solid #FCA5A5', background: '#fff', color: '#DC2626', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Decline</button>
+          </div>
+        )}
+
+        {offer.status === 'sent' && mode === 'accept' && (
+          <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8, background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 10, padding: 12 }}>
+            <p style={{ fontSize: 11.5, color: '#166534', margin: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
+              <PenLine size={12} /> Type your full legal name to sign
+            </p>
+            <input
+              value={signatureName}
+              onChange={e => setSignatureName(e.target.value)}
+              placeholder="e.g. Priya Sharma"
+              style={{ border: '1px solid #BBF7D0', borderRadius: 8, padding: '7px 10px', fontSize: 12.5, outline: 'none' }}
+            />
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 11, color: '#166534' }}>
+              <input type="checkbox" checked={confirmChecked} onChange={e => setConfirmChecked(e.target.checked)} style={{ marginTop: 2 }} />
+              I have read the offer letter and agree to its terms. This typed name serves as my digital signature.
+            </label>
+            {acceptMutation.isError && <p style={{ fontSize: 11, color: '#DC2626', margin: 0 }}>Failed to accept. Please try again.</p>}
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button onClick={() => { setMode('idle'); setSignatureName(''); setConfirmChecked(false) }} style={{ flex: 1, padding: 7, borderRadius: 8, border: '1px solid #E2E8F0', background: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+              <button
+                onClick={() => acceptMutation.mutate()}
+                disabled={!signatureName.trim() || !confirmChecked || acceptMutation.isPending}
+                style={{ flex: 1, padding: 7, borderRadius: 8, border: 'none', background: '#059669', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', opacity: (!signatureName.trim() || !confirmChecked) ? 0.5 : 1 }}
+              >
+                {acceptMutation.isPending ? 'Signing…' : 'Confirm & Sign'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {offer.status === 'sent' && mode === 'decline' && (
+          <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8, background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: 12 }}>
+            <textarea
+              value={declineReason}
+              onChange={e => setDeclineReason(e.target.value)}
+              placeholder="Reason (optional)"
+              rows={2}
+              maxLength={500}
+              style={{ border: '1px solid #FECACA', borderRadius: 8, padding: '7px 10px', fontSize: 12, resize: 'none', fontFamily: 'inherit' }}
+            />
+            {declineMutation.isError && <p style={{ fontSize: 11, color: '#DC2626', margin: 0 }}>Failed to submit. Please try again.</p>}
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button onClick={() => { setMode('idle'); setDeclineReason('') }} style={{ flex: 1, padding: 7, borderRadius: 8, border: '1px solid #E2E8F0', background: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+              <button onClick={() => declineMutation.mutate()} disabled={declineMutation.isPending} style={{ flex: 1, padding: 7, borderRadius: 8, border: 'none', background: '#DC2626', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                {declineMutation.isPending ? 'Submitting…' : 'Confirm Decline'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Detail drawer ─────────────────────────────────────────────────────────────
 
 function DetailDrawer({ app, onClose }: { app: ApplicationOut; onClose: () => void }) {
@@ -413,7 +556,14 @@ function DetailDrawer({ app, onClose }: { app: ApplicationOut; onClose: () => vo
               {cfg.label}
             </span>
             <h2 style={{ fontSize: 17, fontWeight: 800, color: '#0F172A', margin: '4px 0 2px' }}>{app.job_title}</h2>
-            <p style={{ fontSize: 13, color: '#64748B', margin: 0 }}>{app.company_name}</p>
+            <p style={{ fontSize: 13, color: '#64748B', margin: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              {app.company_name}
+              {app.department_name && (
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#7C3AED', background: 'rgba(124,58,237,0.08)', borderRadius: 20, padding: '1px 8px' }}>
+                  {app.department_name}
+                </span>
+              )}
+            </p>
           </div>
           <button type="button" onClick={onClose} style={{ background: '#F1F5F9', border: 'none', borderRadius: 8, width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}>
             <X size={15} color="#64748B" />
@@ -450,6 +600,8 @@ function DetailDrawer({ app, onClose }: { app: ApplicationOut; onClose: () => vo
               <p style={{ fontSize: 13, color: '#374151', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{app.cover_note}</p>
             </div>
           )}
+
+          <OfferLetterSection applicationId={app.id} />
 
           <InterviewsSection applicationId={app.id} />
 
@@ -534,9 +686,9 @@ export default function MyApplicationsPage() {
   const sorted = [...all].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
   function exportToCSV() {
-    const headers = ['Job Title', 'Company', 'Status', 'Match Score', 'Applied On', 'Last Updated']
+    const headers = ['Job Title', 'Company', 'Department', 'Status', 'Match Score', 'Applied On', 'Last Updated']
     const rows = sorted.map(a => [
-      a.job_title, a.company_name, STATUS_CFG[a.status]?.label ?? a.status,
+      a.job_title, a.company_name, a.department_name ?? '', STATUS_CFG[a.status]?.label ?? a.status,
       a.match_score ?? '', new Date(a.created_at).toLocaleDateString('en-IN'),
       new Date(a.updated_at).toLocaleDateString('en-IN'),
     ])

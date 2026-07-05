@@ -18,7 +18,7 @@ from app.core.email import send_email
 from app.core.exceptions import AuthException, BadRequestException, NotFoundException
 from app.models.mvp3 import (
     Application, ApplicationStatusHistory, CandidateEmailLog, CandidateNote, CandidateRating,
-    CandidateInterviewFeedback,
+    CandidateInterviewFeedback, OfferLetter,
 )
 from app.models.user import (
     AspirantProfile, EmployerProfile, JobPosting, KrsScore, PsychologicalAssessment, User,
@@ -30,7 +30,7 @@ from app.modules.matching.schemas import (
     ApplyRequest, CandidateEmailLogOut, CandidateNoteOut, CandidateOut, CandidatePsychProfile,
     DashboardKpis, EmployerFunnelResponse, EmployerFunnelStage, InterviewFeedbackOut,
     JobCandidatePipeline, JobDetail, JobListItem, JobPerformanceEntry,
-    JobPerformanceResponse, JobRecommendationsResponse,
+    JobPerformanceResponse, JobRecommendationsResponse, OfferLetterOut,
     RecruiterPerformanceEntry, RecruiterPerformanceResponse, UpcomingInterviewEntry,
     UpdateApplicationStatusRequest,
 )
@@ -277,11 +277,14 @@ def list_my_applications(user: User, db: Session) -> list[ApplicationOut]:
             db.query(EmployerProfile).filter(EmployerProfile.id == job.employer_id).first()
             if job else None
         )
+        dept = job.department if job else None
         result.append(ApplicationOut(
             id=str(app.id),
             job_id=str(app.job_id),
             job_title=job.title if job else "Unknown",
             company_name=employer.company_name if employer else "Unknown",
+            department_id=str(job.department_id) if job and job.department_id else None,
+            department_name=dept.name if dept else None,
             status=app.status,
             match_score=app.match_score,
             cover_note=app.cover_note,
@@ -310,11 +313,14 @@ def get_application_detail(application_id: str, user: User, db: Session) -> Appl
         db.query(EmployerProfile).filter(EmployerProfile.id == job.employer_id).first()
         if job else None
     )
+    dept = job.department if job else None
     return ApplicationDetailOut(
         id=str(app.id),
         job_id=str(app.job_id),
         job_title=job.title if job else "Unknown",
         company_name=employer.company_name if employer else "Unknown",
+        department_id=str(job.department_id) if job and job.department_id else None,
+        department_name=dept.name if dept else None,
         status=app.status,
         match_score=app.match_score,
         cover_note=app.cover_note,
@@ -344,7 +350,7 @@ def withdraw_application(
     )
     if not app:
         raise NotFoundException("Application not found.")
-    if app.status in ("withdrawn", "hired", "rejected"):
+    if app.status in ("withdrawn", "hired", "rejected", "offer_declined"):
         raise BadRequestException(f"Cannot withdraw an application with status '{app.status}'.")
 
     prev = app.status
@@ -382,7 +388,7 @@ def list_my_interviews(application_id: str, user: User, db: Session) -> list[Int
     out = []
     for row in rows:
         interviewer = db.query(User).filter(User.id == row.interviewer_id).first() if row.interviewer_id else None
-        out.append(_interview_to_out(row, interviewer))
+        out.append(_interview_to_out(row, interviewer, db))
     return out
 
 
@@ -425,7 +431,7 @@ def request_interview_reschedule(application_id: str, interview_id: str, note: s
         db.commit()
 
     interviewer = db.query(User).filter(User.id == row.interviewer_id).first() if row.interviewer_id else None
-    return _interview_to_out(row, interviewer)
+    return _interview_to_out(row, interviewer, db)
 
 
 def reschedule_interview(application_id: str, interview_id: str, scheduled_at, meeting_link: str | None, user: User, db: Session) -> InterviewFeedbackOut:
@@ -476,7 +482,7 @@ def reschedule_interview(application_id: str, interview_id: str, scheduled_at, m
         db.commit()
 
     interviewer = db.query(User).filter(User.id == row.interviewer_id).first() if row.interviewer_id else None
-    return _interview_to_out(row, interviewer)
+    return _interview_to_out(row, interviewer, db)
 
 
 # ── Employer: candidate pipeline ──────────────────────────────────────────────
@@ -491,23 +497,47 @@ def _get_employer_profile_approved(user: User, db: Session) -> EmployerProfile:
 
 
 def _get_company_employer_ids(profile: EmployerProfile, db: Session) -> list:
-    """All EmployerProfile.id values sharing this profile's company — team
-    members see/manage the whole company's pipeline, not just their own postings."""
+    """All EmployerProfile.id values sharing this profile's company."""
     if not profile.company_id:
         return [profile.id]
     rows = db.query(EmployerProfile.id).filter(EmployerProfile.company_id == profile.company_id).all()
     return [r[0] for r in rows]
 
 
+def _is_company_wide(profile: EmployerProfile, role_name: str | None) -> bool:
+    """Company-wide access: owner, hr_manager, or no department assigned."""
+    if profile.is_owner:
+        return True
+    if role_name in ("hr_manager", "admin", "super_admin"):
+        return True
+    if profile.department_id is None:
+        return True
+    return False
+
+
+def _scope_jobs_query(query, profile: EmployerProfile, role_name: str | None):
+    """Restrict a JobPosting query to the user's department if they are dept-scoped."""
+    if _is_company_wide(profile, role_name):
+        return query
+    return query.filter(JobPosting.department_id == profile.department_id)
+
+
+def _get_scoped_job_ids(profile: EmployerProfile, company_employer_ids: list, role_name: str | None, db: Session) -> list:
+    """Return job IDs the current user is allowed to see, respecting dept scoping."""
+    q = db.query(JobPosting.id).filter(JobPosting.employer_id.in_(company_employer_ids))
+    q = _scope_jobs_query(q, profile, role_name)
+    return [r[0] for r in q.all()]
+
+
 def get_job_pipeline(job_id: str, user: User, db: Session) -> JobCandidatePipeline:
     """Return all applications for a job, enriched with aspirant profiles."""
     employer = _get_employer_profile_approved(user, db)
     company_employer_ids = _get_company_employer_ids(employer, db)
-    job = (
-        db.query(JobPosting)
-        .filter(JobPosting.id == job_id, JobPosting.employer_id.in_(company_employer_ids))
-        .first()
+    q = db.query(JobPosting).filter(
+        JobPosting.id == job_id, JobPosting.employer_id.in_(company_employer_ids)
     )
+    q = _scope_jobs_query(q, employer, user.role_name)
+    job = q.first()
     if not job:
         raise NotFoundException("Job not found.")
 
@@ -538,7 +568,7 @@ def get_job_pipeline(job_id: str, user: User, db: Session) -> JobCandidatePipeli
         for n, author in note_rows:
             notes_by_app.setdefault(n.application_id, []).append(
                 CandidateNoteOut(
-                    id=str(n.id), author_name=(author.email or author.phone) if author else None,
+                    id=str(n.id), author_name=_employer_display_name(author, db) if author else None,
                     note=n.note, is_internal=n.is_internal, created_at=n.created_at,
                 )
             )
@@ -567,24 +597,31 @@ def get_job_pipeline(job_id: str, user: User, db: Session) -> JobCandidatePipeli
             feedback_by_app.setdefault(f.application_id, []).append(
                 InterviewFeedbackOut(
                     id=str(f.id), application_id=str(f.application_id),
-                    interviewer_name=(interviewer.email or interviewer.phone) if interviewer else None,
+                    interviewer_name=_employer_display_name(interviewer, db) if interviewer else None,
                     scheduled_at=f.scheduled_at, meeting_link=f.meeting_link, status=f.status,
                     recommendation=f.recommendation, feedback=f.feedback, created_at=f.created_at,
                 )
             )
 
+    # Batch-load to avoid N+1 queries (3 per candidate without this)
+    aspirant_ids = [a.aspirant_id for a in apps]
+    profiles_by_user: dict = {}
+    krs_by_user: dict = {}
+    psych_by_user: dict = {}
+    if aspirant_ids:
+        for p in db.query(AspirantProfile).filter(AspirantProfile.user_id.in_(aspirant_ids)).all():
+            profiles_by_user[p.user_id] = p
+        for k in db.query(KrsScore).filter(KrsScore.user_id.in_(aspirant_ids)).all():
+            krs_by_user[k.user_id] = k
+        for pa in db.query(PsychologicalAssessment).filter(PsychologicalAssessment.user_id.in_(aspirant_ids)).all():
+            psych_by_user[pa.user_id] = pa
+
     for app in apps:
         by_status[app.status] = by_status.get(app.status, 0) + 1
 
-        profile = (
-            db.query(AspirantProfile)
-            .filter(AspirantProfile.user_id == app.aspirant_id)
-            .first()
-        )
-        krs = db.query(KrsScore).filter(KrsScore.user_id == app.aspirant_id).first()
-        psych = db.query(PsychologicalAssessment).filter(
-            PsychologicalAssessment.user_id == app.aspirant_id
-        ).first()
+        profile = profiles_by_user.get(app.aspirant_id)
+        krs = krs_by_user.get(app.aspirant_id)
+        psych = psych_by_user.get(app.aspirant_id)
 
         applied_at = app.created_at
         if applied_at.tzinfo is None:
@@ -672,30 +709,44 @@ def update_application_status(
     employer = _get_employer_profile_approved(user, db)
     company_employer_ids = _get_company_employer_ids(employer, db)
 
-    # Verify the application belongs to one of this company's jobs
+    # Verify the application belongs to one of this company's (dept-scoped) jobs
+    job_ids = _get_scoped_job_ids(employer, company_employer_ids, user.role_name, db)
     app = (
         db.query(Application)
-        .join(JobPosting, Application.job_id == JobPosting.id)
         .filter(
             Application.id == application_id,
-            JobPosting.employer_id.in_(company_employer_ids),
+            Application.job_id.in_(job_ids),
         )
         .first()
     )
     if not app:
         raise NotFoundException("Application not found.")
-    if app.status in ("withdrawn", "hired", "rejected"):
+    if app.status in ("withdrawn", "hired", "rejected", "offer_declined"):
         raise BadRequestException(f"Cannot change status from '{app.status}'.")
 
     prev = app.status
-    app.status = body.status
+    new_status = body.status
+
+    # Guard backwards transitions — only explicitly allowed reversals are permitted
+    if (
+        prev in PIPELINE_FORWARD_ORDER
+        and new_status in PIPELINE_FORWARD_ORDER
+        and PIPELINE_FORWARD_ORDER.index(new_status) < PIPELINE_FORWARD_ORDER.index(prev)
+        and new_status not in _ALLOWED_BACKWARDS.get(prev, set())
+    ):
+        raise BadRequestException(
+            f"Cannot move an application backwards from '{prev}' to '{new_status}'. "
+            "Only forward transitions are allowed."
+        )
+
+    app.status = new_status
     if body.note:
         app.employer_note = body.note
 
     db.add(ApplicationStatusHistory(
         application_id=app.id,
         from_status=prev,
-        to_status=body.status,
+        to_status=new_status,
         changed_by=user.id,
         note=body.note,
     ))
@@ -706,30 +757,30 @@ def update_application_status(
     candidate = db.query(User).filter(User.id == app.aspirant_id).first()
     job = db.query(JobPosting).filter(JobPosting.id == app.job_id).first()
     if candidate and job:
-        subject, html = application_status_email(job.title, employer.company_name, body.status)
+        subject, html = application_status_email(job.title, employer.company_name, new_status)
         notify(candidate.email, subject, html)
         create_notification(
             db, candidate.id, "application_status_changed",
             f"Update on your application — {job.title}",
-            f"Your application to {job.title} at {employer.company_name} is now: {body.status.replace('_', ' ').title()}.",
+            f"Your application to {job.title} at {employer.company_name} is now: {new_status.replace('_', ' ').title()}.",
             f"/app/jobs/applications",
         )
         db.commit()
 
     logger.info(
         "[MATCHING] Application %s: %s → %s by employer %s",
-        application_id, prev, body.status, user.id
+        application_id, prev, new_status, user.id
     )
-    return {"application_id": application_id, "status": body.status}
+    return {"application_id": application_id, "status": new_status}
 
 
 def _get_employer_application(application_id: str, user: User, db: Session) -> Application:
     employer = _get_employer_profile_approved(user, db)
     company_employer_ids = _get_company_employer_ids(employer, db)
+    job_ids = _get_scoped_job_ids(employer, company_employer_ids, user.role_name, db)
     app = (
         db.query(Application)
-        .join(JobPosting, Application.job_id == JobPosting.id)
-        .filter(Application.id == application_id, JobPosting.employer_id.in_(company_employer_ids))
+        .filter(Application.id == application_id, Application.job_id.in_(job_ids))
         .first()
     )
     if not app:
@@ -743,15 +794,15 @@ def bulk_update_status(application_ids: list[str], status: str, note: str | None
 
     employer = _get_employer_profile_approved(user, db)
     company_employer_ids = _get_company_employer_ids(employer, db)
+    job_ids = _get_scoped_job_ids(employer, company_employer_ids, user.role_name, db)
     apps = (
         db.query(Application)
-        .join(JobPosting, Application.job_id == JobPosting.id)
-        .filter(Application.id.in_(application_ids), JobPosting.employer_id.in_(company_employer_ids))
+        .filter(Application.id.in_(application_ids), Application.job_id.in_(job_ids))
         .all()
     )
     updated = 0
     for app in apps:
-        if app.status in ("withdrawn", "hired", "rejected"):
+        if app.status in ("withdrawn", "hired", "rejected", "offer_declined"):
             continue
         prev = app.status
         app.status = status
@@ -780,7 +831,7 @@ def add_candidate_note(application_id: str, note: str, is_internal: bool, user: 
     db.commit()
     db.refresh(row)
     return CandidateNoteOut(
-        id=str(row.id), author_name=(user.email or user.phone), note=row.note,
+        id=str(row.id), author_name=_employer_display_name(user, db), note=row.note,
         is_internal=row.is_internal, created_at=row.created_at,
     )
 
@@ -816,29 +867,235 @@ async def send_candidate_email(application_id: str, subject: str, body: str, use
     )
 
 
-def build_offer_letter_pdf(application_id: str, body, user: User, db: Session) -> bytes:
-    """Fetch candidate + employer info and generate an offer letter PDF."""
-    from app.modules.matching.offer_pdf import generate_offer_letter_pdf
+def _aspirant_full_name(aspirant_id, db: Session) -> Optional[str]:
+    """Candidate display names live on AspirantProfile, not User.full_name
+    (which is only populated for admin/employer accounts)."""
+    profile = db.query(AspirantProfile).filter(AspirantProfile.user_id == aspirant_id).first()
+    return profile.full_name if profile else None
 
+
+def _offer_to_out(offer: OfferLetter) -> OfferLetterOut:
+    return OfferLetterOut(
+        id=str(offer.id), application_id=str(offer.application_id), status=offer.status,
+        role_title=offer.role_title, salary_ctc=offer.salary_ctc, start_date=offer.start_date,
+        work_location=offer.work_location, employment_type=offer.employment_type,
+        company_address=offer.company_address, hiring_manager_name=offer.hiring_manager_name,
+        hiring_manager_designation=offer.hiring_manager_designation, extra_clauses=offer.extra_clauses,
+        sent_at=offer.sent_at, responded_at=offer.responded_at,
+        signature_name=offer.signature_name, decline_reason=offer.decline_reason,
+        created_at=offer.created_at,
+    )
+
+
+def _render_offer_pdf(offer: OfferLetter, candidate_name: str, candidate_email: str, company_name: str) -> bytes:
+    from app.modules.matching.offer_pdf import generate_offer_letter_pdf
+    return generate_offer_letter_pdf(
+        candidate_name=candidate_name or "Candidate",
+        candidate_email=candidate_email or "",
+        role_title=offer.role_title,
+        company_name=company_name or "Company",
+        company_address=offer.company_address or "",
+        hiring_manager_name=offer.hiring_manager_name,
+        hiring_manager_designation=offer.hiring_manager_designation,
+        salary_ctc=offer.salary_ctc,
+        start_date=offer.start_date,
+        work_location=offer.work_location,
+        employment_type=offer.employment_type,
+        extra_clauses=offer.extra_clauses,
+        offer_date=offer.sent_at.strftime("%d %B %Y") if offer.sent_at else None,
+        signed=(offer.status == "accepted"),
+        signature_name=offer.signature_name,
+        signed_at=offer.responded_at.strftime("%d %B %Y, %I:%M %p UTC") if offer.responded_at else None,
+        signature_ip=offer.signature_ip,
+    )
+
+
+async def send_offer_letter(application_id: str, body, user: User, db: Session) -> OfferLetterOut:
+    """Create/update the persisted offer letter for this application, email the
+    candidate the PDF, and notify them in-app. Replaces the previous stateless
+    "generate a PDF and forget it" flow — persisting the offer is what makes
+    accept/decline possible at all."""
     app = _get_employer_application(application_id, user, db)
-    if not app.aspirant:
-        raise NotFoundException("Candidate not found.")
+    if not app.aspirant or not app.aspirant.email:
+        raise BadRequestException("This candidate has no email address on file.")
+
+    offer = db.query(OfferLetter).filter(OfferLetter.application_id == app.id).first()
+    if offer and offer.status != "sent":
+        raise BadRequestException(f"Cannot modify an offer that has already been {offer.status}.")
 
     employer = _get_employer_profile_approved(user, db)
-    return generate_offer_letter_pdf(
-        candidate_name=app.aspirant.full_name or "Candidate",
-        candidate_email=app.aspirant.email or "",
-        role_title=body.role_title,
-        company_name=employer.company_name or "Company",
-        company_address=body.company_address or "",
-        hiring_manager_name=body.hiring_manager_name,
-        hiring_manager_designation=body.hiring_manager_designation,
-        salary_ctc=body.salary_ctc,
-        start_date=body.start_date,
-        work_location=body.work_location,
-        employment_type=body.employment_type,
-        extra_clauses=body.extra_clauses,
+
+    from datetime import datetime, timezone
+    if offer is None:
+        offer = OfferLetter(application_id=app.id, created_by=user.id)
+        db.add(offer)
+
+    offer.role_title = body.role_title
+    offer.company_address = body.company_address
+    offer.hiring_manager_name = body.hiring_manager_name
+    offer.hiring_manager_designation = body.hiring_manager_designation
+    offer.salary_ctc = body.salary_ctc
+    offer.start_date = body.start_date
+    offer.work_location = body.work_location
+    offer.employment_type = body.employment_type
+    offer.extra_clauses = body.extra_clauses
+    offer.status = "sent"
+    offer.sent_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(offer)
+
+    if app.status not in ("withdrawn", "hired", "rejected"):
+        prev = app.status
+        app.status = "offer_sent"
+        db.add(ApplicationStatusHistory(
+            application_id=app.id, from_status=prev, to_status="offer_sent",
+            changed_by=user.id, note="Offer letter sent",
+        ))
+        db.commit()
+
+    pdf_bytes = _render_offer_pdf(offer, _aspirant_full_name(app.aspirant_id, db), app.aspirant.email, employer.company_name)
+
+    from app.modules.inbox.service import create_notification
+    html = (
+        f"<p>Congratulations — you've received an offer letter for the "
+        f"<b>{body.role_title}</b> position at <b>{employer.company_name or 'the company'}</b>. "
+        f"It's attached as a PDF. Sign in to your applications dashboard to review and respond.</p>"
     )
+    await send_email(
+        app.aspirant.email, f"Your offer letter — {body.role_title}", html,
+        attachment=(f"offer_letter_{application_id[:8]}.pdf", pdf_bytes, "pdf"),
+    )
+    create_notification(
+        db, app.aspirant_id, "application_status_changed",
+        f"You've received an offer — {body.role_title}",
+        f"{employer.company_name or 'The employer'} sent you an offer letter for {body.role_title}. Review and respond in your applications.",
+        "/app/jobs/applications",
+    )
+    db.commit()
+
+    return _offer_to_out(offer)
+
+
+def get_offer_letter_for_employer(application_id: str, user: User, db: Session) -> Optional[OfferLetterOut]:
+    app = _get_employer_application(application_id, user, db)
+    offer = db.query(OfferLetter).filter(OfferLetter.application_id == app.id).first()
+    return _offer_to_out(offer) if offer else None
+
+
+def download_offer_letter_pdf_employer(application_id: str, user: User, db: Session) -> bytes:
+    app = _get_employer_application(application_id, user, db)
+    offer = db.query(OfferLetter).filter(OfferLetter.application_id == app.id).first()
+    if not offer:
+        raise NotFoundException("No offer letter has been sent for this application.")
+    employer = _get_employer_profile_approved(user, db)
+    return _render_offer_pdf(
+        offer, _aspirant_full_name(app.aspirant_id, db),
+        app.aspirant.email if app.aspirant else None, employer.company_name,
+    )
+
+
+def _get_own_offer_letter(application_id: str, user: User, db: Session) -> tuple[Application, OfferLetter]:
+    app = (
+        db.query(Application)
+        .filter(Application.id == application_id, Application.aspirant_id == user.id)
+        .first()
+    )
+    if not app:
+        raise NotFoundException("Application not found.")
+    offer = db.query(OfferLetter).filter(OfferLetter.application_id == app.id).first()
+    if not offer:
+        raise NotFoundException("No offer letter for this application.")
+    return app, offer
+
+
+def get_my_offer_letter(application_id: str, user: User, db: Session) -> OfferLetterOut:
+    _, offer = _get_own_offer_letter(application_id, user, db)
+    return _offer_to_out(offer)
+
+
+def download_my_offer_letter_pdf(application_id: str, user: User, db: Session) -> bytes:
+    app, offer = _get_own_offer_letter(application_id, user, db)
+    job = db.query(JobPosting).filter(JobPosting.id == app.job_id).first()
+    employer = db.query(EmployerProfile).filter(EmployerProfile.id == job.employer_id).first() if job else None
+    return _render_offer_pdf(offer, _aspirant_full_name(user.id, db), user.email, employer.company_name if employer else None)
+
+
+def accept_offer_letter(
+    application_id: str, signature_name: str, ip: str | None, user_agent: str | None, user: User, db: Session,
+) -> OfferLetterOut:
+    """Self-serve e-signature acceptance — typed full legal name + IP/timestamp
+    audit trail. Not a legally-binding e-signature (that needs a third-party
+    provider contract — see docs/ENTERPRISE_AUDIT_ROADMAP.md M2), but a real,
+    persisted candidate response instead of a status flag alone."""
+    app, offer = _get_own_offer_letter(application_id, user, db)
+    if offer.status != "sent":
+        raise BadRequestException(f"This offer has already been {offer.status}.")
+
+    from datetime import datetime, timezone
+    offer.status = "accepted"
+    offer.responded_at = datetime.now(timezone.utc)
+    offer.signature_name = signature_name
+    offer.signature_ip = ip
+    offer.signature_user_agent = user_agent
+
+    prev = app.status
+    if prev not in ("withdrawn", "rejected"):
+        app.status = "hired"
+        db.add(ApplicationStatusHistory(
+            application_id=app.id, from_status=prev, to_status="hired",
+            changed_by=user.id, note=f"Offer accepted & digitally signed by {signature_name}",
+        ))
+    db.commit()
+    db.refresh(offer)
+
+    job = db.query(JobPosting).filter(JobPosting.id == app.job_id).first()
+    employer = db.query(EmployerProfile).filter(EmployerProfile.id == job.employer_id).first() if job else None
+    if employer and job:
+        from app.modules.inbox.service import notify_company_team
+        notify_company_team(
+            db, employer, "offer_accepted",
+            f"Offer accepted — {job.title}",
+            f"{signature_name} has accepted and signed the offer letter for {job.title}.",
+            f"/app/employer/pipeline/{job.id}",
+        )
+        db.commit()
+
+    return _offer_to_out(offer)
+
+
+def decline_offer_letter(application_id: str, reason: str | None, user: User, db: Session) -> OfferLetterOut:
+    app, offer = _get_own_offer_letter(application_id, user, db)
+    if offer.status != "sent":
+        raise BadRequestException(f"This offer has already been {offer.status}.")
+
+    from datetime import datetime, timezone
+    offer.status = "declined"
+    offer.responded_at = datetime.now(timezone.utc)
+    offer.decline_reason = reason
+
+    prev = app.status
+    if prev not in ("withdrawn", "hired"):
+        app.status = "offer_declined"
+        db.add(ApplicationStatusHistory(
+            application_id=app.id, from_status=prev, to_status="offer_declined",
+            changed_by=user.id, note="Candidate declined the offer letter" + (f": {reason}" if reason else ""),
+        ))
+    db.commit()
+    db.refresh(offer)
+
+    job = db.query(JobPosting).filter(JobPosting.id == app.job_id).first()
+    employer = db.query(EmployerProfile).filter(EmployerProfile.id == job.employer_id).first() if job else None
+    if employer and job:
+        from app.modules.inbox.service import notify_company_team
+        notify_company_team(
+            db, employer, "offer_declined",
+            f"Offer declined — {job.title}",
+            f"The candidate has declined the offer letter for {job.title}." + (f' Reason: "{reason}"' if reason else ""),
+            f"/app/employer/pipeline/{job.id}",
+        )
+        db.commit()
+
+    return _offer_to_out(offer)
 
 
 async def bulk_email_candidates(
@@ -853,10 +1110,10 @@ async def bulk_email_candidates(
     company_employer_ids = _get_company_employer_ids(employer, db)
     sender_name = employer.company_name or user.email or "Recruiting team"
 
+    job_ids = _get_scoped_job_ids(employer, company_employer_ids, user.role_name, db)
     apps = (
         db.query(Application)
-        .join(JobPosting, Application.job_id == JobPosting.id)
-        .filter(Application.id.in_(application_ids), JobPosting.employer_id.in_(company_employer_ids))
+        .filter(Application.id.in_(application_ids), Application.job_id.in_(job_ids))
         .all()
     )
 
@@ -920,9 +1177,22 @@ def set_candidate_rating(application_id: str, rating: int, user: User, db: Sessi
 # ── Interview scheduling (Module 05 Phase 9) ──────────────────────────────────
 
 PIPELINE_FORWARD_ORDER = (
-    "applied", "screening", "shortlisted", "interview_scheduled",
-    "interview_completed", "offer_sent", "hired",
+    "applied", "screening", "shortlisted",
+    "assessment", "hr_interview", "technical_interview", "manager_interview",
+    "interview_scheduled", "interview_completed",
+    "offer_sent", "hired",
 )
+
+# Allowed backwards transitions (stage → earlier stage for genuine corrections)
+_ALLOWED_BACKWARDS = {
+    "shortlisted": {"screening", "applied"},
+    "assessment": {"shortlisted", "screening", "applied"},
+    "hr_interview": {"assessment", "shortlisted", "screening", "applied"},
+    "technical_interview": {"hr_interview", "assessment", "shortlisted", "screening", "applied"},
+    "manager_interview": {"technical_interview", "hr_interview", "assessment", "shortlisted", "screening", "applied"},
+    "interview_scheduled": {"manager_interview", "technical_interview", "hr_interview", "assessment", "shortlisted", "screening", "applied"},
+    "interview_completed": {"interview_scheduled"},
+}
 
 
 def _advance_status_if_earlier(app: Application, to_status: str, user: User, db: Session) -> None:
@@ -940,10 +1210,23 @@ def _advance_status_if_earlier(app: Application, to_status: str, user: User, db:
     ))
 
 
-def _interview_to_out(row: CandidateInterviewFeedback, interviewer: User | None) -> InterviewFeedbackOut:
+def _employer_display_name(user: User | None, db: Session) -> str | None:
+    if not user:
+        return None
+    profile = db.query(EmployerProfile).filter(EmployerProfile.user_id == user.id).first()
+    if profile and profile.contact_person:
+        return profile.contact_person
+    return user.full_name or user.email or user.phone
+
+
+def _interview_to_out(row: CandidateInterviewFeedback, interviewer: User | None, db: Session | None = None) -> InterviewFeedbackOut:
+    if db is not None:
+        interviewer_name = _employer_display_name(interviewer, db)
+    else:
+        interviewer_name = (interviewer.email or interviewer.phone) if interviewer else None
     return InterviewFeedbackOut(
         id=str(row.id), application_id=str(row.application_id),
-        interviewer_name=(interviewer.email or interviewer.phone) if interviewer else None,
+        interviewer_name=interviewer_name,
         scheduled_at=row.scheduled_at, meeting_link=row.meeting_link, status=row.status,
         recommendation=row.recommendation, feedback=row.feedback, created_at=row.created_at,
         reschedule_requested_at=row.reschedule_requested_at, reschedule_note=row.reschedule_note,
@@ -1001,7 +1284,7 @@ def schedule_interview(application_id: str, scheduled_at, meeting_link: str | No
     # Push to recruiter's Google Calendar if they've connected
     _push_interview_to_google_calendar(row, user, db)
 
-    return _interview_to_out(row, user)
+    return _interview_to_out(row, user, db)
 
 
 def _push_interview_to_google_calendar(interview_row, user: User, db: Session) -> None:
@@ -1110,7 +1393,7 @@ def submit_interview_feedback(
         _advance_status_if_earlier(app, "interview_completed", user, db)
     db.commit()
     db.refresh(row)
-    return _interview_to_out(row, user)
+    return _interview_to_out(row, user, db)
 
 
 def cancel_interview(application_id: str, interview_id: str, user: User, db: Session) -> InterviewFeedbackOut:
@@ -1118,7 +1401,7 @@ def cancel_interview(application_id: str, interview_id: str, user: User, db: Ses
     row.status = "canceled"
     db.commit()
     db.refresh(row)
-    return _interview_to_out(row, user)
+    return _interview_to_out(row, user, db)
 
 
 def list_upcoming_interviews(user: User, db: Session, limit: int = 20) -> list["UpcomingInterviewEntry"]:
@@ -1128,13 +1411,14 @@ def list_upcoming_interviews(user: User, db: Session, limit: int = 20) -> list["
     employer = _get_employer_profile_approved(user, db)
     company_employer_ids = _get_company_employer_ids(employer, db)
 
+    job_ids = _get_scoped_job_ids(employer, company_employer_ids, user.role_name, db)
     rows = (
         db.query(CandidateInterviewFeedback, Application, JobPosting, User)
         .join(Application, CandidateInterviewFeedback.application_id == Application.id)
         .join(JobPosting, Application.job_id == JobPosting.id)
         .outerjoin(User, CandidateInterviewFeedback.interviewer_id == User.id)
         .filter(
-            JobPosting.employer_id.in_(company_employer_ids),
+            Application.job_id.in_(job_ids),
             CandidateInterviewFeedback.status == "scheduled",
             CandidateInterviewFeedback.scheduled_at >= datetime.now(timezone.utc),
         )
@@ -1163,8 +1447,10 @@ def list_upcoming_interviews(user: User, db: Session, limit: int = 20) -> list["
 # ── Employer analytics (Module 05 Phase 5) ────────────────────────────────────
 
 FUNNEL_STAGE_ORDER = (
-    "applied", "screening", "shortlisted", "interview_scheduled",
-    "interview_completed", "offer_sent", "hired",
+    "applied", "screening", "shortlisted",
+    "assessment", "hr_interview", "technical_interview", "manager_interview",
+    "interview_scheduled", "interview_completed",
+    "offer_sent", "hired",
 )
 
 
@@ -1175,10 +1461,10 @@ def get_employer_funnel(user: User, db: Session) -> EmployerFunnelResponse:
     employer = _get_employer_profile_approved(user, db)
     company_employer_ids = _get_company_employer_ids(employer, db)
 
+    job_ids = _get_scoped_job_ids(employer, company_employer_ids, user.role_name, db)
     apps = (
         db.query(Application.status)
-        .join(JobPosting, Application.job_id == JobPosting.id)
-        .filter(JobPosting.employer_id.in_(company_employer_ids))
+        .filter(Application.job_id.in_(job_ids))
         .all()
     )
     total = len(apps)
@@ -1207,9 +1493,10 @@ def get_job_performance(user: User, db: Session) -> JobPerformanceResponse:
     employer = _get_employer_profile_approved(user, db)
     company_employer_ids = _get_company_employer_ids(employer, db)
 
+    scoped_ids = _get_scoped_job_ids(employer, company_employer_ids, user.role_name, db)
     jobs = (
         db.query(JobPosting)
-        .filter(JobPosting.employer_id.in_(company_employer_ids))
+        .filter(JobPosting.id.in_(scoped_ids))
         .order_by(JobPosting.created_at.desc())
         .all()
     )
@@ -1256,9 +1543,7 @@ def get_recruiter_performance(user: User, db: Session) -> RecruiterPerformanceRe
     if not team_user_ids:
         return RecruiterPerformanceResponse(recruiters=[])
 
-    job_ids = [
-        j[0] for j in db.query(JobPosting.id).filter(JobPosting.employer_id.in_(company_employer_ids)).all()
-    ]
+    job_ids = _get_scoped_job_ids(employer, company_employer_ids, user.role_name, db)
 
     entries: list[RecruiterPerformanceEntry] = []
     for uid in team_user_ids:
@@ -1317,8 +1602,10 @@ def get_recruiter_performance(user: User, db: Session) -> RecruiterPerformanceRe
 # ── Dashboard KPIs (Module 05 Phase 8) ─────────────────────────────────────────
 
 RESPONDED_STATUSES = (
-    "screening", "shortlisted", "interview_scheduled", "interview_completed",
-    "offer_sent", "hired", "rejected",
+    "screening", "shortlisted",
+    "assessment", "hr_interview", "technical_interview", "manager_interview",
+    "interview_scheduled", "interview_completed",
+    "offer_sent", "offer_declined", "hired", "rejected",
 )
 
 
@@ -1328,12 +1615,17 @@ def get_dashboard_kpis(user: User, db: Session) -> DashboardKpis:
     employer = _get_employer_profile_approved(user, db)
     company_employer_ids = _get_company_employer_ids(employer, db)
 
-    jobs = db.query(JobPosting.status).filter(JobPosting.employer_id.in_(company_employer_ids)).all()
-    job_status_counts: dict[str, int] = {}
-    for (status,) in jobs:
-        job_status_counts[status] = job_status_counts.get(status, 0) + 1
+    jobs_q = db.query(JobPosting.status, JobPosting.id).filter(
+        JobPosting.employer_id.in_(company_employer_ids)
+    )
+    jobs_q = _scope_jobs_query(jobs_q, employer, user.role_name)
+    jobs_rows = jobs_q.all()
 
-    job_ids = [j[0] for j in db.query(JobPosting.id).filter(JobPosting.employer_id.in_(company_employer_ids)).all()]
+    job_status_counts: dict[str, int] = {}
+    job_ids = []
+    for status, jid in jobs_rows:
+        job_status_counts[status] = job_status_counts.get(status, 0) + 1
+        job_ids.append(jid)
 
     if not job_ids:
         return DashboardKpis(
@@ -1351,6 +1643,7 @@ def get_dashboard_kpis(user: User, db: Session) -> DashboardKpis:
     interviews_scheduled = sum(1 for status, _ in apps if status == "interview_scheduled")
     offers_sent = sum(1 for status, _ in apps if status in ("offer_sent", "hired"))
     hires = sum(1 for status, _ in apps if status == "hired")
+    rejected_count = sum(1 for status, _ in apps if status == "rejected")
     responded = sum(1 for status, _ in apps if status in RESPONDED_STATUSES)
     response_rate_pct = round(responded / total_applications * 100, 1) if total_applications else 0.0
 
@@ -1378,6 +1671,7 @@ def get_dashboard_kpis(user: User, db: Session) -> DashboardKpis:
         interviews_scheduled=interviews_scheduled,
         offers_sent=offers_sent,
         hires=hires,
+        rejected_count=rejected_count,
         response_rate_pct=response_rate_pct,
         avg_time_to_hire_days=avg_time_to_hire_days,
     )
@@ -1388,7 +1682,7 @@ def get_application_trend(user: User, db: Session, days: int = 30) -> Applicatio
 
     employer = _get_employer_profile_approved(user, db)
     company_employer_ids = _get_company_employer_ids(employer, db)
-    job_ids = [j[0] for j in db.query(JobPosting.id).filter(JobPosting.employer_id.in_(company_employer_ids)).all()]
+    job_ids = _get_scoped_job_ids(employer, company_employer_ids, user.role_name, db)
 
     now = datetime.now(timezone.utc)
     start = now - timedelta(days=days)

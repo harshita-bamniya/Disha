@@ -9,7 +9,8 @@ import { useState, useMemo } from 'react'
 import {
   getJobPipeline, updateApplicationStatus, updateApplicationNote, bulkUpdateApplicationStatus,
   scheduleInterview, submitInterviewFeedback, cancelInterview, rescheduleInterview,
-  sendCandidateEmail, getCandidateEmails, bulkEmailCandidates, generateOfferLetter,
+  sendCandidateEmail, getCandidateEmails, bulkEmailCandidates,
+  sendOfferLetter, getOfferLetter, downloadOfferLetterPdf,
   saveCandidate, unsaveCandidate, checkCandidateSaved,
   downloadInterviewIcs,
   type CandidateOut,
@@ -52,8 +53,10 @@ const STATUS_STYLE: Record<string, { bg: string; text: string }> = {
 // Kanban columns, in pipeline order — excludes the terminal 'withdrawn' state
 // (aspirant-initiated; employer can't drag into/out of it).
 const KANBAN_STAGES = [
-  'applied', 'screening', 'shortlisted', 'interview_scheduled',
-  'interview_completed', 'offer_sent', 'hired', 'rejected',
+  'applied', 'screening', 'shortlisted',
+  'assessment', 'hr_interview', 'technical_interview', 'manager_interview',
+  'interview_scheduled', 'interview_completed',
+  'offer_sent', 'offer_declined', 'hired', 'rejected',
 ] as const
 
 const SORT_OPTIONS = [
@@ -214,13 +217,26 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
     hiring_manager_designation: '',
     extra_clauses: '',
   })
+  const {data:offerLetter}=useQuery({
+    queryKey:['offer-letter',candidate.application_id],
+    queryFn:()=>getOfferLetter(candidate.application_id),
+  })
   const offerMutation=useMutation({
-    mutationFn:()=>generateOfferLetter(candidate.application_id,{
+    mutationFn:()=>sendOfferLetter(candidate.application_id,{
       ...offerForm,
       company_address: offerForm.company_address||undefined,
       extra_clauses: offerForm.extra_clauses||undefined,
     }),
+    onSuccess:()=>{
+      qc.invalidateQueries({queryKey:['offer-letter',candidate.application_id]})
+      setShowOfferForm(false)
+    },
   })
+  const offerStatusStyle:Record<string,{bg:string;text:string;label:string}>={
+    sent:{bg:'rgba(124,58,237,0.1)',text:'#7C3AED',label:'Awaiting response'},
+    accepted:{bg:'rgba(5,150,105,0.1)',text:'#059669',label:'Accepted & signed'},
+    declined:{bg:'rgba(220,38,38,0.1)',text:'#DC2626',label:'Declined'},
+  }
 
   const {data:savedState}=useQuery({
     queryKey:['candidate-saved',candidate.aspirant_id],
@@ -328,14 +344,43 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
             </div>
           </Section>
 
-          {['offer_sent','hired'].includes(candidate.status)&&(
+          {(['offer_sent','hired'].includes(candidate.status)||offerLetter)&&(
             <Section icon={<FileText size={13}/>} title="Offer Letter">
-              {!showOfferForm?(
+              {offerLetter&&(
+                <div style={{marginBottom:showOfferForm?12:0,padding:'10px 12px',borderRadius:10,background:'#F8FAFC',border:'1px solid #E2E8F0'}}>
+                  <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,marginBottom:offerLetter.status!=='sent'?6:0}}>
+                    <span style={{
+                      fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:20,
+                      background:offerStatusStyle[offerLetter.status]?.bg,color:offerStatusStyle[offerLetter.status]?.text,
+                    }}>
+                      {offerStatusStyle[offerLetter.status]?.label??offerLetter.status}
+                    </span>
+                    <button
+                      onClick={()=>downloadOfferLetterPdf(candidate.application_id)}
+                      style={{display:'flex',alignItems:'center',gap:5,fontSize:11.5,fontWeight:700,color:'#7C3AED',background:'none',border:'none',cursor:'pointer',padding:0}}
+                    >
+                      <Download size={12}/>Download PDF
+                    </button>
+                  </div>
+                  {offerLetter.status==='accepted'&&(
+                    <p style={{fontSize:12,color:'#059669',margin:0}}>
+                      Digitally signed by <strong>{offerLetter.signature_name}</strong>
+                      {offerLetter.responded_at?` on ${new Date(offerLetter.responded_at).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}`:''}.
+                    </p>
+                  )}
+                  {offerLetter.status==='declined'&&(
+                    <p style={{fontSize:12,color:'#DC2626',margin:0}}>
+                      Candidate declined{offerLetter.decline_reason?`: "${offerLetter.decline_reason}"`:'.'}
+                    </p>
+                  )}
+                </div>
+              )}
+              {offerLetter&&offerLetter.status!=='sent'?null:!showOfferForm?(
                 <button
                   onClick={()=>setShowOfferForm(true)}
                   style={{display:'flex',alignItems:'center',gap:6,padding:'9px 16px',borderRadius:9,border:'none',background:'#7C3AED',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',width:'100%',justifyContent:'center'}}
                 >
-                  <FileText size={13}/>Generate Offer Letter PDF
+                  <FileText size={13}/>{offerLetter?'Edit & Resend Offer':'Send Offer Letter'}
                 </button>
               ):(
                 <div style={{display:'flex',flexDirection:'column',gap:10}}>
@@ -378,8 +423,7 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
                       style={{width:'100%',padding:'8px 10px',borderRadius:8,border:'1px solid #E5E7EB',fontSize:12,outline:'none',resize:'vertical',boxSizing:'border-box',fontFamily:'inherit'}}
                     />
                   </div>
-                  {offerMutation.isError&&<p style={{fontSize:11,color:'#DC2626',margin:0}}>Failed to generate PDF. Please try again.</p>}
-                  {offerMutation.isSuccess&&<p style={{fontSize:11,color:'#059669',margin:0}}>✓ PDF downloaded.</p>}
+                  {offerMutation.isError&&<p style={{fontSize:11,color:'#DC2626',margin:0}}>Failed to send offer letter. Please try again.</p>}
                   <div style={{display:'flex',gap:8}}>
                     <button onClick={()=>setShowOfferForm(false)} style={{flex:1,height:34,borderRadius:8,border:'1px solid #E5E7EB',background:'none',fontSize:12,fontWeight:600,color:'#6B7280',cursor:'pointer'}}>Cancel</button>
                     <button
@@ -387,7 +431,7 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
                       disabled={!offerForm.role_title.trim()||!offerForm.salary_ctc.trim()||!offerForm.start_date.trim()||!offerForm.work_location.trim()||!offerForm.hiring_manager_name.trim()||!offerForm.hiring_manager_designation.trim()||offerMutation.isPending}
                       style={{flex:2,height:34,borderRadius:8,border:'none',background:'#7C3AED',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6,opacity:(offerMutation.isPending)?0.7:1}}
                     >
-                      <Download size={13}/>{offerMutation.isPending?'Generating…':'Download PDF'}
+                      <Send size={13}/>{offerMutation.isPending?'Sending…':'Send to Candidate'}
                     </button>
                   </div>
                 </div>
@@ -681,8 +725,10 @@ function CandidateCard({candidate,jobId,selected,onSelect}:{candidate:CandidateO
 
 const STAGE_LABELS: Record<string, string> = {
   applied: 'Applied', screening: 'Screening', shortlisted: 'Shortlisted',
+  assessment: 'Assessment', hr_interview: 'HR Interview',
+  technical_interview: 'Technical Interview', manager_interview: 'Manager Interview',
   interview_scheduled: 'Interview Scheduled', interview_completed: 'Interview Completed',
-  offer_sent: 'Offer Sent', hired: 'Hired', rejected: 'Rejected',
+  offer_sent: 'Offer Sent', offer_declined: 'Offer Declined', hired: 'Hired', rejected: 'Rejected',
 }
 
 function KanbanCard({ candidate, jobId, onDragStart }: {
