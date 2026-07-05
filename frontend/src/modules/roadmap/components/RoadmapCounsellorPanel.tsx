@@ -38,6 +38,8 @@ export default function RoadmapCounsellorPanel({ jobId, jobTitle, company, secto
   const [messages, setMessages] = useState<ChatMsg[]>([])
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
+  const [streamError, setStreamError] = useState<string | null>(null)
+  const lastUserMsgRef = useRef<string>('')
   const bottomRef = useRef<HTMLDivElement>(null)
   const lastJobIdRef = useRef<string | null>(null)
 
@@ -88,6 +90,8 @@ export default function RoadmapCounsellorPanel({ jobId, jobTitle, company, secto
     if (!activeConvId) return
 
     if (!overrideText) setInput('')
+    setStreamError(null)
+    lastUserMsgRef.current = text
     const userId = `u-${Date.now()}`
     const assistantId = `a-${Date.now()}`
     setMessages(prev => [...prev, { id: userId, role: 'user', content: text }, { id: assistantId, role: 'assistant', content: '', streaming: true }])
@@ -107,7 +111,8 @@ export default function RoadmapCounsellorPanel({ jobId, jobTitle, company, secto
       },
       () => {
         setIsStreaming(false)
-        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: 'Sorry, something went wrong. Please try again.', streaming: false } : m))
+        setMessages(prev => prev.filter(m => m.id !== assistantId))
+        setStreamError('Response failed. Check your connection and retry.')
       },
     )
   }, [input, isStreaming, convId, ensureConvMutation])
@@ -208,6 +213,23 @@ export default function RoadmapCounsellorPanel({ jobId, jobTitle, company, secto
             </p>
           </div>
         ))}
+        {streamError && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10,
+            padding: '10px 14px', margin: '4px 0 8px', fontSize: 13, color: '#DC2626',
+          }}>
+            <span style={{ flex: 1 }}>{streamError}</span>
+            <button
+              onClick={() => sendMessage(lastUserMsgRef.current)}
+              style={{
+                flexShrink: 0, padding: '4px 12px', borderRadius: 7,
+                border: '1px solid #FECACA', background: 'white',
+                color: '#DC2626', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              }}
+            >Retry</button>
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
 

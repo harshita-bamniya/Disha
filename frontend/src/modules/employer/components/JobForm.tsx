@@ -7,7 +7,7 @@ import {
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
-import { useSuggestSkills, useGenerateDescription, useJobTemplates, useCreateJobTemplate } from '../hooks/useJobs'
+import { useSuggestSkills, useGenerateDescription, useJobTemplates, useCreateJobTemplate, useDepartments } from '../hooks/useJobs'
 import { getApiError } from '@/api/client'
 import type { JobPostingPayload, GrowthOutlook, JobPosting, JobType, EmploymentType } from '@/api/jobs'
 
@@ -122,9 +122,12 @@ export default function JobForm({ initial, onSubmit, loading, onCancel }: JobFor
       ? ''
       : (initial?.location ?? '')
   )
+  const [departmentId, setDepartmentId] = useState<string>(initial?.department_id ?? '')
   const [isCustomSector, setIsCustomSector] = useState(!SECTORS.includes(initial?.sector ?? '') && !!initial?.sector)
   const [customSkillInput, setCustomSkillInput] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const { data: departments } = useDepartments()
 
   const suggestSkills = useSuggestSkills()
   const generateDescription = useGenerateDescription()
@@ -262,6 +265,7 @@ export default function JobForm({ initial, onSubmit, loading, onCancel }: JobFor
       location:        resolvedLocation,
       employment_type: employmentType as EmploymentType,
       expires_at:      expiresAt,
+      department_id:   departmentId || undefined,
       publish,
     })
   }
@@ -380,6 +384,20 @@ export default function JobForm({ initial, onSubmit, loading, onCancel }: JobFor
           )}
           {errors.sector && <p className="text-xs text-danger">{errors.sector}</p>}
         </div>
+
+        {departments && departments.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            <FieldLabel hint="Scope this job to a specific team">Department</FieldLabel>
+            <select
+              value={departmentId}
+              onChange={e => setDepartmentId(e.target.value)}
+              className="w-full h-12 rounded-xl border-[1.5px] border-gray-200 bg-white/80 px-4 text-sm text-gray-900 outline-none transition-all duration-200 focus:border-[#3B82F6] hover:border-gray-300"
+            >
+              <option value="">— No department (company-wide) —</option>
+              {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </div>
+        )}
       </FormSection>
 
       {/* ── Employment & work type ── */}

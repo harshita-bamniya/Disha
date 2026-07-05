@@ -210,6 +210,56 @@ class CandidateEmailLog(Base):
     sender          = relationship("User", foreign_keys=[sender_id])
 
 
+OFFER_LETTER_STATUSES = ("sent", "accepted", "declined")
+
+
+class OfferLetter(Base):
+    """A persisted offer letter tied 1:1 to an application, with a lightweight
+    self-serve e-signature flow (typed legal name + IP/timestamp audit trail).
+
+    Previously "offer management" was just the application.status='offer_sent'
+    flag — there was no actual document and no way for a candidate to respond
+    in-product. This is a "click to accept" style e-signature, not a legally
+    binding DocuSign-grade signature — a real e-sign provider integration needs
+    a separate vendor contract (see docs/ENTERPRISE_AUDIT_ROADMAP.md, item M2).
+    """
+    __tablename__ = "offer_letters"
+
+    id                          = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    application_id              = Column(UUID(as_uuid=True), ForeignKey("applications.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    created_by                  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+
+    role_title                  = Column(String(200), nullable=False)
+    company_address             = Column(String(300), nullable=True)
+    hiring_manager_name         = Column(String(150), nullable=False)
+    hiring_manager_designation  = Column(String(150), nullable=False)
+    salary_ctc                  = Column(String(100), nullable=False)
+    start_date                  = Column(String(50), nullable=False)
+    work_location                = Column(String(200), nullable=False)
+    employment_type             = Column(String(50), nullable=False, default="Full-Time")
+    extra_clauses                = Column(Text, nullable=True)
+
+    status                      = Column(String(20), nullable=False, default="sent")  # sent | accepted | declined
+    sent_at                      = Column(DateTime(timezone=True), server_default=func.now())
+    responded_at                 = Column(DateTime(timezone=True), nullable=True)
+
+    # E-signature audit trail — captured at the moment of acceptance
+    signature_name               = Column(String(150), nullable=True)
+    signature_ip                 = Column(String(64), nullable=True)
+    signature_user_agent         = Column(Text, nullable=True)
+
+    decline_reason               = Column(Text, nullable=True)
+
+    created_at                  = Column(DateTime(timezone=True), server_default=func.now())
+
+    application                 = relationship("Application")
+    creator                      = relationship("User", foreign_keys=[created_by])
+
+    __table_args__ = (
+        CheckConstraint(f"status IN {OFFER_LETTER_STATUSES}", name="ck_offer_letter_status"),
+    )
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # PROMPT TEMPLATES — Versioned, DB-stored, no-code prompt updates
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -324,6 +374,8 @@ NOTIFICATION_TYPES = (
     # Aspirant-side — added when the inbox was extended beyond employers
     "application_status_changed", "job_match_digest", "deadline_reminder",
     "interview_reschedule_requested",
+    # Offer letter e-signature — sent to the employer team on candidate response
+    "offer_accepted", "offer_declined",
 )
 
 

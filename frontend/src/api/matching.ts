@@ -41,6 +41,8 @@ export interface ApplicationOut {
   job_id: string
   job_title: string
   company_name: string
+  department_id: string | null
+  department_name: string | null
   status: string
   match_score: number | null
   cover_note: string | null
@@ -189,6 +191,7 @@ interface JobQueryParams {
   sector?: string
   job_type?: string
   min_salary?: number
+  q?: string
   limit?: number
   offset?: number
 }
@@ -296,19 +299,66 @@ export interface OfferLetterPayload {
   extra_clauses?: string
 }
 
-export const generateOfferLetter = async (applicationId: string, payload: OfferLetterPayload): Promise<void> => {
-  const response = await apiClient.post(
-    `/employer/pipeline/applications/${applicationId}/offer-letter`,
-    payload,
-    { responseType: 'blob' },
-  )
-  const url = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+export interface OfferLetterOut {
+  id: string
+  application_id: string
+  status: 'sent' | 'accepted' | 'declined'
+  role_title: string
+  salary_ctc: string
+  start_date: string
+  work_location: string
+  employment_type: string
+  company_address: string | null
+  hiring_manager_name: string
+  hiring_manager_designation: string
+  extra_clauses: string | null
+  sent_at: string | null
+  responded_at: string | null
+  signature_name: string | null
+  decline_reason: string | null
+  created_at: string
+}
+
+function downloadBlob(data: BlobPart, filename: string, type: string) {
+  const url = URL.createObjectURL(new Blob([data], { type }))
   const a = document.createElement('a')
   a.href = url
-  a.download = `offer_letter_${applicationId}.pdf`
+  a.download = filename
   a.click()
   URL.revokeObjectURL(url)
 }
+
+// Employer: send/view the offer letter for an application
+export const sendOfferLetter = (applicationId: string, payload: OfferLetterPayload): Promise<OfferLetterOut> =>
+  apiClient.post(`/employer/pipeline/applications/${applicationId}/offer-letter`, payload).then((r) => r.data)
+
+export const getOfferLetter = (applicationId: string): Promise<OfferLetterOut | null> =>
+  apiClient.get(`/employer/pipeline/applications/${applicationId}/offer-letter`).then((r) => r.data)
+
+export const downloadOfferLetterPdf = async (applicationId: string) => {
+  const res = await apiClient.get(`/employer/pipeline/applications/${applicationId}/offer-letter/pdf`, { responseType: 'blob' })
+  downloadBlob(res.data, `offer_letter_${applicationId}.pdf`, 'application/pdf')
+}
+
+// Aspirant: view + respond to an offer letter (self-serve e-signature)
+export const getMyOfferLetter = (applicationId: string): Promise<OfferLetterOut | null> =>
+  apiClient.get(`/jobs/applications/${applicationId}/offer-letter`).then((r) => r.data)
+    .catch((e) => { if (e?.response?.status === 404) return null; throw e })
+
+export const downloadMyOfferLetterPdf = async (applicationId: string) => {
+  const res = await apiClient.get(`/jobs/applications/${applicationId}/offer-letter/pdf`, { responseType: 'blob' })
+  downloadBlob(res.data, `offer_letter_${applicationId}.pdf`, 'application/pdf')
+}
+
+export const acceptOfferLetter = (applicationId: string, signatureName: string): Promise<OfferLetterOut> =>
+  apiClient
+    .post(`/jobs/applications/${applicationId}/offer-letter/accept`, { signature_name: signatureName, confirm: true })
+    .then((r) => r.data)
+
+export const declineOfferLetter = (applicationId: string, reason?: string): Promise<OfferLetterOut> =>
+  apiClient
+    .post(`/jobs/applications/${applicationId}/offer-letter/decline`, { reason: reason || null })
+    .then((r) => r.data)
 
 export const setCandidateRating = (
   applicationId: string,

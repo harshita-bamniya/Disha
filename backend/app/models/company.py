@@ -57,16 +57,22 @@ class CompanyOffice(Base):
 
 
 class CompanyDepartment(Base):
-    """A department/team name a company hires for (Engineering, Sales, …) —
-    same master-data role as CompanyOffice."""
+    """A department within a company. Jobs are posted under a department;
+    recruiters are assigned to a department — this is the scoping boundary
+    for job visibility and candidate pipeline access (LinkedIn Recruiter / Naukri style)."""
     __tablename__ = "company_departments"
 
-    id          = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    company_id  = Column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
-    name        = Column(String(150), nullable=False)
-    created_at  = Column(DateTime(timezone=True), server_default=func.now())
+    id               = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    company_id       = Column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    name             = Column(String(150), nullable=False)
+    description      = Column(Text, nullable=True)
+    # Department head — an EmployerProfile within the same company. Nullable because
+    # a dept can exist before a head is assigned (e.g. draft departments at setup time).
+    head_employer_id = Column(UUID(as_uuid=True), ForeignKey("employer_profiles.id", ondelete="SET NULL"), nullable=True)
+    created_at       = Column(DateTime(timezone=True), server_default=func.now())
 
-    company     = relationship("Company")
+    company          = relationship("Company")
+    head             = relationship("EmployerProfile", foreign_keys=[head_employer_id])
 
     __table_args__ = (
         UniqueConstraint("company_id", "name", name="uq_company_department_name"),

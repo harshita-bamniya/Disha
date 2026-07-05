@@ -230,6 +230,7 @@ export default function CounsellorPage() {
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const lastUserMsgRef = useRef<string>('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const autoStartedRef = useRef<Set<string>>(new Set())
@@ -317,6 +318,7 @@ export default function CounsellorPage() {
 
     if (!overrideText) setInput('')
     setError(null)
+    lastUserMsgRef.current = userText
 
     const tempUserId = `temp-${Date.now()}`
     if (!hideUserBubble) {
@@ -614,8 +616,19 @@ export default function CounsellorPage() {
                     <div style={{
                       background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10,
                       padding: '10px 14px', fontSize: 13, color: '#DC2626', marginBottom: 12,
+                      display: 'flex', alignItems: 'center', gap: 10,
                     }}>
-                      {error}
+                      <span style={{ flex: 1 }}>{error}</span>
+                      {lastUserMsgRef.current && (
+                        <button
+                          onClick={() => sendMessage(lastUserMsgRef.current)}
+                          style={{
+                            flexShrink: 0, padding: '4px 12px', borderRadius: 7,
+                            border: '1px solid #FECACA', background: 'white',
+                            color: '#DC2626', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                          }}
+                        >Retry</button>
+                      )}
                     </div>
                   )}
                   <div ref={messagesEndRef} />

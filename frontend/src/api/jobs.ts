@@ -18,6 +18,7 @@ export interface JobPostingPayload {
   location: string
   employment_type: EmploymentType
   expires_at: string              // ISO date string "YYYY-MM-DD" — required
+  department_id?: string
   publish?: boolean                // true = publish immediately, false/omitted = save as draft
 }
 
@@ -63,6 +64,7 @@ export interface JobPosting {
   created_at: string
   updated_at: string
   applicant_count: number
+  department_id: string | null
 }
 
 export interface EmployerDashboard {
@@ -122,11 +124,16 @@ export interface VerificationStatusResponse {
 export interface EmployerPermissionsResponse {
   role_name: string
   permissions: string[]   // "resource:action"
+  department_id: string | null
+  department_name: string | null
+  is_company_wide: boolean
 }
 
 export const jobsApi = {
-  getDashboard: () =>
-    apiClient.get<EmployerDashboard>('/employer/dashboard').then((r) => r.data),
+  getDashboard: (departmentId?: string) =>
+    apiClient.get<EmployerDashboard>('/employer/dashboard', {
+      params: departmentId ? { department_id: departmentId } : undefined,
+    }).then((r) => r.data),
 
   getMyPermissions: () =>
     apiClient.get<EmployerPermissionsResponse>('/employer/permissions').then((r) => r.data),

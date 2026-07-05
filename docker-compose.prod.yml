@@ -62,6 +62,8 @@ services:
       ENVIRONMENT: production
       CLAMAV_HOST: clamav
       CLAMAV_PORT: "3310"
+    volumes:
+      - uploads_data:/app/uploads   # Named volume — survives redeployments
     depends_on:
       postgres:
         condition: service_healthy
@@ -88,6 +90,8 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
       ENVIRONMENT: production
+    volumes:
+      - uploads_data:/app/uploads   # Shared with backend so worker can read uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -141,8 +145,72 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  pg_backup:
+    image: prodrigestivill/postgres-backup-local:16
+    container_name: disha_pg_backup
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      SCHEDULE: "@daily"
+      BACKUP_KEEP_DAYS: 30
+      BACKUP_KEEP_WEEKS: 4
+      BACKUP_KEEP_MONTHS: 6
+      HEALTHCHECK_PORT: 8080
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:2.9.4
+    container_name: disha_loki
+    command: -config.file=/etc/loki/loki.yaml
+    volumes:
+      - ./observability/loki.yaml:/etc/loki/loki.yaml:ro
+      - loki_data:/loki
+    restart: unless-stopped
+    # No port exposed — only promtail and grafana talk to loki internally
+
+  promtail:
+    image: grafana/promtail:2.9.4
+    container_name: disha_promtail
+    command: -config.file=/etc/promtail/promtail.yaml
+    volumes:
+      - ./observability/promtail.yaml:/etc/promtail/promtail.yaml:ro
+      - ./nginx/logs:/var/log/nginx:ro       # nginx access/error logs
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.4.3
+    container_name: disha_grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+      GF_SERVER_ROOT_URL: ${GRAFANA_URL:-http://localhost:3000}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "3000:3000"   # Bind to 127.0.0.1 in production via firewall; nginx can proxy /grafana/
+    depends_on:
+      - loki
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
   frontend_build:
   clamav_data:
+  uploads_data:
+  loki_data:
+  grafana_data:

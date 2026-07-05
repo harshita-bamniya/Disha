@@ -1,4 +1,5 @@
 import logging
+import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import Request
@@ -17,6 +18,7 @@ from app.core.security import (
     decode_refresh_token,
     create_2fa_challenge_token, decode_2fa_challenge_token,
 )
+from app.core.email import get_email_provider
 from app.core.sms import send_otp_sms
 from app.models.company import Company
 from app.models.user import AuditLog, DeviceSession, EmployerProfile, LoginHistory, OtpVerification, RefreshToken, Role, TwoFactorCredential, User
@@ -60,8 +62,21 @@ def _device_label(user_agent: str | None) -> str | None:
     return f"{browser} on {os_name}"
 
 
+def _safe_ip(host: str | None) -> str | None:
+    """Return host only when it's a valid IP address, else None. Prevents
+    test clients (host='testclient') from crashing the INET column."""
+    if not host:
+        return None
+    import ipaddress
+    try:
+        ipaddress.ip_address(host)
+        return host
+    except ValueError:
+        return None
+
+
 def _record_login(user: User, db: Session, request: Request | None, success: bool, failure_reason: str | None = None) -> None:
-    ip = request.client.host if request and request.client else None
+    ip = _safe_ip(request.client.host if request and request.client else None)
     ua = request.headers.get("user-agent") if request else None
     db.add(LoginHistory(
         user_id=user.id, ip_address=ip, user_agent=ua,
@@ -80,7 +95,7 @@ def _issue_token_pair(user: User, db: Session, request: Request | None = None) -
     raw_refresh = generate_raw_refresh_token()
     create_refresh_token({"sub": str(user.id)})  # JWT form — not stored, raw token is
 
-    ip = request.client.host if request and request.client else None
+    ip = _safe_ip(request.client.host if request and request.client else None)
     ua = request.headers.get("user-agent") if request else None
 
     db_token = RefreshToken(
@@ -121,7 +136,7 @@ def _audit(db: Session, action: str, user_id=None, resource: str | None = None,
         action=action,
         resource=resource,
         resource_id=resource_id,
-        ip_address=request.client.host if request and request.client else None,
+        ip_address=_safe_ip(request.client.host if request and request.client else None),
         user_agent=request.headers.get("user-agent") if request else None,
         log_metadata=metadata,
     )
@@ -400,6 +415,17 @@ def disable_2fa(user: User, password: str, db: Session) -> MessageResponse:
     db.commit()
     logger.info("[2FA] disabled for user_id=%s", user.id)
     return MessageResponse(message="Two-factor authentication has been disabled.")
+
+
+def change_password(user: User, current_password: str, new_password: str, db: Session) -> MessageResponse:
+    if not user.password_hash or not verify_password(current_password, user.password_hash):
+        raise AuthException("Current password is incorrect.")
+    if current_password == new_password:
+        raise BadRequestException("New password must be different from the current password.")
+    user.password_hash = hash_password(new_password)
+    db.commit()
+    logger.info("[AUTH] password changed for user_id=%s", user.id)
+    return MessageResponse(message="Password changed successfully.")
 
 
 def refresh_tokens(raw_refresh_token: str, db: Session, request: Request | None = None) -> TokenResponse:
@@ -681,3 +707,87 @@ def reset_password(phone: str, otp: str, new_password: str, db: Session) -> None
     db.query(RefreshToken).filter(RefreshToken.user_id == user.id).update({"revoked_at": datetime.now(timezone.utc)})
     db.commit()
     logger.info("[RESET] Password reset successfully for user_id=%s", user.id)
+
+
+# ── Email verification ────────────────────────────────────────────────────────
+
+_EMAIL_VER_PREFIX = "email:verify:"
+_EMAIL_VER_TTL = 60 * 60  # 1 hour
+
+
+async def send_email_verification(user: User, db: Session) -> "MessageResponse":
+    from app.modules.auth.schemas import MessageResponse
+
+    if not user.email:
+        raise BadRequestException("No email address on your account. Add one in your profile first.")
+    if user.email_verified:
+        return MessageResponse(message="Your email is already verified.")
+
+    token = secrets.token_urlsafe(32)
+
+    try:
+        import redis as redis_lib
+        r = redis_lib.from_url(get_settings().redis_url, decode_responses=True)
+        r.setex(f"{_EMAIL_VER_PREFIX}{token}", _EMAIL_VER_TTL, str(user.id))
+    except Exception:
+        logger.warning("[EMAIL-VERIFY] Redis unavailable — token not stored")
+        raise BadRequestException("Verification service temporarily unavailable. Please try again.")
+
+    app_url = get_settings().frontend_url if hasattr(get_settings(), "frontend_url") else "https://app.disha.ai"
+    verify_url = f"{app_url}/verify-email?token={token}"
+
+    html = f"""
+    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
+      <h2 style="color:#111827;margin-bottom:8px">Verify your email</h2>
+      <p style="color:#6B7280;line-height:1.6">
+        Click the button below to verify <strong>{user.email}</strong> on your Disha account.
+        This link expires in 1 hour.
+      </p>
+      <a href="{verify_url}"
+         style="display:inline-block;margin-top:20px;padding:12px 28px;background:#6366F1;
+                color:white;text-decoration:none;border-radius:10px;font-weight:700">
+        Verify Email
+      </a>
+      <p style="color:#9CA3AF;font-size:12px;margin-top:24px">
+        If you didn't request this, ignore this email.
+      </p>
+    </div>
+    """
+    provider = get_email_provider()
+    await provider.send(user.email, "Verify your Disha email address", html)
+    logger.info("[EMAIL-VERIFY] verification email sent to user_id=%s", user.id)
+    return MessageResponse(message="Verification email sent. Please check your inbox.")
+
+
+def verify_email_token(token: str, db: Session) -> "MessageResponse":
+    from app.modules.auth.schemas import MessageResponse
+
+    try:
+        import redis as redis_lib
+        r = redis_lib.from_url(get_settings().redis_url, decode_responses=True)
+        user_id = r.get(f"{_EMAIL_VER_PREFIX}{token}")
+    except Exception:
+        raise BadRequestException("Verification service temporarily unavailable. Please try again.")
+
+    if not user_id:
+        raise BadRequestException("Verification link is invalid or has expired.")
+
+    user = db.query(User).filter(User.id == int(user_id)).first()
+    if not user:
+        raise BadRequestException("Account not found.")
+    if user.email_verified:
+        return MessageResponse(message="Email already verified.")
+
+    user.email_verified = True
+    db.commit()
+
+    try:
+        import redis as redis_lib
+        r = redis_lib.from_url(get_settings().redis_url, decode_responses=True)
+        r.delete(f"{_EMAIL_VER_PREFIX}{token}")
+    except Exception:
+        pass
+
+    logger.info("[EMAIL-VERIFY] email verified for user_id=%s", user.id)
+    return MessageResponse(message="Email verified successfully.")
+

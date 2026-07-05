@@ -17,7 +17,7 @@ import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from redis import Redis
 from sqlalchemy.orm import Session
 
@@ -31,7 +31,9 @@ from app.modules.matching.schemas import (
     BulkEmailRequest, BulkEmailResponse,
     BulkStatusUpdateRequest, CandidateEmailLogOut, CandidateNoteCreateRequest, CandidateNoteOut,
     CandidateRatingRequest, DashboardKpis, EmployerFunnelResponse,
-    InterviewFeedbackOut, InterviewFeedbackSubmitRequest, OfferLetterRequest, RequestRescheduleRequest,
+    InterviewFeedbackOut, InterviewFeedbackSubmitRequest,
+    OfferLetterAcceptRequest, OfferLetterDeclineRequest, OfferLetterOut, OfferLetterRequest,
+    RequestRescheduleRequest,
     ScheduleInterviewRequest, SendCandidateEmailRequest,
     UpcomingInterviewEntry,
     JobDetail, JobPerformanceResponse, JobRecommendationsResponse, JobCandidatePipeline,
@@ -54,10 +56,23 @@ _aspirant = require_role("aspirant")
 _employer = require_employer
 
 
-def _jobs_cache_key(user_id, sector, job_type, min_salary, limit, offset) -> str:
+_VERSION_KEY_PREFIX = "jobs:recs:ver:"
+_CACHE_TTL = 300  # seconds
+
+
+def _get_user_cache_version(user_id, redis: Redis) -> int:
+    """Return the current cache version counter for a user (0 if not set)."""
+    try:
+        v = redis.get(f"{_VERSION_KEY_PREFIX}{user_id}")
+        return int(v) if v else 0
+    except Exception:
+        return 0
+
+
+def _jobs_cache_key(user_id, sector, job_type, min_salary, q, limit, offset, version: int) -> str:
     sig = hashlib.md5(
         json.dumps(
-            {"s": sector, "jt": job_type, "ms": min_salary, "l": limit, "o": offset},
+            {"s": sector, "jt": job_type, "ms": min_salary, "q": q, "l": limit, "o": offset, "v": version},
             sort_keys=True,
         ).encode()
     ).hexdigest()
@@ -65,16 +80,12 @@ def _jobs_cache_key(user_id, sector, job_type, min_salary, limit, offset) -> str
 
 
 def invalidate_jobs_cache(user_id, redis: Redis) -> None:
-    """Delete all job-recommendation cache entries for a user (scan-based)."""
+    """Increment the user's cache version counter — all existing keys become stale instantly.
+    Version-counter pattern: O(1) vs O(N) scan — safe on large keyspaces."""
     try:
-        pattern = f"jobs:recs:{user_id}:*"
-        cursor = 0
-        while True:
-            cursor, keys = redis.scan(cursor, match=pattern, count=100)
-            if keys:
-                redis.delete(*keys)
-            if cursor == 0:
-                break
+        key = f"{_VERSION_KEY_PREFIX}{user_id}"
+        redis.incr(key)
+        redis.expire(key, 86400)  # 24 h TTL so orphaned counters self-clean
     except Exception:
         pass  # Cache eviction failure is never fatal
 
@@ -86,6 +97,7 @@ def list_jobs(
     sector: Optional[str] = Query(None, description="Filter by sector (partial match)"),
     job_type: Optional[str] = Query(None, description="remote | pan_india | hybrid | onsite"),
     min_salary: Optional[int] = Query(None, description="Minimum salary in LPA"),
+    q: Optional[str] = Query(None, description="Keyword search across title and description"),
     limit: int = Query(20, ge=1, le=50),
     offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_verified_user),
@@ -93,30 +105,33 @@ def list_jobs(
     redis: Redis = Depends(get_redis),
 ):
     """Browse active job postings ranked by match score for the current aspirant."""
-    cache_key = _jobs_cache_key(current_user.id, sector, job_type, min_salary, limit, offset)
+    version = _get_user_cache_version(current_user.id, redis)
+    cache_key = _jobs_cache_key(current_user.id, sector, job_type, min_salary, q, limit, offset, version)
 
-    # Try cache first
-    try:
-        cached = redis.get(cache_key)
-        if cached:
-            return JobRecommendationsResponse.model_validate_json(cached)
-    except Exception:
-        pass
+    # Skip cache for keyword searches — results should be fresh
+    if not q:
+        try:
+            cached = redis.get(cache_key)
+            if cached:
+                return JobRecommendationsResponse.model_validate_json(cached)
+        except Exception:
+            pass
 
     try:
         result = service.get_job_recommendations(
             current_user, db,
             sector=sector, job_type=job_type,
-            min_salary=min_salary, limit=limit, offset=offset,
+            min_salary=min_salary, q=q, limit=limit, offset=offset,
         )
     except Exception as exc:
         logger.error("[MATCHING] list_jobs error: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to fetch job listings.")
 
-    try:
-        redis.setex(cache_key, _JOBS_CACHE_TTL, result.model_dump_json())
-    except Exception:
-        pass
+    if not q:
+        try:
+            redis.setex(cache_key, _JOBS_CACHE_TTL, result.model_dump_json())
+        except Exception:
+            pass
 
     return result
 
@@ -214,17 +229,88 @@ def request_interview_reschedule(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.get("/jobs/applications/{application_id}/offer-letter", response_model=OfferLetterOut)
+def get_my_offer_letter(
+    application_id: str,
+    current_user: User = Depends(_aspirant),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.get_my_offer_letter(application_id, current_user, db)
+    except NotFoundException as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/jobs/applications/{application_id}/offer-letter/pdf")
+def download_my_offer_letter_pdf(
+    application_id: str,
+    current_user: User = Depends(_aspirant),
+    db: Session = Depends(get_db),
+):
+    try:
+        pdf_bytes = service.download_my_offer_letter_pdf(application_id, current_user, db)
+    except NotFoundException as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return Response(
+        content=pdf_bytes, media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="offer_letter_{application_id[:8]}.pdf"'},
+    )
+
+
+@router.post("/jobs/applications/{application_id}/offer-letter/accept", response_model=OfferLetterOut)
+def accept_offer_letter(
+    application_id: str,
+    body: OfferLetterAcceptRequest,
+    request: Request,
+    current_user: User = Depends(_aspirant),
+    db: Session = Depends(get_db),
+):
+    """Self-serve e-signature acceptance — typed full legal name, with IP/user-agent
+    captured for an audit trail. Not a legally-binding e-signature (that needs a
+    third-party provider); see docs/ENTERPRISE_AUDIT_ROADMAP.md M2."""
+    if not body.confirm:
+        raise HTTPException(status_code=400, detail="You must confirm you have read and agree to the offer terms.")
+    try:
+        return service.accept_offer_letter(
+            application_id, body.signature_name,
+            request.client.host if request.client else None,
+            request.headers.get("user-agent"),
+            current_user, db,
+        )
+    except NotFoundException as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except BadRequestException as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/jobs/applications/{application_id}/offer-letter/decline", response_model=OfferLetterOut)
+def decline_offer_letter(
+    application_id: str,
+    body: OfferLetterDeclineRequest,
+    current_user: User = Depends(_aspirant),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.decline_offer_letter(application_id, body.reason, current_user, db)
+    except NotFoundException as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except BadRequestException as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 # ── Employer: candidate pipeline ──────────────────────────────────────────────
 
 @router.get("/employer/pipeline/{job_id}", response_model=JobCandidatePipeline)
 def get_job_pipeline(
     job_id: str,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     current_user: User = Depends(_employer),
     db: Session = Depends(get_db),
 ):
-    """Employer views all candidates who applied to a specific job."""
+    """Employer views candidates who applied to a specific job."""
     try:
-        return service.get_job_pipeline(job_id, current_user, db)
+        return service.get_job_pipeline(job_id, current_user, db, limit=limit, offset=offset)
     except (AuthException, NotFoundException) as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -299,27 +385,19 @@ async def bulk_email_candidates(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/employer/pipeline/applications/{application_id}/offer-letter")
-def generate_offer_letter(
+@router.post("/employer/pipeline/applications/{application_id}/offer-letter", response_model=OfferLetterOut)
+async def send_offer_letter(
     application_id: str,
     body: OfferLetterRequest,
     current_user: User = Depends(_employer),
     db: Session = Depends(get_db),
 ):
-    """Generate and return a PDF offer letter for a candidate.
-
-    Returns the PDF as a downloadable file. No external API required —
-    generated fully in-process using reportlab.
-    """
-    from fastapi.responses import Response as FastAPIResponse
-
+    """Create/send a persisted offer letter — emails the candidate a PDF and
+    lets them accept (e-signature) or decline in-product. Replaces the old
+    stateless "download a PDF" flow, which had no way for a candidate to
+    actually respond."""
     try:
-        pdf_bytes = service.build_offer_letter_pdf(
-            application_id=application_id,
-            body=body,
-            user=current_user,
-            db=db,
-        )
+        return await service.send_offer_letter(application_id, body, current_user, db)
     except NotFoundException as e:
         raise HTTPException(status_code=404, detail=str(e))
     except BadRequestException as e:
@@ -327,9 +405,31 @@ def generate_offer_letter(
     except RuntimeError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-    return FastAPIResponse(
-        content=pdf_bytes,
-        media_type="application/pdf",
+
+@router.get("/employer/pipeline/applications/{application_id}/offer-letter", response_model=Optional[OfferLetterOut])
+def get_offer_letter(
+    application_id: str,
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.get_offer_letter_for_employer(application_id, current_user, db)
+    except (AuthException, NotFoundException) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/employer/pipeline/applications/{application_id}/offer-letter/pdf")
+def download_offer_letter_pdf(
+    application_id: str,
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        pdf_bytes = service.download_offer_letter_pdf_employer(application_id, current_user, db)
+    except NotFoundException as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return Response(
+        content=pdf_bytes, media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="offer_letter_{application_id[:8]}.pdf"'},
     )
 

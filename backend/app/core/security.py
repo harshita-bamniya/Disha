@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -7,6 +8,8 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 from app.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
@@ -28,7 +31,8 @@ def verify_password(plain: str, hashed: str) -> bool:
 def create_access_token(payload: dict[str, Any]) -> str:
     data = payload.copy()
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.jwt_access_expire_minutes)
-    data.update({"exp": expire, "type": "access"})
+    # jti (JWT ID) is used by the Redis blacklist to invalidate individual tokens
+    data.update({"exp": expire, "type": "access", "jti": secrets.token_hex(16)})
     return jwt.encode(data, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 
@@ -97,3 +101,48 @@ def hash_otp(otp: str) -> str:
 
 def verify_otp(plain_otp: str, stored_hash: str) -> bool:
     return hash_otp(plain_otp) == stored_hash
+
+
+# ── Access token blacklist (Redis) ────────────────────────────────────────────
+# When a user logs out or an admin force-revokes a session, we can't un-issue
+# an already-signed JWT — it will stay cryptographically valid until it expires.
+# The blacklist stores revoked JTIs in Redis with a TTL matching the token's
+# remaining lifetime, so the window of vulnerability is bounded.
+
+_BLACKLIST_PREFIX = "token:revoked:"
+
+
+def _get_redis():
+    """Lazy import to avoid circular deps and unnecessary connections in workers."""
+    import redis as redis_lib
+    return redis_lib.from_url(get_settings().redis_url, decode_responses=True)
+
+
+def blacklist_access_token(token: str) -> None:
+    """Add an access token's JTI to the Redis blacklist until it expires."""
+    try:
+        payload = jwt.decode(
+            token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm],
+            options={"verify_exp": False},  # decode even if already expired
+        )
+        jti = payload.get("jti") or payload.get("sub", "")
+        exp = payload.get("exp")
+        if not jti or not exp:
+            return
+        ttl = int(exp - datetime.now(timezone.utc).timestamp())
+        if ttl <= 0:
+            return  # Already expired — no need to blacklist
+        r = _get_redis()
+        r.setex(f"{_BLACKLIST_PREFIX}{jti}", ttl, "1")
+    except Exception as exc:
+        logger.warning("[SECURITY] Could not blacklist token: %s", exc)
+
+
+def is_access_token_blacklisted(jti: str) -> bool:
+    """Returns True if the given JTI has been revoked."""
+    try:
+        r = _get_redis()
+        return r.exists(f"{_BLACKLIST_PREFIX}{jti}") == 1
+    except Exception as exc:
+        logger.warning("[SECURITY] Blacklist check failed, allowing token: %s", exc)
+        return False  # Fail open — blacklist unavailability must not lock out all users

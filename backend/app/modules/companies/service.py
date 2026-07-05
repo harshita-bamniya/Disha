@@ -538,3 +538,54 @@ def assign_member_department(
     db.refresh(target)
     target_user = db.query(User).filter(User.id == target.user_id).first()
     return _member_to_entry(target, target_user)
+
+
+# ── Team activity log ──────────────────────────────────────────────────────────
+
+def get_team_activity_log(user: User, db: Session, limit: int = 50) -> list[dict]:
+    """Return recent audit log entries for all members of the same company."""
+    from app.models.user import AuditLog
+
+    profile = _get_own_profile(user, db)
+    company = _get_company_or_404(profile, db)
+
+    # Collect user_ids for all employer profiles in this company
+    company_profiles = (
+        db.query(EmployerProfile)
+        .filter(EmployerProfile.company_id == company.id)
+        .all()
+    )
+    member_user_ids = [p.user_id for p in company_profiles]
+
+    rows = (
+        db.query(AuditLog, User)
+        .outerjoin(User, AuditLog.user_id == User.id)
+        .filter(AuditLog.user_id.in_(member_user_ids))
+        .order_by(AuditLog.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    result = []
+    for log, actor in rows:
+        result.append({
+            "id": str(log.id),
+            "action": log.action,
+            "resource": log.resource,
+            "resource_id": str(log.resource_id) if log.resource_id else None,
+            "actor_email": actor.email if actor else None,
+            "actor_name": None,  # EmployerProfile.contact_person looked up below if needed
+            "created_at": log.created_at,
+        })
+
+    # Enrich with contact_person names via a single batch lookup
+    actor_names: dict = {}
+    for p in company_profiles:
+        if p.contact_person:
+            actor_names[p.user_id] = p.contact_person
+
+    for i, (log, actor) in enumerate(rows):
+        if actor and actor.id in actor_names:
+            result[i]["actor_name"] = actor_names[actor.id]
+
+    return result

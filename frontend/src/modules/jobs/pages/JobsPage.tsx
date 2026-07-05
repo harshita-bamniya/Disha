@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Briefcase, MapPin, Wifi, AlertCircle, ChevronLeft, ChevronRight, ChevronDown, SlidersHorizontal, ArrowUpRight, IndianRupee, X, Map as MapIcon } from 'lucide-react'
+import { Briefcase, MapPin, Wifi, AlertCircle, ChevronLeft, ChevronRight, ChevronDown, SlidersHorizontal, ArrowUpRight, IndianRupee, X, Map as MapIcon, Search } from 'lucide-react'
 import AppSidebar from '@/components/layout/AppSidebar'
 import { getJobs, type JobListItem } from '@/api/matching'
 import { jobPlanApi } from '@/api/jobPlan'
@@ -173,13 +173,15 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
 export default function JobsPage() {
   const [sector, setSector] = useState('')
   const [jobType, setJobType] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [q, setQ] = useState('')
   const [page, setPage] = useState(0)
   const limit = 12
-  const hasFilters = !!(sector || jobType)
+  const hasFilters = !!(sector || jobType || q)
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['jobs', sector, jobType, page],
-    queryFn: () => getJobs({ sector: sector || undefined, job_type: jobType || undefined, limit, offset: page * limit }),
+    queryKey: ['jobs', sector, jobType, q, page],
+    queryFn: () => getJobs({ sector: sector || undefined, job_type: jobType || undefined, q: q || undefined, limit, offset: page * limit }),
   })
 
   const { data: jobPlans } = useQuery({ queryKey: ['job-plans-all'], queryFn: jobPlanApi.getAllMine })
@@ -216,6 +218,49 @@ export default function JobsPage() {
         <div style={{
           display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 24, alignItems: 'center',
         }}>
+          {/* Keyword search */}
+          <form
+            onSubmit={e => { e.preventDefault(); setQ(searchInput.trim()); setPage(0) }}
+            style={{ display: 'flex', alignItems: 'center', gap: 0, flex: '1 1 220px', maxWidth: 320 }}
+          >
+            <div style={{ position: 'relative', width: '100%' }}>
+              <Search size={14} color="#9CA3AF" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+              <input
+                type="text"
+                placeholder="Search jobs…"
+                value={searchInput}
+                onChange={e => { setSearchInput(e.target.value); if (!e.target.value) { setQ(''); setPage(0) } }}
+                style={{
+                  width: '100%', padding: '8px 36px 8px 32px',
+                  border: '1px solid #E2E8F0', borderRadius: '10px 0 0 10px',
+                  fontSize: 13, outline: 'none', color: '#0F172A', background: '#fff',
+                  boxSizing: 'border-box',
+                }}
+                onFocus={e => { e.currentTarget.style.borderColor = '#A5B4FC' }}
+                onBlur={e => { e.currentTarget.style.borderColor = '#E2E8F0' }}
+              />
+              {searchInput && (
+                <button
+                  type="button"
+                  onClick={() => { setSearchInput(''); setQ(''); setPage(0) }}
+                  style={{ position: 'absolute', right: 7, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', display: 'flex', padding: 0 }}
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+            <button
+              type="submit"
+              style={{
+                padding: '8px 12px', borderRadius: '0 10px 10px 0', border: '1px solid #E2E8F0',
+                borderLeft: 'none', background: '#6366F1', color: 'white',
+                fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+              }}
+            >
+              Search
+            </button>
+          </form>
+
           <div style={{
             display: 'flex', alignItems: 'center', gap: 7,
             background: '#EEF2FF', borderRadius: 9, padding: '7px 11px',
@@ -262,7 +307,7 @@ export default function JobsPage() {
 
           {hasFilters && (
             <button
-              onClick={() => { setSector(''); setJobType(''); setPage(0) }}
+              onClick={() => { setSector(''); setJobType(''); setSearchInput(''); setQ(''); setPage(0) }}
               style={{
                 fontSize: 12.5, fontWeight: 600, color: '#EF4444', background: 'none', border: 'none',
                 padding: '8px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,

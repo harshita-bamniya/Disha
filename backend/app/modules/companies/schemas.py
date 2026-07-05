@@ -66,13 +66,23 @@ class TeamMemberEntry(BaseModel):
     role_name: str
     is_owner: bool
     is_active: bool
+    department_id: Optional[str] = None
+    department_name: Optional[str] = None
     created_at: datetime
 
 
 class TeamInviteRequest(BaseModel):
     email: str
     contact_person: str = Field(..., min_length=1, max_length=150)
-    role_name: str = Field(..., pattern="^(hr_manager|recruiter|interviewer)$")
+    role_name: str = Field(..., pattern="^(hr_manager|recruiter|interviewer|hiring_manager)$")
+    # Optional: assign the new member directly to a department at invite time.
+    # Company-wide roles (hr_manager) should leave this null.
+    department_id: Optional[str] = None
+
+
+class AssignDepartmentRequest(BaseModel):
+    """Reassign a team member to a different department (or clear to company-wide)."""
+    department_id: Optional[str] = None
 
 
 class TransferOwnershipRequest(BaseModel):
@@ -133,8 +143,24 @@ class OfficeOut(BaseModel):
 
 class DepartmentCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=150)
+    description: Optional[str] = None
+    head_employer_id: Optional[str] = None  # EmployerProfile.id of the dept head
+
+
+class DepartmentUpdateRequest(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=150)
+    description: Optional[str] = None
+    head_employer_id: Optional[str] = None
 
 
 class DepartmentOut(BaseModel):
     id: str
     name: str
+    description: Optional[str] = None
+    head_employer_id: Optional[str] = None
+    head_name: Optional[str] = None         # contact_person of the head EmployerProfile
+    # Computed stats — populated by the service layer
+    member_count: int = 0                   # recruiters/HMs assigned to this dept
+    active_job_count: int = 0
+    total_applicant_count: int = 0
+    created_at: Optional[datetime] = None

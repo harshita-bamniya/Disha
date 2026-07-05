@@ -1,8 +1,10 @@
 from datetime import datetime
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from app.core.rbac import require_admin, require_permission, require_super_admin
@@ -42,6 +44,7 @@ from app.modules.admin.schemas import (
 )
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
+limiter = Limiter(key_func=get_remote_address)
 
 
 @router.get("/stats", response_model=AdminStatsResponse)
@@ -69,14 +72,18 @@ def global_search(
 @router.get("/employers", response_model=list[PendingEmployerResponse])
 def list_employers(
     status: Literal["pending", "approved", "all"] = "pending",
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    return service.list_employers(db, status)
+    return service.list_employers(db, status, limit=limit, offset=offset)
 
 
 @router.post("/employers/{profile_id}/revoke", response_model=MessageResponse)
+@limiter.limit("10/minute")
 def revoke_employer(
+    request: Request,
     profile_id: str,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
@@ -89,10 +96,12 @@ def revoke_employer(
 @router.get("/users", response_model=list[AspirantUserEntry])
 def list_users(
     search: Optional[str] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    return service.list_aspirants(db, search)
+    return service.list_aspirants(db, search, limit=limit, offset=offset)
 
 
 @router.get("/users/{user_id}", response_model=AspirantDetailResponse)
@@ -155,7 +164,9 @@ def update_career_track(
 
 
 @router.delete("/career-tracks/{track_id}", response_model=MessageResponse)
+@limiter.limit("10/minute")
 def delete_career_track(
+    request: Request,
     track_id: str,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
@@ -185,7 +196,9 @@ def toggle_job(
 
 
 @router.delete("/jobs/{job_id}", response_model=MessageResponse)
+@limiter.limit("10/minute")
 def delete_job(
+    request: Request,
     job_id: str,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
@@ -279,7 +292,9 @@ def update_sub_admin_role(
 
 
 @router.delete("/sub-admins/{user_id}", response_model=MessageResponse)
+@limiter.limit("10/minute")
 def delete_sub_admin(
+    request: Request,
     user_id: str,
     db: Session = Depends(get_db),
     admin: User = Depends(require_super_admin),
@@ -293,10 +308,12 @@ def delete_sub_admin(
 def list_managed_users(
     search: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     admin: User = Depends(require_permission("users", "view")),
 ):
-    return service.list_managed_users(db, search, status)
+    return service.list_managed_users(db, search, status, limit=limit, offset=offset)
 
 
 @router.patch("/user-management/{user_id}/status", response_model=MessageResponse)
@@ -337,7 +354,7 @@ def revoke_device_session(
     db: Session = Depends(get_db),
     admin: User = Depends(require_permission("users", "suspend")),
 ):
-    return service.revoke_device_session(user_id, session_id, db)
+    return service.revoke_device_session(user_id, session_id, db, actor_id=str(admin.id))
 
 
 # ── Employer KYC verification ─────────────────────────────────────────────────

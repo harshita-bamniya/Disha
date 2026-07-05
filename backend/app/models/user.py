@@ -339,16 +339,20 @@ class EmployerProfile(Base):
 
     # Company/team membership (Module 05 Phase 4) — every profile belongs to a
     # Company; the registering profile is the owner, invited teammates are not.
-    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True)
-    is_owner = Column(Boolean, nullable=False, default=False, server_default="false")
+    company_id    = Column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True)
+    is_owner      = Column(Boolean, nullable=False, default=False, server_default="false")
+    # Department assignment (Module 06). NULL = company-wide access (owner / hr_manager).
+    # Non-null = scoped to this department only (recruiter / interviewer / hiring_manager).
+    department_id = Column(UUID(as_uuid=True), ForeignKey("company_departments.id", ondelete="SET NULL"), nullable=True, index=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    user = relationship("User", back_populates="employer_profile", foreign_keys=[user_id])
-    approver = relationship("User", foreign_keys=[approved_by])
+    user       = relationship("User", back_populates="employer_profile", foreign_keys=[user_id])
+    approver   = relationship("User", foreign_keys=[approved_by])
     job_postings = relationship("JobPosting", back_populates="employer", cascade="all, delete-orphan")
-    company = relationship("Company", back_populates="members")
+    company    = relationship("Company", back_populates="members")
+    department = relationship("CompanyDepartment", foreign_keys=[department_id])
 
 
 class AuditLog(Base):
@@ -442,8 +446,11 @@ class JobPosting(Base):
     """Live job postings created by approved employers."""
     __tablename__ = "job_postings"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    employer_id = Column(UUID(as_uuid=True), ForeignKey("employer_profiles.id", ondelete="CASCADE"), nullable=False, index=True)
+    id            = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    employer_id   = Column(UUID(as_uuid=True), ForeignKey("employer_profiles.id", ondelete="CASCADE"), nullable=False, index=True)
+    # Department scoping (Module 06) — which department owns this job. Nullable for
+    # backwards-compatibility with pre-department postings; all new jobs should set this.
+    department_id = Column(UUID(as_uuid=True), ForeignKey("company_departments.id", ondelete="SET NULL"), nullable=True, index=True)
 
     title = Column(String(200), nullable=False)
     description = Column(Text, nullable=False)
@@ -468,7 +475,8 @@ class JobPosting(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    employer = relationship("EmployerProfile", back_populates="job_postings")
+    employer     = relationship("EmployerProfile", back_populates="job_postings")
+    department   = relationship("CompanyDepartment", foreign_keys=[department_id])
     preparations = relationship("UserJobPreparation", back_populates="job", cascade="all, delete-orphan")
     applications = relationship("Application", back_populates="job", cascade="all, delete-orphan")
 

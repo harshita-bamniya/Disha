@@ -1,6 +1,7 @@
 import { lazy, Suspense, Component } from 'react'
 import type { ReactNode, ErrorInfo } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom'
+import PageLoader from '@/components/PageLoader'
 
 // ── Global Error Boundary ─────────────────────────────────────────────────────
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -10,13 +11,19 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   render() {
     if (this.state.error) {
       const err = this.state.error as Error
+      const isDev = import.meta.env.DEV
       return (
         <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: '#FEF2F2' }}>
           <div style={{ maxWidth: 600, background: 'white', borderRadius: 16, padding: 32, border: '1px solid #FCA5A5', boxShadow: '0 4px 20px rgba(220,38,38,0.1)' }}>
-            <h2 style={{ fontFamily: 'Hind, sans-serif', fontSize: 20, fontWeight: 800, color: '#DC2626', marginBottom: 12 }}>App Error — please report this</h2>
-            <pre style={{ fontSize: 12, color: '#374151', background: '#F9FAFB', padding: 16, borderRadius: 8, overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-              {err.message}{'\n\n'}{err.stack}
-            </pre>
+            <h2 style={{ fontFamily: 'Hind, sans-serif', fontSize: 20, fontWeight: 800, color: '#DC2626', marginBottom: 12 }}>Something went wrong</h2>
+            <p style={{ fontSize: 14, color: '#6B7280', marginBottom: 16 }}>
+              An unexpected error occurred. Please reload the page. If the problem persists, contact support.
+            </p>
+            {isDev && (
+              <pre style={{ fontSize: 12, color: '#374151', background: '#F9FAFB', padding: 16, borderRadius: 8, overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                {err.message}{'\n\n'}{err.stack}
+              </pre>
+            )}
             <button onClick={() => window.location.reload()} style={{ marginTop: 16, padding: '10px 20px', background: '#DC2626', color: 'white', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 700 }}>
               Reload
             </button>
@@ -36,6 +43,7 @@ import { useAuthStore } from '@/stores/authStore'
 import LoginPage from '@/modules/auth/pages/LoginPage'
 import RegisterPage from '@/modules/auth/pages/RegisterPage'
 import VerifyOtpPage from '@/modules/auth/pages/VerifyOtpPage'
+import VerifyEmailPage from '@/modules/auth/pages/VerifyEmailPage'
 import EmployerRegisterPage from '@/modules/auth/pages/EmployerRegisterPage'
 import EmployerVerifyOtpPage from '@/modules/auth/pages/EmployerVerifyOtpPage'
 import EmployerPendingPage from '@/modules/auth/pages/EmployerPendingPage'
@@ -62,6 +70,9 @@ const EmployerAnalyticsPage = lazy(() => import('@/modules/employer/pages/Employ
 const TalentPoolPage = lazy(() => import('@/modules/employer/pages/TalentPoolPage'))
 const EmployerCalendarPage = lazy(() => import('@/modules/employer/pages/EmployerCalendarPage'))
 const SubscriptionPage = lazy(() => import('@/modules/employer/pages/SubscriptionPage'))
+const DepartmentsPage = lazy(() => import('@/modules/employer/pages/DepartmentsPage'))
+const JobTemplatesPage = lazy(() => import('@/modules/employer/pages/JobTemplatesPage'))
+const ReferralsPage = lazy(() => import('@/modules/employer/pages/ReferralsPage'))
 import ForgotPasswordPage from '@/modules/auth/pages/ForgotPasswordPage'
 import { PLATFORM_ADMIN_ROLES } from '@/types'
 
@@ -157,6 +168,7 @@ function App() {
           <Route path="/auth/register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
           <Route path="/auth/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
           <Route path="/auth/verify" element={<VerifyOtpPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/auth/forgot-password" element={<GuestRoute><ForgotPasswordPage /></GuestRoute>} />
           <Route path="/auth/2fa-challenge" element={<TwoFactorChallengePage />} />
 
@@ -178,55 +190,16 @@ function App() {
 
           {/* Employer dashboard */}
           <Route path="/app/employer/dashboard" element={<ProtectedRoute><EmployerDashboardPage /></ProtectedRoute>} />
-          <Route path="/app/employer/verification" element={
-            <ProtectedRoute>
-              <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
-                <EmployerVerificationPage />
-              </Suspense>
-            </ProtectedRoute>
-          } />
-          <Route path="/app/employer/setup" element={
-            <ProtectedRoute>
-              <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
-                <EmployerSetupWizardPage />
-              </Suspense>
-            </ProtectedRoute>
-          } />
-          <Route path="/app/employer/company" element={
-            <ProtectedRoute>
-              <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
-                <CompanyTeamPage />
-              </Suspense>
-            </ProtectedRoute>
-          } />
-          <Route path="/app/employer/analytics" element={
-            <ProtectedRoute>
-              <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
-                <EmployerAnalyticsPage />
-              </Suspense>
-            </ProtectedRoute>
-          } />
-          <Route path="/app/employer/talent-pool" element={
-            <ProtectedRoute>
-              <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
-                <TalentPoolPage />
-              </Suspense>
-            </ProtectedRoute>
-          } />
-          <Route path="/app/employer/calendar" element={
-            <ProtectedRoute>
-              <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
-                <EmployerCalendarPage />
-              </Suspense>
-            </ProtectedRoute>
-          } />
-          <Route path="/app/employer/subscription" element={
-            <ProtectedRoute>
-              <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
-                <SubscriptionPage />
-              </Suspense>
-            </ProtectedRoute>
-          } />
+          <Route path="/app/employer/verification" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><EmployerVerificationPage /></Suspense></ProtectedRoute>} />
+          <Route path="/app/employer/setup" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><EmployerSetupWizardPage /></Suspense></ProtectedRoute>} />
+          <Route path="/app/employer/company" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><CompanyTeamPage /></Suspense></ProtectedRoute>} />
+          <Route path="/app/employer/analytics" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><EmployerAnalyticsPage /></Suspense></ProtectedRoute>} />
+          <Route path="/app/employer/talent-pool" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><TalentPoolPage /></Suspense></ProtectedRoute>} />
+          <Route path="/app/employer/calendar" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><EmployerCalendarPage /></Suspense></ProtectedRoute>} />
+          <Route path="/app/employer/subscription" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><SubscriptionPage /></Suspense></ProtectedRoute>} />
+          <Route path="/app/employer/referrals" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><ReferralsPage /></Suspense></ProtectedRoute>} />
+          <Route path="/app/employer/templates" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><JobTemplatesPage /></Suspense></ProtectedRoute>} />
+          <Route path="/app/employer/departments" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><DepartmentsPage /></Suspense></ProtectedRoute>} />
 
           {/* Protected dashboard — gated behind onboarding completion */}
           <Route
@@ -252,80 +225,49 @@ function App() {
           <Route path="/app/security" element={<ProtectedRoute><SecuritySettingsPage /></ProtectedRoute>} />
 
           {/* Skills Report (Module 03 frontend) */}
-          <Route path="/app/skills/report" element={
-            <OnboardingGate>
-              <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
-                <SkillsReportPage />
-              </Suspense>
-            </OnboardingGate>
-          } />
-
+          <Route path="/app/skills/report" element={<OnboardingGate><Suspense fallback={<PageLoader />}><SkillsReportPage /></Suspense></OnboardingGate>} />
 
           {/* MVP2: Resume Builder */}
-          <Route path="/app/resume" element={<OnboardingGate><Suspense fallback={null}><ResumeListPage /></Suspense></OnboardingGate>} />
-          <Route path="/app/resume/:resumeId" element={<OnboardingGate><Suspense fallback={null}><ResumeEditorPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/resume" element={<OnboardingGate><Suspense fallback={<PageLoader />}><ResumeListPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/resume/:resumeId" element={<OnboardingGate><Suspense fallback={<PageLoader />}><ResumeEditorPage /></Suspense></OnboardingGate>} />
 
-          {/* Old interview routes — redirect to new mock interview */}
-          <Route path="/app/interview" element={<Navigate to="/app/mock-interview" replace />} />
-          <Route path="/app/interview/sessions/:sessionId" element={<Navigate to="/app/mock-interview" replace />} />
-          <Route path="/app/interview/sessions/:sessionId/feedback" element={<Navigate to="/app/mock-interview" replace />} />
+          {/* Old interview routes — redirect directly to setup (single hop) */}
+          <Route path="/app/interview" element={<Navigate to="/app/interview/setup" replace />} />
+          <Route path="/app/interview/sessions/:sessionId" element={<Navigate to="/app/interview/setup" replace />} />
+          <Route path="/app/interview/sessions/:sessionId/feedback" element={<Navigate to="/app/interview/setup" replace />} />
+          <Route path="/app/mock-interview" element={<Navigate to="/app/interview/setup" replace />} />
+          <Route path="/app/mock-interview/:jobId" element={<Navigate to="/app/interview/setup" replace />} />
 
           {/* ── Production AI Interview Platform ── */}
-          <Route path="/app/interview/setup" element={
-            <OnboardingGate>
-              <Suspense fallback={null}><InterviewSetupPage /></Suspense>
-            </OnboardingGate>
-          } />
-          <Route path="/app/interview/lobby/:sessionId" element={
-            <OnboardingGate>
-              <Suspense fallback={null}><InterviewLobbyPage /></Suspense>
-            </OnboardingGate>
-          } />
-          <Route path="/app/interview/room/:sessionId" element={
-            <OnboardingGate>
-              <Suspense fallback={null}><InterviewRoomPage /></Suspense>
-            </OnboardingGate>
-          } />
-          <Route path="/app/interview/report/:sessionId" element={
-            <OnboardingGate>
-              <Suspense fallback={null}><InterviewReportPage /></Suspense>
-            </OnboardingGate>
-          } />
+          <Route path="/app/interview/setup" element={<OnboardingGate><Suspense fallback={<PageLoader />}><InterviewSetupPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/interview/lobby/:sessionId" element={<OnboardingGate><Suspense fallback={<PageLoader />}><InterviewLobbyPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/interview/room/:sessionId" element={<OnboardingGate><Suspense fallback={<PageLoader />}><InterviewRoomPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/interview/report/:sessionId" element={<OnboardingGate><Suspense fallback={<PageLoader />}><InterviewReportPage /></Suspense></OnboardingGate>} />
+          {/* Structured Interview with AI-adaptive questioning */}
+          <Route path="/app/interview/structured" element={<OnboardingGate><Suspense fallback={<PageLoader />}><StructuredInterviewPage /></Suspense></OnboardingGate>} />
 
           {/* Phase 3: Job marketplace (aspirant) */}
-          <Route path="/app/jobs" element={<OnboardingGate><Suspense fallback={null}><JobsPage /></Suspense></OnboardingGate>} />
-          <Route path="/app/jobs/applications" element={<OnboardingGate><Suspense fallback={null}><MyApplicationsPage /></Suspense></OnboardingGate>} />
-          <Route path="/app/jobs/:jobId" element={<OnboardingGate><Suspense fallback={null}><JobDetailPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/jobs" element={<OnboardingGate><Suspense fallback={<PageLoader />}><JobsPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/jobs/applications" element={<OnboardingGate><Suspense fallback={<PageLoader />}><MyApplicationsPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/jobs/:jobId" element={<OnboardingGate><Suspense fallback={<PageLoader />}><JobDetailPage /></Suspense></OnboardingGate>} />
 
           {/* Phase 3: Employer candidate pipeline */}
-          <Route path="/app/employer/pipeline/:jobId" element={<ProtectedRoute><Suspense fallback={null}><CandidatePipelinePage /></Suspense></ProtectedRoute>} />
-
-          {/* Mock Interview — redirect to new AI Interview Platform */}
-          <Route path="/app/mock-interview/:jobId" element={<Navigate to="/app/interview/setup" replace />} />
-          <Route path="/app/mock-interview" element={<Navigate to="/app/interview/setup" replace />} />
-          {/* Structured Interview with AI-adaptive questioning */}
-          <Route path="/app/interview/structured" element={<OnboardingGate><Suspense fallback={null}><StructuredInterviewPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/employer/pipeline/:jobId" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><CandidatePipelinePage /></Suspense></ProtectedRoute>} />
 
           {/* Roadmap — 6-stage job-readiness system */}
-          <Route path="/app/roadmap" element={<OnboardingGate><Suspense fallback={null}><RoadmapPage /></Suspense></OnboardingGate>} />
-          <Route path="/app/roadmap/history" element={<OnboardingGate><Suspense fallback={null}><RoadmapHistoryPage /></Suspense></OnboardingGate>} />
-          <Route path="/app/quiz/:jobId/:moduleId" element={<OnboardingGate><Suspense fallback={null}><QuizPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/roadmap" element={<OnboardingGate><Suspense fallback={<PageLoader />}><RoadmapPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/roadmap/history" element={<OnboardingGate><Suspense fallback={<PageLoader />}><RoadmapHistoryPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/quiz/:jobId/:moduleId" element={<OnboardingGate><Suspense fallback={<PageLoader />}><QuizPage /></Suspense></OnboardingGate>} />
 
           {/* MVP2: AI Counsellor */}
-          <Route path="/app/counsellor" element={<OnboardingGate><Suspense fallback={null}><CounsellorPage /></Suspense></OnboardingGate>} />
-          <Route path="/app/counsellor/:convId" element={<OnboardingGate><Suspense fallback={null}><CounsellorPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/counsellor" element={<OnboardingGate><Suspense fallback={<PageLoader />}><CounsellorPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/counsellor/:convId" element={<OnboardingGate><Suspense fallback={<PageLoader />}><CounsellorPage /></Suspense></OnboardingGate>} />
 
           {/* Your Companion — emotional support companion */}
-          <Route path="/app/companion" element={<OnboardingGate><Suspense fallback={null}><CompanionPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/companion" element={<OnboardingGate><Suspense fallback={<PageLoader />}><CompanionPage /></Suspense></OnboardingGate>} />
 
           {/* Admin dashboard */}
-          <Route path="/admin" element={
-            <AdminRoute>
-              <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>}>
-                <AdminDashboardPage />
-              </Suspense>
-            </AdminRoute>
-          } />
+          <Route path="/admin" element={<AdminRoute><Suspense fallback={<PageLoader />}><AdminDashboardPage /></Suspense></AdminRoute>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

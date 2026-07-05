@@ -321,3 +321,28 @@ class TwoFactorDisableRequest(BaseModel):
 class TwoFactorVerifyLoginRequest(BaseModel):
     challenge_token: str
     code: str = Field(..., min_length=6, max_length=9)  # 6-digit TOTP or XXXX-XXXX backup code
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, v: str) -> str:
+        errors = []
+        if len(v) < 8:
+            errors.append("at least 8 characters")
+        if len(v) > 128:
+            raise ValueError("Password must not exceed 128 characters")
+        if not re.search(r"[A-Z]", v):
+            errors.append("one uppercase letter")
+        if not re.search(r"[a-z]", v):
+            errors.append("one lowercase letter")
+        if not re.search(r"\d", v):
+            errors.append("one number")
+        if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", v):
+            errors.append("one special character (!@#$%^&*...)")
+        if errors:
+            raise ValueError("Password must contain: " + ", ".join(errors))
+        return v

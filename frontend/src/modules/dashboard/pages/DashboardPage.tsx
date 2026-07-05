@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useKrsDashboard, useLiveJobs, usePrepareJob, useUnprepareJob } from '../hooks/useKrs'
-import { MapPin, Map, BookOpen, ExternalLink, X, CheckCircle2, TrendingUp, Zap, Target, ArrowUpRight, Sparkles, ChevronRight, Bell, Mic, FileText } from 'lucide-react'
+import { MapPin, Map, BookOpen, ExternalLink, X, CheckCircle2, TrendingUp, Zap, Target, ArrowUpRight, Sparkles, ChevronRight, Bell, Mic, FileText, ClipboardList, Mail } from 'lucide-react'
+import { useOnboardingStatus } from '@/modules/onboarding/hooks/useOnboarding'
 import type { LiveJob } from '@/api/krs'
 import { formatSalary } from '@/api/jobs'
 import AppSidebar from '@/components/layout/AppSidebar'
@@ -12,6 +13,7 @@ import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { applyToJob, getMyApplications } from '@/api/matching'
 import { jobPlanApi } from '@/api/jobPlan'
 import { getApiError } from '@/api/client'
+import { authApi } from '@/api/auth'
 import ProfileCompletionCard from '../components/ProfileCompletionCard'
 
 const SECTOR_COLORS: Record<string, [string, string]> = {
@@ -499,6 +501,7 @@ export default function DashboardPage() {
   const qc = useQueryClient()
   const { data, isLoading, error } = useKrsDashboard()
   const { data: liveJobs, isLoading: jobsLoading } = useLiveJobs()
+  const { data: onboarding } = useOnboardingStatus()
   const { data: myApps } = useQuery({ queryKey: ['my-applications'], queryFn: getMyApplications })
   const appliedJobIds = new Set((myApps ?? []).map(a => a.job_id))
   // Tracks which jobs already have a generated roadmap, so the card can offer
@@ -510,12 +513,27 @@ export default function DashboardPage() {
   const unprepareJob = useUnprepareJob()
   const { startPrep } = useActivePrepJob()
 
+  const { data: currentUser } = useQuery({ queryKey: ['me'], queryFn: authApi.me, staleTime: 5 * 60 * 1000 })
+  const [emailVerifSent, setEmailVerifSent] = useState(false)
+  const [emailBannerDismissed, setEmailBannerDismissed] = useState(false)
+  const sendVerifMutation = useMutation({
+    mutationFn: authApi.sendEmailVerification,
+    onSuccess: () => setEmailVerifSent(true),
+  })
+  const showEmailBanner = !emailBannerDismissed && !!currentUser?.email && !currentUser.email_verified
+
   const [selectedJob,    setSelectedJob]    = useState<LiveJob | null>(null)
   const [applyJob,       setApplyJob]       = useState<LiveJob | null>(null)
   const [preparingJobId, setPreparingJobId] = useState<string | null>(null)
   const [skillGapJob,    setSkillGapJob]    = useState<LiveJob | null>(null)
   const [jobPage,        setJobPage]        = useState(0)
+  const [bannerDismissed, setBannerDismissed] = useState(false)
   const JOBS_PER_PAGE = 1
+
+  const onboardingStep = onboarding?.current_step ?? 1
+  const onboardingDone = onboarding?.is_completed ?? false
+  const showOnboardingBanner = !bannerDismissed && !onboardingDone && onboardingStep >= 2 && onboardingStep < 7
+  const onboardingPct = Math.round(((onboardingStep - 1) / 6) * 100)
 
   const handlePrepare = async (job: LiveJob) => {
     setPreparingJobId(job.id)
@@ -671,6 +689,94 @@ export default function DashboardPage() {
 
           {data && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+              {/* ── Email verification banner ── */}
+              {showEmailBanner && (
+                <div style={{
+                  background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 14,
+                  padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 14,
+                }}>
+                  <Mail size={18} color="#D97706" style={{ flexShrink: 0 }} />
+                  <div style={{ flex: 1 }}>
+                    {emailVerifSent ? (
+                      <p style={{ fontSize: 13, color: '#92400E', margin: 0, fontWeight: 600 }}>
+                        Verification email sent to <strong>{currentUser?.email}</strong> — check your inbox.
+                      </p>
+                    ) : (
+                      <p style={{ fontSize: 13, color: '#92400E', margin: 0 }}>
+                        <strong>Verify your email</strong> — {currentUser?.email} is unverified.
+                        Some notifications won't reach you until this is done.
+                      </p>
+                    )}
+                  </div>
+                  {!emailVerifSent && (
+                    <button
+                      onClick={() => sendVerifMutation.mutate()}
+                      disabled={sendVerifMutation.isPending}
+                      style={{
+                        flexShrink: 0, padding: '6px 14px', borderRadius: 8, border: 'none',
+                        background: '#D97706', color: 'white', fontSize: 12.5, fontWeight: 700,
+                        cursor: sendVerifMutation.isPending ? 'not-allowed' : 'pointer',
+                        opacity: sendVerifMutation.isPending ? 0.7 : 1,
+                      }}
+                    >
+                      {sendVerifMutation.isPending ? 'Sending…' : 'Send Link'}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setEmailBannerDismissed(true)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#D97706', padding: 2, flexShrink: 0, display: 'flex' }}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              )}
+
+              {/* ── Onboarding progress banner ── */}
+              {showOnboardingBanner && (
+                <div style={{
+                  background: 'linear-gradient(135deg, #EEF2FF, #F0FDF4)',
+                  border: '1px solid #C7D2FE',
+                  borderRadius: 14, padding: '14px 18px',
+                  display: 'flex', alignItems: 'center', gap: 14,
+                }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 10,
+                    background: 'linear-gradient(135deg, #6366F1, #818CF8)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  }}>
+                    <ClipboardList size={16} color="white" />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: 13.5, fontWeight: 700, color: '#1E293B', margin: '0 0 4px' }}>
+                      Your profile is {onboardingPct}% complete
+                    </p>
+                    <div style={{ height: 5, borderRadius: 5, background: '#E0E7FF', overflow: 'hidden', maxWidth: 240 }}>
+                      <div style={{ height: '100%', width: `${onboardingPct}%`, background: 'linear-gradient(90deg, #6366F1, #818CF8)', borderRadius: 5, transition: 'width 0.6s ease' }} />
+                    </div>
+                    <p style={{ fontSize: 12, color: '#64748B', margin: '4px 0 0' }}>
+                      Complete your profile to unlock better job matches and your KRS score.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => navigate(`/app/onboarding/step/${onboardingStep}`)}
+                    style={{
+                      padding: '8px 16px', borderRadius: 9, border: 'none',
+                      background: '#6366F1', color: 'white',
+                      fontSize: 12.5, fontWeight: 700, cursor: 'pointer', flexShrink: 0,
+                      display: 'flex', alignItems: 'center', gap: 6,
+                    }}
+                  >
+                    Continue <ChevronRight size={13} />
+                  </button>
+                  <button
+                    onClick={() => setBannerDismissed(true)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', flexShrink: 0, display: 'flex' }}
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              )}
 
               {/* ── RECOMMENDED JOBS + SIDEBAR ── */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24, alignItems: 'start' }}>

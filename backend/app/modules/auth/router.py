@@ -1,15 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.core.captcha import verify_recaptcha
 from app.core.rbac import get_current_user
 from app.database import get_db
 from app.models.user import User
 from app.modules.auth import service
 from app.modules.auth.schemas import (
-    EmployerRegisterRequest, EmployerRegisterResponse,
+    ChangePasswordRequest, EmployerRegisterRequest, EmployerRegisterResponse,
     ForgotPasswordRequest, ResetPasswordRequest,
     GoogleLoginRequest, LoginRequest, MessageResponse, RefreshRequest,
     RegisterRequest, SendOtpRequest, TokenResponse,
@@ -20,6 +22,14 @@ from app.modules.auth.schemas import (
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 limiter = Limiter(key_func=get_remote_address)
+_settings = get_settings()
+
+
+def _dev_otp(otp: str | None) -> str | None:
+    """Return the OTP only in local development. Belt-and-suspenders guard —
+    the service layer already filters this, but we enforce it here too so no
+    code path can accidentally leak a live OTP into a production response."""
+    return otp if _settings.environment == "local" else None
 
 
 @router.post("/register", response_model=MessageResponse, status_code=201)
@@ -38,7 +48,7 @@ async def register(body: RegisterRequest, request: Request, db: Session = Depend
     )
     return MessageResponse(
         message="Account created. Please verify your phone number with the OTP sent.",
-        dev_otp=dev_otp or None,
+        dev_otp=_dev_otp(dev_otp),
     )
 
 
@@ -54,7 +64,7 @@ async def send_otp(body: SendOtpRequest, request: Request, db: Session = Depends
     dev_otp = await service.send_otp(phone=body.phone, purpose=body.purpose, db=db)
     return MessageResponse(
         message="OTP sent successfully.",
-        dev_otp=dev_otp or None,
+        dev_otp=_dev_otp(dev_otp),
     )
 
 
@@ -77,8 +87,16 @@ def refresh(body: RefreshRequest, request: Request, db: Session = Depends(get_db
 
 
 @router.post("/logout", response_model=MessageResponse)
-def logout(body: RefreshRequest, db: Session = Depends(get_db)):
+def logout(
+    body: RefreshRequest,
+    credentials: HTTPAuthorizationCredentials | None = Depends(HTTPBearer(auto_error=False)),
+    db: Session = Depends(get_db),
+):
     service.logout_user(raw_refresh_token=body.refresh_token, db=db)
+    # Immediately blacklist the current access token so it can't be reused
+    if credentials:
+        from app.core.security import blacklist_access_token
+        blacklist_access_token(credentials.credentials)
     return MessageResponse(message="Logged out successfully.")
 
 
@@ -97,7 +115,7 @@ async def forgot_password(body: ForgotPasswordRequest, request: Request, db: Ses
     dev_otp = await service.request_password_reset(phone=body.phone, db=db)
     return MessageResponse(
         message="OTP sent to your phone. Use it to reset your password.",
-        dev_otp=dev_otp or None,
+        dev_otp=_dev_otp(dev_otp),
     )
 
 
@@ -173,3 +191,22 @@ def enable_2fa(body: TwoFactorEnableRequest, request: Request, current_user: Use
 @limiter.limit("5/minute")
 def disable_2fa(body: TwoFactorDisableRequest, request: Request, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return service.disable_2fa(current_user, body.password, db)
+
+
+@router.post("/change-password", response_model=MessageResponse)
+@limiter.limit("5/minute")
+def change_password(body: ChangePasswordRequest, request: Request, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return service.change_password(current_user, body.current_password, body.new_password, db)
+
+
+# ── Email verification ────────────────────────────────────────────────────────
+
+@router.post("/send-email-verification", response_model=MessageResponse)
+@limiter.limit("3/minute;10/hour")
+async def send_email_verification(request: Request, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return await service.send_email_verification(current_user, db)
+
+
+@router.get("/verify-email", response_model=MessageResponse)
+def verify_email(token: str, db: Session = Depends(get_db)):
+    return service.verify_email_token(token, db)

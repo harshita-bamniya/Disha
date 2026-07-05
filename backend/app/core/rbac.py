@@ -4,7 +4,7 @@ from jose import JWTError
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import AuthException, ForbiddenException, InvalidTokenException
-from app.core.security import decode_access_token
+from app.core.security import decode_access_token, is_access_token_blacklisted
 from app.database import get_db
 from app.models.user import User
 
@@ -22,6 +22,11 @@ def get_current_user(
     try:
         payload = decode_access_token(token)
     except JWTError:
+        raise InvalidTokenException()
+
+    # Check Redis blacklist — catches tokens revoked via logout or admin force-revoke
+    jti = payload.get("jti")
+    if jti and is_access_token_blacklisted(jti):
         raise InvalidTokenException()
 
     user_id: str | None = payload.get("sub")

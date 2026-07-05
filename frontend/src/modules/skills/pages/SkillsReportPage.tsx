@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { RefreshCw, Zap, Brain, Target, TrendingUp, CheckCircle2, AlertCircle, ArrowUpRight, Shield, BarChart3 } from 'lucide-react'
+import { RefreshCw, Zap, Brain, Target, TrendingUp, CheckCircle2, AlertCircle, ArrowUpRight, Shield, BarChart3, ClipboardList } from 'lucide-react'
 import AppSidebar from '@/components/layout/AppSidebar'
 import { useKrsDashboard, useRecompute } from '@/modules/dashboard/hooks/useKrs'
+import { useOnboardingStatus } from '@/modules/onboarding/hooks/useOnboarding'
 
 function useCountUp(target: number, duration = 1200, run = false) {
   const [val, setVal] = useState(0)
@@ -122,6 +123,7 @@ export default function SkillsReportPage() {
   const navigate = useNavigate()
   const { data, isLoading, error } = useKrsDashboard()
   const recompute = useRecompute()
+  const { data: onboarding } = useOnboardingStatus()
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
@@ -129,6 +131,8 @@ export default function SkillsReportPage() {
   }, [data])
 
   const composite = data ? Math.round((data.krs.k_score + data.krs.r_score + data.krs.s_score) / 3) : 0
+  const onboardingIncomplete = onboarding && !onboarding.is_completed && (onboarding.current_step ?? 1) < 6
+  const nextOnboardingStep = onboarding?.current_step ?? 2
 
   return (
     <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
@@ -165,19 +169,57 @@ export default function SkillsReportPage() {
         </header>
 
         <main style={{ padding: '28px', flex: 1, background: '#FAFBFD' }}>
-          {isLoading && (
+
+          {/* Onboarding incomplete empty state */}
+          {onboardingIncomplete && !isLoading && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+              <div style={{
+                background: 'white', border: '1px solid #E5E9F2', borderRadius: 20,
+                padding: '48px 40px', maxWidth: 440, textAlign: 'center',
+                boxShadow: '0 10px 30px rgba(15,23,42,0.07)',
+              }}>
+                <div style={{
+                  width: 64, height: 64, borderRadius: 18,
+                  background: 'linear-gradient(135deg, #EEF2FF, #E0E7FF)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px',
+                }}>
+                  <ClipboardList size={28} color="#6366F1" />
+                </div>
+                <h2 style={{ fontSize: 20, fontWeight: 700, color: '#111827', marginBottom: 10 }}>
+                  Complete your profile to unlock your KRS score
+                </h2>
+                <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.6, marginBottom: 28 }}>
+                  Your Skill Intelligence Report is generated from your education, work experience, and skills. Finish setting up your profile to see your personalised score.
+                </p>
+                <button
+                  onClick={() => navigate(`/app/onboarding/step/${nextOnboardingStep}`)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    padding: '11px 24px', borderRadius: 10, border: 'none',
+                    background: 'linear-gradient(135deg, #6366F1, #818CF8)',
+                    color: 'white', fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                  }}
+                >
+                  Continue profile setup
+                  <ArrowUpRight size={15} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!onboardingIncomplete && isLoading && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
               <div style={{ width: 32, height: 32, border: '3px solid #6366F1', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
             </div>
           )}
 
-          {error && (
+          {!onboardingIncomplete && error && (
             <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 14, padding: '14px 18px', color: '#DC2626', fontSize: 14 }}>
               Could not load your skill report. Please refresh.
             </div>
           )}
 
-          {data && (
+          {!onboardingIncomplete && data && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 900, margin: '0 auto' }}>
 
               {/* ── HERO ── */}

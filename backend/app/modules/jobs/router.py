@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.rbac import get_current_verified_user, require_employer, require_permission
@@ -21,11 +21,14 @@ _employer = require_employer
 
 @router.get("/dashboard", response_model=EmployerDashboardResponse)
 def get_dashboard(
+    department_id: str | None = Query(None, description="Filter jobs by department ID"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_verified_user),
     db: Session = Depends(get_db),
 ):
     try:
-        return service.get_dashboard(current_user, db)
+        return service.get_dashboard(current_user, db, department_id=department_id, limit=limit, offset=offset)
     except (AuthException, BadRequestException) as e:
         raise HTTPException(status_code=403, detail=e.detail)
 

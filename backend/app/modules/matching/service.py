@@ -95,6 +95,7 @@ def get_job_recommendations(
     sector: Optional[str] = None,
     job_type: Optional[str] = None,
     min_salary: Optional[int] = None,
+    q: Optional[str] = None,
     limit: int = 20,
     offset: int = 0,
 ) -> JobRecommendationsResponse:
@@ -115,16 +116,33 @@ def get_job_recommendations(
         sql_filters.append(JobPosting.job_type == job_type)
     if min_salary is not None:
         sql_filters.append(JobPosting.salary_min >= min_salary)
+    if q:
+        keyword = f"%{q}%"
+        from sqlalchemy import or_
+        sql_filters.append(
+            or_(
+                JobPosting.title.ilike(keyword),
+                JobPosting.description.ilike(keyword),
+            )
+        )
 
-    # Load application history for collaborative filtering
+    # Load application history for collaborative filtering.
+    # Cap at 2000 most-recent rows so we never pull the full table into memory.
     from app.models.mvp3 import Application as AppModel
-    all_apps = db.query(AppModel).all()
+    recent_apps = (
+        db.query(AppModel.aspirant_id, AppModel.job_id)
+        .order_by(AppModel.applied_at.desc())
+        .limit(2000)
+        .all()
+    )
     application_history = [
         {"user_id": str(a.aspirant_id), "job_id": str(a.job_id)}
-        for a in all_apps
+        for a in recent_apps
     ]
+    # Fetch only this user's applied job IDs — no need to scan the full table.
     user_applied_ids = [
-        str(a.job_id) for a in all_apps if str(a.aspirant_id) == str(user.id)
+        str(a.job_id)
+        for a in db.query(AppModel.job_id).filter(AppModel.aspirant_id == user.id).all()
     ]
 
     page, total = rank_jobs_for_user(
@@ -529,8 +547,8 @@ def _get_scoped_job_ids(profile: EmployerProfile, company_employer_ids: list, ro
     return [r[0] for r in q.all()]
 
 
-def get_job_pipeline(job_id: str, user: User, db: Session) -> JobCandidatePipeline:
-    """Return all applications for a job, enriched with aspirant profiles."""
+def get_job_pipeline(job_id: str, user: User, db: Session, limit: int = 100, offset: int = 0) -> JobCandidatePipeline:
+    """Return applications for a job (paginated), enriched with aspirant profiles."""
     employer = _get_employer_profile_approved(user, db)
     company_employer_ids = _get_company_employer_ids(employer, db)
     q = db.query(JobPosting).filter(
@@ -541,13 +559,14 @@ def get_job_pipeline(job_id: str, user: User, db: Session) -> JobCandidatePipeli
     if not job:
         raise NotFoundException("Job not found.")
 
-    apps = (
+    apps_q = (
         db.query(Application)
         .options(joinedload(Application.status_history))
         .filter(Application.job_id == job_id)
         .order_by(Application.match_score.desc())
-        .all()
     )
+    total_applications = apps_q.count()
+    apps = apps_q.offset(offset).limit(limit).all()
 
     by_status: dict[str, int] = {}
     candidates: list[CandidateOut] = []
@@ -693,7 +712,7 @@ def get_job_pipeline(job_id: str, user: User, db: Session) -> JobCandidatePipeli
     return JobCandidatePipeline(
         job_id=str(job.id),
         job_title=job.title,
-        total_applications=len(apps),
+        total_applications=total_applications,
         by_status=by_status,
         candidates=candidates,
     )

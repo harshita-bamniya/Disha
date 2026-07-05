@@ -2,11 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { jobsApi } from '@/api/jobs'
 import type { JobPostingPayload, VerificationDocType } from '@/api/jobs'
 import { companyApi, subscriptionApi } from '@/api/company'
-import type { CompanyProfileUpdatePayload, EmployerProfileUpdatePayload, TeamInvitePayload } from '@/api/company'
+import type { CompanyProfileUpdatePayload, EmployerProfileUpdatePayload, TeamInvitePayload, DepartmentCreatePayload, DepartmentUpdatePayload } from '@/api/company'
 import { analyticsApi } from '@/api/analytics'
 import { getUpcomingInterviews } from '@/api/matching'
 
-const DASHBOARD_KEY = ['employer', 'dashboard']
+const DASHBOARD_KEY = (departmentId?: string) => ['employer', 'dashboard', departmentId ?? '']
 const KPIS_KEY = ['employer', 'dashboard', 'kpis']
 const TREND_KEY = (days: number) => ['employer', 'dashboard', 'trend', days]
 const VERIFICATION_KEY = ['employer', 'verification']
@@ -18,18 +18,24 @@ const SUBSCRIPTION_KEY = ['employer', 'subscription']
 const SUBSCRIPTION_USAGE_KEY = ['employer', 'subscription', 'usage']
 const SUBSCRIPTION_PLANS_KEY = ['employer', 'subscription', 'plans']
 
-export function useEmployerDashboard() {
+export function useEmployerDashboard(departmentId?: string) {
   // is_approved (and the "verification required" banner it drives) can change
   // from an admin's session at any time — the 5-min global staleTime would
   // otherwise show a stale "still pending" banner for up to 5 minutes after
   // approval whenever the employer navigates back without a hard refresh.
-  return useQuery({ queryKey: DASHBOARD_KEY, queryFn: jobsApi.getDashboard, staleTime: 0 })
+  return useQuery({
+    queryKey: DASHBOARD_KEY(departmentId),
+    queryFn: () => jobsApi.getDashboard(departmentId),
+    staleTime: 0,
+  })
 }
 
 const PERMISSIONS_KEY = ['employer', 'permissions']
 
 export function useEmployerPermissions() {
-  return useQuery({ queryKey: PERMISSIONS_KEY, queryFn: jobsApi.getMyPermissions, staleTime: 5 * 60 * 1000 })
+  // staleTime: 0 ensures sub-admins always get fresh permissions/department scope
+  // on every page mount — prevents stale scoping after an employer changes their dept
+  return useQuery({ queryKey: PERMISSIONS_KEY, queryFn: jobsApi.getMyPermissions, staleTime: 0 })
 }
 
 /** Returns true if the current company-side user has the given "resource:action"
@@ -74,7 +80,7 @@ export function useCreateJob() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: JobPostingPayload) => jobsApi.createJob(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['employer', 'dashboard'] }),
   })
 }
 
@@ -104,7 +110,7 @@ export function useBulkImportJobs() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (file: File) => jobsApi.bulkImportJobs(file),
-    onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['employer', 'dashboard'] }),
   })
 }
 
@@ -112,7 +118,7 @@ export function useUpdateJob() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: JobPostingPayload }) => jobsApi.updateJob(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['employer', 'dashboard'] }),
   })
 }
 
@@ -120,7 +126,7 @@ export function usePublishJob() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => jobsApi.publishJob(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['employer', 'dashboard'] }),
   })
 }
 
@@ -128,7 +134,7 @@ export function usePauseJob() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => jobsApi.pauseJob(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['employer', 'dashboard'] }),
   })
 }
 
@@ -136,7 +142,7 @@ export function useCloseJob() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => jobsApi.closeJob(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['employer', 'dashboard'] }),
   })
 }
 
@@ -144,7 +150,7 @@ export function useReopenJob() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => jobsApi.reopenJob(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['employer', 'dashboard'] }),
   })
 }
 
@@ -152,7 +158,7 @@ export function useArchiveJob() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => jobsApi.archiveJob(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['employer', 'dashboard'] }),
   })
 }
 
@@ -160,7 +166,7 @@ export function useDuplicateJob() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => jobsApi.duplicateJob(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['employer', 'dashboard'] }),
   })
 }
 
@@ -168,7 +174,7 @@ export function useDeleteJob() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => jobsApi.deleteJob(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['employer', 'dashboard'] }),
   })
 }
 
@@ -241,6 +247,12 @@ export function useTeamMembers() {
   return useQuery({ queryKey: TEAM_KEY, queryFn: companyApi.listTeam })
 }
 
+const TEAM_ACTIVITY_KEY = ['employer', 'company', 'team', 'activity']
+
+export function useTeamActivity() {
+  return useQuery({ queryKey: TEAM_ACTIVITY_KEY, queryFn: () => companyApi.getTeamActivity(50) })
+}
+
 export function useInviteTeamMember() {
   const qc = useQueryClient()
   return useMutation({
@@ -292,7 +304,16 @@ export function useDepartments() {
 export function useCreateDepartment() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (name: string) => companyApi.createDepartment(name),
+    mutationFn: (payload: DepartmentCreatePayload) => companyApi.createDepartment(payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: DEPARTMENTS_KEY }),
+  })
+}
+
+export function useUpdateDepartment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: DepartmentUpdatePayload }) =>
+      companyApi.updateDepartment(id, payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: DEPARTMENTS_KEY }),
   })
 }
@@ -302,6 +323,22 @@ export function useDeleteDepartment() {
   return useMutation({
     mutationFn: (departmentId: string) => companyApi.deleteDepartment(departmentId),
     onSuccess: () => qc.invalidateQueries({ queryKey: DEPARTMENTS_KEY }),
+  })
+}
+
+export function useAssignMemberDepartment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ employerProfileId, departmentId }: { employerProfileId: string; departmentId: string | null }) =>
+      companyApi.assignMemberDepartment(employerProfileId, departmentId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: DEPARTMENTS_KEY })
+      qc.invalidateQueries({ queryKey: TEAM_KEY })
+      // Invalidate permissions so the affected sub-admin sees updated scope on next mount
+      qc.invalidateQueries({ queryKey: PERMISSIONS_KEY })
+      // Invalidate dashboard so the employer's job list re-scopes immediately
+      qc.invalidateQueries({ queryKey: ['employer', 'dashboard'] })
+    },
   })
 }
 

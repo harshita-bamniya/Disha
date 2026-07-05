@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import Optional
-from pydantic import BaseModel
+from typing import Literal, Optional
+from pydantic import BaseModel, Field
 
 
 # ── Aspirant detail (full profile modal) ─────────────────────────────────────
@@ -307,8 +307,8 @@ class SubAdminRoleUpdateRequest(BaseModel):
 # ── User management: status, login history, sessions ─────────────────────────
 
 class UserStatusUpdateRequest(BaseModel):
-    status: str   # active | suspended | banned
-    reason: Optional[str] = None
+    status: Literal["active", "suspended", "banned"]
+    reason: Optional[str] = Field(None, max_length=500)
 
 
 class LoginHistoryEntry(BaseModel):
@@ -369,9 +369,9 @@ class EmployerVerificationDetail(EmployerVerificationEntry):
 
 
 class VerificationReviewRequest(BaseModel):
-    action: str   # under_review | approve | reject
-    notes: Optional[str] = None
-    rejection_reason: Optional[str] = None
+    action: Literal["under_review", "approve", "reject"]
+    notes: Optional[str] = Field(None, max_length=1000)
+    rejection_reason: Optional[str] = Field(None, max_length=500)
 
 
 class UserManagementEntry(BaseModel):

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import AuthException, BadRequestException, ForbiddenException, NotFoundException
@@ -8,8 +8,10 @@ from app.database import get_db
 from app.models.user import User
 from app.modules.companies import service
 from app.modules.companies.schemas import (
+    AssignDepartmentRequest,
     CompanyAssetUploadResponse, CompanyProfileResponse, CompanyProfileUpdateRequest,
-    CompanySubscriptionResponse, DepartmentCreateRequest, DepartmentOut,
+    CompanySubscriptionResponse,
+    DepartmentCreateRequest, DepartmentOut, DepartmentUpdateRequest,
     EmployerProfileSelfResponse, EmployerProfileUpdateRequest,
     MessageResponse, OfficeCreateRequest, OfficeOut,
     SubscriptionPlanEntry, SubscriptionUpgradeRequest, SubscriptionUsageResponse,
@@ -213,6 +215,31 @@ def create_department(
         raise HTTPException(status_code=_status_for(e), detail=str(e))
 
 
+@router.get("/departments/{department_id}", response_model=DepartmentOut)
+def get_department(
+    department_id: str,
+    current_user: User = Depends(require_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.get_department(current_user, department_id, db)
+    except _company_errors as e:
+        raise HTTPException(status_code=_status_for(e), detail=str(e))
+
+
+@router.patch("/departments/{department_id}", response_model=DepartmentOut)
+def update_department(
+    department_id: str,
+    body: DepartmentUpdateRequest,
+    current_user: User = Depends(require_permission("companies", "edit")),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.update_department(current_user, department_id, body, db)
+    except _company_errors as e:
+        raise HTTPException(status_code=_status_for(e), detail=str(e))
+
+
 @router.delete("/departments/{department_id}", response_model=MessageResponse)
 def delete_department(
     department_id: str,
@@ -221,6 +248,33 @@ def delete_department(
 ):
     try:
         return service.delete_department(current_user, department_id, db)
+    except _company_errors as e:
+        raise HTTPException(status_code=_status_for(e), detail=str(e))
+
+
+@router.get("/team/activity")
+def get_team_activity(
+    limit: int = Query(50, ge=1, le=200),
+    current_user: User = Depends(require_permission("team", "invite")),
+    db: Session = Depends(get_db),
+):
+    """Recent audit log entries for all members of the current company (owners only)."""
+    try:
+        return service.get_team_activity_log(current_user, db, limit=limit)
+    except _company_errors as e:
+        raise HTTPException(status_code=_status_for(e), detail=str(e))
+
+
+@router.patch("/team/{employer_profile_id}/department", response_model=TeamMemberEntry)
+def assign_member_department(
+    employer_profile_id: str,
+    body: AssignDepartmentRequest,
+    current_user: User = Depends(require_permission("team", "invite")),
+    db: Session = Depends(get_db),
+):
+    """Assign or move a team member to a department. Pass department_id=null to give company-wide access."""
+    try:
+        return service.assign_member_department(current_user, employer_profile_id, body, db)
     except _company_errors as e:
         raise HTTPException(status_code=_status_for(e), detail=str(e))
 

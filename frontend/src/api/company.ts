@@ -54,12 +54,15 @@ export interface TeamMemberEntry {
   is_owner: boolean
   is_active: boolean
   created_at: string
+  department_id: string | null
+  department_name: string | null
 }
 
 export interface TeamInvitePayload {
   email: string
   contact_person: string
-  role_name: 'hr_manager' | 'recruiter' | 'interviewer'
+  role_name: 'hr_manager' | 'recruiter' | 'interviewer' | 'hiring_manager'
+  department_id?: string
 }
 
 export interface SubscriptionPlanEntry {
@@ -112,6 +115,25 @@ export interface OfficeEntry {
 export interface DepartmentEntry {
   id: string
   name: string
+  description: string | null
+  head_employer_id: string | null
+  head_name: string | null
+  member_count: number
+  active_job_count: number
+  total_applicant_count: number
+  created_at: string | null
+}
+
+export interface DepartmentCreatePayload {
+  name: string
+  description?: string
+  head_employer_id?: string
+}
+
+export interface DepartmentUpdatePayload {
+  name?: string
+  description?: string
+  head_employer_id?: string | null
 }
 
 export const companyApi = {
@@ -166,9 +188,31 @@ export const companyApi = {
   listDepartments: () =>
     apiClient.get<DepartmentEntry[]>('/employer/company/departments').then(r => r.data),
 
-  createDepartment: (name: string) =>
-    apiClient.post<DepartmentEntry>('/employer/company/departments', { name }).then(r => r.data),
+  getDepartment: (departmentId: string) =>
+    apiClient.get<DepartmentEntry>(`/employer/company/departments/${departmentId}`).then(r => r.data),
+
+  createDepartment: (payload: DepartmentCreatePayload) =>
+    apiClient.post<DepartmentEntry>('/employer/company/departments', payload).then(r => r.data),
+
+  updateDepartment: (departmentId: string, payload: DepartmentUpdatePayload) =>
+    apiClient.patch<DepartmentEntry>(`/employer/company/departments/${departmentId}`, payload).then(r => r.data),
 
   deleteDepartment: (departmentId: string) =>
     apiClient.delete<{ message: string }>(`/employer/company/departments/${departmentId}`).then(r => r.data),
+
+  assignMemberDepartment: (employerProfileId: string, departmentId: string | null) =>
+    apiClient.patch<TeamMemberEntry>(`/employer/company/team/${employerProfileId}/department`, { department_id: departmentId }).then(r => r.data),
+
+  getTeamActivity: (limit = 50) =>
+    apiClient.get<TeamActivityEntry[]>('/employer/company/team/activity', { params: { limit } }).then(r => r.data),
+}
+
+export interface TeamActivityEntry {
+  id: string
+  action: string
+  resource: string | null
+  resource_id: string | null
+  actor_email: string | null
+  actor_name: string | null
+  created_at: string
 }

@@ -93,7 +93,7 @@ def _employer_to_response(profile: EmployerProfile, user: User, job_count: int =
     )
 
 
-def list_employers(db: Session, status: str = "pending") -> list[PendingEmployerResponse]:
+def list_employers(db: Session, status: str = "pending", limit: int = 100, offset: int = 0) -> list[PendingEmployerResponse]:
     """Return employers filtered by status: pending | approved | all."""
     from app.models.mvp3 import Application
 
@@ -112,7 +112,7 @@ def list_employers(db: Session, status: str = "pending") -> list[PendingEmployer
         query = query.filter(EmployerProfile.is_approved == True)
 
     query = query.order_by(EmployerProfile.created_at.desc())
-    rows = query.all()
+    rows = query.offset(offset).limit(limit).all()
 
     # Batch-fetch job counts + application counts
     emp_ids = [str(p.id) for p, _ in rows]
@@ -231,7 +231,7 @@ def get_stats(db: Session) -> AdminStatsResponse:
 
 # ── Aspirant user management ──────────────────────────────────────────────────
 
-def list_aspirants(db: Session, search: str | None = None) -> list[AspirantUserEntry]:
+def list_aspirants(db: Session, search: str | None = None, limit: int = 100, offset: int = 0) -> list[AspirantUserEntry]:
     from app.models.mvp3 import Application
 
     query = (
@@ -257,7 +257,7 @@ def list_aspirants(db: Session, search: str | None = None) -> list[AspirantUserE
         )
     )
 
-    rows = query.order_by(User.created_at.desc()).all()
+    rows = query.order_by(User.created_at.desc()).offset(offset).limit(limit).all()
 
     # Batch application counts
     user_ids = [str(user.id) for user, _, _ in rows]
@@ -861,7 +861,7 @@ def delete_sub_admin(user_id: str, actor_id: str, db: Session) -> MessageRespons
 
 # ── User management: status / login history / sessions ───────────────────────
 
-def list_managed_users(db: Session, search: str | None = None, status: str | None = None) -> list[UserManagementEntry]:
+def list_managed_users(db: Session, search: str | None = None, status: str | None = None, limit: int = 100, offset: int = 0) -> list[UserManagementEntry]:
     query = (
         db.query(User, AspirantProfile)
         .outerjoin(AspirantProfile, AspirantProfile.user_id == User.id)
@@ -879,7 +879,7 @@ def list_managed_users(db: Session, search: str | None = None, status: str | Non
     if status:
         query = query.filter(User.status == status)
 
-    rows = query.order_by(User.created_at.desc()).all()
+    rows = query.order_by(User.created_at.desc()).offset(offset).limit(limit).all()
     return [
         UserManagementEntry(
             user_id=str(user.id), email=user.email, phone=user.phone,
@@ -1080,7 +1080,7 @@ def review_employer_verification(
     return get_employer_verification_detail(verification_id, db)
 
 
-def revoke_device_session(user_id: str, session_id: str, db: Session) -> MessageResponse:
+def revoke_device_session(user_id: str, session_id: str, db: Session, actor_id: str | None = None) -> MessageResponse:
     from app.models.user import RefreshToken
 
     session = (
@@ -1095,6 +1095,9 @@ def revoke_device_session(user_id: str, session_id: str, db: Session) -> Message
     token = db.query(RefreshToken).filter(RefreshToken.id == session.refresh_token_id).first()
     if token:
         token.revoked_at = datetime.now(timezone.utc)
+
+    _write_audit(db, actor_id or user_id, "user.session_revoked", resource="device_session",
+                 resource_id=session_id, new_value={"target_user_id": user_id})
     db.commit()
     return MessageResponse(message="Session revoked.")
 

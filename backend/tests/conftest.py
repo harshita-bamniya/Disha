@@ -49,6 +49,13 @@ def client(db):
             pass
 
     app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app, raise_server_exceptions=False) as c:
-        yield c
+    # Disable slowapi rate limiting in tests — otherwise OTP/login tests hit limits
+    limiter = app.state.limiter
+    original_enabled = limiter.enabled
+    limiter.enabled = False
+    try:
+        with TestClient(app, raise_server_exceptions=False) as c:
+            yield c
+    finally:
+        limiter.enabled = original_enabled
     app.dependency_overrides.clear()

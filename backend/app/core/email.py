@@ -22,8 +22,10 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-# (filename, content, mime_subtype) — mime_subtype e.g. "calendar" for .ics
-Attachment = tuple[str, str, str]
+# (filename, content, mime_subtype) — content is str for text attachments
+# (mime_subtype e.g. "calendar" for .ics) or raw bytes for binary ones
+# (mime_subtype "pdf" for offer letters).
+Attachment = tuple[str, "str | bytes", str]
 
 
 class EmailProvider(ABC):
@@ -62,8 +64,13 @@ class BrevoSMTPProvider(EmailProvider):
 
         if attachment:
             filename, content, subtype = attachment
-            part = MIMEBase("text", subtype)
-            part.set_payload(content, "utf-8")
+            if subtype == "pdf":
+                from email.mime.application import MIMEApplication
+                payload = content if isinstance(content, bytes) else content.encode("latin1")
+                part = MIMEApplication(payload, _subtype="pdf")
+            else:
+                part = MIMEBase("text", subtype)
+                part.set_payload(content, "utf-8")
             part.add_header("Content-Disposition", "attachment", filename=filename)
             msg.attach(part)
 

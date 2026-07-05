@@ -28,6 +28,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('')
   const [showRules, setShowRules] = useState(false)
   const [language, setLanguage] = useState<'hi' | 'en'>('hi')
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const register = useRegister()
@@ -44,6 +45,9 @@ export default function RegisterPage() {
     const failedRules = PASSWORD_RULES.filter((r) => !r.test(password))
     if (failedRules.length > 0) {
       errors.password = 'Password does not meet all requirements'
+    }
+    if (!acceptedTerms) {
+      errors.terms = 'You must accept the Terms & Conditions to create an account'
     }
     setFieldErrors(errors)
     return Object.keys(errors).length === 0
@@ -160,6 +164,31 @@ export default function RegisterPage() {
           )}
         </div>
 
+        {/* T&C checkbox */}
+        <div>
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={acceptedTerms}
+              onChange={e => setAcceptedTerms(e.target.checked)}
+              style={{ marginTop: 2, width: 16, height: 16, accentColor: '#6366F1', flexShrink: 0, cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: 13, color: '#374151', lineHeight: 1.5 }}>
+              I agree to Disha's{' '}
+              <a href="/terms" target="_blank" rel="noopener noreferrer" style={{ color: '#6366F1', fontWeight: 600, textDecoration: 'underline' }}>
+                Terms &amp; Conditions
+              </a>{' '}
+              and{' '}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer" style={{ color: '#6366F1', fontWeight: 600, textDecoration: 'underline' }}>
+                Privacy Policy
+              </a>
+            </span>
+          </label>
+          {fieldErrors.terms && (
+            <p className="text-xs text-danger mt-1">{fieldErrors.terms}</p>
+          )}
+        </div>
+
         {serverError && (
           <p className="text-sm text-danger bg-red-50 border border-red-200 rounded-xl px-4 py-3">
             {serverError}
@@ -171,7 +200,7 @@ export default function RegisterPage() {
           fullWidth
           size="lg"
           loading={register.isPending}
-          disabled={passwordStrength < PASSWORD_RULES.length}
+          disabled={passwordStrength < PASSWORD_RULES.length || !acceptedTerms}
           className="mt-1"
         >
           Create account

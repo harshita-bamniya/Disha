@@ -12,10 +12,10 @@ Routes (all require admin role):
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app.core.rbac import require_role
@@ -32,8 +32,15 @@ _admin = require_role("admin")
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
 class UpdateSettingRequest(BaseModel):
-    value: Any
-    description: Optional[str] = None
+    value: Union[str, int, float, bool] = Field(..., description="Must be a scalar: string (max 2000 chars), int, float, or bool")
+    description: Optional[str] = Field(None, max_length=500)
+
+    @field_validator("value")
+    @classmethod
+    def validate_value(cls, v: Union[str, int, float, bool]) -> Union[str, int, float, bool]:
+        if isinstance(v, str) and len(v) > 2000:
+            raise ValueError("Setting value string must be at most 2000 characters.")
+        return v
 
 
 class UpdateFlagRequest(BaseModel):

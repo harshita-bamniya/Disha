@@ -144,4 +144,10 @@ export const authApi = {
 
   disable2fa: (password: string) =>
     apiClient.post<MessageResponse>('/auth/2fa/disable', { password }).then((r) => r.data),
+
+  changePassword: (data: { current_password: string; new_password: string }) =>
+    apiClient.post<MessageResponse>('/auth/change-password', data).then((r) => r.data),
+
+  sendEmailVerification: () =>
+    apiClient.post<MessageResponse>('/auth/send-email-verification').then((r) => r.data),
 }

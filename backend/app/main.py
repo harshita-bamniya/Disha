@@ -1,4 +1,6 @@
+import json
 import logging
+import logging.config
 import uuid
 
 import sentry_sdk
@@ -36,6 +38,35 @@ from app.modules.companion.router import router as companion_router
 from app.modules.calendar.router import router as calendar_router
 
 settings = get_settings()
+
+# ── Structured JSON logging ───────────────────────────────────────────────────
+class _JsonFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        entry: dict = {
+            "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
+            "level": record.levelname,
+            "logger": record.name,
+            "msg": record.getMessage(),
+        }
+        if record.exc_info:
+            entry["exc"] = self.formatException(record.exc_info)
+        return json.dumps(entry)
+
+
+def _configure_logging() -> None:
+    handler = logging.StreamHandler()
+    if settings.environment == "production":
+        handler.setFormatter(_JsonFormatter())
+    else:
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    level = getattr(logging, settings.log_level.upper(), logging.INFO)
+    logging.basicConfig(level=level, handlers=[handler], force=True)
+    # Quiet noisy libraries
+    for noisy in ("uvicorn.access", "sqlalchemy.engine", "httpx"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
+
+
+_configure_logging()
 logger = logging.getLogger(__name__)
 
 # ── Sentry ────────────────────────────────────────────────────────────────────

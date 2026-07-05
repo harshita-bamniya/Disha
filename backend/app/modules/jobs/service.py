@@ -104,20 +104,31 @@ def _job_to_response(job: JobPosting, applicant_count: int = 0) -> JobPostingRes
     )
 
 
-def get_dashboard(user: User, db: Session, department_id: str | None = None) -> EmployerDashboardResponse:
+def get_dashboard(
+    user: User,
+    db: Session,
+    department_id: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> EmployerDashboardResponse:
     from app.models.mvp3 import Application
     profile = _get_employer_profile(user, db)
     company_employer_ids = _get_company_employer_ids(profile, db)
-    q = (
+    base_q = (
         db.query(JobPosting)
         .filter(JobPosting.employer_id.in_(company_employer_ids))
-        .order_by(JobPosting.created_at.desc())
     )
-    q = _scope_jobs_query(q, profile, user.role_name)
+    base_q = _scope_jobs_query(base_q, profile, user.role_name)
     if department_id:
-        q = q.filter(JobPosting.department_id == department_id)
-    jobs = q.all()
-    # Batch count applicants per job
+        base_q = base_q.filter(JobPosting.department_id == department_id)
+
+    # Count totals before pagination (needed for KPI cards)
+    total_jobs = base_q.count()
+    active_jobs = base_q.filter(JobPosting.status == "published").count()
+
+    jobs = base_q.order_by(JobPosting.created_at.desc()).offset(offset).limit(limit).all()
+
+    # Batch-count applicants only for the current page of jobs
     job_ids = [j.id for j in jobs]
     counts = {}
     if job_ids:
@@ -129,12 +140,11 @@ def get_dashboard(user: User, db: Session, department_id: str | None = None) -> 
         )
         counts = {str(row[0]): row[1] for row in rows}
 
-    active = [j for j in jobs if j.is_active]
     return EmployerDashboardResponse(
         company_name=profile.company_name,
         is_approved=profile.is_approved,
-        total_jobs=len(jobs),
-        active_jobs=len(active),
+        total_jobs=total_jobs,
+        active_jobs=active_jobs,
         jobs=[_job_to_response(j, counts.get(str(j.id), 0)) for j in jobs],
     )
 
@@ -690,7 +700,18 @@ def get_my_permissions(user: User, db: Session):
         .filter(RolePermission.role_id == user.role_id)
         .all()
     )
+    profile = db.query(EmployerProfile).filter(EmployerProfile.user_id == user.id).first()
+    dept_id = str(profile.department_id) if profile and profile.department_id else None
+    dept_name: str | None = None
+    if profile and profile.department_id:
+        from app.models.company import CompanyDepartment
+        dept = db.query(CompanyDepartment).filter(CompanyDepartment.id == profile.department_id).first()
+        dept_name = dept.name if dept else None
+    is_wide = _is_company_wide(profile, user.role_name) if profile else True
     return EmployerPermissionsResponse(
         role_name=user.role_name or "",
         permissions=[f"{p.resource}:{p.action}" for p in perms],
+        department_id=dept_id,
+        department_name=dept_name,
+        is_company_wide=is_wide,
     )

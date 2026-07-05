@@ -104,6 +104,8 @@ class Settings(BaseSettings):
                     )
             if not self.groq_api_key and not self.anthropic_api_key:
                 raise ValueError("At least one AI provider key (GROQ_API_KEY or ANTHROPIC_API_KEY) must be set in production.")
+            if not self.sentry_dsn:
+                raise ValueError("SENTRY_DSN must be set in production for error monitoring.")
         return self
 
     def get_allowed_origins(self) -> list[str]:

@@ -1,22 +1,24 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import NotificationBell from '@/components/NotificationBell'
 import {
   Plus, Pencil, Trash2, Clock,
   CheckCircle2, LogOut, LayoutDashboard, Building2,
   TrendingUp, PauseCircle, X, Users, ShieldCheck, Users2, BarChart3, CreditCard,
-  Rocket, PlayCircle, XCircle, Archive, Copy,
+  Rocket, PlayCircle, XCircle, Archive, Copy, FileSignature, Share2,
   Briefcase, CalendarClock, Send, Award, Activity, Video, Sparkles, ArrowRight,
-  Star, CalendarDays, Upload, Download,
+  Star, CalendarDays, Upload, Download, UserSearch,
 } from 'lucide-react'
 import {
   useEmployerDashboard, useCreateJob, useUpdateJob, useDeleteJob,
   usePublishJob, usePauseJob, useCloseJob, useReopenJob, useArchiveJob, useDuplicateJob,
   useDashboardKpis, useApplicationTrend, useUpcomingInterviews, useHasPermission,
-  useCompanyProfile, useBulkImportJobs,
+  useCompanyProfile, useBulkImportJobs, useDepartments, useEmployerPermissions,
 } from '../hooks/useJobs'
 import { useLogout } from '@/modules/auth/hooks/useAuth'
 import JobForm from '../components/JobForm'
+import { CommandBar } from '../components/CommandBar'
+import { ApprovalQueue } from '../components/ApprovalQueue'
 import type { JobPosting, JobPostingPayload } from '@/api/jobs'
 import { formatSalary, EMPLOYMENT_TYPE_LABELS } from '@/api/jobs'
 import { getApiError } from '@/api/client'
@@ -112,6 +114,41 @@ function iconActionStyle(color: string): React.CSSProperties {
 }
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
+// ── Sidebar nav helpers ───────────────────────────────────────────────────────
+
+function NavSection({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: 4 }}>
+      <p style={{
+        fontSize: 9, fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase',
+        letterSpacing: '1px', padding: '10px 12px 4px', margin: 0,
+      }}>{label}</p>
+      {children}
+    </div>
+  )
+}
+
+function NavLink({ to, icon: Icon, label, active }: {
+  to: string; icon: React.ElementType; label: string; active?: boolean
+}) {
+  return (
+    <Link to={to} style={{
+      width: '100%', display: 'flex', alignItems: 'center', gap: 9,
+      padding: '8px 12px', borderRadius: 10, marginBottom: 1,
+      background: active ? 'rgba(59,130,246,0.1)' : 'transparent',
+      color: active ? '#3B82F6' : '#374151', textDecoration: 'none',
+      fontSize: 13, fontWeight: active ? 700 : 500,
+      transition: 'background 0.15s',
+    }}
+      onMouseOver={e => { if (!active) e.currentTarget.style.background = 'rgba(30,58,95,0.05)' }}
+      onMouseOut={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
+    >
+      <Icon size={15} strokeWidth={active ? 2.2 : 1.8} />
+      {label}
+    </Link>
+  )
+}
+
 function Sidebar({
   companyName, totalJobs, activeJobs, isApproved, onNewJob, logout, view,
 }: {
@@ -120,53 +157,54 @@ function Sidebar({
 }) {
   const canCreateJob = useHasPermission('jobs:create')
   const initial = companyName.charAt(0).toUpperCase()
+  const { pathname } = useLocation()
 
   return (
     <aside style={{
-      width: 260, flexShrink: 0,
-      background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(20px)',
-      borderRight: '1px solid rgba(59,130,246,0.08)',
+      width: 248, flexShrink: 0,
+      background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(20px)',
+      borderRight: '1px solid rgba(30,58,95,0.07)',
       display: 'flex', flexDirection: 'column',
       position: 'sticky', top: 0, height: '100vh', overflow: 'auto',
-      boxShadow: '4px 0 24px rgba(30,58,95,0.04)',
+      boxShadow: '4px 0 20px rgba(30,58,95,0.04)',
     }}>
       {/* Logo */}
-      <div style={{ padding: '24px 20px 20px', borderBottom: '1px solid rgba(59,130,246,0.06)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ padding: '20px 16px 16px', borderBottom: '1px solid rgba(30,58,95,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
           <div style={{
-            width: 38, height: 38, borderRadius: 11,
+            width: 34, height: 34, borderRadius: 10,
             background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(59,130,246,0.25)',
+            boxShadow: '0 3px 10px rgba(59,130,246,0.3)',
           }}>
-            <span style={{ color: 'white', fontWeight: 900, fontSize: 17 }}>D</span>
+            <span style={{ color: 'white', fontWeight: 900, fontSize: 15 }}>D</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontFamily: 'Hind, sans-serif', fontWeight: 800, fontSize: 18, color: '#1E3A5F' }}>BeginablAI</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: '#3B82F6', background: 'rgba(59,130,246,0.08)', padding: '2px 7px', borderRadius: 6, letterSpacing: '0.3px' }}>EMPLOYER</span>
+          <div>
+            <span style={{ fontFamily: 'Hind, sans-serif', fontWeight: 800, fontSize: 16, color: '#1E3A5F' }}>BeginablAI</span>
+            <span style={{ display: 'block', fontSize: 9, fontWeight: 700, color: '#3B82F6', letterSpacing: '0.5px', textTransform: 'uppercase' }}>Employer Portal</span>
           </div>
         </div>
       </div>
 
       {/* Company card */}
-      <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(59,130,246,0.06)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(30,58,95,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
           <div style={{
-            width: 40, height: 40, borderRadius: '50%',
+            width: 36, height: 36, borderRadius: '50%',
             background: 'linear-gradient(135deg, rgba(59,130,246,0.15), rgba(147,197,253,0.2))',
             border: '2px solid rgba(59,130,246,0.15)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 900, fontSize: 16, color: '#3B82F6',
+            fontWeight: 900, fontSize: 14, color: '#3B82F6', flexShrink: 0,
           }}>
             {initial}
           </div>
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 700, color: '#1E3A5F', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{companyName}</p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: '#1E3A5F', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{companyName}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}>
               {isApproved ? (
-                <><CheckCircle2 size={11} color="#059669" /><span style={{ fontSize: 11, color: '#059669', fontWeight: 600 }}>Verified employer</span></>
+                <><CheckCircle2 size={10} color="#059669" /><span style={{ fontSize: 10, color: '#059669', fontWeight: 600 }}>Verified</span></>
               ) : (
-                <><Clock size={11} color="#D97706" /><span style={{ fontSize: 11, color: '#D97706', fontWeight: 600 }}>Pending approval</span></>
+                <><Clock size={10} color="#D97706" /><span style={{ fontSize: 10, color: '#D97706', fontWeight: 600 }}>Pending approval</span></>
               )}
             </div>
           </div>
@@ -174,102 +212,61 @@ function Sidebar({
       </div>
 
       {/* Nav */}
-      <nav style={{ padding: '12px 12px', flex: 1 }}>
-        <p style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.8px', padding: '0 8px', marginBottom: 6 }}>Navigation</p>
-        <button style={{
-          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-          padding: '10px 12px', borderRadius: 12, marginBottom: 2,
-          background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
-          color: 'white', border: 'none', cursor: 'pointer', textAlign: 'left',
-          fontSize: 14, fontWeight: 600,
-          boxShadow: '0 4px 12px rgba(59,130,246,0.22)',
-        }}>
-          <LayoutDashboard size={16} />Dashboard
-        </button>
+      <nav style={{ padding: '8px 8px', flex: 1, overflowY: 'auto' }}>
 
-        <Link to="/app/employer/verification" style={{
-          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-          padding: '10px 12px', borderRadius: 12, marginTop: 4,
-          color: '#1E3A5F', textDecoration: 'none',
-          fontSize: 14, fontWeight: 600,
-        }}>
-          <ShieldCheck size={16} />Verification
-        </Link>
+        {/* Overview */}
+        <NavSection label="Overview">
+          <NavLink to="/app/employer/dashboard" icon={LayoutDashboard} label="Dashboard" active={pathname === '/app/employer/dashboard'} />
+          <NavLink to="/app/employer/analytics" icon={BarChart3} label="Analytics" active={pathname.startsWith('/app/employer/analytics')} />
+          <NavLink to="/app/employer/calendar" icon={CalendarDays} label="Calendar" active={pathname.startsWith('/app/employer/calendar')} />
+        </NavSection>
 
-        <Link to="/app/employer/company" style={{
-          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-          padding: '10px 12px', borderRadius: 12, marginTop: 2,
-          color: '#1E3A5F', textDecoration: 'none',
-          fontSize: 14, fontWeight: 600,
-        }}>
-          <Users2 size={16} />Company & Team
-        </Link>
+        {/* Organization */}
+        <NavSection label="Organization">
+          <NavLink to="/app/employer/company" icon={Users2} label="Company & Team" active={pathname === '/app/employer/company'} />
+          <NavLink to="/app/employer/departments" icon={Building2} label="Departments" active={pathname.startsWith('/app/employer/departments')} />
+          <NavLink to="/app/employer/verification" icon={ShieldCheck} label="Verification" active={pathname.startsWith('/app/employer/verification')} />
+        </NavSection>
 
-        <Link to="/app/employer/talent-pool" style={{
-          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-          padding: '10px 12px', borderRadius: 12, marginTop: 2,
-          color: '#1E3A5F', textDecoration: 'none',
-          fontSize: 14, fontWeight: 600,
-        }}>
-          <Star size={16} />Talent Pool
-        </Link>
+        {/* Hiring */}
+        <NavSection label="Hiring">
+          <NavLink to="/app/employer/dashboard" icon={Briefcase} label="Jobs" active={false} />
+          <NavLink to="/app/employer/templates" icon={FileSignature} label="Templates" active={pathname.startsWith('/app/employer/templates')} />
+        </NavSection>
 
-        <Link to="/app/employer/calendar" style={{
-          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-          padding: '10px 12px', borderRadius: 12, marginTop: 2,
-          color: '#1E3A5F', textDecoration: 'none',
-          fontSize: 14, fontWeight: 600,
-        }}>
-          <CalendarDays size={16} />Calendar
-        </Link>
+        {/* Candidates */}
+        <NavSection label="Candidates">
+          <NavLink to="/app/employer/talent-pool" icon={Star} label="Talent Pool" active={pathname.startsWith('/app/employer/talent-pool')} />
+          <NavLink to="/app/employer/talent-pool" icon={UserSearch} label="Saved Candidates" active={false} />
+          <NavLink to="/app/employer/referrals" icon={Share2} label="Referrals" active={pathname.startsWith('/app/employer/referrals')} />
+        </NavSection>
 
-        <Link to="/app/employer/analytics" style={{
-          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-          padding: '10px 12px', borderRadius: 12, marginTop: 2,
-          color: '#1E3A5F', textDecoration: 'none',
-          fontSize: 14, fontWeight: 600,
-        }}>
-          <BarChart3 size={16} />Analytics
-        </Link>
+        {/* Account */}
+        <NavSection label="Account">
+          <NavLink to="/app/employer/subscription" icon={CreditCard} label="Subscription" active={pathname.startsWith('/app/employer/subscription')} />
+          <NavLink to="/app/security" icon={ShieldCheck} label="Security" active={pathname === '/app/security'} />
+        </NavSection>
 
-        <Link to="/app/employer/subscription" style={{
-          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-          padding: '10px 12px', borderRadius: 12, marginTop: 2,
-          color: '#1E3A5F', textDecoration: 'none',
-          fontSize: 14, fontWeight: 600,
-        }}>
-          <CreditCard size={16} />Subscription
-        </Link>
-
-        <Link to="/app/security" style={{
-          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-          padding: '10px 12px', borderRadius: 12, marginTop: 2,
-          color: '#1E3A5F', textDecoration: 'none',
-          fontSize: 14, fontWeight: 600,
-        }}>
-          <ShieldCheck size={16} />Security
-        </Link>
-
-        {/* Stats panel in sidebar */}
+        {/* Stats mini-panel */}
         <div style={{
-          marginTop: 20, padding: 16,
-          background: 'rgba(59,130,246,0.05)',
-          border: '1px solid rgba(59,130,246,0.14)',
-          borderRadius: 16,
+          margin: '12px 4px 0', padding: 14,
+          background: 'rgba(59,130,246,0.04)',
+          border: '1px solid rgba(59,130,246,0.12)',
+          borderRadius: 14,
         }}>
-          <p style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 14 }}>Job Postings</p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+          <p style={{ fontSize: 9, color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12 }}>Job Postings</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
             {[
               { label: 'Total', value: totalJobs },
               { label: 'Active', value: activeJobs },
               { label: 'Paused', value: totalJobs - activeJobs },
             ].map((s) => (
               <div key={s.label} style={{
-                background: 'rgba(59,130,246,0.07)', borderRadius: 10, padding: '8px 4px',
+                background: 'rgba(59,130,246,0.07)', borderRadius: 8, padding: '7px 4px',
                 border: '1px solid rgba(59,130,246,0.1)', textAlign: 'center',
               }}>
-                <div style={{ fontSize: 18, fontWeight: 900, color: '#1E3A5F', fontFamily: 'Hind, sans-serif', lineHeight: 1 }}>{s.value}</div>
-                <div style={{ fontSize: 9, color: '#94A3B8', fontWeight: 600, marginTop: 3 }}>{s.label}</div>
+                <div style={{ fontSize: 16, fontWeight: 900, color: '#1E3A5F', fontFamily: 'Hind, sans-serif', lineHeight: 1 }}>{s.value}</div>
+                <div style={{ fontSize: 9, color: '#94A3B8', fontWeight: 600, marginTop: 2 }}>{s.label}</div>
               </div>
             ))}
           </div>
@@ -278,33 +275,33 @@ function Sidebar({
         {/* Post job CTA */}
         {isApproved && view === 'list' && canCreateJob && (
           <button onClick={onNewJob} style={{
-            width: '100%', marginTop: 14,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            padding: '11px 14px', borderRadius: 12,
-            background: 'rgba(59,130,246,0.07)', border: '1.5px dashed rgba(59,130,246,0.25)',
-            color: '#3B82F6', fontSize: 13, fontWeight: 700, cursor: 'pointer',
+            width: '100%', marginTop: 10,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            padding: '9px 12px', borderRadius: 10,
+            background: 'rgba(59,130,246,0.07)', border: '1.5px dashed rgba(59,130,246,0.3)',
+            color: '#3B82F6', fontSize: 12, fontWeight: 700, cursor: 'pointer',
             transition: 'all 0.2s',
           }}
-            onMouseOver={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.12)'; e.currentTarget.style.border = '1.5px dashed rgba(59,130,246,0.4)' }}
-            onMouseOut={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.07)'; e.currentTarget.style.border = '1.5px dashed rgba(59,130,246,0.25)' }}
+            onMouseOver={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.12)'; e.currentTarget.style.border = '1.5px dashed rgba(59,130,246,0.45)' }}
+            onMouseOut={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.07)'; e.currentTarget.style.border = '1.5px dashed rgba(59,130,246,0.3)' }}
           >
-            <Plus size={15} />Post a job
+            <Plus size={13} />Post a job
           </button>
         )}
       </nav>
 
       {/* Logout */}
-      <div style={{ padding: '12px 20px', borderTop: '1px solid rgba(59,130,246,0.06)' }}>
+      <div style={{ padding: '10px 12px', borderTop: '1px solid rgba(30,58,95,0.06)' }}>
         <button onClick={logout} style={{
           display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-          padding: '10px 12px', borderRadius: 10,
+          padding: '8px 12px', borderRadius: 9,
           background: 'none', border: 'none', cursor: 'pointer',
-          fontSize: 13, fontWeight: 500, color: '#9CA3AF', transition: 'all 0.2s',
+          fontSize: 12, fontWeight: 500, color: '#9CA3AF', transition: 'all 0.2s',
         }}
           onMouseOver={e => { e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.background = 'rgba(220,38,38,0.05)' }}
           onMouseOut={e => { e.currentTarget.style.color = '#9CA3AF'; e.currentTarget.style.background = 'none' }}
         >
-          <LogOut size={14} />Log out
+          <LogOut size={13} />Log out
         </button>
       </div>
     </aside>
@@ -507,6 +504,32 @@ function JobCard({
   )
 }
 
+function DeptBreakdownStrip() {
+  const { data: departments } = useDepartments()
+  if (!departments || departments.length === 0) return null
+  return (
+    <div style={{ background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.95)', borderRadius: 16, padding: '16px 18px', boxShadow: '0 2px 12px rgba(30,58,95,0.05)' }}>
+      <p style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Building2 size={12} color="#3B82F6" />Department Overview
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {departments.map(d => (
+          <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#374151', minWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
+            <div style={{ flex: 1, height: 6, background: '#F1F5F9', borderRadius: 20, overflow: 'hidden' }}>
+              <div style={{ width: `${Math.min((d.active_job_count / (Math.max(...departments.map(x => x.active_job_count)) || 1)) * 100, 100)}%`, height: '100%', background: '#3B82F6', borderRadius: 20 }} />
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#1E3A5F', minWidth: 20, textAlign: 'right' }}>{d.active_job_count}</span>
+            <span style={{ fontSize: 10, color: '#94A3B8' }}>jobs</span>
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#7C3AED', minWidth: 28, textAlign: 'right' }}>{d.total_applicant_count}</span>
+            <span style={{ fontSize: 10, color: '#94A3B8' }}>apps</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function DashboardKpiSection() {
   const { data: kpis, isLoading } = useDashboardKpis()
   if (isLoading || !kpis) return null
@@ -528,9 +551,16 @@ function DashboardKpiSection() {
           value={kpis.avg_time_to_hire_days !== null ? `${kpis.avg_time_to_hire_days}d` : '—'}
         />
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14 }}>
-        <ApplicationTrendStrip />
-        <UpcomingInterviewsWidget />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }}>
+        <div style={{ gridColumn: 'span 1' }}>
+          <ApplicationTrendStrip />
+        </div>
+        <div style={{ gridColumn: 'span 1' }}>
+          <DeptBreakdownStrip />
+        </div>
+        <div style={{ gridColumn: 'span 1' }}>
+          <UpcomingInterviewsWidget />
+        </div>
       </div>
     </div>
   )
@@ -720,11 +750,16 @@ export default function EmployerDashboardPage() {
   const archiveJob = useArchiveJob()
   const duplicateJob = useDuplicateJob()
   const canCreateJob = useHasPermission('jobs:create')
+  const { data: myPerms } = useEmployerPermissions()
   const logout     = useLogout()
   const [view, setView] = useState<View>('list')
   const [showBulkImport, setShowBulkImport] = useState(false)
+  const [showApprovalQueue, setShowApprovalQueue] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [mutatingId, setMutatingId] = useState<string | null>(null)
+  const [jobStatusFilter, setJobStatusFilter] = useState<string>('all')
+  const [jobDeptFilter, setJobDeptFilter] = useState<string>('all')
+  const { data: departments } = useDepartments()
 
   const handleCreate = (payload: JobPostingPayload) => {
     createJob.mutate(payload, { onSuccess: () => setView('list') })
@@ -784,6 +819,14 @@ export default function EmployerDashboardPage() {
             </p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <CommandBar onPostJob={() => setView('new')} />
+            <button
+              onClick={() => setShowApprovalQueue(true)}
+              title="Approval Queue — draft & paused jobs"
+              style={{ display: 'flex', alignItems: 'center', gap: 5, height: 34, padding: '0 12px', borderRadius: 9, border: '1px solid #E5E7EB', background: '#F8FAFC', color: '#64748B', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+            >
+              <CheckCircle2 size={13} color="#D97706" />Queue
+            </button>
             <NotificationBell />
             {data?.is_approved && view === 'list' && canCreateJob && (
               <button onClick={() => setShowBulkImport(true)} style={{
@@ -821,11 +864,57 @@ export default function EmployerDashboardPage() {
           </div>
         </header>
 
+        {/* Department scope banner — shown only to department-scoped sub-admins */}
+        {myPerms && !myPerms.is_company_wide && myPerms.department_name && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '8px 32px', background: 'linear-gradient(90deg, #EEF2FF, #E0E7FF)',
+            borderBottom: '1px solid #C7D2FE', fontSize: 12, color: '#4338CA', fontWeight: 600,
+          }}>
+            <Briefcase size={13} color="#6366F1" />
+            Viewing scope: <span style={{ color: '#6366F1', marginLeft: 2 }}>{myPerms.department_name}</span>
+            <span style={{ color: '#A5B4FC', fontWeight: 400, marginLeft: 4 }}>· Jobs and candidates outside this department are hidden</span>
+          </div>
+        )}
+
         <main style={{ padding: '28px 32px', flex: 1 }}>
 
           {isLoading && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-              <div style={{ width: 40, height: 40, border: '3px solid rgba(59,130,246,0.2)', borderTopColor: '#3B82F6', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {/* Hero skeleton */}
+              <div style={{ background: 'rgba(255,255,255,0.6)', borderRadius: 24, padding: '28px 32px' }}>
+                <div style={{ width: 120, height: 12, borderRadius: 6, background: '#E5E7EB', marginBottom: 14 }} />
+                <div style={{ width: 260, height: 22, borderRadius: 6, background: '#E5E7EB', marginBottom: 10 }} />
+                <div style={{ width: 200, height: 14, borderRadius: 6, background: '#F1F5F9' }} />
+                <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+                  {[80, 70, 70, 90].map((w, i) => <div key={i} style={{ width: w, height: 60, borderRadius: 14, background: '#F1F5F9' }} />)}
+                </div>
+              </div>
+              {/* KPI skeleton */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <div key={i} style={{ background: 'rgba(255,255,255,0.8)', borderRadius: 16, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: '#F1F5F9', flexShrink: 0 }} />
+                    <div>
+                      <div style={{ width: 40, height: 18, borderRadius: 5, background: '#E5E7EB', marginBottom: 5 }} />
+                      <div style={{ width: 70, height: 10, borderRadius: 5, background: '#F1F5F9' }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* Cards skeleton */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16 }}>
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} style={{ background: 'rgba(255,255,255,0.8)', borderRadius: 20, padding: 20, height: 180 }}>
+                    <div style={{ width: '60%', height: 16, borderRadius: 6, background: '#E5E7EB', marginBottom: 10 }} />
+                    <div style={{ width: '40%', height: 12, borderRadius: 6, background: '#F1F5F9', marginBottom: 14 }} />
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {[60, 80, 50].map((w, j) => <div key={j} style={{ width: w, height: 20, borderRadius: 20, background: '#F1F5F9' }} />)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <style>{`@keyframes shimmer{0%{opacity:0.6}50%{opacity:1}100%{opacity:0.6}}`}</style>
             </div>
           )}
 
@@ -935,57 +1024,104 @@ export default function EmployerDashboardPage() {
               )}
 
               {/* ── Job grid ── */}
-              {view === 'list' && (
-                <>
-                  {data.jobs.length === 0 ? (
-                    <div style={{
-                      background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(20px)',
-                      border: '1px solid rgba(255,255,255,0.95)', borderRadius: 24,
-                      padding: '52px 24px', textAlign: 'center',
-                      boxShadow: '0 4px 20px rgba(30,58,95,0.06)',
-                    }}>
-                      <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(59,130,246,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 28 }}>📋</div>
-                      <p style={{ fontSize: 16, fontWeight: 700, color: '#1E3A5F', marginBottom: 6 }}>No job postings yet</p>
-                      <p style={{ fontSize: 13, color: '#9CA3AF', marginBottom: 24 }}>Post your first job to start reaching UPSC aspirants</p>
-                      {data.is_approved && canCreateJob && (
-                        <button onClick={() => setView('new')} style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 8,
-                          padding: '11px 24px', borderRadius: 12, fontSize: 14, fontWeight: 700,
-                          background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
-                          color: '#fff', border: 'none', cursor: 'pointer',
-                          boxShadow: '0 4px 14px rgba(59,130,246,0.3)',
-                        }}>
-                          <Plus size={15} />Post your first job
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16 }}>
-                      {data.jobs.map(job => (
-                        <JobCard
-                          key={job.id}
-                          job={job}
-                          onEdit={() => setView({ edit: job })}
-                          onDelete={() => setConfirmDelete(job.id)}
-                          onPublish={() => runLifecycleAction(job.id, (id) => publishJob.mutateAsync(id))}
-                          onPause={() => runLifecycleAction(job.id, (id) => pauseJob.mutateAsync(id))}
-                          onClose={() => runLifecycleAction(job.id, (id) => closeJob.mutateAsync(id))}
-                          onReopen={() => runLifecycleAction(job.id, (id) => reopenJob.mutateAsync(id))}
-                          onArchive={() => runLifecycleAction(job.id, (id) => archiveJob.mutateAsync(id))}
-                          onDuplicate={() => runLifecycleAction(job.id, (id) => duplicateJob.mutateAsync(id))}
-                          isMutating={mutatingId === job.id}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
+              {view === 'list' && (() => {
+                const filteredJobs = data.jobs.filter(j => {
+                  if (jobStatusFilter !== 'all' && j.status !== jobStatusFilter) return false
+                  if (jobDeptFilter !== 'all' && j.department_id !== jobDeptFilter) return false
+                  return true
+                })
+                return (
+                  <>
+                    {/* Filter bar */}
+                    {data.jobs.length > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          {['all', 'published', 'draft', 'paused', 'closed', 'archived'].map(s => (
+                            <button
+                              key={s}
+                              onClick={() => setJobStatusFilter(s)}
+                              style={{
+                                padding: '5px 12px', borderRadius: 20, fontSize: 11, fontWeight: 600,
+                                border: jobStatusFilter === s ? 'none' : '1px solid #E5E7EB',
+                                background: jobStatusFilter === s ? '#1E3A5F' : '#fff',
+                                color: jobStatusFilter === s ? '#fff' : '#64748B',
+                                cursor: 'pointer', textTransform: 'capitalize',
+                              }}
+                            >{s === 'all' ? 'All' : s}</button>
+                          ))}
+                        </div>
+                        {departments && departments.length > 0 && (
+                          <select
+                            value={jobDeptFilter}
+                            onChange={e => setJobDeptFilter(e.target.value)}
+                            style={{ height: 32, borderRadius: 10, border: '1px solid #E5E7EB', padding: '0 10px', fontSize: 12, background: '#fff', color: '#374151' }}
+                          >
+                            <option value="all">All departments</option>
+                            {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                          </select>
+                        )}
+                        {(jobStatusFilter !== 'all' || jobDeptFilter !== 'all') && (
+                          <span style={{ fontSize: 11, color: '#94A3B8' }}>{filteredJobs.length} result{filteredJobs.length !== 1 ? 's' : ''}</span>
+                        )}
+                      </div>
+                    )}
+
+                    {data.jobs.length === 0 ? (
+                      <div style={{
+                        background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(20px)',
+                        border: '1px solid rgba(255,255,255,0.95)', borderRadius: 24,
+                        padding: '52px 24px', textAlign: 'center',
+                        boxShadow: '0 4px 20px rgba(30,58,95,0.06)',
+                      }}>
+                        <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(59,130,246,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 28 }}>📋</div>
+                        <p style={{ fontSize: 16, fontWeight: 700, color: '#1E3A5F', marginBottom: 6 }}>No job postings yet</p>
+                        <p style={{ fontSize: 13, color: '#9CA3AF', marginBottom: 24 }}>Post your first job to start reaching UPSC aspirants</p>
+                        {data.is_approved && canCreateJob && (
+                          <button onClick={() => setView('new')} style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 8,
+                            padding: '11px 24px', borderRadius: 12, fontSize: 14, fontWeight: 700,
+                            background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
+                            color: '#fff', border: 'none', cursor: 'pointer',
+                            boxShadow: '0 4px 14px rgba(59,130,246,0.3)',
+                          }}>
+                            <Plus size={15} />Post your first job
+                          </button>
+                        )}
+                      </div>
+                    ) : filteredJobs.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '40px 24px', color: '#94A3B8' }}>
+                        <p style={{ fontSize: 14, fontWeight: 600, margin: '0 0 6px', color: '#64748B' }}>No jobs match these filters</p>
+                        <button onClick={() => { setJobStatusFilter('all'); setJobDeptFilter('all') }} style={{ fontSize: 12, color: '#3B82F6', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>Clear filters</button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16 }}>
+                        {filteredJobs.map(job => (
+                          <JobCard
+                            key={job.id}
+                            job={job}
+                            onEdit={() => setView({ edit: job })}
+                            onDelete={() => setConfirmDelete(job.id)}
+                            onPublish={() => runLifecycleAction(job.id, (id) => publishJob.mutateAsync(id))}
+                            onPause={() => runLifecycleAction(job.id, (id) => pauseJob.mutateAsync(id))}
+                            onClose={() => runLifecycleAction(job.id, (id) => closeJob.mutateAsync(id))}
+                            onReopen={() => runLifecycleAction(job.id, (id) => reopenJob.mutateAsync(id))}
+                            onArchive={() => runLifecycleAction(job.id, (id) => archiveJob.mutateAsync(id))}
+                            onDuplicate={() => runLifecycleAction(job.id, (id) => duplicateJob.mutateAsync(id))}
+                            isMutating={mutatingId === job.id}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )
+              })()}
             </div>
           )}
         </main>
       </div>
 
       {showBulkImport && <BulkImportModal onClose={() => setShowBulkImport(false)} />}
+      {showApprovalQueue && <ApprovalQueue onClose={() => setShowApprovalQueue(false)} />}
 
       {/* ── Delete confirm modal ── */}
       {confirmDelete && (

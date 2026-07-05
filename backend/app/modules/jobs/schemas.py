@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, field_validator
-from typing import Literal
+from typing import Literal, Optional
 from datetime import date, datetime
 
 VALID_SKILLS = {
@@ -52,6 +52,9 @@ class JobPostingRequest(BaseModel):
     # If True, the job goes live immediately (status=published); if False (default),
     # it's saved as a draft — visible only to the employer, not to aspirants.
     publish: bool = False
+    # Department this job belongs to. Required for dept-scoped recruiters (auto-filled
+    # from their profile); optional for company admins who post cross-dept jobs.
+    department_id: str | None = None
 
     @field_validator("title")
     @classmethod
@@ -69,6 +72,8 @@ class JobPostingRequest(BaseModel):
         v = v.strip()
         if len(v) < 20:
             raise ValueError("Description must be at least 20 characters")
+        if len(v) > 5000:
+            raise ValueError("Description must be under 5000 characters")
         return v
 
     @field_validator("location")
@@ -77,6 +82,8 @@ class JobPostingRequest(BaseModel):
         v = v.strip()
         if not v:
             raise ValueError("Location is required. Enter a city or 'Pan India'.")
+        if len(v) > 200:
+            raise ValueError("Location must be under 200 characters")
         return v
 
     @field_validator("sector")
@@ -201,6 +208,8 @@ class JobPostingResponse(BaseModel):
     expires_at: date | None
     is_active: bool
     status: str
+    department_id: str | None = None
+    department_name: str | None = None
     created_at: datetime
     updated_at: datetime
     applicant_count: int = 0
@@ -223,6 +232,9 @@ class MessageResponse(BaseModel):
 class EmployerPermissionsResponse(BaseModel):
     role_name: str
     permissions: list[str]   # "resource:action" strings
+    department_id: Optional[str] = None
+    department_name: Optional[str] = None
+    is_company_wide: bool = True
 
 
 # ── Employer KYC verification (self-service submission) ─────────────────────
