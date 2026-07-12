@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LayoutDashboard, LogOut, BarChart2, FileText, Briefcase, Map, Zap, ChevronLeft, ChevronRight, MessageSquare, Brain, Heart, ShieldCheck } from 'lucide-react'
+import { LayoutDashboard, LogOut, BarChart2, FileText, Briefcase, Map, Zap, ChevronLeft, ChevronRight, MessageSquare, Brain, Heart, ShieldCheck, HelpCircle } from 'lucide-react'
 import { useKrsDashboard } from '@/modules/dashboard/hooks/useKrs'
 import { useLogout } from '@/modules/auth/hooks/useAuth'
 import { useQuery } from '@tanstack/react-query'
@@ -22,6 +22,7 @@ type NavPath =
   | '/app/roadmap/history'
   | '/app/companion'
   | '/app/security'
+  | '/app/support'
 
 // Main app navigation — shown everywhere except inside the Roadmap's tool pages.
 const MAIN_NAV_ITEMS: { icon: React.ReactNode; label: string; path: NavPath }[] = [
@@ -263,6 +264,21 @@ export default function AppSidebar({ activePath }: { activePath?: NavPath }) {
           </div>
         </div>
       )}
+
+      {/* Support */}
+      <div style={{ padding: collapsed ? '8px 0 0' : '8px 20px 0', display: 'flex', justifyContent: collapsed ? 'center' : 'flex-start' }}>
+        <button onClick={() => navigate('/app/support')} title={collapsed ? 'Support' : undefined} style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          width: collapsed ? 'auto' : '100%',
+          padding: collapsed ? '10px' : '10px 12px', borderRadius: 10,
+          background: activePath === '/app/support' ? 'rgba(59,130,246,0.08)' : 'transparent',
+          border: 'none', cursor: 'pointer',
+          fontSize: 13, fontWeight: 600, color: activePath === '/app/support' ? '#1D4ED8' : '#6B7280', transition: 'all 0.2s',
+        }}>
+          <HelpCircle size={14} />
+          {!collapsed && 'Support'}
+        </button>
+      </div>
 
       {/* Security */}
       <div style={{ padding: collapsed ? '12px 0' : '12px 20px 0', display: 'flex', justifyContent: collapsed ? 'center' : 'flex-start' }}>

@@ -15,6 +15,7 @@ import {
   downloadInterviewIcs,
   type CandidateOut,
 } from '@/api/matching'
+import type { PipelineStage } from '@/api/matching'
 import { getApiError } from '@/api/client'
 import {
   Search, X, Download, ChevronDown, ChevronUp, SlidersHorizontal,
@@ -22,8 +23,12 @@ import {
   CheckCircle2, Clock, AlertCircle, Star, Users, ArrowLeft,
   MessageSquare, BookOpen, LayoutGrid, List as ListIcon,
   CalendarPlus, Video, Ban, Mail, Send, Star as StarIcon, CalendarDays,
+  Settings2, Plus, Trash2, GripVertical,
 } from 'lucide-react'
-import { useHasPermission } from '../hooks/useJobs'
+import {
+  useHasPermission, usePipelineStages, useBulkUpsertPipelineStages,
+  usePipelineTemplates, useCreatePipelineTemplate, useDeletePipelineTemplate, useApplyTemplateToJob,
+} from '../hooks/useJobs'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -50,14 +55,17 @@ const STATUS_STYLE: Record<string, { bg: string; text: string }> = {
   withdrawn:            { bg: 'rgba(107,114,128,0.08)', text: '#9CA3AF' },
 }
 
-// Kanban columns, in pipeline order — excludes the terminal 'withdrawn' state
-// (aspirant-initiated; employer can't drag into/out of it).
-const KANBAN_STAGES = [
-  'applied', 'screening', 'shortlisted',
-  'assessment', 'hr_interview', 'technical_interview', 'manager_interview',
-  'interview_scheduled', 'interview_completed',
-  'offer_sent', 'offer_declined', 'hired', 'rejected',
-] as const
+// Default kanban columns — used when no custom pipeline stages are configured for the job.
+const DEFAULT_KANBAN_STAGES: PipelineStage[] = [
+  { id: '', stage_key: 'applied',              display_name: 'Applied',       color: '#3B82F6', position: 0, is_visible: true },
+  { id: '', stage_key: 'screening',            display_name: 'Screening',     color: '#D97706', position: 1, is_visible: true },
+  { id: '', stage_key: 'shortlisted',          display_name: 'Shortlisted',   color: '#059669', position: 2, is_visible: true },
+  { id: '', stage_key: 'interview_scheduled',  display_name: 'Interview',     color: '#6366F1', position: 3, is_visible: true },
+  { id: '', stage_key: 'interview_completed',  display_name: 'Interviewed',   color: '#0EA5E9', position: 4, is_visible: true },
+  { id: '', stage_key: 'offer_sent',           display_name: 'Offer Sent',    color: '#7C3AED', position: 5, is_visible: true },
+  { id: '', stage_key: 'hired',                display_name: 'Hired',         color: '#059669', position: 6, is_visible: true },
+  { id: '', stage_key: 'rejected',             display_name: 'Rejected',      color: '#DC2626', position: 7, is_visible: true },
+]
 
 const SORT_OPTIONS = [
   { value: 'match_score', label: 'Best Match' },
@@ -723,14 +731,6 @@ function CandidateCard({candidate,jobId,selected,onSelect}:{candidate:CandidateO
 
 // ── Kanban Board ──────────────────────────────────────────────────────────────
 
-const STAGE_LABELS: Record<string, string> = {
-  applied: 'Applied', screening: 'Screening', shortlisted: 'Shortlisted',
-  assessment: 'Assessment', hr_interview: 'HR Interview',
-  technical_interview: 'Technical Interview', manager_interview: 'Manager Interview',
-  interview_scheduled: 'Interview Scheduled', interview_completed: 'Interview Completed',
-  offer_sent: 'Offer Sent', offer_declined: 'Offer Declined', hired: 'Hired', rejected: 'Rejected',
-}
-
 function KanbanCard({ candidate, jobId, onDragStart }: {
   candidate: CandidateOut; jobId: string; onDragStart: (id: string) => void
 }) {
@@ -761,48 +761,56 @@ function KanbanCard({ candidate, jobId, onDragStart }: {
   )
 }
 
-function KanbanBoard({ candidates, jobId, onMove }: {
-  candidates: CandidateOut[]; jobId: string
+function KanbanBoard({ candidates, jobId, stages, onMove }: {
+  candidates: CandidateOut[]; jobId: string; stages: PipelineStage[]
   onMove: (applicationId: string, toStatus: string) => void
 }) {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverStage, setDragOverStage] = useState<string | null>(null)
 
+  const visibleStages = useMemo(
+    () => [...stages].filter(s => s.is_visible).sort((a, b) => a.position - b.position),
+    [stages]
+  )
+
   const byStage = useMemo(() => {
     const map = new Map<string, CandidateOut[]>()
-    KANBAN_STAGES.forEach(s => map.set(s, []))
+    visibleStages.forEach(s => map.set(s.stage_key, []))
     candidates.forEach(c => {
-      const stage = c.status === 'under_review' ? 'screening' : c.status
-      if (map.has(stage)) map.get(stage)!.push(c)
+      const key = c.status === 'under_review' ? 'screening' : c.status
+      if (map.has(key)) map.get(key)!.push(c)
     })
     return map
-  }, [candidates])
+  }, [candidates, visibleStages])
 
   return (
     <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 12 }}>
-      {KANBAN_STAGES.map(stage => {
-        const items = byStage.get(stage) ?? []
-        const isDragOver = dragOverStage === stage
+      {visibleStages.map(stage => {
+        const items = byStage.get(stage.stage_key) ?? []
+        const isDragOver = dragOverStage === stage.stage_key
         return (
           <div
-            key={stage}
-            onDragOver={e => { e.preventDefault(); setDragOverStage(stage) }}
-            onDragLeave={() => setDragOverStage(prev => prev === stage ? null : prev)}
+            key={stage.stage_key}
+            onDragOver={e => { e.preventDefault(); setDragOverStage(stage.stage_key) }}
+            onDragLeave={() => setDragOverStage(prev => prev === stage.stage_key ? null : prev)}
             onDrop={e => {
               e.preventDefault()
-              if (draggingId) onMove(draggingId, stage)
+              if (draggingId) onMove(draggingId, stage.stage_key)
               setDraggingId(null)
               setDragOverStage(null)
             }}
             style={{
               minWidth: 260, flexShrink: 0, borderRadius: 14,
-              background: isDragOver ? 'rgba(59,130,246,0.06)' : '#F1F5F9',
-              border: isDragOver ? '2px dashed #3B82F6' : '1px solid #E5E7EB',
+              background: isDragOver ? `${stage.color}0a` : '#F1F5F9',
+              border: isDragOver ? `2px dashed ${stage.color}` : '1px solid #E5E7EB',
               padding: 10,
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, padding: '0 4px' }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>{STAGE_LABELS[stage]}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: stage.color, flexShrink: 0 }} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>{stage.display_name}</span>
+              </div>
               <span style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', background: '#fff', borderRadius: 20, padding: '1px 8px' }}>{items.length}</span>
             </div>
             {items.length === 0 ? (
@@ -815,6 +823,213 @@ function KanbanBoard({ candidates, jobId, onMove }: {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// ── Manage Stages Modal ───────────────────────────────────────────────────────
+
+const COLOUR_PRESETS = [
+  '#3B82F6','#6366F1','#8B5CF6','#EC4899','#EF4444',
+  '#F97316','#EAB308','#22C55E','#14B8A6','#0EA5E9',
+  '#64748B','#1E3A5F',
+]
+
+const STAGE_KEY_OPTIONS = [
+  { key: 'applied',             label: 'Applied'       },
+  { key: 'screening',           label: 'Screening'     },
+  { key: 'shortlisted',         label: 'Shortlisted'   },
+  { key: 'interview_scheduled', label: 'Interview'     },
+  { key: 'interview_completed', label: 'Interviewed'   },
+  { key: 'offer_sent',          label: 'Offer Sent'    },
+  { key: 'hired',               label: 'Hired'         },
+  { key: 'rejected',            label: 'Rejected'      },
+]
+
+function ManageStagesModal({ jobId, stages, onClose }: {
+  jobId: string; stages: PipelineStage[]; onClose: () => void
+}) {
+  const [localStages, setLocalStages] = useState<PipelineStage[]>(
+    [...stages].sort((a, b) => a.position - b.position)
+  )
+  const [saveAsTemplateName, setSaveAsTemplateName] = useState('')
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false)
+  const [applyTemplateId, setApplyTemplateId] = useState('')
+
+  const save           = useBulkUpsertPipelineStages(jobId)
+  const createTemplate = useCreatePipelineTemplate()
+  const deleteTemplate = useDeletePipelineTemplate()
+  const applyTemplate  = useApplyTemplateToJob(jobId)
+  const { data: templates = [] } = usePipelineTemplates()
+
+  const update = (idx: number, patch: Partial<PipelineStage>) =>
+    setLocalStages(prev => prev.map((s, i) => i === idx ? { ...s, ...patch } : s))
+
+  const move = (idx: number, dir: -1 | 1) => {
+    const next = [...localStages]
+    const swap = idx + dir
+    if (swap < 0 || swap >= next.length) return
+    ;[next[idx], next[swap]] = [next[swap], next[idx]]
+    setLocalStages(next.map((s, i) => ({ ...s, position: i })))
+  }
+
+  const handleSave = () => {
+    save.mutate(localStages.map((s, i) => ({ ...s, position: i })), { onSuccess: onClose })
+  }
+
+  const handleSaveAsTemplate = () => {
+    if (!saveAsTemplateName.trim()) return
+    createTemplate.mutate(
+      { name: saveAsTemplateName.trim(), stages: localStages.map((s, i) => ({ ...s, position: i })) },
+      { onSuccess: () => { setSaveAsTemplateName(''); setShowSaveTemplate(false) } }
+    )
+  }
+
+  const handleApplyTemplate = () => {
+    if (!applyTemplateId) return
+    applyTemplate.mutate(applyTemplateId, {
+      onSuccess: (newStages) => {
+        setLocalStages([...newStages].sort((a, b) => a.position - b.position))
+        setApplyTemplateId('')
+      },
+    })
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', zIndex: 100,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+    }} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={{
+        background: '#fff', borderRadius: 20, width: '100%', maxWidth: 600,
+        maxHeight: '90vh', overflow: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.18)',
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: '20px 24px', borderBottom: '1px solid #F1F5F9',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: '#fff', zIndex: 1,
+        }}>
+          <div>
+            <h2 style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', margin: 0, fontFamily: 'Hind, sans-serif' }}>Manage Pipeline Stages</h2>
+            <p style={{ fontSize: 12, color: '#94A3B8', margin: '2px 0 0' }}>Rename, recolour, and reorder stages for this job.</p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 4 }}><X size={18} /></button>
+        </div>
+
+        <div style={{ padding: '16px 24px' }}>
+
+          {/* Template toolbar */}
+          {templates.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
+              <select
+                value={applyTemplateId}
+                onChange={e => setApplyTemplateId(e.target.value)}
+                style={{ height: 34, padding: '0 10px', borderRadius: 8, border: '1.5px solid #E5E7EB', fontSize: 12, color: '#374151', flex: 1 }}
+              >
+                <option value="">Load a template…</option>
+                {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+              <button
+                onClick={handleApplyTemplate}
+                disabled={!applyTemplateId || applyTemplate.isPending}
+                style={{ height: 34, padding: '0 14px', borderRadius: 8, border: 'none', background: applyTemplateId ? '#3B82F6' : '#E5E7EB', color: applyTemplateId ? '#fff' : '#94A3B8', fontSize: 12, fontWeight: 700, cursor: applyTemplateId ? 'pointer' : 'not-allowed' }}
+              >Apply</button>
+              {templates.map(t => (
+                <button key={t.id} onClick={() => deleteTemplate.mutate(t.id)} style={{ height: 28, padding: '0 8px', borderRadius: 6, border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#DC2626', fontSize: 11, cursor: 'pointer' }}>
+                  Delete "{t.name}"
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Stage rows */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+            {localStages.map((stage, idx) => (
+              <div key={stage.stage_key} style={{
+                display: 'grid', gridTemplateColumns: '24px 1fr 110px 56px 60px', alignItems: 'center', gap: 8,
+                padding: '10px 12px', borderRadius: 12, border: '1.5px solid #F1F5F9', background: stage.is_visible ? '#FAFAFA' : '#F8FAFC',
+              }}>
+                {/* Drag handle / reorder */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 1, cursor: 'pointer', color: '#CBD5E1' }}>
+                  <button onClick={() => move(idx, -1)} disabled={idx === 0} style={{ background: 'none', border: 'none', cursor: idx === 0 ? 'not-allowed' : 'pointer', color: idx === 0 ? '#E5E7EB' : '#94A3B8', padding: 0, lineHeight: 1 }}>▲</button>
+                  <button onClick={() => move(idx, 1)}  disabled={idx === localStages.length - 1} style={{ background: 'none', border: 'none', cursor: idx === localStages.length - 1 ? 'not-allowed' : 'pointer', color: idx === localStages.length - 1 ? '#E5E7EB' : '#94A3B8', padding: 0, lineHeight: 1 }}>▼</button>
+                </div>
+
+                {/* Display name */}
+                <input
+                  value={stage.display_name}
+                  onChange={e => update(idx, { display_name: e.target.value })}
+                  style={{ height: 34, padding: '0 10px', borderRadius: 8, border: '1.5px solid #E5E7EB', fontSize: 13, color: '#1E293B', background: '#fff', outline: 'none' }}
+                />
+
+                {/* Colour picker swatches */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+                  {COLOUR_PRESETS.map(c => (
+                    <button
+                      key={c}
+                      onClick={() => update(idx, { color: c })}
+                      style={{
+                        width: 16, height: 16, borderRadius: '50%', background: c, border: 'none', cursor: 'pointer',
+                        outline: stage.color === c ? `2px solid ${c}` : 'none',
+                        outlineOffset: 1,
+                      }}
+                    />
+                  ))}
+                </div>
+
+                {/* Visibility toggle */}
+                <button
+                  onClick={() => update(idx, { is_visible: !stage.is_visible })}
+                  style={{
+                    height: 28, borderRadius: 8, border: `1.5px solid ${stage.is_visible ? '#BBF7D0' : '#E5E7EB'}`,
+                    background: stage.is_visible ? '#F0FDF4' : '#F9FAFB',
+                    color: stage.is_visible ? '#059669' : '#9CA3AF',
+                    fontSize: 10, fontWeight: 700, cursor: 'pointer', padding: '0 8px',
+                  }}
+                >{stage.is_visible ? 'Visible' : 'Hidden'}</button>
+
+                {/* Colour preview chip */}
+                <span style={{
+                  height: 24, padding: '0 8px', borderRadius: 20, fontSize: 10, fontWeight: 700,
+                  background: `${stage.color}18`, color: stage.color, border: `1px solid ${stage.color}30`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap',
+                }}>{stage.stage_key.split('_')[0]}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Save as template */}
+          {!showSaveTemplate ? (
+            <button onClick={() => setShowSaveTemplate(true)} style={{ fontSize: 12, color: '#6366F1', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, padding: 0, marginBottom: 16 }}>
+              + Save current layout as template
+            </button>
+          ) : (
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              <input
+                value={saveAsTemplateName}
+                onChange={e => setSaveAsTemplateName(e.target.value)}
+                placeholder="Template name…"
+                style={{ flex: 1, height: 34, padding: '0 10px', borderRadius: 8, border: '1.5px solid #E5E7EB', fontSize: 13, outline: 'none' }}
+              />
+              <button onClick={handleSaveAsTemplate} disabled={createTemplate.isPending}
+                style={{ height: 34, padding: '0 14px', borderRadius: 8, border: 'none', background: '#6366F1', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                Save
+              </button>
+              <button onClick={() => setShowSaveTemplate(false)} style={{ height: 34, padding: '0 10px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff', fontSize: 12, cursor: 'pointer' }}>
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '12px 24px 20px', borderTop: '1px solid #F1F5F9', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ height: 38, padding: '0 20px', borderRadius: 10, border: '1.5px solid #E5E7EB', background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#374151' }}>Cancel</button>
+          <button onClick={handleSave} disabled={save.isPending} style={{ height: 38, padding: '0 24px', borderRadius: 10, border: 'none', background: '#1E293B', color: '#fff', fontSize: 13, fontWeight: 700, cursor: save.isPending ? 'not-allowed' : 'pointer' }}>
+            {save.isPending ? 'Saving…' : 'Save Stages'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -837,7 +1052,11 @@ export default function CandidatePipelinePage() {
   const [showFilters,setShowFilters]=useState(false)
   const [minKrs,setMinKrs]=useState(0)
   const [view,setView]=useState<'list'|'kanban'>('kanban')
+  const [showManageStages,setShowManageStages]=useState(false)
   const canMoveCandidates=useHasPermission('candidates:shortlist')
+
+  const { data: pipelineStages } = usePipelineStages(jobId ?? '')
+  const activeStages = pipelineStages && pipelineStages.length > 0 ? pipelineStages : DEFAULT_KANBAN_STAGES
 
   const {data:pipeline,isLoading,isError}=useQuery({
     queryKey:['pipeline',jobId],
@@ -885,20 +1104,20 @@ export default function CandidatePipelinePage() {
   }
 
   if(isLoading)return(
-    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
       <div style={{width:36,height:36,border:'3px solid rgba(59,130,246,0.2)',borderTopColor:'#3B82F6',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   )
 
   if(isError||!pipeline)return(
-    <div style={{minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',color:'#DC2626',gap:8}}>
+    <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:'#DC2626',gap:8}}>
       <AlertCircle size={20}/>Failed to load candidate pipeline.
     </div>
   )
 
   return(
-    <div style={{minHeight:'100vh',background:'#F8FAFC'}}>
+    <div style={{flex:1,background:'#F8FAFC'}}>
       {/* Top bar */}
       <header style={{background:'#fff',borderBottom:'1px solid #E5E7EB',padding:'0 28px',height:60,display:'flex',alignItems:'center',gap:16,position:'sticky',top:0,zIndex:30,boxShadow:'0 1px 8px rgba(0,0,0,0.04)'}}>
         <Link to="/app/employer" style={{color:'#64748B',textDecoration:'none',display:'flex',alignItems:'center',gap:6,fontSize:13,fontWeight:600}}>
@@ -919,19 +1138,25 @@ export default function CandidatePipelinePage() {
             <ListIcon size={13}/>List
           </button>
         </div>
+        <button onClick={()=>setShowManageStages(true)}
+          style={{display:'flex',alignItems:'center',gap:7,padding:'8px 14px',borderRadius:10,border:'1px solid rgba(99,102,241,0.3)',background:'rgba(99,102,241,0.06)',fontSize:12,fontWeight:700,color:'#6366F1',cursor:'pointer'}}>
+          <Settings2 size={13}/>Stages
+        </button>
         <button onClick={()=>exportToCSV(filtered,pipeline.job_title)}
           style={{display:'flex',alignItems:'center',gap:7,padding:'8px 14px',borderRadius:10,border:'1px solid #E5E7EB',background:'#fff',fontSize:12,fontWeight:700,color:'#374151',cursor:'pointer'}}>
           <Download size={13}/>Export CSV
         </button>
       </header>
+      {showManageStages&&jobId&&<ManageStagesModal jobId={jobId} stages={activeStages} onClose={()=>setShowManageStages(false)}/>}
 
       <div style={{maxWidth:1100,margin:'0 auto',padding:24}}>
         {/* Status tabs */}
         <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:16}}>
           <FilterTab label={`All (${pipeline.total_applications})`} active={statusFilter==='all'} onClick={()=>setStatusFilter('all')}/>
-          {Object.entries(pipeline.by_status).map(([s,count])=>(
-            <FilterTab key={s} label={`${s.replace('_',' ')} (${count})`} active={statusFilter===s} onClick={()=>setStatusFilter(s)}/>
-          ))}
+          {Object.entries(pipeline.by_status).map(([s,count])=>{
+            const stageName = activeStages.find(st => st.stage_key === s)?.display_name ?? s.replace(/_/g,' ')
+            return <FilterTab key={s} label={`${stageName} (${count})`} active={statusFilter===s} onClick={()=>setStatusFilter(s)}/>
+          })}
         </div>
 
         {/* Search + Sort */}
@@ -1054,6 +1279,7 @@ export default function CandidatePipelinePage() {
           <KanbanBoard
             candidates={filtered}
             jobId={jobId!}
+            stages={activeStages}
             onMove={canMoveCandidates?(applicationId,toStatus)=>moveMutation.mutate({id:applicationId,status:toStatus}):()=>{}}
           />
         ):(

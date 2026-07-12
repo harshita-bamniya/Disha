@@ -1,11 +1,17 @@
 import AppSidebar from '@/components/layout/AppSidebar'
+import EmployerSidebar from '@/modules/employer/components/EmployerSidebar'
 import TwoFactorSettings from '../components/TwoFactorSettings'
 import ChangePasswordCard from '../components/ChangePasswordCard'
+import { useAuthStore } from '@/stores/authStore'
+import { EMPLOYER_ROLES } from '@/types'
 
 export default function SecuritySettingsPage() {
+  const user = useAuthStore(s => s.user)
+  const isEmployer = user ? EMPLOYER_ROLES.includes(user.role) : false
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex' }}>
-      <AppSidebar activePath="/app/security" />
+      {isEmployer ? <EmployerSidebar /> : <AppSidebar activePath="/app/security" />}
       <div style={{ flex: 1, minWidth: 0, padding: '32px 36px', background: '#FAFBFD', maxWidth: 680 }}>
         <h1 className="text-xl font-bold text-gray-900 mb-1" style={{ fontFamily: 'Hind, sans-serif' }}>
           Security

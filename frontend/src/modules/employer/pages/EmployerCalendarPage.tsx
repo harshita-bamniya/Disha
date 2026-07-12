@@ -6,11 +6,12 @@
  */
 import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getUpcomingInterviews, downloadInterviewIcs } from '@/api/matching'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { downloadInterviewIcs } from '@/api/matching'
+import { useUpcomingInterviews } from '../hooks/useJobs'
 import { inboxApi } from '@/api/inbox'
 import { calendarApi } from '@/api/calendar'
-import { ArrowLeft, CalendarDays, Clock, Video, Briefcase, User, Square, Plus, Trash2, ListTodo, Zap, CheckCircle2, AlertCircle, X } from 'lucide-react'
+import { CalendarDays, Clock, Video, Briefcase, User, Square, Plus, Trash2, ListTodo, Zap, CheckCircle2, AlertCircle, X } from 'lucide-react'
 
 function groupByDay(items: { scheduled_at: string }[]) {
   const groups = new Map<string, typeof items>()
@@ -175,20 +176,13 @@ function GoogleCalendarBanner() {
 }
 
 export default function EmployerCalendarPage() {
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ['upcoming-interviews'],
-    queryFn: () => getUpcomingInterviews(50),
-  })
+  const { data, isLoading, isError } = useUpcomingInterviews(50)
 
   const groups = data ? groupByDay(data) : []
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F8FAFC' }}>
+    <div style={{ flex: 1 }}>
       <header style={{ background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '0 28px', height: 60, display: 'flex', alignItems: 'center', gap: 16, position: 'sticky', top: 0, zIndex: 10, boxShadow: '0 1px 8px rgba(0,0,0,0.04)' }}>
-        <Link to="/app/employer/dashboard" style={{ color: '#64748B', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600 }}>
-          <ArrowLeft size={14} />Back
-        </Link>
-        <div style={{ width: 1, height: 24, background: '#E5E7EB' }} />
         <h1 style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
           <CalendarDays size={16} color="#3B82F6" />Calendar
         </h1>
