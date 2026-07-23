@@ -1,19 +1,49 @@
-import { Link } from 'react-router-dom'
-import {
-  LogOut, CheckCircle2, User, GraduationCap, ClipboardList,
-  Briefcase, Zap, Target, Brain,
-} from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { LogOut, CheckCircle2, User, GraduationCap, ClipboardList, Briefcase, Zap, Target, Brain, ChevronLeft } from 'lucide-react'
 import { useLogout } from '@/modules/auth/hooks/useAuth'
-import { cn } from '@/lib/utils'
+
+const N = {
+  navy:  '#1A2744',
+  white: '#FFFFFF',
+  ink:   '#1E3A5F',
+}
 
 const STEPS = [
-  { label: 'Personal',     icon: User },
-  { label: 'Education',    icon: GraduationCap },
-  { label: 'UPSC Journey', icon: ClipboardList },
-  { label: 'Experience',   icon: Briefcase },
-  { label: 'Skills',       icon: Zap },
-  { label: 'Preferences',  icon: Target },
-  { label: 'Mindset',      icon: Brain },
+  {
+    label: 'Personal',
+    icon: User,
+    desc: 'Your name, city, and basic background.',
+  },
+  {
+    label: 'Education',
+    icon: GraduationCap,
+    desc: 'Degrees, stream, and university.',
+  },
+  {
+    label: 'UPSC Journey',
+    icon: ClipboardList,
+    desc: 'Attempts, exams cleared, and current stage.',
+  },
+  {
+    label: 'Experience',
+    icon: Briefcase,
+    desc: 'Work history and professional roles.',
+  },
+  {
+    label: 'Skills',
+    icon: Zap,
+    desc: 'Key skills and areas of expertise.',
+  },
+  {
+    label: 'Preferences',
+    icon: Target,
+    desc: 'Job type, location, and salary expectations.',
+  },
+  {
+    label: 'Mindset',
+    icon: Brain,
+    desc: 'Your goals and what drives you.',
+  },
 ]
 
 interface OnboardingLayoutProps {
@@ -23,109 +53,190 @@ interface OnboardingLayoutProps {
   subtitle?: string
 }
 
-// Colors here are kept as literal #3B82F6/#1D4ED8 (not the bg-primary design
-// token, which is navy #1E3A6B) — this matches Button.tsx's "primary" variant
-// and every employer/onboarding page already built against this same blue.
-// Unifying that with the navy admin-side token is a separate, larger design
-// decision (which blue is "correct") — see docs/ENTERPRISE_AUDIT_ROADMAP.md.
-
 export default function OnboardingLayout({ children, currentStep, title, subtitle }: OnboardingLayoutProps) {
-  const pct = Math.round(((currentStep - 1) / STEPS.length) * 100)
   const logout = useLogout()
+  const navigate = useNavigate()
+  const pct = Math.round(((currentStep - 1) / STEPS.length) * 100)
+  const current = STEPS[currentStep - 1]
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'linear-gradient(160deg, #F0F7FF 0%, #FFFFFF 55%, #EFF6FF 100%)' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', background: '#F4F5F7' }}>
 
-      {/* Top bar */}
-      <header className="sticky top-0 z-20 flex items-center justify-between h-16 px-6 border-b border-[#3B82F6]/[0.08] shadow-[0_2px_20px_rgba(30,58,95,0.05)]" style={{ background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(16px)' }}>
-        <Link to="/" className="flex items-center gap-2.5 no-underline">
-          <div className="w-[34px] h-[34px] rounded-[9px] flex items-center justify-center shadow-[0_3px_10px_rgba(59,130,246,0.3)]" style={{ background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)' }}>
-            <span className="text-white font-extrabold text-sm">D</span>
-          </div>
-          <span className="font-display font-extrabold text-[17px] text-[#1E3A5F]">BeginablAI</span>
+      {/* ── Left panel — dark navy, step info ── */}
+      <div style={{
+        width: '42%', background: N.navy,
+        display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+        padding: '48px 52px', position: 'sticky', top: 0, height: '100vh',
+        flexShrink: 0, overflow: 'hidden',
+      }} className="hidden lg:flex">
+
+        {/* Texture circles */}
+        <div style={{ position: 'absolute', width: 480, height: 480, borderRadius: '50%', background: 'rgba(255,255,255,0.03)', top: '-140px', right: '-140px', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', width: 300, height: 300, borderRadius: '50%', background: 'rgba(255,255,255,0.02)', bottom: '5%', left: '-80px', pointerEvents: 'none' }} />
+
+        {/* Logo */}
+        <Link to="/" style={{ textDecoration: 'none', position: 'relative', zIndex: 1 }}>
+          <span style={{ fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.4px' }}>BeginableAI</span>
         </Link>
 
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 bg-[#3B82F6]/[0.06] border border-[#3B82F6]/[0.12] rounded-full px-3 py-1">
-            <span className="text-xs font-semibold text-[#3B82F6]">
-              Step {currentStep} of {STEPS.length}
-            </span>
-            <div className="w-9 h-[5px] rounded-full bg-[#3B82F6]/[0.12] overflow-hidden">
-              <div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #3B82F6, #93C5FD)' }} />
+        {/* Step list */}
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {/* Current step highlight */}
+          <div style={{ marginBottom: 24 }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 7,
+              background: 'rgba(255,255,255,0.10)', border: '0.5px solid rgba(255,255,255,0.18)',
+              borderRadius: 100, padding: '5px 14px', marginBottom: 16,
+            }}>
+              <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#fff', display: 'inline-block' }} />
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.8)', letterSpacing: '0.3px' }}>
+                Step {currentStep} of {STEPS.length}
+              </span>
             </div>
+            <h2 style={{
+              fontSize: 28, fontWeight: 800, color: '#fff',
+              lineHeight: 1.25, letterSpacing: '-0.4px', marginBottom: 10,
+            }}>
+              {current?.label}
+            </h2>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', lineHeight: 1.7, maxWidth: 300 }}>
+              {current?.desc}
+            </p>
           </div>
-          <button
-            onClick={() => logout.mutate()}
-            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-[#DC2626] bg-transparent border-none cursor-pointer transition-colors px-2 py-1 rounded-md"
-          >
-            <LogOut size={13} />
-            Log out
-          </button>
-        </div>
-      </header>
 
-      {/* Progress bar */}
-      <div className="h-[3px] bg-[#3B82F6]/[0.08]">
-        <div className="h-[3px] transition-[width] duration-[600ms] ease-out" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #3B82F6, #93C5FD)' }} />
-      </div>
-
-      {/* Step pills — horizontal scroll */}
-      <div className="border-b border-[#3B82F6]/[0.06] px-6 py-2.5 overflow-x-auto" style={{ background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(12px)' }}>
-        <div className="flex gap-1.5 w-max max-w-[780px] mx-auto">
+          {/* Step list */}
           {STEPS.map((s, i) => {
-            const stepNum = i + 1
-            const done   = stepNum < currentStep
-            const active = stepNum === currentStep
+            const num = i + 1
+            const done = num < currentStep
+            const active = num === currentStep
             const Icon = s.icon
             return (
-              <div key={s.label} className="flex items-center gap-1">
-                <div
-                  className={cn(
-                    'flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200',
-                    active ? 'text-white shadow-[0_3px_10px_rgba(59,130,246,0.3)]' : done ? 'text-[#3B82F6] border border-[#3B82F6]/[0.15]' : 'text-gray-400 border border-transparent',
-                    done && !active && 'bg-[#3B82F6]/[0.08]',
-                    !done && !active && 'bg-black/[0.04]',
-                  )}
-                  style={active ? { background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)' } : undefined}
-                >
-                  {done ? <CheckCircle2 size={13} /> : <Icon size={13} />}
-                  {s.label}
+              <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '7px 0', position: 'relative' }}>
+                {/* Left rail */}
+                {active && (
+                  <div style={{ position: 'absolute', left: -52, top: '50%', transform: 'translateY(-50%)', width: 3, height: 28, borderRadius: '0 3px 3px 0', background: '#fff' }} />
+                )}
+                {/* Icon / check */}
+                <div style={{
+                  width: 26, height: 26, borderRadius: 7, flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: done ? 'rgba(255,255,255,0.12)' : active ? '#fff' : 'rgba(255,255,255,0.05)',
+                }}>
+                  {done
+                    ? <CheckCircle2 size={13} color="rgba(255,255,255,0.7)" />
+                    : <Icon size={13} color={active ? N.navy : 'rgba(255,255,255,0.25)'} />
+                  }
                 </div>
-                {i < STEPS.length - 1 && (
-                  <div className={cn('w-4 h-[1.5px]', done ? 'bg-[#3B82F6]/30' : 'bg-black/[0.08]')} />
+                <span style={{
+                  fontSize: 13,
+                  fontWeight: active ? 600 : 400,
+                  color: done ? 'rgba(255,255,255,0.4)' : active ? '#fff' : 'rgba(255,255,255,0.2)',
+                }}>
+                  {s.label}
+                </span>
+                {done && (
+                  <span style={{ marginLeft: 'auto', fontSize: 11, color: 'rgba(255,255,255,0.3)', fontWeight: 500 }}>Done</span>
                 )}
               </div>
             )
           })}
         </div>
+
+        {/* Progress bar + quote */}
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>Profile completion</span>
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>{pct}%</span>
+          </div>
+          <div style={{ height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 99, overflow: 'hidden', marginBottom: 24 }}>
+            <div style={{ height: '100%', width: `${pct}%`, background: '#fff', borderRadius: 99, transition: 'width 0.5s ease' }} />
+          </div>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.25)', fontStyle: 'italic', lineHeight: 1.6, marginBottom: 20 }}>
+            "Your preparation was never wasted. It made you rare."
+          </p>
+          <button
+            onClick={() => logout.mutate()}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              fontSize: 12, color: 'rgba(255,255,255,0.25)', background: 'none',
+              border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+              padding: 0, transition: 'color 0.15s',
+            }}
+            onMouseOver={e => e.currentTarget.style.color = 'rgba(255,255,255,0.6)'}
+            onMouseOut={e => e.currentTarget.style.color = 'rgba(255,255,255,0.25)'}
+          >
+            <LogOut size={12} />
+            Log out
+          </button>
+        </div>
       </div>
 
-      {/* Content */}
-      <main className="flex-1 flex flex-col items-center px-4 py-10">
-        <div className="w-full max-w-[540px]">
-          <div className="mb-7">
-            <div className="flex items-center justify-between gap-2.5 mb-2">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-[10px] flex items-center justify-center text-white font-display font-extrabold text-[13px] shadow-[0_4px_12px_rgba(59,130,246,0.3)]" style={{ background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)' }}>
-                  {String(currentStep).padStart(2, '0')}
-                </div>
-                <div className="text-[11px] font-bold text-[#3B82F6] bg-[#3B82F6]/[0.07] px-2.5 py-0.5 rounded-full uppercase tracking-wide">
-                  {STEPS[currentStep - 1]?.label}
-                </div>
+      {/* ── Right panel — form ── */}
+      <div style={{
+        flex: 1, display: 'flex', flexDirection: 'column',
+        overflowY: 'auto', height: '100vh',
+      }}>
+        {/* Form area */}
+        <div style={{ flex: 1, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', padding: '48px 24px 64px' }}>
+          <div style={{ width: '100%', maxWidth: 480 }}>
+
+            {/* Step badge */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: 8,
+                background: N.navy, color: '#fff',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 12, fontWeight: 800,
+              }}>
+                {String(currentStep).padStart(2, '0')}
               </div>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+                {current?.label}
+              </span>
             </div>
-            <h1 className="font-display text-2xl font-black text-[#1E3A5F] mb-1.5 tracking-tight">{title}</h1>
+
+            <h1 style={{
+              fontSize: 24, fontWeight: 800, color: N.ink,
+              letterSpacing: '-0.3px', marginBottom: 6, lineHeight: 1.25,
+            }}>{title}</h1>
             {subtitle && (
-              <p className="text-sm text-gray-500 leading-relaxed">{subtitle}</p>
+              <p style={{ fontSize: 14, color: '#475569', lineHeight: 1.65, marginBottom: 32 }}>{subtitle}</p>
+            )}
+            {!subtitle && <div style={{ marginBottom: 32 }} />}
+
+            {/* Card */}
+            <div style={{
+              background: N.white, borderRadius: 20,
+              border: '0.5px solid rgba(0,0,0,0.08)',
+              boxShadow: '0 4px 24px rgba(26,39,68,0.07)',
+              padding: '32px',
+            }}>
+              {children}
+            </div>
+
+            {/* Back button — below card */}
+            {currentStep > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
+                <button
+                  onClick={() => navigate(`/app/onboarding/step/${currentStep - 1}`)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    fontSize: 13, fontWeight: 500, color: '#9CA3AF',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    fontFamily: 'inherit', padding: '6px 12px', borderRadius: 8,
+                    transition: 'color 0.15s',
+                  }}
+                  onMouseOver={e => e.currentTarget.style.color = N.ink}
+                  onMouseOut={e => e.currentTarget.style.color = '#9CA3AF'}
+                >
+                  <ChevronLeft size={14} />
+                  Go back to previous step
+                </button>
+              </div>
             )}
           </div>
-
-          {/* Form card */}
-          <div className="rounded-3xl border border-white/95 shadow-[0_12px_40px_rgba(30,58,95,0.08),0_2px_8px_rgba(30,58,95,0.04)] px-7 py-8" style={{ background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(20px)' }}>
-            {children}
-          </div>
         </div>
-      </main>
+      </div>
     </div>
   )
 }

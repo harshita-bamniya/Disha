@@ -82,7 +82,24 @@ export default function Step2Education() {
         <Input label="Degree" required placeholder="B.A., B.Sc., B.Tech, M.A.…" value={form.degree} onChange={set('degree')} error={errors.degree} />
         <Input label="Field of study" required placeholder="Political Science, Economics, Engineering…" value={form.field_of_study} onChange={set('field_of_study')} error={errors.field_of_study} />
         <Input label="Institution" required placeholder="University / College name" value={form.institution} onChange={set('institution')} error={errors.institution} prefix={<GraduationCap className="w-4 h-4" />} />
-        <Input label="Graduation year" required type="number" placeholder={String(CURRENT_YEAR)} value={form.graduation_year} onChange={set('graduation_year')} error={errors.graduation_year} min={1970} max={2030} />
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-gray-700">Graduation year<span className="text-danger ml-0.5">*</span></label>
+          <select
+            value={form.graduation_year}
+            onChange={(e) => { setForm((p) => ({ ...p, graduation_year: e.target.value })); setErrors((p) => ({ ...p, graduation_year: '' })) }}
+            className={cn(
+              'w-full h-11 rounded-xl border bg-white px-4 text-sm text-gray-900 outline-none transition-all',
+              'border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/10',
+              errors.graduation_year && 'border-danger',
+            )}
+          >
+            <option value="">Select year</option>
+            {Array.from({ length: 2030 - 1970 + 1 }, (_, i) => 2030 - i).map((yr) => (
+              <option key={yr} value={String(yr)}>{yr}</option>
+            ))}
+          </select>
+          {errors.graduation_year && <p className="text-xs text-danger mt-0.5">{errors.graduation_year}</p>}
+        </div>
 
         {serverError && <p className="text-sm text-danger bg-danger/5 border border-danger/20 rounded-xl px-4 py-3">{serverError}</p>}
 

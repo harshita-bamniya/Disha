@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Briefcase } from 'lucide-react'
+import { Briefcase, UserCheck } from 'lucide-react'
 import OnboardingLayout from '@/layouts/OnboardingLayout'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
@@ -52,7 +52,10 @@ export default function Step4WorkExperience() {
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-gray-700">Do you have prior work experience?</label>
           <div className="grid grid-cols-2 gap-3">
-            {[{ val: true, label: 'Yes, I do' }, { val: false, label: 'No, fresher' }].map(({ val, label }) => (
+            {[
+              { val: true,  label: 'Yes, I do',   icon: Briefcase },
+              { val: false, label: 'No, fresher',  icon: UserCheck },
+            ].map(({ val, label, icon: Icon }) => (
               <button
                 key={String(val)}
                 type="button"
@@ -62,7 +65,7 @@ export default function Step4WorkExperience() {
                   hasExp === val ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary/50',
                 )}
               >
-                <Briefcase className="w-4 h-4" />
+                <Icon className="w-4 h-4" />
                 {label}
               </button>
             ))}
@@ -101,7 +104,7 @@ export default function Step4WorkExperience() {
             </div>
 
             <Input
-              label="Last designation (optional)"
+              label="Last designation"
               placeholder="Research Analyst, Junior Manager…"
               value={form.last_designation}
               onChange={(e) => setForm((p) => ({ ...p, last_designation: e.target.value }))}

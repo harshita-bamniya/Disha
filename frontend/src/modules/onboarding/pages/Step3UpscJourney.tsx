@@ -134,7 +134,7 @@ export default function Step3UpscJourney() {
         {/* Optional subject — only for CSE */}
         {form.upsc_exam === 'cse' && (
           <Input
-            label="Optional subject (if applicable)"
+            label="Optional subject"
             placeholder="Sociology, Public Administration, Geography…"
             value={form.optional_subject}
             onChange={(e) => setForm((p) => ({ ...p, optional_subject: e.target.value }))}

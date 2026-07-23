@@ -117,14 +117,14 @@ export default function Step1Personal() {
         <div className="h-px bg-gray-100 my-1" />
 
         <Input
-          label={<>Date of birth <span className="text-gray-400 font-normal">(optional)</span></>}
+          label="Date of birth"
           type="date"
           value={form.date_of_birth}
           onChange={set('date_of_birth')}
         />
 
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-gray-700">Gender <span className="text-gray-400 font-normal">(optional)</span></label>
+          <label className="text-sm font-medium text-gray-700">Gender</label>
           <div className="grid grid-cols-2 gap-2">
             {GENDERS.map(({ value, label }) => (
               <button
@@ -143,7 +143,7 @@ export default function Step1Personal() {
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-gray-700">State / UT <span className="text-gray-400 font-normal">(optional)</span></label>
+          <label className="text-sm font-medium text-gray-700">State / UT</label>
           <select
             value={form.state}
             onChange={set('state')}

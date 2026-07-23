@@ -1,21 +1,21 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import heroKeyImg from '../assets/hero-key.png'
+import heroKeyImg from '../assets/DQ_1E8UXkqqBgOzrKSzeM_uWjJ992Z.png'
 
-// ── Palette — original blue theme ──────────────────────────────────────────────
+// ── Palette ───────────────────────────────────────────────────────────────────
 const C = {
   ink:      '#1E3A5F',
   inkSoft:  '#475569',
   muted:    '#94A3B8',
-  cream:    '#F0F7FF',
-  creamDk:  '#EFF6FF',
+  cream:    '#F4F5F7',
+  creamDk:  '#EAECF0',
   card:     '#FFFFFF',
-  black:    '#3B82F6',
-  blackSoft:'#1D4ED8',
-  gold:     '#3B82F6',
-  goldLt:   '#EFF6FF',
-  border:   'rgba(59,130,246,0.12)',
-  borderDk: 'rgba(59,130,246,0.2)',
+  black:    '#1A2744',
+  blackSoft:'#243359',
+  gold:     '#1A2744',
+  goldLt:   '#EAECF0',
+  border:   'rgba(0,0,0,0.08)',
+  borderDk: 'rgba(0,0,0,0.14)',
   white:    '#FFFFFF',
   success:  '#22C55E',
 }
@@ -24,7 +24,18 @@ const KEYFRAMES = `
   @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
 `
 
-// ── Icons — clean single-weight line icons, no emoji ───────────────────────────
+// ── Responsive hook ───────────────────────────────────────────────────────────
+function useIsMobile(breakpoint = 768) {
+  const [mobile, setMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < breakpoint)
+  useEffect(() => {
+    const fn = () => setMobile(window.innerWidth < breakpoint)
+    window.addEventListener('resize', fn)
+    return () => window.removeEventListener('resize', fn)
+  }, [breakpoint])
+  return mobile
+}
+
+// ── Icons ─────────────────────────────────────────────────────────────────────
 const Icon = {
   Menu:    () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="20" height="20"><path d="M3 12h18M3 6h18M3 18h18"/></svg>,
   X:       () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" width="20" height="20"><path d="M18 6L6 18M6 6l12 12"/></svg>,
@@ -46,6 +57,8 @@ const Icon = {
 function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [open, setOpen] = useState(false)
+  const isMobile = useIsMobile()
+
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 16)
     window.addEventListener('scroll', fn)
@@ -55,66 +68,66 @@ function Navbar() {
   return (
     <nav style={{
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-      background: scrolled ? 'rgba(255,255,255,0.94)' : 'rgba(255,255,255,0.72)',
+      background: '#FFFFFF',
       backdropFilter: 'blur(16px)',
       borderBottom: `1px solid ${scrolled ? C.border : 'transparent'}`,
       transition: 'all 0.3s',
-      boxShadow: scrolled ? '0 1px 14px rgba(59,130,246,0.06)' : 'none',
+      boxShadow: scrolled ? '0 1px 14px rgba(26,39,68,0.06)' : 'none',
     }}>
       <div style={{ maxWidth: 1140, margin: '0 auto', padding: '0 24px' }}>
-        <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ height: 90, display: 'flex', alignItems: 'center', justifyContent: 'space-between', overflow: 'visible' }}>
 
           {/* Logo */}
-          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none' }}>
-            <div style={{
-              width: 34, height: 34, borderRadius: 9,
-              background: C.black,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 3px 10px rgba(59,130,246,0.28)',
-            }}>
-              <span style={{ color: C.gold, fontWeight: 800, fontSize: 15, fontFamily: 'Plus Jakarta Sans, sans-serif' }}>D</span>
-            </div>
-            <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: 19, color: C.ink, letterSpacing: '0.2px' }}>BeginableAI</span>
+          <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', overflow: 'visible' }}>
+            <span style={{ fontSize: 24, fontWeight: 800, color: '#1A2744', letterSpacing: '-0.5px' }}>BeginableAI</span>
           </Link>
 
           {/* Desktop links */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 36 }} className="hidden md:flex">
-            {['Features', 'How it works', 'For Employers'].map(l => (
-              <a key={l} href={`#${l.toLowerCase().replace(/ /g,'-')}`}
-                style={{ fontSize: 14, color: C.inkSoft, textDecoration: 'none', fontWeight: 500, transition: 'color 0.2s' }}
-                onMouseOver={e => e.currentTarget.style.color = C.ink}
-                onMouseOut={e => e.currentTarget.style.color = C.inkSoft}
-              >{l}</a>
-            ))}
-          </div>
+          {!isMobile && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 36 }}>
+              {['Features', 'How it works', 'For Employers'].map(l => (
+                <a key={l} href={`#${l.toLowerCase().replace(/ /g,'-')}`}
+                  style={{ fontSize: 14, color: C.inkSoft, textDecoration: 'none', fontWeight: 500, transition: 'color 0.2s' }}
+                  onMouseOver={e => e.currentTarget.style.color = C.ink}
+                  onMouseOut={e => e.currentTarget.style.color = C.inkSoft}
+                >{l}</a>
+              ))}
+            </div>
+          )}
 
-          {/* CTAs */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }} className="hidden md:flex">
-            <Link to="/auth/login" style={{
-              padding: '7px 18px', borderRadius: 9, fontSize: 14, fontWeight: 600,
-              color: C.ink, textDecoration: 'none', border: `1.5px solid ${C.borderDk}`,
-              background: 'transparent', transition: 'all 0.2s',
-            }}
-              onMouseOver={e => e.currentTarget.style.background = C.creamDk}
-              onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-            >Log in</Link>
-            <Link to="/auth/register" style={{
-              padding: '7px 20px', borderRadius: 9, fontSize: 14, fontWeight: 700,
-              background: C.black, color: C.white, textDecoration: 'none',
-              boxShadow: '0 3px 12px rgba(59,130,246,0.28)', transition: 'all 0.2s',
-            }}
-              onMouseOver={e => { e.currentTarget.style.background = C.blackSoft; e.currentTarget.style.transform = 'translateY(-1px)' }}
-              onMouseOut={e => { e.currentTarget.style.background = C.black; e.currentTarget.style.transform = 'translateY(0)' }}
-            >Get Started</Link>
-          </div>
+          {/* Desktop CTAs */}
+          {!isMobile && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Link to="/auth/login" style={{
+                padding: '7px 18px', borderRadius: 9, fontSize: 14, fontWeight: 600,
+                color: C.ink, textDecoration: 'none', border: `1.5px solid ${C.borderDk}`,
+                background: 'transparent', transition: 'all 0.2s',
+              }}
+                onMouseOver={e => e.currentTarget.style.background = C.creamDk}
+                onMouseOut={e => e.currentTarget.style.background = 'transparent'}
+              >Log in</Link>
+              <Link to="/auth/register" style={{
+                padding: '7px 20px', borderRadius: 9, fontSize: 14, fontWeight: 700,
+                background: C.black, color: C.white, textDecoration: 'none',
+                boxShadow: '0 3px 12px rgba(26,39,68,0.28)', transition: 'all 0.2s',
+              }}
+                onMouseOver={e => { e.currentTarget.style.background = C.blackSoft; e.currentTarget.style.transform = 'translateY(-1px)' }}
+                onMouseOut={e => { e.currentTarget.style.background = C.black; e.currentTarget.style.transform = 'translateY(0)' }}
+              >Get Started</Link>
+            </div>
+          )}
 
-          <button onClick={() => setOpen(!open)} style={{ background:'none', border:'none', cursor:'pointer', color: C.ink, padding: 4 }} className="md:hidden">
-            {open ? <Icon.X /> : <Icon.Menu />}
-          </button>
+          {/* Mobile hamburger */}
+          {isMobile && (
+            <button onClick={() => setOpen(!open)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.ink, padding: 4 }}>
+              {open ? <Icon.X /> : <Icon.Menu />}
+            </button>
+          )}
         </div>
 
-        {open && (
-          <div style={{ background: C.white, borderRadius: 14, padding: 20, marginBottom: 12, boxShadow: '0 8px 32px rgba(59,130,246,0.10)', border: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', gap: 14 }} className="md:hidden">
+        {/* Mobile menu dropdown */}
+        {isMobile && open && (
+          <div style={{ background: C.white, borderRadius: 14, padding: 20, marginBottom: 12, boxShadow: '0 8px 32px rgba(26,39,68,0.10)', border: `1px solid ${C.border}`, display: 'flex', flexDirection: 'column', gap: 14 }}>
             {['Features','How it works','For Employers'].map(l => (
               <a key={l} href={`#${l.toLowerCase().replace(/ /g,'-')}`} onClick={() => setOpen(false)}
                 style={{ fontSize: 14, color: C.inkSoft, textDecoration: 'none', fontWeight: 500 }}>{l}</a>
@@ -132,35 +145,39 @@ function Navbar() {
 
 // ── Hero ──────────────────────────────────────────────────────────────────────
 function Hero() {
+  const isMobile = useIsMobile()
+  const isTablet = useIsMobile(1024)
+
   return (
     <section style={{
       minHeight: '100vh', display: 'flex', alignItems: 'center',
       background: `linear-gradient(170deg, ${C.cream} 0%, #FFFFFF 55%, ${C.creamDk} 100%)`,
       paddingTop: 80, position: 'relative', overflow: 'hidden',
     }}>
-      {/* Soft background blobs */}
-      <div style={{ position:'absolute', width: 560, height: 560, borderRadius:'50%', background: 'radial-gradient(circle, rgba(59,130,246,0.10) 0%, transparent 70%)', top:'-100px', right:'-120px', pointerEvents:'none' }} />
-      <div style={{ position:'absolute', width: 360, height: 360, borderRadius:'50%', background: 'radial-gradient(circle, rgba(59,130,246,0.05) 0%, transparent 70%)', bottom:'5%', left:'-60px', pointerEvents:'none' }} />
+      <div style={{ position:'absolute', width: 560, height: 560, borderRadius:'50%', background: 'radial-gradient(circle, rgba(26,39,68,0.10) 0%, transparent 70%)', top:'-100px', right:'-120px', pointerEvents:'none' }} />
+      <div style={{ position:'absolute', width: 360, height: 360, borderRadius:'50%', background: 'radial-gradient(circle, rgba(26,39,68,0.05) 0%, transparent 70%)', bottom:'5%', left:'-60px', pointerEvents:'none' }} />
 
-      <div style={{ maxWidth: 1140, margin: '0 auto', padding: '48px 24px', width: '100%' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 64, alignItems: 'center' }}
-          className="lg:grid-cols-2 grid-cols-1">
-
+      <div style={{ maxWidth: 1140, margin: '0 auto', padding: isMobile ? '40px 20px' : '48px 24px', width: '100%' }}>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: isTablet ? '1fr' : 'minmax(0,1fr) minmax(0,1fr)',
+          gap: isMobile ? 40 : 64,
+          alignItems: 'center',
+        }}>
           {/* Left */}
           <div style={{ animation: 'fadeUp 0.7s ease both' }}>
-            {/* Badge */}
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 7,
-              background: C.goldLt, border: `1px solid rgba(59,130,246,0.3)`,
+              background: C.goldLt, border: `1px solid rgba(26,39,68,0.3)`,
               borderRadius: 100, padding: '5px 14px', marginBottom: 24,
             }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: C.gold }} />
-              <span style={{ fontSize: 12, fontWeight: 600, color: '#1D4ED8' }}>AI-powered career intelligence for UPSC aspirants</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: C.gold }}>AI-powered career intelligence for UPSC aspirants</span>
             </div>
 
             <h1 style={{
               fontFamily: 'Plus Jakarta Sans, sans-serif',
-              fontSize: 'clamp(28px, 3.8vw, 46px)',
+              fontSize: isMobile ? 28 : 'clamp(28px, 3.8vw, 46px)',
               fontWeight: 800, lineHeight: 1.2,
               color: C.ink, marginBottom: 20, letterSpacing: '-0.5px',
             }}>
@@ -169,17 +186,16 @@ function Hero() {
               <br />Now let it launch your career.
             </h1>
 
-            <p style={{ fontSize: 16, color: C.inkSoft, lineHeight: 1.75, maxWidth: 440, marginBottom: 36 }}>
+            <p style={{ fontSize: isMobile ? 15 : 16, color: C.inkSoft, lineHeight: 1.75, maxWidth: 440, marginBottom: 36 }}>
               BeginableAI matches UPSC aspirants with employers who value analytical depth and governance knowledge — turning years of preparation into a career advantage.
             </p>
 
-            {/* CTAs */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 40 }}>
               <Link to="/auth/register" style={{
                 display:'inline-flex', alignItems:'center', gap: 8,
-                padding: '12px 26px', borderRadius: 12, fontSize: 15, fontWeight: 700,
+                padding: isMobile ? '11px 22px' : '12px 26px', borderRadius: 12, fontSize: 15, fontWeight: 700,
                 background: C.black, color: C.white, textDecoration: 'none',
-                boxShadow: '0 6px 20px rgba(59,130,246,0.30)', transition: 'all 0.2s',
+                boxShadow: '0 6px 20px rgba(26,39,68,0.30)', transition: 'all 0.2s',
               }}
                 onMouseOver={e => { e.currentTarget.style.background = C.blackSoft; e.currentTarget.style.transform = 'translateY(-2px)' }}
                 onMouseOut={e => { e.currentTarget.style.background = C.black; e.currentTarget.style.transform = 'translateY(0)' }}
@@ -188,7 +204,7 @@ function Hero() {
               </Link>
               <Link to="/auth/register/employer" style={{
                 display:'inline-flex', alignItems:'center', gap: 7,
-                padding: '12px 22px', borderRadius: 12, fontSize: 14, fontWeight: 600,
+                padding: isMobile ? '11px 18px' : '12px 22px', borderRadius: 12, fontSize: 14, fontWeight: 600,
                 border: `1.5px solid ${C.borderDk}`, color: C.ink,
                 textDecoration: 'none', background: C.white, transition: 'all 0.2s',
               }}
@@ -199,7 +215,6 @@ function Hero() {
               </Link>
             </div>
 
-            {/* Social proof */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <div style={{ display: 'flex' }}>
@@ -223,14 +238,16 @@ function Hero() {
             </div>
           </div>
 
-          {/* Right — illustration */}
-          <div style={{ position:'relative', width: '100%', height: 520, display:'flex', alignItems:'center', justifyContent:'center', overflow: 'hidden' }} className="hidden lg:flex">
-            <img
-              src={heroKeyImg}
-              alt="Aspirant unlocking a career opportunity"
-              style={{ width: '145%', maxWidth: 760, display: 'block', position: 'relative' }}
-            />
-          </div>
+          {/* Right — illustration (hidden on mobile/tablet) */}
+          {!isTablet && (
+            <div style={{ position:'relative', width: '100%', height: 520, display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <img
+                src={heroKeyImg}
+                alt="Aspirant climbing to career success"
+                style={{ width: '100%', maxWidth: 600, height: '100%', objectFit: 'contain', display: 'block' }}
+              />
+            </div>
+          )}
         </div>
       </div>
     </section>
@@ -245,8 +262,10 @@ function FeatureStrip() {
     { Icon: Icon.Trend,     title: 'Skill Gap Analysis', desc: 'See exactly which skills to build for each opportunity.' },
     { Icon: Icon.Map,       title: 'Career Paths', desc: 'Explore sectors where UPSC preparation gives you a real edge.' },
   ]
+  const isMobile = useIsMobile()
+
   return (
-    <section id="features" style={{ background: C.white, padding: '88px 24px' }}>
+    <section id="features" style={{ background: C.white, padding: isMobile ? '60px 20px' : '88px 24px' }}>
       <div style={{ maxWidth: 1140, margin: '0 auto' }}>
         <div style={{ textAlign:'center', marginBottom: 56 }}>
           <p style={{ fontSize: 12, fontWeight: 700, color: C.gold, textTransform:'uppercase', letterSpacing:'1.5px', marginBottom: 12 }}>What you get</p>
@@ -257,11 +276,12 @@ function FeatureStrip() {
             Every feature is designed to translate your preparation into real career advantage.
           </p>
         </div>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(250px,1fr))', gap: 1, background: C.border, borderRadius: 20, overflow: 'hidden', border: `1px solid ${C.border}` }}>
+        <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(250px,1fr))', gap: isMobile ? 0 : 1, background: C.border, borderRadius: 20, overflow: 'hidden', border: `1px solid ${C.border}` }}>
           {items.map(item => (
             <div key={item.title} style={{
-              background: C.white, padding: '36px 28px',
+              background: C.white, padding: isMobile ? '28px 20px' : '36px 28px',
               transition: 'background 0.25s',
+              borderBottom: isMobile ? `1px solid ${C.border}` : 'none',
             }}
               onMouseOver={e => { e.currentTarget.style.background = C.cream }}
               onMouseOut={e => { e.currentTarget.style.background = C.white }}
@@ -281,6 +301,7 @@ function FeatureStrip() {
 
 // ── How it works ──────────────────────────────────────────────────────────────
 function HowItWorks() {
+  const isMobile = useIsMobile()
   const steps = [
     { n:'01', Icon: Icon.Target,    title:'Build your profile', desc:"Tell us your UPSC journey, skills, education and what you're looking for. Takes about 5 minutes." },
     { n:'02', Icon: Icon.Trend,     title:'Get your KRS score', desc:'Our AI calculates your Knowledge, Readiness and Skills score — a single number that reflects your career readiness.' },
@@ -288,63 +309,39 @@ function HowItWorks() {
     { n:'04', Icon: Icon.Map,       title:'Choose your path', desc:'Explore career tracks and pick the ones that suit your strengths and aspirations.' },
   ]
   return (
-    <section id="how-it-works" style={{ background: C.creamDk, padding: '88px 24px' }}>
+    <section id="how-it-works" style={{ background: C.creamDk, padding: isMobile ? '60px 20px' : '88px 24px' }}>
       <div style={{ maxWidth: 1140, margin: '0 auto' }}>
         <div style={{ textAlign:'center', marginBottom: 64 }}>
           <p style={{ fontSize: 12, fontWeight: 700, color: C.gold, textTransform:'uppercase', letterSpacing:'1.5px', marginBottom: 12 }}>How it works</p>
           <h2 style={{ fontFamily:'Plus Jakarta Sans, sans-serif', fontSize: 'clamp(22px,3vw,34px)', fontWeight: 800, color: C.ink }}>Four steps to your next opportunity</h2>
         </div>
 
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px,1fr))', gap: 24, position:'relative' }}>
-          {/* connecting line across the step badges */}
-          <div style={{ position:'absolute', top: 27, left: '12.5%', right: '12.5%', height: 1, background: C.borderDk, display:'none' }} className="lg:block" />
-
-          {steps.map((s) => (
-            <div key={s.n} style={{ position:'relative' }}>
-              <div style={{
-                background: C.white, borderRadius: 20, padding: '32px 26px 28px',
-                border: `1px solid ${C.border}`, height:'100%', position:'relative', overflow:'hidden',
-                boxShadow: '0 10px 28px rgba(59,130,246,0.12)', transition: 'all 0.3s ease',
+        <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(220px,1fr))', gap: 16 }}>
+          {steps.map((s, i) => {
+            const dark = i === 0
+            return (
+              <div key={s.n} style={{
+                background: dark ? C.black : C.white,
+                border: `0.5px solid ${dark ? C.black : C.border}`,
+                borderRadius: 16, padding: '26px 22px 24px',
+                transition: 'transform 0.25s ease',
               }}
-                onMouseOver={e => {
-                  e.currentTarget.style.transform = 'translateY(-6px)'
-                  e.currentTarget.style.boxShadow = '0 24px 44px rgba(59,130,246,0.22)'
-                  e.currentTarget.style.borderColor = C.borderDk
-                  const bar = e.currentTarget.querySelector('[data-bar]') as HTMLElement | null
-                  if (bar) bar.style.transform = 'scaleX(1)'
-                }}
-                onMouseOut={e => {
-                  e.currentTarget.style.transform = 'translateY(0)'
-                  e.currentTarget.style.boxShadow = '0 10px 28px rgba(59,130,246,0.12)'
-                  e.currentTarget.style.borderColor = C.border
-                  const bar = e.currentTarget.querySelector('[data-bar]') as HTMLElement | null
-                  if (bar) bar.style.transform = 'scaleX(0)'
-                }}
+                onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-4px)' }}
+                onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)' }}
               >
-                {/* accent bar — reveals on hover */}
-                <div data-bar style={{
-                  position:'absolute', top: 0, left: 0, right: 0, height: 3,
-                  background: `linear-gradient(90deg, ${C.gold}, ${C.blackSoft})`,
-                  transform: 'scaleX(0)', transformOrigin: 'left', transition: 'transform 0.3s ease',
-                }} />
-
-                <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom: 22 }}>
-                  <div style={{
-                    width: 48, height: 48, borderRadius: 14, flexShrink: 0,
-                    background: '#15130F',
-                    display:'flex', alignItems:'center', justifyContent:'center',
-                    boxShadow: '0 8px 18px rgba(21,19,15,0.28)',
-                  }}>
-                    <s.Icon c={C.white} />
-                  </div>
-                  <span style={{ fontFamily:'Plus Jakarta Sans, sans-serif', fontSize: 26, fontWeight: 800, color: 'transparent', WebkitTextStroke: `1.4px ${C.borderDk}`, letterSpacing:'-1px' }}>{s.n}</span>
+                <span style={{ fontSize: 11, fontWeight: 500, letterSpacing: '0.5px', display: 'block', marginBottom: 18, color: dark ? 'rgba(255,255,255,0.4)' : C.muted }}>{s.n}</span>
+                <div style={{
+                  width: 38, height: 38, borderRadius: 10, marginBottom: 16,
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  background: dark ? 'rgba(255,255,255,0.12)' : C.creamDk,
+                }}>
+                  <s.Icon c={dark ? C.white : C.ink} />
                 </div>
-                <h3 style={{ fontFamily:'Plus Jakarta Sans, sans-serif', fontSize: 16, fontWeight: 700, color: C.ink, marginBottom: 10 }}>{s.title}</h3>
-                <div style={{ width: 28, height: 2, background: C.border, marginBottom: 12, borderRadius: 2 }} />
-                <p style={{ fontSize: 13, color: C.inkSoft, lineHeight: 1.7 }}>{s.desc}</p>
+                <h3 style={{ fontFamily:'Plus Jakarta Sans, sans-serif', fontSize: 15, fontWeight: 700, marginBottom: 8, color: dark ? C.white : C.ink }}>{s.title}</h3>
+                <p style={{ fontSize: 13, lineHeight: 1.7, margin: 0, color: dark ? 'rgba(255,255,255,0.55)' : C.inkSoft }}>{s.desc}</p>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </section>
@@ -353,6 +350,7 @@ function HowItWorks() {
 
 // ── For employers ─────────────────────────────────────────────────────────────
 function ForEmployers() {
+  const isMobile = useIsMobile()
   const perks = [
     'Access pre-vetted UPSC-trained talent',
     'Filter by KRS score and skill gaps',
@@ -360,9 +358,9 @@ function ForEmployers() {
     'Reach candidates in 24 hours',
   ]
   return (
-    <section id="for-employers" style={{ background: C.white, padding: '88px 24px' }}>
+    <section id="for-employers" style={{ background: C.white, padding: isMobile ? '60px 20px' : '88px 24px' }}>
       <div style={{ maxWidth: 1140, margin: '0 auto' }}>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap: 60, alignItems:'center' }} className="lg:grid-cols-2 grid-cols-1">
+        <div style={{ display:'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: isMobile ? 40 : 60, alignItems:'center' }}>
           <div>
             <p style={{ fontSize: 12, fontWeight: 700, color: C.gold, textTransform:'uppercase', letterSpacing:'1.5px', marginBottom: 14 }}>For employers</p>
             <h2 style={{ fontFamily:'Plus Jakarta Sans, sans-serif', fontSize: 'clamp(22px,2.8vw,34px)', fontWeight: 800, color: C.ink, lineHeight: 1.25, marginBottom: 16 }}>
@@ -383,7 +381,7 @@ function ForEmployers() {
               display:'inline-flex', alignItems:'center', gap: 8,
               padding: '11px 24px', borderRadius: 11, fontSize: 14, fontWeight: 700,
               background: C.black, color: C.white, textDecoration:'none',
-              boxShadow:'0 6px 18px rgba(59,130,246,0.28)', transition:'all 0.2s',
+              boxShadow:'0 6px 18px rgba(26,39,68,0.28)', transition:'all 0.2s',
             }}
               onMouseOver={e => { e.currentTarget.style.background = C.blackSoft; e.currentTarget.style.transform = 'translateY(-1px)' }}
               onMouseOut={e => { e.currentTarget.style.background = C.black; e.currentTarget.style.transform = 'translateY(0)' }}
@@ -399,18 +397,17 @@ function ForEmployers() {
               { v:'3 days', l:'Avg. hire time',    Icon: Icon.Clock },
             ].map(s => (
               <div key={s.l} style={{
-                background: C.white, borderRadius: 18, padding: '26px 20px',
+                background: C.white, borderRadius: 18, padding: isMobile ? '20px 16px' : '26px 20px',
                 border: `1px solid ${C.border}`, textAlign:'center',
-                boxShadow: '0 8px 22px rgba(59,130,246,0.08)', transition: 'all 0.25s ease',
+                boxShadow: '0 8px 22px rgba(26,39,68,0.08)', transition: 'all 0.25s ease',
               }}
-                onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 16px 32px rgba(59,130,246,0.16)'; e.currentTarget.style.borderColor = C.borderDk }}
-                onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 22px rgba(59,130,246,0.08)'; e.currentTarget.style.borderColor = C.border }}
+                onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 16px 32px rgba(26,39,68,0.16)'; e.currentTarget.style.borderColor = C.borderDk }}
+                onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 8px 22px rgba(26,39,68,0.08)'; e.currentTarget.style.borderColor = C.border }}
               >
-                <div style={{
-                  width: 44, height: 44, borderRadius: 13, margin: '0 auto 14px',
-                  background: C.goldLt, display:'flex', alignItems:'center', justifyContent:'center',
-                }}><s.Icon c={C.gold} /></div>
-                <p style={{ fontFamily:'Plus Jakarta Sans, sans-serif', fontSize: 24, fontWeight: 800, color: C.ink, marginBottom: 4, letterSpacing:'-0.3px' }}>{s.v}</p>
+                <div style={{ width: 44, height: 44, borderRadius: 13, margin: '0 auto 14px', background: C.goldLt, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  <s.Icon c={C.gold} />
+                </div>
+                <p style={{ fontFamily:'Plus Jakarta Sans, sans-serif', fontSize: isMobile ? 20 : 24, fontWeight: 800, color: C.ink, marginBottom: 4, letterSpacing:'-0.3px' }}>{s.v}</p>
                 <p style={{ fontSize: 12.5, color: C.muted }}>{s.l}</p>
               </div>
             ))}
@@ -423,13 +420,14 @@ function ForEmployers() {
 
 // ── CTA Banner ────────────────────────────────────────────────────────────────
 function CtaBanner() {
+  const isMobile = useIsMobile()
   return (
-    <section style={{ background: `linear-gradient(135deg, #FDFCFA 0%, #F8F4ED 100%)`, padding:'64px 24px' }}>
+    <section style={{ background: C.creamDk, padding: isMobile ? '56px 20px' : '64px 24px' }}>
       <div style={{ maxWidth: 620, margin:'0 auto', textAlign:'center' }}>
         <div style={{
           width: 56, height: 56, borderRadius: '50%', background: C.white,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          margin: '0 auto 16px', boxShadow: '0 6px 18px rgba(59,130,246,0.18)',
+          margin: '0 auto 16px', boxShadow: '0 6px 18px rgba(26,39,68,0.18)',
         }}>
           <Icon.Target c={C.gold} />
         </div>
@@ -442,12 +440,11 @@ function CtaBanner() {
         <Link to="/auth/register" style={{
           display:'inline-flex', alignItems:'center', gap: 8,
           padding: '13px 30px', borderRadius: 13, fontSize: 15, fontWeight: 700,
-          background: C.white, color: C.ink, textDecoration:'none',
-          border: `1px solid ${C.border}`,
-          boxShadow:'0 6px 24px rgba(59,130,246,0.18)', transition:'all 0.2s',
+          background: C.black, color: C.white, textDecoration:'none',
+          transition:'all 0.2s',
         }}
-          onMouseOver={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 10px 28px rgba(59,130,246,0.24)' }}
-          onMouseOut={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(59,130,246,0.18)' }}
+          onMouseOver={e => { e.currentTarget.style.background = C.blackSoft; e.currentTarget.style.transform = 'translateY(-2px)' }}
+          onMouseOut={e => { e.currentTarget.style.background = C.black; e.currentTarget.style.transform = 'translateY(0)' }}
         >
           Start for free today <Icon.Arrow />
         </Link>
@@ -459,37 +456,68 @@ function CtaBanner() {
 
 // ── Footer ────────────────────────────────────────────────────────────────────
 function Footer() {
+  const isMobile = useIsMobile()
   const columns = [
-    { title: 'Product', links: ['Features', 'How it works', 'KRS Score', 'Career Paths'] },
-    { title: 'Company', links: ['About', 'Careers', 'Blog', 'Contact'] },
-    { title: 'Legal', links: ['Privacy', 'Terms', 'Security'] },
+    { title: 'Product',  links: ['Features', 'How it works', 'KRS Score', 'Career Paths'] },
+    { title: 'Company',  links: ['About', 'Careers', 'Blog', 'Contact'] },
+    { title: 'Legal',    links: ['Privacy', 'Terms', 'Security'] },
+  ]
+  const socials = [
+    { icon: 'M 4 4 L 20 4 L 20 20 L 4 20 Z', label: 'Twitter',   path: 'M4 4h7l5 8-5 8H4l5-8z M11 4h9v16h-9' },
   ]
   return (
-    <footer style={{ background: C.white, padding: '64px 24px 28px' }}>
-      <div style={{ maxWidth: 1140, margin: '0 auto' }}>
-        <div style={{ display:'grid', gridTemplateColumns:'1.4fr 1fr 1fr 1fr', gap: 40, paddingBottom: 44, borderBottom: `1px solid ${C.border}` }} className="md:grid-cols-4 grid-cols-1">
+    <footer style={{ background: C.black }}>
+      <div style={{ maxWidth: 1140, margin: '0 auto', padding: isMobile ? '48px 20px 24px' : '60px 32px 28px' }}>
 
-          {/* Brand column */}
-          <div>
-            <div style={{ display:'flex', alignItems:'center', gap: 9, marginBottom: 16 }}>
-              <div style={{ width: 30, height: 30, borderRadius: 9, background: C.gold, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                <span style={{ color: C.white, fontWeight: 800, fontSize: 14, fontFamily:'Plus Jakarta Sans, sans-serif' }}>D</span>
-              </div>
-              <span style={{ fontFamily:'Syne, sans-serif', fontWeight: 800, fontSize: 17, color: C.ink }}>BeginableAI</span>
-            </div>
-            <p style={{ fontSize: 13, color: C.inkSoft, lineHeight: 1.7, maxWidth: 280 }}>
+        {/* Top grid */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: isMobile ? '1fr 1fr' : '1.8fr 1fr 1fr 1fr',
+          gap: isMobile ? '32px 24px' : '0 40px',
+          paddingBottom: 40,
+          borderBottom: '0.5px solid rgba(255,255,255,0.1)',
+          marginBottom: 24,
+        }}>
+          {/* Brand */}
+          <div style={{ gridColumn: isMobile ? '1 / -1' : 'auto' }}>
+            <span style={{ fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.4px', display: 'block', marginBottom: 14 }}>BeginableAI</span>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.75, maxWidth: 240, margin: 0 }}>
               Turning years of UPSC preparation into a recognized career advantage.
             </p>
+            {/* Social icons */}
+            <div style={{ display: 'flex', gap: 8, marginTop: 22 }}>
+              {(['ti-brand-twitter', 'ti-brand-linkedin', 'ti-brand-instagram'] as const).map(icon => (
+                <a key={icon} href="#" style={{
+                  width: 32, height: 32, borderRadius: 8,
+                  border: '0.5px solid rgba(255,255,255,0.15)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: 'rgba(255,255,255,0.5)', fontSize: 15, textDecoration: 'none',
+                  transition: 'border-color 0.2s, color 0.2s',
+                }}
+                  onMouseOver={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.4)'; e.currentTarget.style.color = '#fff' }}
+                  onMouseOut={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.15)'; e.currentTarget.style.color = 'rgba(255,255,255,0.5)' }}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" width="15" height="15">
+                    {icon === 'ti-brand-twitter'   && <path d="M4 4l16 0M4 4l7 8-7 8M20 4l-7 8 7 8"/>}
+                    {icon === 'ti-brand-linkedin'   && <><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 11v5M8 8v.01M12 16v-5M16 16v-3a2 2 0 0 0-4 0"/></>}
+                    {icon === 'ti-brand-instagram'  && <><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="12" cy="12" r="3"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></>}
+                  </svg>
+                </a>
+              ))}
+            </div>
           </div>
 
+          {/* Link columns */}
           {columns.map(col => (
-            <div key={col.title}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: C.muted, textTransform:'uppercase', letterSpacing:'0.6px', marginBottom: 18 }}>{col.title}</p>
-              <div style={{ display:'flex', flexDirection:'column', gap: 12 }}>
+            <div key={col.title} style={{ marginTop: isMobile ? 0 : 4 }}>
+              <p style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: 16 }}>
+                {col.title}
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
                 {col.links.map(l => (
-                  <a key={l} href="#" style={{ fontSize: 13.5, color: C.inkSoft, textDecoration:'none', transition:'color 0.2s' }}
-                    onMouseOver={e => e.currentTarget.style.color = C.gold}
-                    onMouseOut={e => e.currentTarget.style.color = C.inkSoft}
+                  <a key={l} href="#" style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.6)', textDecoration: 'none', transition: 'color 0.2s' }}
+                    onMouseOver={e => e.currentTarget.style.color = '#fff'}
+                    onMouseOut={e => e.currentTarget.style.color = 'rgba(255,255,255,0.6)'}
                   >{l}</a>
                 ))}
               </div>
@@ -497,11 +525,12 @@ function Footer() {
           ))}
         </div>
 
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap: 12, paddingTop: 24 }}>
-          <p style={{ fontSize: 12.5, color: C.muted }}>© 2025 BeginableAI. All rights reserved.</p>
-          <div style={{ display:'flex', alignItems:'center', gap: 8 }}>
-            <span style={{ width: 6, height: 6, borderRadius:'50%', background:'#22C55E' }} />
-            <span style={{ fontSize: 12.5, color: C.muted }}>All systems operational</span>
+        {/* Bottom bar */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', margin: 0 }}>© 2025 BeginableAI. All rights reserved.</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', display: 'inline-block' }} />
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>All systems operational</span>
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Phone, Lock, CheckCircle2 } from 'lucide-react'
+import { Phone, Lock, CheckCircle2, Mail } from 'lucide-react'
 import { GoogleLogin } from '@react-oauth/google'
 import AuthLayout from '@/layouts/AuthLayout'
 import Button from '@/components/ui/Button'
@@ -9,8 +9,16 @@ import { useLogin, useGoogleLogin } from '../hooks/useAuth'
 import { getApiError } from '@/api/client'
 import { getRecaptchaToken } from '@/lib/recaptcha'
 
+function isEmailInput(v: string) {
+  return v.includes('@') || /[a-zA-Z]/.test(v)
+}
+
+function isPhoneInput(v: string) {
+  return /^\d+$/.test(v)
+}
+
 export default function LoginPage() {
-  const [phone, setPhone] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [rememberMe, setRememberMe] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -20,9 +28,12 @@ export default function LoginPage() {
   const location = useLocation()
   const justVerified = (location.state as any)?.verified === true
 
+  const usingEmail = isEmailInput(identifier)
+  const usingPhone = isPhoneInput(identifier)
+
   const validate = () => {
     const errors: Record<string, string> = {}
-    if (!phone.trim()) errors.phone = 'Phone number is required'
+    if (!identifier.trim()) errors.identifier = 'Phone number or email is required'
     if (!password.trim()) errors.password = 'Password is required'
     setFieldErrors(errors)
     return Object.keys(errors).length === 0
@@ -32,15 +43,16 @@ export default function LoginPage() {
     e.preventDefault()
     if (!validate()) return
     const recaptcha_token = await getRecaptchaToken('login')
-    login.mutate({ phone, password, rememberMe, recaptcha_token })
+    login.mutate({ identifier, password, rememberMe, recaptcha_token })
   }
 
-  const serverError = login.error ? getApiError(login.error, 'Incorrect phone number or password') : null
+  const serverError = login.error ? getApiError(login.error, 'Incorrect phone/email or password') : null
 
   return (
     <AuthLayout
       title="Welcome back"
       subtitle="Log in to continue your career journey"
+      variant="login"
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         {justVerified && (
@@ -51,15 +63,20 @@ export default function LoginPage() {
         )}
 
         <Input
-          label="Phone number"
-          type="tel"
-          placeholder="9876543210"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          error={fieldErrors.phone}
-          prefix={<Phone className="w-4 h-4" />}
-          maxLength={10}
-          inputMode="numeric"
+          label="Phone number or email"
+          type={usingEmail ? 'email' : usingPhone ? 'tel' : 'text'}
+          placeholder="Enter phone number or email"
+          value={identifier}
+          onChange={(e) => {
+            const v = e.target.value
+            // Only enforce 10-digit cap for pure-numeric (phone) input
+            if (isPhoneInput(v) && v.length > 10) return
+            setIdentifier(v)
+          }}
+          error={fieldErrors.identifier}
+          prefix={usingEmail ? <Mail className="w-4 h-4" /> : <Phone className="w-4 h-4" />}
+          maxLength={usingPhone ? 10 : 150}
+          inputMode={usingPhone ? 'numeric' : 'email'}
         />
 
         <Input
@@ -73,12 +90,13 @@ export default function LoginPage() {
           maxLength={128}
         />
 
-        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none -mt-1">
+        <label className="flex items-center gap-2 text-sm cursor-pointer select-none -mt-1" style={{ color: '#475569' }}>
           <input
             type="checkbox"
             checked={rememberMe}
             onChange={(e) => setRememberMe(e.target.checked)}
-            className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/30"
+            className="w-4 h-4 rounded border-gray-300 focus:ring-0"
+            style={{ accentColor: '#1A2744' }}
           />
           Remember me on this device
         </label>
@@ -99,22 +117,22 @@ export default function LoginPage() {
           Log in
         </Button>
 
-        <div className="flex items-center justify-between text-sm text-gray-500">
+        <div className="flex items-center justify-between text-sm" style={{ color: '#475569' }}>
           <span>
             Don't have an account?{' '}
-            <Link to="/auth/register" className="text-primary font-medium hover:underline">
+            <Link to="/auth/register" style={{ color: '#1A2744', fontWeight: 600, textDecoration: 'none' }}>
               Create account
             </Link>
           </span>
-          <Link to="/auth/forgot-password" className="text-primary font-medium hover:underline">
+          <Link to="/auth/forgot-password" style={{ color: '#1A2744', fontWeight: 600, textDecoration: 'none' }}>
             Forgot password?
           </Link>
         </div>
 
         <div className="relative flex items-center my-1">
-          <div className="flex-grow border-t border-gray-200" />
-          <span className="mx-3 text-xs text-gray-400 shrink-0">or continue with</span>
-          <div className="flex-grow border-t border-gray-200" />
+          <div className="flex-grow" style={{ borderTop: '0.5px solid rgba(0,0,0,0.08)' }} />
+          <span className="mx-3 text-xs shrink-0" style={{ color: '#94A3B8' }}>or continue with</span>
+          <div className="flex-grow" style={{ borderTop: '0.5px solid rgba(0,0,0,0.08)' }} />
         </div>
 
         {googleLogin.error && (

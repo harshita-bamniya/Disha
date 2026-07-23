@@ -218,7 +218,7 @@ export default function Step7Psychology() {
       title="Your mindset & readiness"
       subtitle="Honest answers here shape everything BeginablAI recommends. There are no wrong answers."
     >
-      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
 
         <Section
           icon={Flame}
@@ -230,6 +230,8 @@ export default function Step7Psychology() {
           cols={2}
         />
 
+        <div className="h-px bg-gray-100" />
+
         <Section
           icon={TrendingUp}
           title="How confident are you about transitioning to private sector?"
@@ -239,6 +241,8 @@ export default function Step7Psychology() {
           error={errors.confidence}
           cols={2}
         />
+
+        <div className="h-px bg-gray-100" />
 
         <Section
           icon={Wallet}
@@ -250,6 +254,8 @@ export default function Step7Psychology() {
           cols={2}
         />
 
+        <div className="h-px bg-gray-100" />
+
         <Section
           icon={Target}
           title="How do you feel about taking risks for career growth?"
@@ -259,6 +265,8 @@ export default function Step7Psychology() {
           error={errors.risk}
           cols={3}
         />
+
+        <div className="h-px bg-gray-100" />
 
         <Section
           icon={Heart}
@@ -270,6 +278,8 @@ export default function Step7Psychology() {
           cols={3}
         />
 
+        <div className="h-px bg-gray-100" />
+
         <Section
           icon={Compass}
           title="How attached are you to your identity as a 'UPSC aspirant'?"
@@ -279,6 +289,8 @@ export default function Step7Psychology() {
           error={errors.identity}
           cols={3}
         />
+
+        <div className="h-px bg-gray-100" />
 
         <Section
           icon={Users}

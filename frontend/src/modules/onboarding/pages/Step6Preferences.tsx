@@ -34,11 +34,13 @@ export default function Step6Preferences() {
   const { preferences } = useOnboardingSteps()
   const navigate = useNavigate()
 
+  const MAX_SECTORS = 5
+
   const toggleSector = (s: string) => {
     setErrors((p) => ({ ...p, sectors: '' }))
     setSelectedSectors((prev) => {
       const next = new Set(prev)
-      next.has(s) ? next.delete(s) : next.add(s)
+      if (next.has(s)) { next.delete(s) } else if (next.size < MAX_SECTORS) { next.add(s) }
       return next
     })
   }
@@ -87,25 +89,31 @@ export default function Step6Preferences() {
 
         {/* Sectors */}
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-gray-700">
-            Sectors you're interested in
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium text-gray-700">Sectors you're interested in</label>
+            <span className="text-xs text-gray-400">{selectedSectors.size}/{MAX_SECTORS}</span>
+          </div>
           <div className="flex flex-wrap gap-2">
-            {SECTORS.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => toggleSector(s)}
-                className={cn(
-                  'px-3 py-1.5 rounded-full border text-xs font-medium transition-all duration-150',
-                  selectedSectors.has(s)
-                    ? 'bg-primary text-white border-primary'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-primary/50',
-                )}
-              >
-                {s}
-              </button>
-            ))}
+            {SECTORS.map((s) => {
+              const isSelected = selectedSectors.has(s)
+              const isDisabled = !isSelected && selectedSectors.size >= MAX_SECTORS
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => toggleSector(s)}
+                  disabled={isDisabled}
+                  className={cn(
+                    'px-3 py-1.5 rounded-full border text-xs font-medium transition-all duration-150',
+                    isSelected && 'bg-primary text-white border-primary',
+                    !isSelected && !isDisabled && 'bg-white text-gray-600 border-gray-200 hover:border-primary/50',
+                    isDisabled && 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed',
+                  )}
+                >
+                  {s}
+                </button>
+              )
+            })}
           </div>
           {errors.sectors && <p className="text-xs text-danger">{errors.sectors}</p>}
         </div>
