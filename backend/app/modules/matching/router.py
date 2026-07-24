@@ -36,9 +36,12 @@ from app.modules.matching.schemas import (
     RequestRescheduleRequest,
     ScheduleInterviewRequest, SendCandidateEmailRequest,
     UpcomingInterviewEntry,
+    AllApplicantsResponse, AllInterviewsResponse, AllOffersResponse,
     JobDetail, JobPerformanceResponse, JobRecommendationsResponse, JobCandidatePipeline,
     RecruiterPerformanceResponse,
     UpdateApplicationStatusRequest, WithdrawRequest,
+    PipelineStageOut, BulkUpsertPipelineStagesRequest,
+    PipelineTemplateOut, PipelineTemplateCreateRequest,
 )
 from pydantic import BaseModel, Field
 
@@ -98,7 +101,7 @@ def list_jobs(
     job_type: Optional[str] = Query(None, description="remote | pan_india | hybrid | onsite"),
     min_salary: Optional[int] = Query(None, description="Minimum salary in LPA"),
     q: Optional[str] = Query(None, description="Keyword search across title and description"),
-    limit: int = Query(20, ge=1, le=50),
+    limit: int = Query(20, ge=1, le=200),
     offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_verified_user),
     db: Session = Depends(get_db),
@@ -644,3 +647,128 @@ def get_application_trend(
         return service.get_application_trend(current_user, db, days)
     except AuthException as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+# ── Cross-job list views (Phase E) ─────────────────────────────────────────────
+
+@router.get("/employer/applicants", response_model=AllApplicantsResponse)
+def list_all_applicants(
+    status: str | None = Query(None),
+    job_id: str | None = Query(None),
+    department_id: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.list_all_applicants(current_user, db, status=status, job_id=job_id, department_id=department_id, limit=limit, offset=offset)
+    except (AuthException, BadRequestException) as e:
+        raise HTTPException(status_code=403, detail=e.detail)
+
+
+@router.get("/employer/all-interviews", response_model=AllInterviewsResponse)
+def list_all_interviews(
+    status: str | None = Query(None),
+    job_id: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.list_all_interviews(current_user, db, status=status, job_id=job_id, limit=limit, offset=offset)
+    except (AuthException, BadRequestException) as e:
+        raise HTTPException(status_code=403, detail=e.detail)
+
+
+@router.get("/employer/all-offers", response_model=AllOffersResponse)
+def list_all_offers(
+    status: str | None = Query(None),
+    job_id: str | None = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.list_all_offers(current_user, db, status=status, job_id=job_id, limit=limit, offset=offset)
+    except (AuthException, BadRequestException) as e:
+        raise HTTPException(status_code=403, detail=e.detail)
+
+
+# ── Phase F: Pipeline Stages ──────────────────────────────────────────────────
+
+@router.get("/employer/jobs/{job_id}/pipeline-stages", response_model=list[PipelineStageOut])
+def get_pipeline_stages(
+    job_id: str,
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.get_pipeline_stages(job_id, current_user, db)
+    except (AuthException, NotFoundException) as e:
+        raise HTTPException(status_code=403 if isinstance(e, AuthException) else 404, detail=e.detail)
+
+
+@router.put("/employer/jobs/{job_id}/pipeline-stages", response_model=list[PipelineStageOut])
+def bulk_upsert_pipeline_stages(
+    job_id: str,
+    payload: BulkUpsertPipelineStagesRequest,
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.bulk_upsert_pipeline_stages(job_id, payload, current_user, db)
+    except (AuthException, BadRequestException, NotFoundException) as e:
+        code = 403 if isinstance(e, AuthException) else 400 if isinstance(e, BadRequestException) else 404
+        raise HTTPException(status_code=code, detail=e.detail)
+
+
+@router.post("/employer/jobs/{job_id}/pipeline-stages/from-template/{template_id}", response_model=list[PipelineStageOut])
+def apply_template_to_job(
+    job_id: str,
+    template_id: str,
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.apply_template_to_job(job_id, template_id, current_user, db)
+    except (AuthException, BadRequestException, NotFoundException) as e:
+        code = 403 if isinstance(e, AuthException) else 400 if isinstance(e, BadRequestException) else 404
+        raise HTTPException(status_code=code, detail=e.detail)
+
+
+@router.get("/employer/pipeline-templates", response_model=list[PipelineTemplateOut])
+def list_pipeline_templates(
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.list_pipeline_templates(current_user, db)
+    except (AuthException, BadRequestException) as e:
+        raise HTTPException(status_code=403, detail=e.detail)
+
+
+@router.post("/employer/pipeline-templates", response_model=PipelineTemplateOut)
+def create_pipeline_template(
+    payload: PipelineTemplateCreateRequest,
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.create_pipeline_template(payload, current_user, db)
+    except (AuthException, BadRequestException) as e:
+        raise HTTPException(status_code=400, detail=e.detail)
+
+
+@router.delete("/employer/pipeline-templates/{template_id}", status_code=204)
+def delete_pipeline_template(
+    template_id: str,
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        service.delete_pipeline_template(template_id, current_user, db)
+    except (AuthException, NotFoundException) as e:
+        raise HTTPException(status_code=403 if isinstance(e, AuthException) else 404, detail=e.detail)

@@ -1,16 +1,27 @@
-/**
- * Phase 3 — Job Detail Page (Aspirant)
- * Shows full job description, match score breakdown, and apply CTA.
- */
 import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { MapPin, Wifi, Briefcase, Target, Sparkles, Mic, Check } from 'lucide-react'
+import { MapPin, Wifi, Briefcase, Target, Sparkles, Mic, Check, IndianRupee, ArrowUpRight, X } from 'lucide-react'
 import AppSidebar from '@/components/layout/AppSidebar'
 import { getJobDetail, applyToJob } from '@/api/matching'
 import { resumeApi } from '@/api/resume'
 import { jobPlanApi } from '@/api/jobPlan'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
+
+// ── palette ────────────────────────────────────────────────────────────────────
+const NAVY     = '#1A2744'
+const INK      = '#1E3A5F'
+const INK_S    = '#475569'
+const MUTED    = '#94A3B8'
+const CREAM    = '#F4F5F7'
+const CREAM_DK = '#EAECF0'
+const BORDER   = 'rgba(0,0,0,0.08)'
+
+function skillBarColor(pct: number) {
+  if (pct >= 60) return '#059669'
+  if (pct >= 30) return '#D97706'
+  return '#DC2626'
+}
 
 export default function JobDetailPage() {
   const { jobId } = useParams<{ jobId: string }>()
@@ -39,9 +50,6 @@ export default function JobDetailPage() {
     },
   })
 
-  // Generating a roadmap is what makes this the active prep job — there's no
-  // separate manual "set active" toggle anymore. Switching roadmaps (from
-  // RoadmapHistoryPage) is the only other thing that changes which job is active.
   function handleGenerateRoadmap() {
     if (!jobId) return
     startPrep(jobId, {
@@ -57,26 +65,17 @@ export default function JobDetailPage() {
     setGeneratingResume(true)
     setResumeError(null)
     try {
-      // 1. Create a blank resume named after this job
-      const newResume = await resumeApi.createResume({
-        title: `${job.title} — ${job.company_name}`,
-      })
-      // 2. AI-generate sections tailored to this specific job
+      const newResume = await resumeApi.createResume({ title: `${job.title} — ${job.company_name}` })
       await resumeApi.aiGenerateResume(newResume.id, {
         job_title: job.title,
         company_name: job.company_name,
         required_skills: job.required_skills,
         job_description: job.description,
       })
-      // 3. Land on the resume editor — ready to review & download
       navigate(`/app/resume/${newResume.id}`)
     } catch (err: any) {
       const detail = err?.response?.data?.detail
-      setResumeError(
-        typeof detail === 'string'
-          ? detail
-          : 'Failed to generate resume. Please try again.',
-      )
+      setResumeError(typeof detail === 'string' ? detail : 'Failed to generate resume. Please try again.')
     } finally {
       setGeneratingResume(false)
     }
@@ -84,20 +83,21 @@ export default function JobDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen bg-white">
+      <div style={{ display: 'flex', minHeight: '100vh', background: CREAM }}>
         <AppSidebar activePath="/app/jobs" />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 rounded-full animate-spin" style={{ borderColor: '#2563EB', borderTopColor: 'transparent' }} />
+        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 28, height: 28, border: `2px solid ${NAVY}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
         </main>
+        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
       </div>
     )
   }
 
   if (isError || !job) {
     return (
-      <div className="flex min-h-screen bg-white">
+      <div style={{ display: 'flex', minHeight: '100vh', background: CREAM }}>
         <AppSidebar activePath="/app/jobs" />
-        <main className="flex-1 flex items-center justify-center text-red-600">
+        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#DC2626', fontSize: 14 }}>
           Job not found or no longer active.
         </main>
       </div>
@@ -105,249 +105,360 @@ export default function JobDetailPage() {
   }
 
   const companyInitial = (job.company_name || '?').charAt(0).toUpperCase()
+  const overlap = job.skill_overlap_pct ?? 0
 
   return (
-    <div className="flex min-h-screen" style={{ background: '#FAFBFD' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: CREAM }}>
       <AppSidebar activePath="/app/jobs" />
-      <div className="flex-1 min-w-0 flex flex-col" style={{ background: '#FAFBFD' }}>
-        <header className="bg-white border-b border-gray-100 px-7 h-16 flex items-center gap-3 sticky top-0 z-20">
-          <Link to="/app/jobs" className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-colors">
+
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+
+        {/* ── top bar ── */}
+        <header style={{
+          background: '#fff', borderBottom: `1px solid ${BORDER}`,
+          padding: '0 24px', height: 58,
+          display: 'flex', alignItems: 'center', gap: 10,
+          position: 'sticky', top: 0, zIndex: 20,
+        }}>
+          <Link
+            to="/app/jobs"
+            style={{
+              width: 30, height: 30, borderRadius: '50%', background: CREAM,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: INK_S, textDecoration: 'none', fontSize: 16, flexShrink: 0,
+            }}
+          >
             ←
           </Link>
-          <div className="w-[30px] h-[30px] rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(135deg, #818CF8, #6366F1)' }}>
-            <Briefcase size={14} className="text-white" />
+          <div style={{ width: 27, height: 27, borderRadius: '50%', background: NAVY, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Briefcase size={13} color="#fff" />
           </div>
-          <p className="text-[15px] font-bold text-gray-900">Job Details</p>
+          <p style={{ fontSize: 14, fontWeight: 700, color: INK, margin: 0 }}>Job Details</p>
         </header>
 
-        <main className="flex-1 p-9">
-        <div
-          className="max-w-3xl mx-auto rounded-2xl bg-white"
-          style={{ border: '1px solid #EEF2F9', boxShadow: '0 10px 30px rgba(15,23,42,0.07), 0 2px 8px rgba(15,23,42,0.04)' }}
-        >
-        {/* ── Header + salary/skill-overlap ── */}
-        <div className="border-b border-gray-100 p-7">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold text-blue-600 shrink-0" style={{ background: '#EFF6FF', border: '1px solid #DBEAFE' }}>
-                {companyInitial}
+        {/* ── scrollable body ── */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '28px 36px 48px' }}>
+          <div style={{ maxWidth: 760, margin: '0 auto' }}>
+
+            {/* ══ NAVY HERO ══ */}
+            <div style={{
+              background: NAVY, borderRadius: '18px 18px 0 0',
+              padding: '24px 28px', position: 'relative', overflow: 'hidden',
+            }}>
+              {/* decorative circles */}
+              <div style={{ position: 'absolute', width: 220, height: 220, borderRadius: '50%', background: 'rgba(255,255,255,0.03)', top: -70, right: -50, pointerEvents: 'none' }} />
+              <div style={{ position: 'absolute', width: 140, height: 140, borderRadius: '50%', background: 'rgba(255,255,255,0.03)', bottom: -40, left: 60, pointerEvents: 'none' }} />
+
+              {/* logo + title + match */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14, marginBottom: 14, position: 'relative' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                  <div style={{
+                    width: 46, height: 46, borderRadius: 13, flexShrink: 0,
+                    background: 'rgba(255,255,255,0.13)', border: '1.5px solid rgba(255,255,255,0.2)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 18, fontWeight: 800, color: '#fff',
+                  }}>
+                    {companyInitial}
+                  </div>
+                  <div>
+                    <h1 style={{ fontSize: 18, fontWeight: 800, color: '#fff', lineHeight: 1.25, margin: '0 0 4px' }}>
+                      {job.title}
+                    </h1>
+                    <p style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.5)', margin: 0, fontWeight: 500 }}>
+                      {job.company_name}
+                    </p>
+                  </div>
+                </div>
+                {job.match_score !== null && (
+                  <div style={{
+                    background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)',
+                    borderRadius: 11, padding: '9px 14px', textAlign: 'center', flexShrink: 0,
+                  }}>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: '#fff', lineHeight: 1 }}>{job.match_score}%</div>
+                    <div style={{ fontSize: 8, fontWeight: 700, color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: '.4px', marginTop: 3 }}>match</div>
+                  </div>
+                )}
               </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900 leading-tight">{job.title}</h1>
-                <p className="text-gray-500 mt-1 text-sm">{job.company_name}</p>
+
+              {/* chips */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16, position: 'relative' }}>
+                {job.sector && (
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.75)', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20 }}>
+                    {job.sector}
+                  </span>
+                )}
+                {job.location && (
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.75)', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <MapPin size={10} />{job.location}
+                  </span>
+                )}
+                {job.job_type && (
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.75)', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Wifi size={10} />{job.job_type.replace('_', ' ')}
+                  </span>
+                )}
+                {job.employment_type && (
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.75)', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', padding: '4px 10px', borderRadius: 20 }}>
+                    {job.employment_type.replace('_', ' ')}
+                  </span>
+                )}
+              </div>
+
+              {/* salary + apply button */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, position: 'relative' }}>
+                <div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 4 }}>Salary</div>
+                  {(job.salary_min || job.salary_max) ? (
+                    <div style={{ fontSize: 16, fontWeight: 800, color: '#fff', display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <IndianRupee size={14} color="#fff" />{job.salary_min ?? '?'}–{job.salary_max ?? '?'} LPA
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>Not disclosed</div>
+                  )}
+                </div>
+
+                {applied ? (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0,
+                    background: 'rgba(5,150,105,0.2)', border: '1px solid rgba(5,150,105,0.35)',
+                    borderRadius: 10, padding: '9px 16px',
+                  }}>
+                    <Check size={14} color="#34D399" />
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: '#34D399' }}>Applied</span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowApplyForm(v => !v)}
+                    style={{
+                      height: 40, padding: '0 22px', borderRadius: 10,
+                      background: '#fff', color: NAVY, border: 'none',
+                      fontSize: 13, fontWeight: 800, cursor: 'pointer',
+                      flexShrink: 0, display: 'flex', alignItems: 'center', gap: 7,
+                    }}
+                  >
+                    Apply Now <ArrowUpRight size={14} />
+                  </button>
+                )}
               </div>
             </div>
-            {job.match_score !== null && (
-              <div className="text-center shrink-0 rounded-xl px-4 py-2" style={{ background: '#EFF6FF', border: '1px solid #DBEAFE' }}>
-                <div className="text-xl font-bold text-blue-600">{job.match_score}%</div>
-                <div className="text-[9px] font-bold tracking-widest text-blue-400 uppercase">Match</div>
-              </div>
-            )}
-          </div>
 
-          <div className="flex flex-wrap gap-2 mt-4">
-            {job.sector && <span className="text-xs font-semibold px-3 py-1.5 rounded-full" style={{ background: '#F8FAFC', color: '#475569' }}>{job.sector}</span>}
-            {job.location && <span className="text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1" style={{ background: '#F8FAFC', color: '#475569' }}><MapPin size={11} /> {job.location}</span>}
-            {job.job_type && <span className="text-xs font-semibold px-3 py-1.5 rounded-full capitalize flex items-center gap-1" style={{ background: '#F8FAFC', color: '#475569' }}><Wifi size={11} /> {job.job_type.replace('_', ' ')}</span>}
-            {job.employment_type && <span className="text-xs font-semibold px-3 py-1.5 rounded-full capitalize" style={{ background: '#F8FAFC', color: '#475569' }}>{job.employment_type.replace('_', ' ')}</span>}
-          </div>
-
-          {(job.salary_min || job.salary_max) && (
-            <p className="text-base font-bold text-gray-900 mt-4">
-              ₹{job.salary_min || '?'}–{job.salary_max || '?'} LPA
-            </p>
-          )}
-
-          {job.skill_overlap_pct !== null && (
-            <div className="mt-3">
-              <div className="flex justify-between text-xs font-semibold text-gray-500 mb-2">
-                <span>Skill overlap</span>
-                <span className="text-blue-600">{job.skill_overlap_pct}%</span>
-              </div>
-              <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{ width: `${job.skill_overlap_pct}%`, background: 'linear-gradient(90deg, #60A5FA, #2563EB)' }}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="border-b border-gray-100 p-7">
-          <h2 className="text-[11px] font-bold tracking-widest text-gray-400 mb-2 uppercase">About this role</h2>
-          <p className="text-gray-600 leading-relaxed whitespace-pre-line text-sm">{job.description}</p>
-        </div>
-
-        {job.required_skills.length > 0 && (
-          <div className="border-b border-gray-100 p-7">
-            <h2 className="text-[11px] font-bold tracking-widest text-gray-400 mb-2.5 uppercase">Required skills</h2>
-            <div className="flex flex-wrap gap-2">
-              {job.required_skills.map((s) => (
-                <span
-                  key={s}
-                  className="text-xs font-semibold px-3 py-1.5 rounded-full"
-                  style={{ background: '#F0F4FF', color: '#4F46E5' }}
-                >
-                  {s}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── Action cards: Prep Job / Tailored Resume / Mock Interview ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-7 border-b border-gray-100">
-          {/* Generate Roadmap — this is what makes this job the active prep job */}
-          <div className="rounded-xl p-4 flex flex-col gap-2 bg-white" style={{ border: '1px solid #EEF2F9', boxShadow: '0 2px 8px rgba(15,23,42,0.04)' }}>
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-              style={{
-                background: isActivePrepJob ? 'linear-gradient(150deg, #34D399, #16A34A)' : 'linear-gradient(150deg, #60A5FA, #3B82F6)',
-                boxShadow: isActivePrepJob ? '0 3px 8px rgba(22,163,74,0.25)' : '0 3px 8px rgba(37,99,235,0.25)',
-              }}
-            >
-              {isActivePrepJob ? <Check size={14} className="text-white" /> : <Target size={14} className="text-white" />}
-            </div>
-            <h3 className="font-bold text-gray-900 text-[13px]">
-              {isActivePrepJob ? 'Your Active Roadmap' : 'Generate Roadmap'}
-            </h3>
-            <p className="text-[11.5px] text-gray-500 leading-relaxed">
-              {isActivePrepJob
-                ? "This is the roadmap you're currently using."
-                : 'Personalised roadmap, course suggestions, and skill tracking.'}
-            </p>
-            <button
-              onClick={() => isActivePrepJob ? navigate('/app/roadmap') : handleGenerateRoadmap()}
-              disabled={isStartingPrep}
-              className="mt-auto w-full flex items-center justify-center gap-2 disabled:opacity-60 font-bold rounded-lg py-2 text-[11.5px] transition-all"
-              style={{
-                background: 'white', color: isActivePrepJob ? '#16A34A' : '#2563EB',
-                border: `1.5px solid ${isActivePrepJob ? '#BBF7D0' : '#BFDBFE'}`,
-              }}
-            >
-              {isStartingPrep ? 'Generating…' : isActivePrepJob ? 'View Roadmap' : 'Generate'}
-            </button>
-          </div>
-
-          {/* Tailored Resume */}
-          <div className="rounded-xl p-4 flex flex-col gap-2 bg-white" style={{ border: '1px solid #EEF2F9', boxShadow: '0 2px 8px rgba(15,23,42,0.04)' }}>
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(150deg, #A78BFA, #7C3AED)', boxShadow: '0 3px 8px rgba(124,58,237,0.25)' }}>
-              <Sparkles size={14} className="text-white" />
-            </div>
-            <h3 className="font-bold text-gray-900 text-[13px]">Tailored Resume</h3>
-            <p className="text-[11.5px] text-gray-500 leading-relaxed">
-              AI resume optimised for this role's required skills.
-            </p>
-            {resumeError && <p className="text-[11px] text-red-600">{resumeError}</p>}
-            <button
-              onClick={handleGenerateResume}
-              disabled={generatingResume}
-              className="mt-auto w-full flex items-center justify-center gap-2 disabled:opacity-60 font-bold rounded-lg py-2 text-[11.5px] transition-all"
-              style={{ background: 'white', color: '#7C3AED', border: '1.5px solid #DDD6FE' }}
-            >
-              {generatingResume ? (
-                <>
-                  <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                  </svg>
-                  Generating…
-                </>
-              ) : (
-                <>
-                  <Sparkles size={11} /> Generate
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Mock Interview */}
-          <div className="rounded-xl p-4 flex flex-col gap-2 bg-white" style={{ border: '1px solid #EEF2F9', boxShadow: '0 2px 8px rgba(15,23,42,0.04)' }}>
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'linear-gradient(150deg, #60A5FA, #3B82F6)', boxShadow: '0 3px 8px rgba(37,99,235,0.25)' }}>
-              <Mic size={14} className="text-white" />
-            </div>
-            <h3 className="font-bold text-gray-900 text-[13px]">Mock Interview</h3>
-            <p className="text-[11.5px] text-gray-500 leading-relaxed">
-              AI interviewer roleplay with a detailed scorecard.
-            </p>
-            <button
-              onClick={() => navigate(`/app/mock-interview/${job.id}`)}
-              className="mt-auto w-full flex items-center justify-center gap-2 font-bold rounded-lg py-2 text-[11.5px] transition-all"
-              style={{ background: 'white', color: '#2563EB', border: '1.5px solid #BFDBFE' }}
-            >
-              <Mic size={11} /> Start
-            </button>
-          </div>
-        </div>
-
-
-        {/* Apply CTA */}
-        <div className="p-7">
-        {!applied ? (
-          <div>
-            {!showApplyForm ? (
-              <button
-                onClick={() => setShowApplyForm(true)}
-                className="w-full font-bold rounded-xl py-3 text-sm transition-all"
-                style={{ background: 'white', color: '#2563EB', border: '1.5px solid #BFDBFE', boxShadow: '0 2px 8px rgba(37,99,235,0.08)' }}
-                onMouseOver={e => { e.currentTarget.style.borderColor = '#93C5FD'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(37,99,235,0.14)' }}
-                onMouseOut={e => { e.currentTarget.style.borderColor = '#BFDBFE'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(37,99,235,0.08)' }}
-              >
-                Apply Now
-              </button>
-            ) : (
-              <div>
-                <h3 className="font-bold text-gray-900 mb-2 text-sm">Add a cover note (optional)</h3>
+            {/* ══ APPLY FORM (inline, below hero) ══ */}
+            {showApplyForm && !applied && (
+              <div style={{
+                background: '#fff', border: `1px solid ${BORDER}`, borderTop: 'none',
+                padding: '20px 28px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <p style={{ fontSize: 13.5, fontWeight: 700, color: INK, margin: 0 }}>Add a cover note <span style={{ fontSize: 11.5, fontWeight: 500, color: MUTED }}>(optional)</span></p>
+                  <button onClick={() => setShowApplyForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, display: 'flex', padding: 4 }}>
+                    <X size={15} />
+                  </button>
+                </div>
                 <textarea
                   value={coverNote}
-                  onChange={(e) => setCoverNote(e.target.value)}
-                  placeholder="Tell the employer why you're a great fit for this role..."
+                  onChange={e => setCoverNote(e.target.value)}
+                  placeholder="Tell the employer why you're a great fit for this role…"
                   maxLength={1000}
                   rows={4}
-                  className="w-full border border-gray-200 rounded-lg p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  style={{
+                    width: '100%', border: `1px solid ${BORDER}`, borderRadius: 10,
+                    padding: '11px 14px', fontSize: 13, resize: 'none',
+                    outline: 'none', color: INK, background: CREAM, boxSizing: 'border-box',
+                    fontFamily: 'inherit',
+                  }}
+                  onFocus={e => { e.currentTarget.style.borderColor = NAVY }}
+                  onBlur={e => { e.currentTarget.style.borderColor = BORDER }}
                 />
-                <p className="text-xs text-gray-400 text-right mt-1">{coverNote.length}/1000</p>
-                <div className="flex gap-3 mt-3">
+                <p style={{ fontSize: 11, color: MUTED, textAlign: 'right', margin: '4px 0 12px' }}>{coverNote.length}/1000</p>
+                <div style={{ display: 'flex', gap: 10 }}>
                   <button
                     onClick={() => setShowApplyForm(false)}
-                    className="flex-1 border border-gray-200 text-gray-600 rounded-lg py-2 text-sm hover:bg-gray-50"
+                    style={{ flex: 1, height: 40, borderRadius: 10, border: `1px solid ${BORDER}`, background: CREAM, fontSize: 13, fontWeight: 600, color: INK_S, cursor: 'pointer' }}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={() => applyMutation.mutate()}
                     disabled={applyMutation.isPending}
-                    className="flex-1 rounded-lg py-2 text-sm font-bold disabled:opacity-60"
-                    style={{ background: 'white', color: '#2563EB', border: '1.5px solid #BFDBFE' }}
+                    style={{
+                      flex: 1, height: 40, borderRadius: 10, border: 'none',
+                      background: NAVY, fontSize: 13, fontWeight: 700, color: '#fff',
+                      cursor: applyMutation.isPending ? 'not-allowed' : 'pointer',
+                      opacity: applyMutation.isPending ? 0.7 : 1,
+                    }}
                   >
-                    {applyMutation.isPending ? 'Submitting...' : 'Submit Application'}
+                    {applyMutation.isPending ? 'Submitting…' : 'Submit Application'}
                   </button>
                 </div>
                 {applyMutation.isError && (
-                  <p className="text-sm text-red-600 mt-2">
+                  <p style={{ fontSize: 12, color: '#DC2626', marginTop: 8 }}>
                     {(applyMutation.error as any)?.response?.data?.detail || 'Failed to submit application.'}
                   </p>
                 )}
               </div>
             )}
+
+            {/* ══ CONTENT CARD ══ */}
+            <div style={{
+              background: '#fff',
+              borderRadius: (showApplyForm && !applied) ? '0 0 18px 18px' : '0 0 18px 18px',
+              border: `1px solid ${BORDER}`, borderTop: 'none',
+              overflow: 'hidden',
+            }}>
+
+              {/* skill overlap */}
+              {job.skill_overlap_pct !== null && (
+                <div style={{ padding: '16px 28px', background: CREAM, borderBottom: `1px solid ${BORDER}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '.5px' }}>Skill overlap</span>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: skillBarColor(overlap) }}>{overlap}%</span>
+                  </div>
+                  <div style={{ height: 6, borderRadius: 6, background: CREAM_DK, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', borderRadius: 6, background: skillBarColor(overlap), width: `${overlap}%`, transition: 'width 0.6s ease' }} />
+                  </div>
+                  <p style={{ fontSize: 11, color: MUTED, margin: '6px 0 0' }}>You have {overlap}% of the required skills for this role.</p>
+                </div>
+              )}
+
+              {/* about */}
+              <div style={{ padding: '20px 28px', borderBottom: `1px solid ${BORDER}` }}>
+                <p style={{ fontSize: 9.5, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '.5px', margin: '0 0 10px' }}>About this role</p>
+                <p style={{ fontSize: 13, color: INK_S, lineHeight: 1.75, margin: 0, whiteSpace: 'pre-line' }}>{job.description}</p>
+              </div>
+
+              {/* required skills */}
+              {job.required_skills.length > 0 && (
+                <div style={{ padding: '20px 28px', borderBottom: `1px solid ${BORDER}` }}>
+                  <p style={{ fontSize: 9.5, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '.5px', margin: '0 0 10px' }}>Required skills</p>
+                  <div>
+                    {job.required_skills.map(s => (
+                      <span key={s} style={{
+                        display: 'inline-block', fontSize: 11.5, fontWeight: 600,
+                        padding: '5px 11px', borderRadius: 20,
+                        background: CREAM_DK, border: `1px solid ${BORDER}`, color: INK,
+                        margin: '3px 4px 0 0',
+                      }}>
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* prep tools */}
+              <div style={{ padding: '20px 28px', borderBottom: `1px solid ${BORDER}` }}>
+                <p style={{ fontSize: 9.5, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '.5px', margin: '0 0 12px' }}>Preparation tools</p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+
+                  {/* Generate Roadmap */}
+                  <div style={{ borderRadius: 13, border: `1px solid ${BORDER}`, padding: '14px 14px', background: CREAM, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 9, background: isActivePrepJob ? 'rgba(5,150,105,0.12)' : CREAM_DK, border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {isActivePrepJob ? <Check size={15} color="#059669" /> : <Target size={15} color={INK_S} />}
+                    </div>
+                    <div>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: INK, margin: '0 0 3px' }}>
+                        {isActivePrepJob ? 'Your Active Roadmap' : 'Generate Roadmap'}
+                      </p>
+                      <p style={{ fontSize: 11, color: MUTED, margin: 0, lineHeight: 1.5 }}>
+                        {isActivePrepJob ? "You're currently prepping for this role." : 'Personalised learning plan and skill tracking.'}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => isActivePrepJob ? navigate('/app/roadmap') : handleGenerateRoadmap()}
+                      disabled={isStartingPrep}
+                      style={{
+                        height: 30, borderRadius: 8, border: `1px solid ${BORDER}`,
+                        background: '#fff', fontSize: 11, fontWeight: 700,
+                        color: isActivePrepJob ? '#059669' : INK,
+                        cursor: isStartingPrep ? 'not-allowed' : 'pointer',
+                        opacity: isStartingPrep ? 0.6 : 1, marginTop: 'auto',
+                      }}
+                    >
+                      {isStartingPrep ? 'Generating…' : isActivePrepJob ? 'View Roadmap' : 'Generate'}
+                    </button>
+                  </div>
+
+                  {/* Tailored Resume */}
+                  <div style={{ borderRadius: 13, border: `1px solid ${BORDER}`, padding: '14px 14px', background: CREAM, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 9, background: CREAM_DK, border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Sparkles size={15} color={INK_S} />
+                    </div>
+                    <div>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: INK, margin: '0 0 3px' }}>Tailored Resume</p>
+                      <p style={{ fontSize: 11, color: MUTED, margin: 0, lineHeight: 1.5 }}>AI resume optimised for this role's required skills.</p>
+                    </div>
+                    {resumeError && <p style={{ fontSize: 11, color: '#DC2626', margin: 0 }}>{resumeError}</p>}
+                    <button
+                      onClick={handleGenerateResume}
+                      disabled={generatingResume}
+                      style={{
+                        height: 30, borderRadius: 8, border: `1px solid ${BORDER}`,
+                        background: '#fff', fontSize: 11, fontWeight: 700, color: INK,
+                        cursor: generatingResume ? 'not-allowed' : 'pointer',
+                        opacity: generatingResume ? 0.6 : 1, marginTop: 'auto',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                      }}
+                    >
+                      {generatingResume ? (
+                        <>
+                          <svg style={{ animation: 'spin 0.7s linear infinite', width: 12, height: 12 }} viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity=".25" />
+                            <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                          </svg>
+                          Generating…
+                        </>
+                      ) : (
+                        <><Sparkles size={11} /> Generate</>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Mock Interview */}
+                  <div style={{ borderRadius: 13, border: `1px solid ${BORDER}`, padding: '14px 14px', background: CREAM, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 9, background: CREAM_DK, border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Mic size={15} color={INK_S} />
+                    </div>
+                    <div>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: INK, margin: '0 0 3px' }}>Mock Interview</p>
+                      <p style={{ fontSize: 11, color: MUTED, margin: 0, lineHeight: 1.5 }}>AI interviewer roleplay with a detailed scorecard.</p>
+                    </div>
+                    <button
+                      onClick={() => navigate(`/app/mock-interview/${job.id}`)}
+                      style={{
+                        height: 30, borderRadius: 8, border: `1px solid ${BORDER}`,
+                        background: '#fff', fontSize: 11, fontWeight: 700, color: INK,
+                        cursor: 'pointer', marginTop: 'auto',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                      }}
+                    >
+                      <Mic size={11} /> Start
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* applied success banner */}
+              {applied && (
+                <div style={{ padding: '20px 28px' }}>
+                  <div style={{ borderRadius: 12, padding: '18px 20px', textAlign: 'center', background: '#ECFDF5', border: '1px solid #BBF7D0' }}>
+                    <div style={{ fontSize: 22, marginBottom: 6 }}>✅</div>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: '#166534', margin: '0 0 4px' }}>Application Submitted!</p>
+                    <p style={{ fontSize: 12.5, color: '#166534', opacity: 0.8, margin: '0 0 12px' }}>The employer will review your profile and get back to you.</p>
+                    <Link to="/app/jobs/applications" style={{ fontSize: 12.5, color: '#059669', fontWeight: 700, textDecoration: 'none' }}>
+                      View My Applications →
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+
           </div>
-        ) : (
-          <div className="rounded-xl p-6 text-center" style={{ background: '#ECFDF5', border: '1px solid #BBF7D0' }}>
-            <div className="text-2xl mb-2">✅</div>
-            <h3 className="font-bold text-green-800 text-sm">Application Submitted!</h3>
-            <p className="text-sm text-green-700 mt-1">
-              The employer will review your profile and get back to you.
-            </p>
-            <Link to="/app/jobs/applications" className="text-sm text-blue-600 hover:underline mt-3 block">
-              View My Applications
-            </Link>
-          </div>
-        )}
         </div>
-        </div>
-        </main>
       </div>
+
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg) } }
+      `}</style>
     </div>
   )
 }

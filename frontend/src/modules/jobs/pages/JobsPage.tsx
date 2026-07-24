@@ -1,168 +1,253 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Briefcase, MapPin, Wifi, AlertCircle, ChevronLeft, ChevronRight, ChevronDown, SlidersHorizontal, ArrowUpRight, IndianRupee, X, Map as MapIcon, Search } from 'lucide-react'
+import {
+  Briefcase, MapPin, Wifi, AlertCircle, Search,
+  IndianRupee, X, ArrowUpRight, ChevronLeft, ChevronRight,
+} from 'lucide-react'
 import AppSidebar from '@/components/layout/AppSidebar'
 import { getJobs, type JobListItem } from '@/api/matching'
 import { jobPlanApi } from '@/api/jobPlan'
 
-const SECTORS = ['Policy', 'ESG', 'EdTech', 'NGO', 'Consulting', 'Public Affairs', 'Research']
-const JOB_TYPES = ['remote', 'pan_india', 'hybrid', 'onsite']
+// ── palette ────────────────────────────────────────────────────────────────────
+const NAVY   = '#1A2744'
+const INK    = '#1E3A5F'
+const INK_S  = '#475569'
+const MUTED  = '#94A3B8'
+const CREAM  = '#F4F5F7'
+const CREAM_DK = '#EAECF0'
+const BORDER = 'rgba(0,0,0,0.08)'
 
+// ── filter options ─────────────────────────────────────────────────────────────
+const SECTORS   = ['Policy', 'ESG', 'EdTech', 'NGO', 'Consulting', 'Public Affairs', 'Research']
+const JOB_TYPES = ['remote', 'pan_india', 'hybrid', 'onsite']
+const SALARY_OPTS: { label: string; min: number | null }[] = [
+  { label: 'Any salary',  min: null },
+  { label: '₹5+ LPA',    min: 5 },
+  { label: '₹10+ LPA',   min: 10 },
+  { label: '₹20+ LPA',   min: 20 },
+]
+
+// ── avatar helper ──────────────────────────────────────────────────────────────
 const AVATAR_PALETTE = [
   ['#EEF2FF', '#4F46E5'], ['#ECFDF5', '#059669'], ['#FFF7ED', '#EA580C'],
   ['#FDF2F8', '#DB2777'], ['#F0F9FF', '#0284C7'], ['#FAF5FF', '#9333EA'],
 ]
-function avatarColors(name: string) {
+function avatarColors(name: string): [string, string] {
   let h = 0
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
-  return AVATAR_PALETTE[h % AVATAR_PALETTE.length]
+  return AVATAR_PALETTE[h % AVATAR_PALETTE.length] as [string, string]
 }
 
-function matchTier(score: number) {
-  if (score >= 70) return { bg: '#ECFDF5', fg: '#059669', bar: '#10B981' }
-  if (score >= 45) return { bg: '#EEF2FF', fg: '#4F46E5', bar: '#6366F1' }
-  return { bg: '#F8FAFC', fg: '#64748B', bar: '#CBD5E1' }
+function skillBarColor(pct: number) {
+  if (pct >= 60) return '#059669'
+  if (pct >= 30) return '#D97706'
+  return '#DC2626'
 }
 
+// ── JobCard ────────────────────────────────────────────────────────────────────
 function JobCard({ job, hasRoadmap }: { job: JobListItem; hasRoadmap: boolean }) {
-  const [hov, setHov] = useState(false)
   const [bg, fg] = avatarColors(job.company_name)
-  const tier = matchTier(job.match_score ?? 0)
+  const overlap = job.skill_overlap_pct ?? 0
 
   return (
-    <div
-      onMouseEnter={() => setHov(true)}
-      onMouseLeave={() => setHov(false)}
-      style={{
-        background: '#fff', borderRadius: 18, border: `1px solid ${hov ? '#DBEAFE' : '#EEF2F9'}`, overflow: 'hidden',
-        boxShadow: hov ? '0 18px 40px rgba(37,99,235,0.15)' : '0 8px 22px rgba(15,23,42,0.06)',
-        transform: hov ? 'translateY(-4px)' : 'translateY(0)',
-        transition: 'all 0.25s cubic-bezier(0.34,1.1,0.64,1)',
-        position: 'relative',
-      }}
-    >
-      <div style={{ height: 3, background: tier.bar }} />
-      <div style={{ padding: '20px 22px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+    <div style={{
+      background: '#fff', borderRadius: 14, border: `1px solid ${BORDER}`,
+      overflow: 'hidden', boxShadow: '0 2px 8px rgba(15,23,42,.04)',
+    }}>
+
+      {/* ── top: logo + title + chips + match pill ── */}
+      <div style={{
+        padding: '14px 18px', display: 'flex', alignItems: 'flex-start',
+        justifyContent: 'space-between', gap: 14, borderBottom: `1px solid ${BORDER}`,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flex: 1, minWidth: 0 }}>
           <div style={{
-            width: 44, height: 44, borderRadius: 13, flexShrink: 0,
-            background: bg,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 17, fontWeight: 700, color: fg,
+            width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+            background: bg, display: 'flex', alignItems: 'center',
+            justifyContent: 'center', fontSize: 15, fontWeight: 800, color: fg,
           }}>
             {job.company_name.charAt(0).toUpperCase()}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-              <h3 style={{ fontWeight: 700, color: '#0F172A', fontSize: 15.5, margin: 0, lineHeight: 1.35 }}>{job.title}</h3>
-              {job.match_score !== null && (
-                <span style={{
-                  fontSize: 11.5, fontWeight: 700, padding: '4px 10px', borderRadius: 20, flexShrink: 0,
-                  background: tier.bg, color: tier.fg, whiteSpace: 'nowrap',
-                }}>
-                  {job.match_score}% match
+            <p style={{ fontSize: 13.5, fontWeight: 700, color: INK, margin: 0, lineHeight: 1.3 }}>
+              {job.title}
+            </p>
+            <p style={{ fontSize: 11, color: MUTED, margin: '2px 0 9px', fontWeight: 500 }}>
+              {job.company_name}
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+              {job.sector && (
+                <span style={{ fontSize: 10.5, fontWeight: 600, color: INK_S, background: CREAM, border: `1px solid ${BORDER}`, padding: '3px 9px', borderRadius: 20 }}>
+                  {job.sector}
+                </span>
+              )}
+              {job.location && (
+                <span style={{ fontSize: 10.5, fontWeight: 500, color: INK_S, background: CREAM, border: `1px solid ${BORDER}`, padding: '3px 9px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <MapPin size={9} />{job.location}
+                </span>
+              )}
+              {job.job_type && (
+                <span style={{ fontSize: 10.5, fontWeight: 500, color: INK_S, background: CREAM, border: `1px solid ${BORDER}`, padding: '3px 9px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <Wifi size={9} />{job.job_type.replace('_', ' ')}
+                </span>
+              )}
+              {job.employment_type && (
+                <span style={{ fontSize: 10.5, fontWeight: 500, color: INK_S, background: CREAM, border: `1px solid ${BORDER}`, padding: '3px 9px', borderRadius: 20 }}>
+                  {job.employment_type.replace('_', ' ')}
+                </span>
+              )}
+              {hasRoadmap && (
+                <span style={{ fontSize: 10.5, fontWeight: 600, color: NAVY, background: CREAM_DK, border: `1px solid ${BORDER}`, padding: '3px 9px', borderRadius: 20 }}>
+                  Roadmap started
                 </span>
               )}
             </div>
-            <p style={{ fontSize: 13, color: '#6B7280', margin: '2px 0 0', fontWeight: 500 }}>{job.company_name}</p>
           </div>
         </div>
+        {job.match_score !== null && (
+          <div style={{ background: NAVY, borderRadius: 9, padding: '6px 11px', textAlign: 'center', flexShrink: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 900, color: '#fff', lineHeight: 1 }}>{job.match_score}%</div>
+            <div style={{ fontSize: 8, fontWeight: 700, color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '.3px', marginTop: 2 }}>match</div>
+          </div>
+        )}
+      </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 14 }}>
-          {job.sector && (
-            <span style={{ fontSize: 11, background: '#EEF2FF', color: '#4F46E5', padding: '3px 9px', borderRadius: 20, fontWeight: 600 }}>
-              {job.sector}
-            </span>
-          )}
-          {job.location && (
-            <span style={{ fontSize: 11, background: '#F8FAFC', color: '#475569', padding: '3px 9px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 3, fontWeight: 500 }}>
-              <MapPin size={10} /> {job.location}
-            </span>
-          )}
-          {job.job_type && (
-            <span style={{ fontSize: 11, background: '#F8FAFC', color: '#475569', padding: '3px 9px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 3, fontWeight: 500 }}>
-              <Wifi size={10} /> {job.job_type.replace('_', ' ')}
-            </span>
-          )}
-          {job.employment_type && (
-            <span style={{ fontSize: 11, background: '#F8FAFC', color: '#475569', padding: '3px 9px', borderRadius: 20, fontWeight: 500 }}>
-              {job.employment_type.replace('_', ' ')}
-            </span>
-          )}
-          {hasRoadmap && (
-            <span style={{ fontSize: 11, background: '#EEF2FF', color: '#6366F1', padding: '3px 9px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 3, fontWeight: 600 }}>
-              <MapIcon size={10} /> Roadmap started
-            </span>
-          )}
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, paddingTop: 14, borderTop: '1px solid #F8FAFC' }}>
-          <div>
-            {(job.salary_min || job.salary_max) ? (
-              <p style={{ fontSize: 14, color: '#0F172A', margin: 0, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 2 }}>
-                <IndianRupee size={13} />{job.salary_min ?? '?'}–{job.salary_max ?? '?'} LPA
-              </p>
+      {/* ── mid: salary + skill overlap bar ── */}
+      <div style={{
+        padding: '10px 18px', background: CREAM,
+        borderBottom: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', gap: 24,
+      }}>
+        <div style={{ flexShrink: 0 }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 3 }}>Salary</div>
+          {(job.salary_min || job.salary_max)
+            ? (
+              <div style={{ fontSize: 14, fontWeight: 800, color: INK, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <IndianRupee size={12} />{job.salary_min ?? '?'}–{job.salary_max ?? '?'} LPA
+              </div>
             ) : (
-              <p style={{ fontSize: 12.5, color: '#CBD5E1', margin: 0 }}>Salary not disclosed</p>
+              <div style={{ fontSize: 12, color: MUTED }}>Not disclosed</div>
             )}
-            {job.skill_overlap_pct !== null && (
-              <p style={{ fontSize: 11, color: '#9CA3AF', margin: '3px 0 0' }}>
-                You have {job.skill_overlap_pct}% of required skills
-              </p>
+        </div>
+        {job.skill_overlap_pct !== null && (
+          <div style={{ flex: 1, maxWidth: 260 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+              <span style={{ fontSize: 10, color: MUTED, fontWeight: 600 }}>Skill overlap</span>
+              <span style={{ fontSize: 10, fontWeight: 800, color: skillBarColor(overlap) }}>{overlap}%</span>
+            </div>
+            <div style={{ height: 4, borderRadius: 4, background: CREAM_DK, overflow: 'hidden' }}>
+              <div style={{ height: '100%', borderRadius: 4, background: skillBarColor(overlap), width: `${overlap}%` }} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── required skills ── */}
+      {job.required_skills?.length > 0 && (
+        <div style={{ padding: '10px 18px', borderBottom: `1px solid ${BORDER}` }}>
+          <div style={{ fontSize: 9.5, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 6 }}>
+            Required skills
+          </div>
+          <div>
+            {job.required_skills.slice(0, 7).map(s => (
+              <span key={s} style={{
+                display: 'inline-block', fontSize: 10.5, fontWeight: 600,
+                padding: '3px 9px', borderRadius: 20,
+                background: CREAM_DK, border: `1px solid ${BORDER}`, color: INK,
+                margin: '2px 4px 0 0',
+              }}>
+                {s}
+              </span>
+            ))}
+            {job.required_skills.length > 7 && (
+              <span style={{ fontSize: 10.5, color: MUTED, fontWeight: 600 }}>+{job.required_skills.length - 7} more</span>
             )}
           </div>
-          <Link
-            to={`/app/jobs/${job.id}`}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-              fontSize: 13, fontWeight: 700, flexShrink: 0,
-              color: '#2563EB', background: 'white', border: '1.5px solid #BFDBFE', borderRadius: 10,
-              padding: '9px 16px', textDecoration: 'none', transition: 'all 0.15s',
-              boxShadow: '0 2px 8px rgba(37,99,235,0.08)',
-            }}
-            onMouseOver={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = '#93C5FD'; (e.currentTarget as HTMLAnchorElement).style.boxShadow = '0 6px 16px rgba(37,99,235,0.14)' }}
-            onMouseOut={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = '#BFDBFE'; (e.currentTarget as HTMLAnchorElement).style.boxShadow = '0 2px 8px rgba(37,99,235,0.08)' }}
-          >
-            View Details <ArrowUpRight size={13} />
-          </Link>
         </div>
+      )}
+
+      {/* ── actions ── */}
+      <div style={{ padding: '10px 18px', display: 'flex', justifyContent: 'flex-end' }}>
+        <Link
+          to={`/app/jobs/${job.id}`}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            fontSize: 12, fontWeight: 700, color: '#fff',
+            background: NAVY, borderRadius: 9, padding: '9px 18px', textDecoration: 'none',
+          }}
+        >
+          View Details <ArrowUpRight size={13} />
+        </Link>
       </div>
     </div>
   )
 }
 
+// ── FilterSection ──────────────────────────────────────────────────────────────
+function FilterSection({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: 22 }}>
+      <p style={{ fontSize: 9.5, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '.6px', margin: '0 0 8px' }}>
+        {label}
+      </p>
+      {children}
+    </div>
+  )
+}
+
+function FilterRow({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        width: '100%', padding: '6px 9px', borderRadius: 8,
+        border: 'none', cursor: 'pointer', textAlign: 'left',
+        background: active ? `rgba(26,39,68,0.08)` : 'transparent',
+        marginBottom: 2,
+      }}
+    >
+      <span style={{ fontSize: 12, fontWeight: active ? 700 : 500, color: active ? NAVY : INK_S }}>
+        {label}
+      </span>
+      {active && (
+        <div style={{ width: 6, height: 6, borderRadius: '50%', background: NAVY, flexShrink: 0 }} />
+      )}
+    </button>
+  )
+}
+
+// ── EmptyState ─────────────────────────────────────────────────────────────────
 function EmptyState({ hasFilters }: { hasFilters: boolean }) {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center',
       justifyContent: 'center', padding: '60px 24px', textAlign: 'center',
-      background: 'white', borderRadius: 20, border: '1px solid #E2E8F0',
+      background: '#fff', borderRadius: 14, border: `1px solid ${BORDER}`,
     }}>
       <div style={{
-        width: 56, height: 56, borderRadius: 16, background: 'rgba(37,99,235,0.08)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+        width: 52, height: 52, borderRadius: 14, background: CREAM_DK,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14,
       }}>
-        <Briefcase size={24} color="#2563EB" />
+        <Briefcase size={22} color={NAVY} />
       </div>
-      <h3 style={{ fontSize: 16, fontWeight: 700, color: '#111827', margin: '0 0 8px' }}>
+      <h3 style={{ fontSize: 15, fontWeight: 700, color: INK, margin: '0 0 6px' }}>
         {hasFilters ? 'No jobs match these filters' : 'No jobs available yet'}
       </h3>
       {!hasFilters && (
         <div style={{
           display: 'flex', alignItems: 'flex-start', gap: 10,
-          background: '#F5F8FF', border: '1px solid #DBEAFE', borderRadius: 10,
-          padding: '12px 16px', marginTop: 12, maxWidth: 420, textAlign: 'left',
+          background: CREAM, border: `1px solid ${BORDER}`, borderRadius: 10,
+          padding: '12px 16px', marginTop: 10, maxWidth: 400, textAlign: 'left',
         }}>
-          <AlertCircle size={16} color="#2563EB" style={{ marginTop: 1, flexShrink: 0 }} />
-          <p style={{ fontSize: 13, color: '#475569', margin: 0, lineHeight: 1.5 }}>
+          <AlertCircle size={15} color={NAVY} style={{ marginTop: 1, flexShrink: 0 }} />
+          <p style={{ fontSize: 12.5, color: INK_S, margin: 0, lineHeight: 1.55 }}>
             Jobs are only shown after an employer account is approved by an admin.
-            If you're testing, ask an admin to approve an employer in the admin panel.
           </p>
         </div>
       )}
       {hasFilters && (
-        <p style={{ fontSize: 13, color: '#94A3B8', margin: '4px 0 0' }}>
+        <p style={{ fontSize: 13, color: MUTED, margin: '4px 0 0' }}>
           Try clearing your filters to see all available positions.
         </p>
       )}
@@ -170,230 +255,231 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
   )
 }
 
+// ── JobsPage ───────────────────────────────────────────────────────────────────
 export default function JobsPage() {
-  const [sector, setSector] = useState('')
-  const [jobType, setJobType] = useState('')
+  const [sector,   setSector]   = useState('')
+  const [jobType,  setJobType]  = useState('')
+  const [minSal,   setMinSal]   = useState<number | null>(null)
   const [searchInput, setSearchInput] = useState('')
-  const [q, setQ] = useState('')
-  const [page, setPage] = useState(0)
-  const limit = 12
-  const hasFilters = !!(sector || jobType || q)
+  const [q,        setQ]        = useState('')
+  const [page,     setPage]     = useState(0)
+  const limit = 200
+  const hasFilters = !!(sector || jobType || q || minSal !== null)
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['jobs', sector, jobType, q, page],
-    queryFn: () => getJobs({ sector: sector || undefined, job_type: jobType || undefined, q: q || undefined, limit, offset: page * limit }),
+    queryKey: ['jobs', sector, jobType, q, minSal, page],
+    queryFn: () => getJobs({
+      sector:      sector    || undefined,
+      job_type:    jobType   || undefined,
+      q:           q         || undefined,
+      min_salary:  minSal    ?? undefined,
+      limit,
+      offset:      page * limit,
+    }),
   })
 
   const { data: jobPlans } = useQuery({ queryKey: ['job-plans-all'], queryFn: jobPlanApi.getAllMine })
   const roadmapJobIds = new Set(jobPlans?.map(p => p.job_id) ?? [])
 
+  function clearAll() {
+    setSector(''); setJobType(''); setMinSal(null); setSearchInput(''); setQ(''); setPage(0)
+  }
+
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'white' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: CREAM }}>
       <AppSidebar activePath="/app/jobs" />
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: '#FAFBFD' }}>
-        {/* Header */}
+
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+
+        {/* ── top bar ── */}
         <header style={{
-          background: 'white',
-          borderBottom: '1px solid #F1F5F9',
-          padding: '0 28px', height: 64,
+          background: '#fff', borderBottom: `1px solid ${BORDER}`,
+          padding: '0 24px', height: 58,
           display: 'flex', alignItems: 'center', gap: 10,
           position: 'sticky', top: 0, zIndex: 20,
         }}>
           <div style={{
-            width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
-            background: 'linear-gradient(135deg, #3B82F6, #2563EB)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+            background: NAVY, display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
-            <Briefcase size={14} color="white" />
+            <Briefcase size={13} color="#fff" />
           </div>
           <div>
-            <p style={{ fontSize: 14.5, fontWeight: 700, color: '#0F172A', margin: 0 }}>Job Opportunities</p>
-            <p style={{ fontSize: 11.5, color: '#9CA3AF', margin: 0 }}>Ranked by your BeginablAI profile match score</p>
+            <p style={{ fontSize: 14, fontWeight: 700, color: INK, margin: 0 }}>Job Opportunities</p>
+            <p style={{ fontSize: 11, color: MUTED, margin: 0 }}>Ranked by your BeginAI profile match score</p>
           </div>
         </header>
 
-      <main style={{ flex: 1, padding: '28px 36px 48px', maxWidth: 1000, margin: '0 auto', width: '100%' }}>
+        {/* ── body: sidebar + feed ── */}
+        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
-        {/* Filters */}
-        <div style={{
-          display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 24, alignItems: 'center',
-        }}>
-          {/* Keyword search */}
-          <form
-            onSubmit={e => { e.preventDefault(); setQ(searchInput.trim()); setPage(0) }}
-            style={{ display: 'flex', alignItems: 'center', gap: 0, flex: '1 1 220px', maxWidth: 320 }}
-          >
-            <div style={{ position: 'relative', width: '100%' }}>
-              <Search size={14} color="#9CA3AF" style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-              <input
-                type="text"
-                placeholder="Search jobs…"
-                value={searchInput}
-                onChange={e => { setSearchInput(e.target.value); if (!e.target.value) { setQ(''); setPage(0) } }}
+          {/* ── filter sidebar ── */}
+          <aside style={{
+            width: 210, flexShrink: 0,
+            background: '#fff', borderRight: `1px solid ${BORDER}`,
+            padding: '20px 16px', overflowY: 'auto',
+          }}>
+            {/* search */}
+            <form
+              onSubmit={e => { e.preventDefault(); setQ(searchInput.trim()); setPage(0) }}
+              style={{ marginBottom: 20 }}
+            >
+              <div style={{ position: 'relative' }}>
+                <Search size={12} color={MUTED} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+                <input
+                  type="text"
+                  placeholder="Search…"
+                  value={searchInput}
+                  onChange={e => { setSearchInput(e.target.value); if (!e.target.value) { setQ(''); setPage(0) } }}
+                  style={{
+                    width: '100%', padding: '8px 28px 8px 28px',
+                    border: `1px solid ${BORDER}`, borderRadius: 9,
+                    fontSize: 12, outline: 'none', color: INK, background: CREAM,
+                    boxSizing: 'border-box',
+                  }}
+                  onFocus={e => { e.currentTarget.style.borderColor = NAVY }}
+                  onBlur={e => { e.currentTarget.style.borderColor = BORDER }}
+                />
+                {searchInput && (
+                  <button
+                    type="button"
+                    onClick={() => { setSearchInput(''); setQ(''); setPage(0) }}
+                    style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: MUTED, display: 'flex', padding: 0 }}
+                  >
+                    <X size={11} />
+                  </button>
+                )}
+              </div>
+            </form>
+
+            <FilterSection label="Sector">
+              <FilterRow label="All sectors" active={!sector} onClick={() => { setSector(''); setPage(0) }} />
+              {SECTORS.map(s => (
+                <FilterRow key={s} label={s} active={sector === s} onClick={() => { setSector(s); setPage(0) }} />
+              ))}
+            </FilterSection>
+
+            <FilterSection label="Work type">
+              <FilterRow label="All types" active={!jobType} onClick={() => { setJobType(''); setPage(0) }} />
+              {JOB_TYPES.map(t => (
+                <FilterRow key={t} label={t.replace('_', ' ')} active={jobType === t} onClick={() => { setJobType(t); setPage(0) }} />
+              ))}
+            </FilterSection>
+
+            <FilterSection label="Salary">
+              {SALARY_OPTS.map(opt => (
+                <FilterRow
+                  key={opt.label}
+                  label={opt.label}
+                  active={minSal === opt.min}
+                  onClick={() => { setMinSal(opt.min); setPage(0) }}
+                />
+              ))}
+            </FilterSection>
+
+            {hasFilters && (
+              <button
+                onClick={clearAll}
                 style={{
-                  width: '100%', padding: '8px 36px 8px 32px',
-                  border: '1px solid #E2E8F0', borderRadius: '10px 0 0 10px',
-                  fontSize: 13, outline: 'none', color: '#0F172A', background: '#fff',
-                  boxSizing: 'border-box',
+                  width: '100%', padding: '8px', borderRadius: 9,
+                  border: `1px solid ${BORDER}`, background: CREAM,
+                  fontSize: 12, fontWeight: 700, color: '#EF4444',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
                 }}
-                onFocus={e => { e.currentTarget.style.borderColor = '#A5B4FC' }}
-                onBlur={e => { e.currentTarget.style.borderColor = '#E2E8F0' }}
-              />
-              {searchInput && (
-                <button
-                  type="button"
-                  onClick={() => { setSearchInput(''); setQ(''); setPage(0) }}
-                  style={{ position: 'absolute', right: 7, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', display: 'flex', padding: 0 }}
-                >
-                  <X size={13} />
-                </button>
-              )}
-            </div>
-            <button
-              type="submit"
-              style={{
-                padding: '8px 12px', borderRadius: '0 10px 10px 0', border: '1px solid #E2E8F0',
-                borderLeft: 'none', background: '#6366F1', color: 'white',
-                fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
-              }}
-            >
-              Search
-            </button>
-          </form>
-
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 7,
-            background: '#EEF2FF', borderRadius: 9, padding: '7px 11px',
-          }}>
-            <SlidersHorizontal size={13} color="#4F46E5" />
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#4F46E5' }}>Filters</span>
-          </div>
-
-          <div style={{ position: 'relative' }}>
-            <select
-              value={sector}
-              onChange={e => { setSector(e.target.value); setPage(0) }}
-              style={{
-                appearance: 'none', border: '1px solid #E2E8F0', borderRadius: 10, padding: '8px 32px 8px 14px',
-                fontSize: 13, fontWeight: 500, background: '#fff', color: sector ? '#0F172A' : '#6B7280',
-                cursor: 'pointer', outline: 'none', transition: 'border-color 0.15s',
-              }}
-              onFocus={e => { e.currentTarget.style.borderColor = '#A5B4FC' }}
-              onBlur={e => { e.currentTarget.style.borderColor = '#E2E8F0' }}
-            >
-              <option value="">All Sectors</option>
-              {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-            <ChevronDown size={13} color="#9CA3AF" style={{ position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-          </div>
-
-          <div style={{ position: 'relative' }}>
-            <select
-              value={jobType}
-              onChange={e => { setJobType(e.target.value); setPage(0) }}
-              style={{
-                appearance: 'none', border: '1px solid #E2E8F0', borderRadius: 10, padding: '8px 32px 8px 14px',
-                fontSize: 13, fontWeight: 500, background: '#fff', color: jobType ? '#0F172A' : '#6B7280',
-                cursor: 'pointer', outline: 'none', transition: 'border-color 0.15s',
-              }}
-              onFocus={e => { e.currentTarget.style.borderColor = '#A5B4FC' }}
-              onBlur={e => { e.currentTarget.style.borderColor = '#E2E8F0' }}
-            >
-              <option value="">All Types</option>
-              {JOB_TYPES.map(t => <option key={t} value={t} style={{ textTransform: 'capitalize' }}>{t.replace('_', ' ')}</option>)}
-            </select>
-            <ChevronDown size={13} color="#9CA3AF" style={{ position: 'absolute', right: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-          </div>
-
-          {hasFilters && (
-            <button
-              onClick={() => { setSector(''); setJobType(''); setSearchInput(''); setQ(''); setPage(0) }}
-              style={{
-                fontSize: 12.5, fontWeight: 600, color: '#EF4444', background: 'none', border: 'none',
-                padding: '8px 6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-              }}
-            >
-              <X size={13} /> Clear filters
-            </button>
-          )}
-        </div>
-
-        {/* Loading */}
-        {isLoading && (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '64px 0' }}>
-            <div style={{
-              width: 32, height: 32, border: '2px solid #2563EB',
-              borderTopColor: 'transparent', borderRadius: '50%',
-              animation: 'spin 0.7s linear infinite',
-            }} />
-          </div>
-        )}
-
-        {/* Error */}
-        {isError && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10,
-            padding: '14px 18px', color: '#991B1B', fontSize: 14,
-          }}>
-            <AlertCircle size={16} />
-            Failed to load jobs. Please check your connection and try again.
-          </div>
-        )}
-
-        {/* Results */}
-        {data && (
-          <>
-            {data.jobs.length > 0 && (
-              <p style={{ fontSize: 13, color: '#94A3B8', marginBottom: 16 }}>
-                {data.total} {data.total === 1 ? 'job' : 'jobs'} found
-              </p>
+              >
+                <X size={12} /> Clear all filters
+              </button>
             )}
+          </aside>
 
-            {data.jobs.length === 0
-              ? <EmptyState hasFilters={hasFilters} />
-              : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 18 }}>
-                  {data.jobs.map(job => <JobCard key={job.id} job={job} hasRoadmap={roadmapJobIds.has(job.id)} />)}
-                </div>
-              )
-            }
+          {/* ── main feed ── */}
+          <main style={{ flex: 1, minWidth: 0, padding: '20px 28px 40px', overflowY: 'auto' }}>
 
-            {data.total > limit && (
-              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 32 }}>
-                <button
-                  disabled={page === 0}
-                  onClick={() => setPage(p => p - 1)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 4,
-                    padding: '8px 14px', fontSize: 13, border: '1px solid #E2E8F0',
-                    borderRadius: 9, background: '#fff', cursor: page === 0 ? 'not-allowed' : 'pointer',
-                    opacity: page === 0 ? 0.4 : 1, color: '#374151',
-                  }}
-                >
-                  <ChevronLeft size={15} /> Previous
-                </button>
-                <span style={{ fontSize: 13, color: '#6B7280' }}>
-                  Page {page + 1} of {Math.ceil(data.total / limit)}
-                </span>
-                <button
-                  disabled={(page + 1) * limit >= data.total}
-                  onClick={() => setPage(p => p + 1)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 4,
-                    padding: '8px 14px', fontSize: 13, border: '1px solid #E2E8F0',
-                    borderRadius: 9, background: '#fff',
-                    cursor: (page + 1) * limit >= data.total ? 'not-allowed' : 'pointer',
-                    opacity: (page + 1) * limit >= data.total ? 0.4 : 1, color: '#374151',
-                  }}
-                >
-                  Next <ChevronRight size={15} />
-                </button>
+            {/* count + sort row */}
+            {data && data.jobs.length > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <p style={{ fontSize: 12.5, fontWeight: 600, color: MUTED, margin: 0 }}>
+                  {data.total} {data.total === 1 ? 'job' : 'jobs'} found
+                </p>
+                <p style={{ fontSize: 12, fontWeight: 700, color: NAVY, margin: 0 }}>
+                  ↓ Best match
+                </p>
               </div>
             )}
-          </>
-        )}
-      </main>
+
+            {/* loading */}
+            {isLoading && (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '64px 0' }}>
+                <div style={{
+                  width: 28, height: 28, border: `2px solid ${NAVY}`,
+                  borderTopColor: 'transparent', borderRadius: '50%',
+                  animation: 'spin 0.7s linear infinite',
+                }} />
+              </div>
+            )}
+
+            {/* error */}
+            {isError && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10,
+                padding: '14px 18px', color: '#991B1B', fontSize: 13,
+              }}>
+                <AlertCircle size={15} />
+                Failed to load jobs. Please check your connection and try again.
+              </div>
+            )}
+
+            {/* results */}
+            {data && (
+              <>
+                {data.jobs.length === 0
+                  ? <EmptyState hasFilters={hasFilters} />
+                  : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                      {data.jobs.map(job => (
+                        <JobCard key={job.id} job={job} hasRoadmap={roadmapJobIds.has(job.id)} />
+                      ))}
+                    </div>
+                  )
+                }
+
+                {data.total > limit && (
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 24 }}>
+                    <button
+                      disabled={page === 0}
+                      onClick={() => setPage(p => p - 1)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 4,
+                        padding: '8px 14px', fontSize: 12, border: `1px solid ${BORDER}`,
+                        borderRadius: 9, background: '#fff', cursor: page === 0 ? 'not-allowed' : 'pointer',
+                        opacity: page === 0 ? 0.4 : 1, color: INK_S,
+                      }}
+                    >
+                      <ChevronLeft size={14} /> Previous
+                    </button>
+                    <span style={{ fontSize: 12, color: MUTED }}>
+                      Page {page + 1} of {Math.ceil(data.total / limit)}
+                    </span>
+                    <button
+                      disabled={(page + 1) * limit >= data.total}
+                      onClick={() => setPage(p => p + 1)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 4,
+                        padding: '8px 14px', fontSize: 12, border: `1px solid ${BORDER}`,
+                        borderRadius: 9, background: '#fff',
+                        cursor: (page + 1) * limit >= data.total ? 'not-allowed' : 'pointer',
+                        opacity: (page + 1) * limit >= data.total ? 0.4 : 1, color: INK_S,
+                      }}
+                    >
+                      Next <ChevronRight size={14} />
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </main>
+        </div>
       </div>
     </div>
   )
