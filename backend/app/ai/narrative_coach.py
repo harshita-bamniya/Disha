@@ -1,4 +1,4 @@
-"""AI Narrative Coach — Stage 1 of the Roadmap system.
+﻿"""AI Narrative Coach — Stage 1 of the Roadmap system.
 
 Evaluates a user's professional narrative and rewrites UPSC-bureaucratic language
 into private-sector commercial vocabulary.
@@ -16,7 +16,7 @@ import json
 import logging
 import re
 
-from app.ai.providers.groq import GroqProvider
+from app.ai.providers import create_provider
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +87,7 @@ async def evaluate_narrative(
         career_track=career_track,
     )
 
-    provider = GroqProvider()
+    provider = create_provider()
     try:
         msg = await provider.complete(
             system=_SYSTEM,

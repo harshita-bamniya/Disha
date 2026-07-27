@@ -81,8 +81,8 @@ async def generate_report(conv_id: str, db: Session) -> dict:
     )
 
     try:
-        from app.ai.providers.groq import GroqProvider
-        provider = GroqProvider()
+        from app.ai.providers import create_provider
+        provider = create_provider()
         full = ""
         async for chunk in provider.stream(
             "You are an interview evaluation expert. Return only valid JSON.",

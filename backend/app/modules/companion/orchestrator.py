@@ -259,8 +259,8 @@ async def handle_message(
 
     full_response = ""
     try:
-        from app.ai.providers.groq import GroqProvider
-        provider = GroqProvider()
+        from app.ai.providers import create_provider
+        provider = create_provider()
         async for chunk in provider.stream(system_prompt, ai_messages, max_tokens=500):
             full_response += chunk
             yield chunk

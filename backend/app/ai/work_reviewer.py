@@ -1,4 +1,4 @@
-"""AI Work Reviewer — Stage 4 ticket submission evaluator.
+﻿"""AI Work Reviewer — Stage 4 ticket submission evaluator.
 
 Evaluates a user's work ticket submission against the ticket's rubric.
 Gives specific, line-level feedback — not generic scoring.
@@ -16,7 +16,7 @@ import json
 import logging
 import re
 
-from app.ai.providers.groq import GroqProvider
+from app.ai.providers import create_provider
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +103,7 @@ async def review_ticket_submission(
         submission=submission_text[:4000],
     )
 
-    provider = GroqProvider()
+    provider = create_provider()
     try:
         msg = await provider.complete(
             system=_SYSTEM,

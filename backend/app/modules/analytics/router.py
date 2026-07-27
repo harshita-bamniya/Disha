@@ -18,7 +18,7 @@ from pydantic import BaseModel
 from sqlalchemy import func, desc
 from sqlalchemy.orm import Session
 
-from app.core.rbac import get_current_user, require_role
+from app.core.rbac import get_current_user, require_permission
 from app.database import get_db
 from app.models.user import User
 
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
-_admin = require_role("admin")
+_admin = require_permission("analytics", "view")
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -295,6 +295,57 @@ def admin_trends(
         series.append({"date": day, "count": counts_by_day.get(day, 0)})
 
     return {"metric": metric, "days": days, "series": series}
+
+
+@router.get("/admin/job-engagement")
+def admin_job_engagement(
+    days: int = Query(30, ge=1, le=180),
+    current_user: User = Depends(_admin),
+    db: Session = Depends(get_db),
+):
+    """Aggregate job-level engagement events for the admin dashboard.
+
+    Returns counts of job_card_click, application_started, application_submitted
+    grouped by job_id for the specified window.
+    """
+    from app.models.mvp3 import UserEvent
+
+    now = datetime.now(timezone.utc)
+    start = now - timedelta(days=days)
+
+    EVENT_TYPES = ("job_card_click", "application_started", "application_submitted")
+    rows = (
+        db.query(
+            UserEvent.event_name,
+            UserEvent.event_data["job_id"].astext.label("job_id"),
+            func.count().label("cnt"),
+        )
+        .filter(
+            UserEvent.event_name.in_(EVENT_TYPES),
+            UserEvent.created_at >= start,
+        )
+        .group_by(UserEvent.event_name, UserEvent.event_data["job_id"].astext)
+        .all()
+    )
+
+    aggregated: dict[str, dict[str, int]] = {}
+    for event_name, job_id, cnt in rows:
+        if not job_id:
+            continue
+        agg = aggregated.setdefault(job_id, {e: 0 for e in EVENT_TYPES})
+        agg[event_name] = cnt
+
+    return {
+        "days": days,
+        "jobs": [
+            {"job_id": job_id, **counts}
+            for job_id, counts in sorted(
+                aggregated.items(),
+                key=lambda kv: kv[1].get("job_card_click", 0),
+                reverse=True,
+            )
+        ],
+    }
 
 
 @router.patch("/admin/safety-flags/{flag_id}/review", status_code=200)

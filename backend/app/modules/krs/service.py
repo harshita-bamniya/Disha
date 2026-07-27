@@ -97,7 +97,8 @@ def get_dashboard(user: User, db: Session) -> KrsDashboardResponse:
     profile = db.query(AspirantProfile).filter(AspirantProfile.user_id == user.id).first()
     krs = db.query(KrsScore).filter(KrsScore.user_id == user.id).first()
 
-    if not krs or not profile:
+    zeroed = krs and krs.composite == 0 and krs.k_score == 0 and krs.r_score == 0 and krs.s_score == 0
+    if not krs or not profile or zeroed:
         if profile and profile.is_completed:
             krs = compute_and_store(user, db)
         else:
@@ -494,9 +495,9 @@ async def get_job_fit_analysis(
 
     try:
         import asyncio
-        from app.ai.providers.groq import GroqProvider
+        from app.ai.providers import create_provider
 
-        provider = GroqProvider()
+        provider = create_provider()
         user_prompt = (
             f"Job: {job_title} at {company_name}\n"
             f"Company/role description: {(description or 'Not provided')[:600]}\n"

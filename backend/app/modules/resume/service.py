@@ -298,8 +298,8 @@ async def ai_improve_section(
     original = dict(section.content or {})
 
     try:
-        from app.ai.providers.groq import GroqProvider
-        provider = GroqProvider()
+        from app.ai.providers import create_provider
+        provider = create_provider()
         system_prompt, user_prompt = ai_service.build_improve_prompt(
             section.section_type, original, career_context
         )
@@ -359,8 +359,8 @@ async def ai_generate_resume(
         db.query(ResumeSection).filter(ResumeSection.resume_id == resume_id).delete()
 
     try:
-        from app.ai.providers.groq import GroqProvider
-        provider = GroqProvider()
+        from app.ai.providers import create_provider
+        provider = create_provider()
         system_prompt, user_prompt = ai_service.build_generation_prompt(
             profile, career_track, job_context=job_context
         )
@@ -455,8 +455,8 @@ async def ai_generate_resume_stream(
         db.query(ResumeSection).filter(ResumeSection.resume_id == resume_id).delete()
 
     try:
-        from app.ai.providers.groq import GroqProvider
-        provider = GroqProvider()
+        from app.ai.providers import create_provider
+        provider = create_provider()
         system_prompt, user_prompt = ai_service.build_generation_prompt(
             profile, career_track, job_context=job_context, answers=answers,
         )

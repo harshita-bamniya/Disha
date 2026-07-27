@@ -73,11 +73,11 @@ async def extract_and_store_memories_bg(
 
     db = SessionLocal()
     try:
-        from app.ai.providers.groq import GroqProvider
+        from app.ai.providers import create_provider
         from app.models.mvp2 import CounsellorMemory, CounsellorMemoryEmbedding
         from app.models.companion import CompanionMilestone
 
-        provider = GroqProvider()
+        provider = create_provider()
         user_prompt = _MEMORY_EXTRACTION_USER.format(
             user_message=user_message[:500],
             assistant_response=assistant_response[:500],

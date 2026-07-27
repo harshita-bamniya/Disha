@@ -1,9 +1,9 @@
 import { apiClient } from '@/api/client'
 
 interface AnalyticsEvent {
-  event_type: string
-  page?: string
-  properties?: Record<string, unknown>
+  event_name: string
+  event_data?: Record<string, unknown>
+  page_url?: string
 }
 
 const queue: AnalyticsEvent[] = []
@@ -26,11 +26,11 @@ function scheduleFlush() {
   }, 2000)
 }
 
-export function track(event_type: string, properties?: Record<string, unknown>) {
+export function track(event_name: string, event_data?: Record<string, unknown>) {
   queue.push({
-    event_type,
-    page: window.location.pathname,
-    properties,
+    event_name,
+    event_data: event_data ?? {},
+    page_url: window.location.pathname,
   })
   if (queue.length >= 20) {
     if (flushTimer) { clearTimeout(flushTimer); flushTimer = null }
@@ -38,6 +38,14 @@ export function track(event_type: string, properties?: Record<string, unknown>) 
   } else {
     scheduleFlush()
   }
+}
+
+export function trackJobEvent(
+  eventName: 'job_card_click' | 'application_started' | 'application_submitted',
+  jobId: string,
+  extra?: Record<string, unknown>,
+) {
+  track(eventName, { job_id: jobId, ...extra })
 }
 
 // Flush on page unload

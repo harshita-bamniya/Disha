@@ -8,6 +8,7 @@ import {
 import AppSidebar from '@/components/layout/AppSidebar'
 import { getJobs, type JobListItem } from '@/api/matching'
 import { jobPlanApi } from '@/api/jobPlan'
+import { trackJobEvent } from '@/lib/analytics'
 
 // ── palette ────────────────────────────────────────────────────────────────────
 const NAVY   = '#1A2744'
@@ -170,6 +171,7 @@ function JobCard({ job, hasRoadmap }: { job: JobListItem; hasRoadmap: boolean })
       <div style={{ padding: '10px 18px', display: 'flex', justifyContent: 'flex-end' }}>
         <Link
           to={`/app/jobs/${job.id}`}
+          onClick={() => trackJobEvent('job_card_click', job.id, { title: job.title, sector: job.sector ?? undefined })}
           style={{
             display: 'flex', alignItems: 'center', gap: 5,
             fontSize: 12, fontWeight: 700, color: '#fff',

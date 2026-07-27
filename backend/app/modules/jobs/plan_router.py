@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.rbac import get_current_aspirant
 from app.database import get_db
 from app.models.job_plan import JobLearningPlan
-from app.models.user import AspirantProfile, JobPosting, User
+from app.models.user import AspirantProfile, JobPosting, KrsScore, PsychologicalAssessment, User
 from app.modules.jobs.plan_generator import (
     enrich_plan_with_real_videos, generate_job_plan, generate_module_quiz,
     is_plan_stale, redact_quiz_answers,
@@ -123,6 +123,9 @@ async def generate_plan(
     job = _get_job_or_404(job_id, db)
 
     profile = db.query(AspirantProfile).filter(AspirantProfile.user_id == user.id).first()
+    krs = db.query(KrsScore).filter(KrsScore.user_id == user.id).first()
+    psych = db.query(PsychologicalAssessment).filter(PsychologicalAssessment.user_id == user.id).first()
+
     user_skills: list[str] = profile.skills or [] if profile else []
 
     # Compute gap skills: required - user has
@@ -163,10 +166,21 @@ async def generate_plan(
         "required_skills": job.required_skills or [],
     }
 
+    # Snapshot user context — passed to generate_job_plan for prompt personalisation
+    user_context_snapshot = {
+        "k_score": krs.k_score if krs else None,
+        "r_score": krs.r_score if krs else None,
+        "s_score": krs.s_score if krs else None,
+        "burnout_score": psych.burnout_score if psych else None,
+        "confidence_score": psych.confidence_index if psych else None,
+        "work_experience_years": profile.work_experience_years if profile else None,
+        "work_experience_domain": profile.work_experience_domain if profile else None,
+    }
+
     class _Cancelled(Exception):
         pass
 
-    async def _bg(pid=plan_id, js=job_snapshot, us=user_skills, gs=gap_skills):
+    async def _bg(pid=plan_id, js=job_snapshot, us=user_skills, gs=gap_skills, uc=user_context_snapshot, jid=job_id):
         from app.database import SessionLocal
         bg_db = SessionLocal()
 
@@ -199,6 +213,14 @@ async def generate_plan(
                     required_skills=js["required_skills"],
                     user_skills=us,
                     gap_skills=gs,
+                    job_id=jid,
+                    k_score=uc.get("k_score"),
+                    r_score=uc.get("r_score"),
+                    s_score=uc.get("s_score"),
+                    burnout_score=uc.get("burnout_score"),
+                    confidence_score=uc.get("confidence_score"),
+                    work_experience_years=uc.get("work_experience_years"),
+                    work_experience_domain=uc.get("work_experience_domain"),
                 )
 
                 if not _still_generating():

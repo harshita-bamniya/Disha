@@ -261,6 +261,7 @@ class RankedJob:
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 def _skill_overlap_pct(user_skills: set[str], required: list[str]) -> int:
+    """Exact-match fallback — used when vector cache is unavailable."""
     if not required:
         return 100
     user_lower = {s.lower().strip() for s in user_skills}
@@ -272,6 +273,64 @@ def _split_skills(user_lower: set[str], required: list[str]) -> tuple[list[str],
     have = [s for s in required if s.lower().strip() in user_lower]
     gap  = [s for s in required if s.lower().strip() not in user_lower]
     return have, gap
+
+
+def _build_semantic_overlap_fn(
+    user_skills: set[str],
+    candidate_jobs: list,
+    db: Session,
+):
+    """Pre-load all skill vectors for user + all candidate job required skills in ONE DB query.
+
+    Returns a callable: (required: list[str]) -> int (0-100 %).
+    Falls back to exact-string overlap if embeddings are unavailable.
+    """
+    try:
+        from app.models.mvp2 import SkillVector
+        from app.modules.krs.skill_gap import _max_cosine, SIMILARITY_THRESHOLD
+
+        user_lower = {s.lower().strip() for s in user_skills}
+
+        # Collect every unique skill we'll need — user's + every job's required_skills
+        all_unique: set[str] = set(user_lower)
+        for item in candidate_jobs:
+            job = item[0]
+            for s in (job.required_skills or []):
+                all_unique.add(s.lower().strip())
+
+        if not all_unique:
+            return lambda req: _skill_overlap_pct(user_skills, req)
+
+        rows = db.query(SkillVector).filter(SkillVector.skill_text.in_(list(all_unique))).all()
+        vec_cache: dict[str, list[float]] = {r.skill_text: r.embedding for r in rows}
+
+        user_vecs = [vec_cache[s] for s in user_lower if s in vec_cache]
+
+        if not user_vecs:
+            logger.debug("[RANKER] No user skill vectors in cache — using exact-string overlap")
+            return lambda req: _skill_overlap_pct(user_skills, req)
+
+        def _semantic_overlap(required: list[str]) -> int:
+            if not required:
+                return 100
+            matched = 0
+            for s in required:
+                s_key = s.lower().strip()
+                req_vec = vec_cache.get(s_key)
+                if req_vec is None:
+                    # Not cached — fall back to string match for this individual skill
+                    if s_key in user_lower:
+                        matched += 1
+                else:
+                    if _max_cosine(req_vec, user_vecs) >= SIMILARITY_THRESHOLD:
+                        matched += 1
+            return round(matched / len(required) * 100)
+
+        return _semantic_overlap
+
+    except Exception as exc:
+        logger.warning("[RANKER] Semantic overlap pre-load failed: %s — using exact-string fallback", exc)
+        return lambda req: _skill_overlap_pct(user_skills, req)
 
 
 def _blended_score(
@@ -288,6 +347,47 @@ def _apply_sector_bonus(score: int, job: JobPosting, selected_sectors: frozenset
     if selected_sectors and job.sector and job.sector.lower() in selected_sectors:
         return min(100, score + _SECTOR_BONUS)
     return score
+
+
+def _salary_fit(
+    user_min: Optional[int],
+    user_max: Optional[int],
+    job_min: Optional[int],
+    job_max: Optional[int],
+) -> int:
+    """Return a 0-100 salary-fit score based on range overlap (soft signal).
+
+    Returns 50 when salary data is missing on either side (neutral).
+    Returns 100 when ranges overlap fully, 0 when ranges don't overlap at all.
+    """
+    if user_min is None and user_max is None:
+        return 50
+    if job_min is None and job_max is None:
+        return 50
+
+    u_lo = user_min or 0
+    u_hi = user_max or (u_lo * 3 or 999)
+    j_lo = job_min or 0
+    j_hi = job_max or (j_lo * 3 or 999)
+
+    overlap = max(0, min(u_hi, j_hi) - max(u_lo, j_lo))
+    span = max(u_hi - u_lo, 1)
+    return min(100, round(overlap / span * 100))
+
+
+_SALARY_WEIGHT = 0.08  # 8% soft signal in blended score
+
+
+def _blended_score_with_salary(
+    semantic: Optional[int],
+    skill_overlap: int,
+    k_fit: int,
+    salary_fit: int,
+) -> int:
+    sw = _SALARY_WEIGHT
+    if semantic is not None:
+        return round((0.45 - sw / 2) * semantic + (0.35 - sw / 2) * skill_overlap + 0.20 * k_fit + sw * salary_fit)
+    return round((0.60 - sw / 2) * skill_overlap + (0.40 - sw / 2) * k_fit + sw * salary_fit)
 
 
 def _safe_krs_fit(k_score: Optional[int], min_k: int) -> int:
@@ -326,6 +426,8 @@ def _vector_rank(
     collab_scores: dict[str, float],
     db: Session,
     extra_sql_filters: Sequence,
+    user_salary_min: Optional[int] = None,
+    user_salary_max: Optional[int] = None,
 ) -> list[RankedJob]:
     distance_col = JobPosting.description_embedding.cosine_distance(profile_emb)
 
@@ -338,17 +440,21 @@ def _vector_rank(
         .all()
     )
 
+    # Build semantic overlap function — pre-loads ALL skill vectors in one DB query
+    semantic_overlap = _build_semantic_overlap_fn(user_skills, candidates, db)
+
     results: list[RankedJob] = []
     for job, employer, dist in candidates:
         cosine_sim = max(0.0, 1.0 - float(dist))
         semantic_score = round(cosine_sim * 100)
 
         required = job.required_skills or []
-        overlap = _skill_overlap_pct(user_skills, required)
+        overlap = semantic_overlap(required)
         k_fit   = _safe_krs_fit(k_score, job.min_k_score)
+        sal_fit = _salary_fit(user_salary_min, user_salary_max, job.salary_min, job.salary_max)
         have, gap = _split_skills(user_lower, required)
 
-        score = _blended_score(semantic_score, overlap, k_fit)
+        score = _blended_score_with_salary(semantic_score, overlap, k_fit, sal_fit)
         score = _apply_sector_bonus(score, job, selected_sectors)
 
         # Collaborative boost
@@ -383,20 +489,26 @@ def _rule_rank(
     collab_scores: dict[str, float],
     db: Session,
     extra_sql_filters: Sequence,
+    user_salary_min: Optional[int] = None,
+    user_salary_max: Optional[int] = None,
 ) -> list[RankedJob]:
     now = datetime.now(timezone.utc)
     recency_cutoff = now - timedelta(days=_RECENCY_DAYS)
 
     rows = _base_q(db, extra_sql_filters).all()
 
+    # Build semantic overlap function — pre-loads ALL skill vectors in one DB query
+    semantic_overlap = _build_semantic_overlap_fn(user_skills, rows, db)
+
     results: list[RankedJob] = []
     for job, employer in rows:
         required = job.required_skills or []
-        overlap = _skill_overlap_pct(user_skills, required)
+        overlap = semantic_overlap(required)
         k_fit   = _safe_krs_fit(k_score, job.min_k_score)
+        sal_fit = _salary_fit(user_salary_min, user_salary_max, job.salary_min, job.salary_max)
         have, gap = _split_skills(user_lower, required)
 
-        score = round(0.60 * overlap + 0.40 * k_fit)
+        score = _blended_score_with_salary(None, overlap, k_fit, sal_fit)
         score = _apply_sector_bonus(score, job, selected_sectors)
 
         if job.created_at and job.created_at >= recency_cutoff:
@@ -491,10 +603,12 @@ def rank_jobs_for_user(
     if db is None:
         return [], 0
 
-    user_skills = set(profile.skills or []) if profile else set()
-    user_lower  = {s.lower().strip() for s in user_skills}
-    k_score     = krs.k_score if krs else None
-    profile_emb = krs.profile_embedding if krs else None
+    user_skills   = set(profile.skills or []) if profile else set()
+    user_lower    = {s.lower().strip() for s in user_skills}
+    k_score       = krs.k_score if krs else None
+    profile_emb   = krs.profile_embedding if krs else None
+    salary_min    = profile.expected_salary_min if profile else None
+    salary_max    = profile.expected_salary_max if profile else None
 
     # ── Collaborative filtering ────────────────────────────────────────────────
     collab_scores: dict[str, float] = {}
@@ -516,12 +630,24 @@ def rank_jobs_for_user(
                 profile_emb, user_skills, user_lower, k_score,
                 selected_sectors, prepared_job_ids, collab_scores,
                 db, extra_sql_filters,
+                user_salary_min=salary_min, user_salary_max=salary_max,
             )
+            # Vector path only matches jobs with embeddings; fall back to
+            # rule-based when no embedded jobs exist (e.g. fresh seed data).
+            if not all_results:
+                logger.debug("[RANKER] Vector path returned 0 results — falling back to rule-based")
+                all_results = _rule_rank(
+                    user_skills, user_lower, k_score,
+                    selected_sectors, prepared_job_ids, collab_scores,
+                    db, extra_sql_filters,
+                    user_salary_min=salary_min, user_salary_max=salary_max,
+                )
         else:
             all_results = _rule_rank(
                 user_skills, user_lower, k_score,
                 selected_sectors, prepared_job_ids, collab_scores,
                 db, extra_sql_filters,
+                user_salary_min=salary_min, user_salary_max=salary_max,
             )
     except Exception:
         logger.exception("[RANKER] Ranking failed — falling back to rule-based")
@@ -529,6 +655,7 @@ def rank_jobs_for_user(
             user_skills, user_lower, k_score,
             selected_sectors, prepared_job_ids, collab_scores,
             db, extra_sql_filters,
+            user_salary_min=salary_min, user_salary_max=salary_max,
         )
 
     total = len(all_results)

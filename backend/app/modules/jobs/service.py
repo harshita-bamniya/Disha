@@ -3,16 +3,13 @@ import uuid
 from datetime import date, datetime, timezone
 from sqlalchemy.orm import Session
 
-from fastapi import UploadFile
-
 from app.core.exceptions import AuthException, BadRequestException
-from app.core.storage import save_upload
 from app.models.employer_verification import (
-    DOCUMENT_TYPES, EmployerVerification, EmployerVerificationDocument, EmployerVerificationEvent,
+    EmployerVerification, EmployerVerificationEvent,
 )
 from app.models.company import Company, CompanyDepartment
 from app.models.mvp3 import JobTemplate
-from app.models.user import EmployerProfile, JobPosting, User
+from app.models.user import AuditLog, EmployerProfile, JobPosting, User
 from sqlalchemy import func
 from app.modules.jobs.schemas import (
     BulkImportResponse, BulkImportRowError,
@@ -21,6 +18,16 @@ from app.modules.jobs.schemas import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _audit_job(db: Session, action: str, user_id, job_id, extra: dict | None = None) -> None:
+    db.add(AuditLog(
+        user_id=uuid.UUID(str(user_id)) if user_id else None,
+        action=action,
+        resource="job_posting",
+        resource_id=uuid.UUID(str(job_id)) if job_id else None,
+        new_value=extra,
+    ))
 
 
 def _get_approved_employer(user: User, db: Session) -> EmployerProfile:
@@ -37,7 +44,7 @@ def _get_approved_employer(user: User, db: Session) -> EmployerProfile:
         )
     if not profile.is_approved:
         raise AuthException(
-            "Your company isn't verified yet. Submit your verification documents to start posting jobs."
+            "Your company isn't verified yet. Request verification from your dashboard and our team will contact you."
         )
     return profile
 
@@ -195,9 +202,10 @@ async def suggest_skills_for_job(title: str, description: str) -> SuggestSkillsR
     outside VALID_SKILLS, since that's what the submit endpoint accepts."""
     import json
     import re
-    from app.ai.providers.groq import GroqProvider, RateLimitedError
+    from app.ai.providers.groq import RateLimitedError
+    from app.ai.providers import create_provider
 
-    provider = GroqProvider()
+    provider = create_provider()
     system = _SUGGEST_SKILLS_SYSTEM.format(skills=", ".join(sorted(VALID_SKILLS)))
     user_prompt = f"Job title: {title}\n\nJob description:\n{description[:2000]}"
 
@@ -240,9 +248,10 @@ async def generate_job_description(title: str, sector: str, key_points: str) -> 
     """First-draft job description from a title + sector — the employer still
     reviews and edits before publishing. Mirrors suggest_skills_for_job's
     provider/error-handling pattern exactly."""
-    from app.ai.providers.groq import GroqProvider, RateLimitedError
+    from app.ai.providers.groq import RateLimitedError
+    from app.ai.providers import create_provider
 
-    provider = GroqProvider()
+    provider = create_provider()
     user_prompt = f"Job title: {title}\nSector: {sector}"
     if key_points.strip():
         user_prompt += f"\nKey points to include:\n{key_points.strip()[:1000]}"
@@ -296,6 +305,7 @@ def create_job(user: User, data: JobPostingRequest, db: Session) -> JobPostingRe
     status = "published" if data.publish else "draft"
     job = JobPosting(
         employer_id=profile.id,
+        company_id=profile.company_id,
         department_id=department_id,
         title=data.title,
         description=data.description,
@@ -316,6 +326,8 @@ def create_job(user: User, data: JobPostingRequest, db: Session) -> JobPostingRe
     db.add(job)
     db.commit()
     db.refresh(job)
+    _audit_job(db, "job.created", user.id, job.id, {"title": job.title, "status": job.status})
+    db.commit()
     logger.info(f"[JOBS] {profile.company_name} {'published' if data.publish else 'saved draft'}: {job.title}")
     _embed_job(job)
     return _job_to_response(job)
@@ -448,6 +460,8 @@ def update_job(user: User, job_id: str, data: JobPostingRequest, db: Session) ->
     job.skill_extraction_status = "done"
     db.commit()
     db.refresh(job)
+    _audit_job(db, "job.updated", user.id, job.id, {"title": job.title})
+    db.commit()
     logger.info(f"[JOBS] Updated job {job_id}: {job.title}")
     _embed_job(job)
     return _job_to_response(job)
@@ -529,6 +543,7 @@ def duplicate_job(user: User, job_id: str, db: Session) -> JobPostingResponse:
     _, source = _get_company_job(user, job_id, db)
     clone = JobPosting(
         employer_id=source.employer_id,
+        company_id=source.company_id,
         department_id=source.department_id,
         title=f"{source.title} (Copy)",
         description=source.description,
@@ -573,6 +588,8 @@ def delete_job(user: User, job_id: str, db: Session) -> None:
             "Close the job first so candidates are notified, then delete it."
         )
 
+    job_title = job.title
+    _audit_job(db, "job.deleted", user.id, job.id, {"title": job_title})
     db.delete(job)
     db.commit()
     logger.info(f"[JOBS] Deleted job {job_id}")
@@ -617,74 +634,36 @@ def get_verification_status(user: User, db: Session) -> VerificationStatusRespon
     return _verification_to_response(_latest_verification(profile.id, db))
 
 
-async def upload_verification_document(user: User, doc_type: str, file: UploadFile, db: Session) -> VerificationStatusResponse:
+def request_verification(user: User, db: Session) -> VerificationStatusResponse:
+    """Employer clicks 'Request Verification' — creates a verification request
+    and sends them a welcome email with the document list. Our team then contacts
+    them offline and the admin approves once satisfied."""
     profile = _get_employer_profile(user, db)
-    if doc_type not in DOCUMENT_TYPES:
-        raise BadRequestException(f"Invalid document type. Allowed: {', '.join(DOCUMENT_TYPES)}")
-
     v = _latest_verification(profile.id, db)
-    if not v or v.status in ("approved", "rejected"):
-        v = EmployerVerification(employer_id=profile.id, status="draft")
-        db.add(v)
-        db.flush()
-    elif v.status != "draft":
+
+    if v and v.status in ("requested", "under_review", "approved"):
         raise BadRequestException(
-            f"Verification is already '{v.status}' — can't change documents until it's reviewed."
+            f"Verification is already '{v.status}'. "
+            "Our team will contact you shortly." if v.status != "approved" else "Your company is already verified."
         )
 
-    # Replace any existing document of this type rather than stacking duplicates —
-    # an employer re-uploading the same slot should overwrite, not pile up rows.
-    existing_doc = next((d for d in v.documents if d.doc_type == doc_type), None)
-    if existing_doc:
-        db.delete(existing_doc)
-        db.flush()
-
-    try:
-        file_url, original_name = await save_upload(file, f"employer_verification/{v.id}")
-    except ValueError as e:
-        raise BadRequestException(str(e))
-
-    db.add(EmployerVerificationDocument(
-        verification_id=v.id, doc_type=doc_type, file_url=file_url, original_filename=original_name,
-    ))
-    db.commit()
-    db.refresh(v)
-    return _verification_to_response(v)
-
-
-def submit_verification(user: User, db: Session) -> VerificationStatusResponse:
-    """Mirrors how real KYB (Know Your Business) checks work — e.g. Naukri's
-    recruiter verification: one entity-identity document (GST certificate or
-    company registration / Certificate of Incorporation) plus one signatory
-    identity document (PAN card). Business email is supplementary, not required."""
-    profile = _get_employer_profile(user, db)
-    v = _latest_verification(profile.id, db)
-    if not v:
-        raise BadRequestException("Upload your verification documents before submitting.")
-
-    uploaded_types = {d.doc_type for d in v.documents}
-    has_entity_proof = bool(uploaded_types & {"gst_certificate", "company_registration"})
-    has_signatory_id = "pan_card" in uploaded_types
-    if not (has_entity_proof and has_signatory_id):
-        missing = []
-        if not has_entity_proof:
-            missing.append("a GST certificate or company registration document")
-        if not has_signatory_id:
-            missing.append("a PAN card")
-        raise BadRequestException(f"Upload {' and '.join(missing)} before submitting.")
-
-    if v.status not in ("draft", "rejected"):
-        raise BadRequestException(f"Verification is already '{v.status}' — cannot resubmit.")
-
-    old_status = v.status
-    v.status = "pending"
-    v.submitted_at = datetime.now(timezone.utc)
+    v = EmployerVerification(employer_id=profile.id, status="requested")
+    db.add(v)
+    db.flush()
     db.add(EmployerVerificationEvent(
-        verification_id=v.id, actor_id=user.id, from_status=old_status, to_status="pending",
-        note="Submitted for review." if old_status != "rejected" else "Resubmitted after rejection.",
+        verification_id=v.id, actor_id=user.id, from_status=None, to_status="requested",
+        note="Employer requested verification.",
     ))
     db.commit()
     db.refresh(v)
+
+    # Send welcome email with document checklist
+    recipient = db.query(User).filter(User.id == user.id).first()
+    if recipient and recipient.email:
+        from app.core.notifications import employer_verification_request_email, notify
+        subject, html = employer_verification_request_email(profile.company_name or "your company")
+        notify(recipient.email, subject, html)
+
     return _verification_to_response(v)
 
 
@@ -715,3 +694,98 @@ def get_my_permissions(user: User, db: Session):
         department_name=dept_name,
         is_company_wide=is_wide,
     )
+
+
+# ── Hiring Team ───────────────────────────────────────────────────────────────
+
+def _get_own_job(user: User, job_id: str, db: Session) -> JobPosting:
+    """Fetch a job and verify the current user's company owns it."""
+    profile = _get_employer_profile(user, db)
+    employer_ids = _get_company_employer_ids(profile, db)
+    job = db.query(JobPosting).filter(
+        JobPosting.id == job_id,
+        JobPosting.employer_id.in_(employer_ids),
+    ).first()
+    if not job:
+        raise BadRequestException("Job not found or access denied.")
+    return job
+
+
+def list_hiring_team(user: User, job_id: str, db: Session):
+    from app.models.user import JobHiringTeam
+    from app.modules.jobs.schemas import HiringTeamMemberOut
+    _get_own_job(user, job_id, db)
+    rows = (
+        db.query(JobHiringTeam, EmployerProfile, User)
+        .join(EmployerProfile, EmployerProfile.id == JobHiringTeam.employer_profile_id)
+        .join(User, User.id == EmployerProfile.user_id)
+        .filter(JobHiringTeam.job_id == job_id)
+        .all()
+    )
+    return [
+        HiringTeamMemberOut(
+            id=str(ht.id),
+            employer_profile_id=str(ht.employer_profile_id),
+            contact_person=ep.contact_person or u.full_name or u.email or "Unknown",
+            email=u.email,
+            job_role=ht.job_role,
+            added_at=ht.added_at,
+        )
+        for ht, ep, u in rows
+    ]
+
+
+def add_hiring_team_member(user: User, job_id: str, data, db: Session):
+    from app.models.user import JobHiringTeam
+    from app.modules.jobs.schemas import HiringTeamMemberOut
+    job = _get_own_job(user, job_id, db)
+    profile = _get_employer_profile(user, db)
+
+    # Verify the target profile belongs to the same company
+    target = db.query(EmployerProfile).filter(
+        EmployerProfile.id == data.employer_profile_id,
+        EmployerProfile.company_id == profile.company_id,
+    ).first()
+    if not target:
+        raise BadRequestException("Team member not found in your company.")
+
+    existing = db.query(JobHiringTeam).filter(
+        JobHiringTeam.job_id == job.id,
+        JobHiringTeam.employer_profile_id == data.employer_profile_id,
+    ).first()
+    if existing:
+        raise BadRequestException("This member is already on the hiring team for this job.")
+
+    member = JobHiringTeam(
+        id=uuid.uuid4(),
+        job_id=job.id,
+        employer_profile_id=data.employer_profile_id,
+        job_role=data.job_role,
+    )
+    db.add(member)
+    db.commit()
+    db.refresh(member)
+
+    target_user = db.query(User).filter(User.id == target.user_id).first()
+    return HiringTeamMemberOut(
+        id=str(member.id),
+        employer_profile_id=str(member.employer_profile_id),
+        contact_person=target.contact_person or (target_user.full_name if target_user else None) or "Unknown",
+        email=target_user.email if target_user else None,
+        job_role=member.job_role,
+        added_at=member.added_at,
+    )
+
+
+def remove_hiring_team_member(user: User, job_id: str, member_id: str, db: Session):
+    from app.models.user import JobHiringTeam
+    _get_own_job(user, job_id, db)
+    member = db.query(JobHiringTeam).filter(
+        JobHiringTeam.id == member_id,
+        JobHiringTeam.job_id == job_id,
+    ).first()
+    if not member:
+        raise BadRequestException("Hiring team member not found.")
+    db.delete(member)
+    db.commit()
+    return {"message": "Member removed from hiring team."}

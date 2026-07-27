@@ -66,7 +66,7 @@ async def decide_next_action(
     """
     Returns decision dict. Falls back to next_question on any AI failure.
     """
-    from app.ai.providers.groq import GroqProvider
+    from app.ai.providers import create_provider
 
     # Always move on if we already probed or very few questions left
     if already_probed or questions_remaining <= 1:
@@ -86,7 +86,7 @@ CANDIDATE RESPONSE:
 Evaluate and return your decision JSON."""
 
     try:
-        provider = GroqProvider()
+        provider = create_provider()
         result = await provider.complete(
             system=_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_msg}],

@@ -7,6 +7,7 @@ import { getJobDetail, applyToJob } from '@/api/matching'
 import { resumeApi } from '@/api/resume'
 import { jobPlanApi } from '@/api/jobPlan'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
+import { trackJobEvent } from '@/lib/analytics'
 
 // ── palette ────────────────────────────────────────────────────────────────────
 const NAVY     = '#1A2744'
@@ -47,6 +48,7 @@ export default function JobDetailPage() {
       setApplied(true)
       setShowApplyForm(false)
       qc.invalidateQueries({ queryKey: ['my-applications'] })
+      if (jobId) trackJobEvent('application_submitted', jobId)
     },
   })
 
@@ -228,7 +230,10 @@ export default function JobDetailPage() {
                   </div>
                 ) : (
                   <button
-                    onClick={() => setShowApplyForm(v => !v)}
+                    onClick={() => {
+                      setShowApplyForm(v => !v)
+                      if (jobId && !showApplyForm) trackJobEvent('application_started', jobId)
+                    }}
                     style={{
                       height: 40, padding: '0 22px', borderRadius: 10,
                       background: '#fff', color: NAVY, border: 'none',

@@ -263,18 +263,30 @@ async def generate_blueprint(
     experience_level: str,
     job_description: str | None,
     total_questions: int,
+    candidate_context: str | None = None,
+    prior_weak_areas: list[str] | None = None,
 ) -> dict:
     """Generate an interview blueprint for a given role and experience level."""
+    candidate_section = (
+        f"\nCandidate Background:\n{candidate_context}\n"
+        f"Use this to calibrate difficulty_ramp and focus_areas appropriately.\n"
+        if candidate_context else ""
+    )
+    weak_section = (
+        f"\nPrior Weak Competencies (from the candidate's last session — allocate MORE questions here):\n"
+        + ", ".join(prior_weak_areas) + "\n"
+        if prior_weak_areas else ""
+    )
     user_msg = f"""Job Role: {job_role}
 Experience Level: {experience_level}
 Total Questions Planned: {total_questions}
 Job Description: {job_description or 'Not provided'}
-
+{candidate_section}{weak_section}
 Generate the interview blueprint."""
 
     try:
-        from app.ai.providers.groq import GroqProvider
-        provider = GroqProvider()
+        from app.ai.providers import create_provider
+        provider = create_provider()
         result = await provider.complete(
             system=_BLUEPRINT_SYSTEM,
             messages=[{"role": "user", "content": user_msg}],
@@ -310,8 +322,8 @@ Generate exactly {count} questions."""
     prompt = _QUESTIONS_SYSTEM.replace("{count}", str(count))
 
     try:
-        from app.ai.providers.groq import GroqProvider
-        provider = GroqProvider()
+        from app.ai.providers import create_provider
+        provider = create_provider()
         result = await provider.complete(
             system=prompt,
             messages=[{"role": "user", "content": user_msg}],
@@ -368,8 +380,8 @@ IMPORTANT: Apply the completeness cap rule from your instructions if {completion
 Generate the job readiness report based strictly on what was actually demonstrated above."""
 
     try:
-        from app.ai.providers.groq import GroqProvider
-        provider = GroqProvider()
+        from app.ai.providers import create_provider
+        provider = create_provider()
         result = await provider.complete(
             system=_READINESS_SYSTEM,
             messages=[{"role": "user", "content": user_msg}],

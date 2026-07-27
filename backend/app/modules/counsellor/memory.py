@@ -65,8 +65,8 @@ async def extract_and_store_memories(
 ) -> int:
     """Extract memories from the latest exchange and store them. Returns count added."""
     try:
-        from app.ai.providers.groq import GroqProvider
-        provider = GroqProvider()
+        from app.ai.providers import create_provider
+        provider = create_provider()
 
         user_prompt = _MEMORY_EXTRACTION_USER.format(
             user_message=user_message[:500],
@@ -76,6 +76,7 @@ async def extract_and_store_memories(
             _MEMORY_EXTRACTION_SYSTEM,
             [{"role": "user", "content": user_prompt}],
             max_tokens=400,
+            temperature=0.2,
         )
         raw = response.content.strip()
         raw = re.sub(r"^```(?:json)?\n?", "", raw)
@@ -152,10 +153,10 @@ async def extract_and_store_memories_bg(
 
     db = SessionLocal()
     try:
-        from app.ai.providers.groq import GroqProvider
+        from app.ai.providers import create_provider
         from app.models.mvp2 import CounsellorMemory, CounsellorMemoryEmbedding
 
-        provider = GroqProvider()
+        provider = create_provider()
         user_prompt = _MEMORY_EXTRACTION_USER.format(
             user_message=user_message[:500],
             assistant_response=assistant_response[:500],
@@ -164,6 +165,7 @@ async def extract_and_store_memories_bg(
             _MEMORY_EXTRACTION_SYSTEM,
             [{"role": "user", "content": user_prompt}],
             max_tokens=400,
+            temperature=0.2,
         )
         raw = response.content.strip()
         raw = re.sub(r"^```(?:json)?\n?", "", raw)

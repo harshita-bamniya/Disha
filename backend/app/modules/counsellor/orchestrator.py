@@ -97,6 +97,9 @@ _MOCK_INTERVIEW_SYSTEM = """You are {persona_name}, {persona_role} at {company}.
 
 You are conducting a {interview_type} interview for the {job_title} position ({sector} sector).
 
+CANDIDATE BACKGROUND (use this to personalise your questions and reactions — do NOT read this out):
+{candidate_context}
+
 STRICT RULES:
 - You are a HUMAN interviewer, not an AI. Never reveal you are AI. Stay in character completely.
 - Ask ONE question at a time. Wait for the candidate's answer before continuing.
@@ -105,13 +108,14 @@ STRICT RULES:
 - Keep track of what has been covered. Aim for {total_questions} questions total.
 - After the final question say: "That's all from my side. Do you have any questions for me?" then wrap up naturally.
 - Keep your tone {tone}.
+- Reference the candidate's UPSC background naturally when it's relevant (e.g. "Given your preparation years, how do you think that analytical discipline translates to...").
 
 INTERVIEW FOCUS:
 - Role: {job_title} at {company}
 - Key skills to probe: {key_skills}
 - Interview type: {interview_type}
 
-START: Introduce yourself warmly, mention the role, and ask your first question."""
+START: Greet the candidate by acknowledging their background briefly (1 sentence), mention the role, and ask your first question."""
 
 _INTERVIEW_TYPES = {
     "hr": {
@@ -348,6 +352,7 @@ async def handle_message(
             total_questions=itype["total_questions"],
             tone=itype["tone"],
             key_skills=", ".join(cfg.get("key_skills", [])) or "relevant domain skills",
+            candidate_context=user_context,
         )
 
     # Career coaching — tactical job-search advisor
@@ -393,8 +398,8 @@ async def handle_message(
     # ── 5. AI streaming call ─────────────────────────────────────────────────
     full_response = ""
     try:
-        from app.ai.providers.groq import GroqProvider
-        provider = GroqProvider()
+        from app.ai.providers import create_provider
+        provider = create_provider()
 
         async for chunk in provider.stream(system_prompt, ai_messages):
             full_response += chunk

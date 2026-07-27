@@ -24,6 +24,54 @@ logger = logging.getLogger(__name__)
 
 _SYNTHETIC_PREFIX = "dyn:"  # prefix in question_text to mark dynamic bank entries
 
+_WEAK_AREA_THRESHOLD = 6   # overall_score below this is a "weak" competency
+_WEAK_AREA_TTL = 60 * 60 * 24 * 30  # 30 days
+
+
+def _weak_area_redis_key(user_id: str) -> str:
+    return f"interview:weak_areas:{user_id}"
+
+
+def _redis_client():
+    import redis as redis_lib
+    from app.config import get_settings
+    return redis_lib.from_url(get_settings().redis_url, decode_responses=True)
+
+
+def _store_weak_competencies(user_id: str, transcript: list[dict]) -> None:
+    """After a session ends, compute skills with avg overall_score < threshold and cache in Redis."""
+    import json
+
+    skill_scores: dict[str, list[float]] = {}
+    for item in transcript:
+        skill = (item.get("skill_assessed") or "").strip()
+        score = item.get("overall")
+        if skill and score is not None:
+            skill_scores.setdefault(skill, []).append(float(score))
+
+    weak = [
+        skill for skill, scores in skill_scores.items()
+        if (sum(scores) / len(scores)) < _WEAK_AREA_THRESHOLD
+    ]
+
+    if not weak:
+        return
+
+    r = _redis_client()
+    r.setex(_weak_area_redis_key(user_id), _WEAK_AREA_TTL, json.dumps(weak))
+    logger.info("[INTERVIEW] Stored %d weak competencies for user %s: %s", len(weak), user_id, weak)
+
+
+def _get_weak_competencies(user_id: str) -> list[str]:
+    """Load previously stored weak competencies from Redis."""
+    import json
+    try:
+        r = _redis_client()
+        raw = r.get(_weak_area_redis_key(user_id))
+        return json.loads(raw) if raw else []
+    except Exception:
+        return []
+
 
 def list_questions(
     career_track_id: str | None,
@@ -119,7 +167,7 @@ async def create_session(body: CreateSessionRequest, user: User, db: Session) ->
     if body.job_role:
         # ── Dynamic AI-generated questions ──────────────────────────────────
         questions = await _generate_dynamic_questions(
-            session, body, db
+            session, body, db, user
         )
     else:
         # ── Legacy: static question bank sampling ────────────────────────────
@@ -150,19 +198,70 @@ async def create_session(body: CreateSessionRequest, user: User, db: Session) ->
     )
 
 
+def _build_candidate_context(user: User, db: Session) -> str | None:
+    """Build a concise candidate background string for interview calibration."""
+    from app.models.user import AspirantProfile, KrsScore, PsychologicalAssessment
+
+    profile = db.query(AspirantProfile).filter(AspirantProfile.user_id == user.id).first()
+    krs = db.query(KrsScore).filter(KrsScore.user_id == user.id).first()
+    psych = db.query(PsychologicalAssessment).filter(PsychologicalAssessment.user_id == user.id).first()
+
+    if not profile and not krs:
+        return None
+
+    lines = []
+    if profile:
+        years = profile.years_preparing or 0
+        attempts = profile.upsc_attempts or 0
+        stage = profile.highest_stage_cleared or "not specified"
+        lines.append(f"UPSC journey: {years} year(s) preparation, {attempts} attempt(s), highest stage: {stage}")
+        if profile.has_work_experience and profile.work_experience_years:
+            lines.append(f"Prior work: {profile.work_experience_years} year(s) in {profile.work_experience_domain or 'unspecified field'}")
+        else:
+            lines.append("Prior work: No work experience (direct UPSC candidate)")
+        if profile.skills:
+            lines.append(f"Key skills: {', '.join(profile.skills[:6])}")
+
+    if krs:
+        def _label(s):
+            if s is None: return "not assessed"
+            return "Strong" if s >= 75 else "Moderate" if s >= 50 else "Developing"
+        lines.append(
+            f"Career readiness — Knowledge: {_label(krs.k_score)} ({krs.k_score}/100), "
+            f"Readiness: {_label(krs.r_score)} ({krs.r_score}/100), "
+            f"Skills match: {_label(krs.s_score)} ({krs.s_score}/100)"
+        )
+
+    if psych:
+        burnout = "High" if (psych.burnout_score or 0) >= 70 else "Moderate" if (psych.burnout_score or 0) >= 40 else "Low"
+        confidence = "High" if (psych.confidence_index or 0) >= 65 else "Low"
+        lines.append(f"Psychological state: Burnout={burnout}, Confidence={confidence}")
+
+    return "\n".join(lines) if lines else None
+
+
 async def _generate_dynamic_questions(
     session: InterviewSession,
     body: CreateSessionRequest,
     db: Session,
+    user: User | None = None,
 ) -> list[QuestionOut]:
     """Generate role-specific questions via AI and persist them to question_banks."""
     from app.ai.dynamic_interview_engine import generate_blueprint, generate_questions
+
+    candidate_context = _build_candidate_context(user, db) if user else None
+
+    # Inject weak competency areas from the user's last session so the AI
+    # allocates more questions there (improving weaker areas first).
+    prior_weak = _get_weak_competencies(str(user.id)) if user else []
 
     blueprint = await generate_blueprint(
         job_role=body.job_role,
         experience_level=body.experience_level or "Mid-Level",
         job_description=body.job_description,
         total_questions=session.total_questions,
+        candidate_context=candidate_context,
+        prior_weak_areas=prior_weak,
     )
 
     raw_questions = await generate_questions(
@@ -210,8 +309,9 @@ async def _generate_dynamic_questions(
             is_dynamic=True,
         ))
 
-    # Store blueprint on session
-    session.blueprint = blueprint
+    # Store blueprint + generated question IDs on session so process_response can scope to them
+    generated_ids = [str(q.id) for q in question_outs]
+    session.blueprint = {**(blueprint or {}), "_question_ids": generated_ids}
     return question_outs
 
 
@@ -442,8 +542,8 @@ async def complete_session_and_generate_feedback(
     track_name = session.career_track.title if session.career_track else (session.job_role or "General")
 
     try:
-        from app.ai.providers.groq import GroqProvider
-        provider = GroqProvider()
+        from app.ai.providers import create_provider
+        provider = create_provider()
     except Exception:
         provider = None
 
@@ -472,7 +572,7 @@ async def complete_session_and_generate_feedback(
                 sys_p, user_p = feedback_ai.build_feedback_prompt(
                     question_text, resp.response_text, track_name, session.session_type
                 )
-                ai_resp = await provider.complete(sys_p, [{"role": "user", "content": user_p}])
+                ai_resp = await provider.complete(sys_p, [{"role": "user", "content": user_p}], temperature=0.1)
                 parsed = feedback_ai.parse_feedback_response(ai_resp.content)
             except Exception as exc:
                 from app.core.exceptions import BadRequestException
@@ -560,6 +660,12 @@ async def complete_session_and_generate_feedback(
         db.commit()
     except Exception as exc:
         logger.warning("[INTERVIEW] XP award failed: %s", exc)
+
+    # Persist weak competency areas to Redis for next-session injection
+    try:
+        _store_weak_competencies(str(user.id), transcript_for_report)
+    except Exception as exc:
+        logger.warning("[INTERVIEW] Weak competency storage failed: %s", exc)
 
     # Skill competence update
     try:
@@ -671,23 +777,31 @@ async def get_next_question(
     responded_qids = {str(r.question_id) for r in session.responses if r.question_id}
 
     if session.job_role and session.blueprint:
-        # Dynamic session: only pick from questions that were generated for this session.
-        # These live in question_banks with career_track_id=None, created recently.
-        # We need the question IDs from the session's initial question set — stored as
-        # the questions returned at create time. Since we don't persist that list separately,
-        # we use the session responses to exclude already-answered IDs, then pull the
-        # most-recently-created null-track questions (our generated set).
-        candidate_q = (
-            db.query(QuestionBank)
-            .filter(
-                QuestionBank.career_track_id == None,
-                QuestionBank.is_active == True,
-                ~QuestionBank.id.in_([uuid.UUID(qid) for qid in responded_qids if qid]),
+        # Dynamic session: scope strictly to the question IDs generated for this session.
+        session_qids: list[str] = (session.blueprint or {}).get("_question_ids", [])
+        if session_qids:
+            allowed_uuids = [uuid.UUID(qid) for qid in session_qids if qid not in responded_qids]
+            candidate_q = (
+                db.query(QuestionBank)
+                .filter(
+                    QuestionBank.id.in_(allowed_uuids),
+                    QuestionBank.is_active == True,
+                )
+                .all()
             )
-            .order_by(QuestionBank.created_at.desc())
-            .limit(session.total_questions * 2)   # fetch enough, pick one
-            .all()
-        )
+        else:
+            # Fallback for sessions created before this fix: use created_at heuristic
+            candidate_q = (
+                db.query(QuestionBank)
+                .filter(
+                    QuestionBank.career_track_id == None,
+                    QuestionBank.is_active == True,
+                    ~QuestionBank.id.in_([uuid.UUID(qid) for qid in responded_qids if qid]),
+                )
+                .order_by(QuestionBank.created_at.desc())
+                .limit(session.total_questions * 2)
+                .all()
+            )
         remaining = candidate_q
     else:
         q_bank = db.query(QuestionBank).filter(QuestionBank.is_active == True)
