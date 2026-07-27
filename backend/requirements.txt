@@ -11,7 +11,7 @@ pgvector==0.3.6
 # Auth & Security
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-bcrypt==4.0.1
+bcrypt==3.2.2
 python-multipart==0.0.17
 google-auth==2.37.0
 google-auth-oauthlib==1.2.1
@@ -53,6 +53,10 @@ sentry-sdk[fastapi]==2.19.2
 
 # PDF generation (resume export — pure Python, no system deps)
 reportlab==4.2.5
+
+# Resume import: PDF text extraction + DOCX parsing
+PyMuPDF==1.26.1
+python-docx==1.1.2
 
 # Utilities
 python-dateutil==2.9.0

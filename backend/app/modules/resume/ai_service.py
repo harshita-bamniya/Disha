@@ -22,30 +22,142 @@ _ATS_POWER_VERBS = {
 
 
 def compute_ats_score(sections: list[dict]) -> int:
-    """
-    Heuristic ATS score 0-100 based on:
-    - Presence of key section types (40 pts)
-    - Power verb usage in experience bullets (30 pts)
-    - Quantification presence (20 pts)
-    - Length balance (10 pts)
-    """
-    full_text = " ".join(json.dumps(s.get("content", {})) for s in sections).lower()
-    words = set(full_text.split())
+    """Retained for backwards compatibility — delegates to compute_score_breakdown."""
+    breakdown = compute_score_breakdown(sections)
+    return breakdown["overall"]
 
+
+def compute_score_breakdown(
+    sections: list[dict],
+    job_description: str | None = None,
+) -> dict:
+    """
+    Structured score breakdown with 6 criteria, each 0-100 with a one-line explanation.
+    Returns:
+      { ats_compatibility, keyword_coverage, impact, completeness, readability, formatting, overall }
+    keyword_coverage is 0/N/A when no job_description is provided.
+    """
+    full_text = " ".join(json.dumps(s.get("content", {})) for s in sections)
+    full_lower = full_text.lower()
+    words = full_lower.split()
+    word_set = set(words)
     section_types = {s.get("section_type") for s in sections}
-    required_sections = {"summary", "experience", "education", "skills"}
-    section_score = len(required_sections & section_types) * 10
 
-    verb_count = len(_ATS_POWER_VERBS & words)
-    verb_score = min(30, verb_count * 3)
+    # ── ATS Compatibility: standard sections present, no tables/graphics indicators ──
+    required = {"summary", "experience", "education", "skills"}
+    bonus = {"achievements", "certifications"}
+    present_req = required & section_types
+    ats_score = len(present_req) * 22
+    ats_score += len(bonus & section_types) * 5
+    ats_score = min(100, ats_score)
+    missing_req = required - section_types
+    if missing_req:
+        ats_explanation = f"Missing required sections: {', '.join(sorted(missing_req))}."
+    else:
+        ats_explanation = "All core sections present — good ATS structure."
 
-    quant_matches = len(re.findall(r'\d+[\s%]', full_text))
-    quant_score = min(20, quant_matches * 4)
+    # ── Keyword Coverage: match against job description ────────────────────────
+    if not job_description:
+        kw_score = 0
+        kw_explanation = "No job target set — add one to see keyword match."
+    else:
+        jd_words = set(re.findall(r'\b[a-z]{3,}\b', job_description.lower()))
+        stopwords = {"and", "the", "for", "with", "this", "that", "are", "you",
+                     "will", "have", "from", "our", "your", "all", "has", "been"}
+        jd_keywords = jd_words - stopwords
+        if jd_keywords:
+            matched = jd_keywords & word_set
+            ratio = len(matched) / len(jd_keywords)
+            kw_score = min(100, int(ratio * 120))
+            kw_explanation = (
+                f"{len(matched)} of {len(jd_keywords)} JD keywords matched."
+                if kw_score < 80
+                else f"Strong keyword alignment ({len(matched)}/{len(jd_keywords)})."
+            )
+        else:
+            kw_score = 50
+            kw_explanation = "Job description processed — keyword extraction found no distinct terms."
 
-    total_chars = len(full_text)
-    length_score = 10 if 800 <= total_chars <= 4000 else 5
+    # ── Impact: power verbs + quantified metrics ───────────────────────────────
+    verb_count = len(_ATS_POWER_VERBS & word_set)
+    quant_count = len(re.findall(r'\b\d[\d,.]*\s*(?:%|lakh|crore|million|billion|k\b|\+)?', full_lower))
+    impact_score = min(100, verb_count * 8 + quant_count * 6)
+    if impact_score < 40:
+        impact_explanation = "Add more action verbs (Led, Built, Reduced…) and quantified outcomes."
+    elif impact_score < 70:
+        impact_explanation = "Good use of action verbs; add metrics to strengthen bullet impact."
+    else:
+        impact_explanation = "Strong impact language with quantified achievements."
 
-    return min(100, section_score + verb_score + quant_score + length_score)
+    # ── Completeness: section content depth ───────────────────────────────────
+    completeness = 0
+    for s in sections:
+        content = s.get("content", {})
+        text_len = len(json.dumps(content))
+        completeness += min(20, text_len // 50)
+    completeness_score = min(100, completeness)
+    if completeness_score < 50:
+        completeness_explanation = "Some sections are thin — add more details and bullets."
+    elif completeness_score < 80:
+        completeness_explanation = "Decent coverage; expand experience bullets for depth."
+    else:
+        completeness_explanation = "Resume is well-populated across all sections."
+
+    # ── Readability: sentence length, no passive voice indicators ─────────────
+    passive_indicators = {"was", "were", "been", "being", "by the", "being managed", "being led"}
+    passive_count = sum(1 for p in passive_indicators if p in full_lower)
+    avg_word_len = (sum(len(w) for w in words) / len(words)) if words else 5
+    readability_score = max(0, 100 - passive_count * 8 - max(0, avg_word_len - 6) * 10)
+    readability_score = min(100, readability_score)
+    if passive_count > 3:
+        readability_explanation = "Rewrite passive constructions to active voice."
+    elif avg_word_len > 7:
+        readability_explanation = "Some sentences use complex vocabulary — simplify for clarity."
+    else:
+        readability_explanation = "Clear, direct language — good readability."
+
+    # ── Formatting: consistent structure signals ───────────────────────────────
+    has_contact = any(
+        "email" in json.dumps(s.get("content", {})).lower()
+        for s in sections if s.get("section_type") == "summary"
+    )
+    has_dates = bool(re.search(r'\b(20\d{2}|Present|present)\b', full_text))
+    formatting_score = (40 if has_contact else 0) + (40 if has_dates else 0) + (20 if len(sections) >= 4 else 0)
+    if not has_contact:
+        formatting_explanation = "Add contact information to the summary section."
+    elif not has_dates:
+        formatting_explanation = "Add date ranges to experience/education entries."
+    else:
+        formatting_explanation = "Good structure with contact info and dated entries."
+
+    overall = int(
+        ats_score * 0.20
+        + (kw_score or 0) * 0.20
+        + impact_score * 0.25
+        + completeness_score * 0.15
+        + readability_score * 0.10
+        + formatting_score * 0.10
+    )
+    # When no job description, redistribute keyword weight to other criteria
+    if not job_description:
+        overall = int(
+            ats_score * 0.25
+            + impact_score * 0.30
+            + completeness_score * 0.20
+            + readability_score * 0.15
+            + formatting_score * 0.10
+        )
+    overall = max(0, min(100, overall))
+
+    return {
+        "ats_compatibility":  {"score": ats_score,          "explanation": ats_explanation},
+        "keyword_coverage":   {"score": kw_score,           "explanation": kw_explanation},
+        "impact":             {"score": impact_score,        "explanation": impact_explanation},
+        "completeness":       {"score": completeness_score,  "explanation": completeness_explanation},
+        "readability":        {"score": readability_score,   "explanation": readability_explanation},
+        "formatting":         {"score": formatting_score,    "explanation": formatting_explanation},
+        "overall":            overall,
+    }
 
 
 # ─── Interactive co-pilot: missing-info detection ─────────────────────────────
@@ -285,6 +397,180 @@ def ai_response_to_sections(parsed: dict) -> list[dict]:
                 "ai_improved": True,
             })
             order += 1
+
+    return sections
+
+
+# ─── Resume file parsing ─────────────────────────────────────────────────────
+
+_PARSE_SYSTEM = """\
+You are a resume parsing engine. Extract structured data from the provided resume text.
+Return ONLY valid JSON matching the schema below — no markdown, no explanation.
+If a field is not present in the resume, use null for strings and [] for arrays.
+Never fabricate information — only extract what is explicitly stated.\
+"""
+
+_PARSE_SCHEMA = """{
+  "personal_info": {
+    "name": "<full name>",
+    "email": "<email address or null>",
+    "phone": "<phone number or null>",
+    "location": "<city/state/country or null>",
+    "linkedin": "<linkedin URL or null>",
+    "website": "<portfolio/website URL or null>"
+  },
+  "summary": "<professional summary paragraph or null>",
+  "experience": [
+    {
+      "title": "<job title>",
+      "company": "<company/organisation name>",
+      "start_date": "<start month/year>",
+      "end_date": "<end month/year or Present>",
+      "location": "<city or null>",
+      "bullets": ["<bullet point 1>", "<bullet point 2>"]
+    }
+  ],
+  "education": [
+    {
+      "degree": "<degree name>",
+      "field": "<field of study>",
+      "institution": "<institution name>",
+      "year": "<graduation year>",
+      "grade": "<grade/GPA if present or null>"
+    }
+  ],
+  "skills": {
+    "technical": ["<skill 1>"],
+    "soft": ["<skill 1>"],
+    "domain": ["<skill 1>"],
+    "tools": ["<tool 1>"]
+  },
+  "projects": [
+    {
+      "name": "<project name>",
+      "description": "<brief description>",
+      "tech": ["<technology 1>"],
+      "url": "<URL or null>"
+    }
+  ],
+  "certifications": [
+    {
+      "name": "<certification name>",
+      "issuer": "<issuing organisation or null>",
+      "year": "<year or null>"
+    }
+  ],
+  "achievements": ["<achievement 1>"],
+  "languages": [
+    {
+      "language": "<language name>",
+      "proficiency": "<Native|Fluent|Professional|Intermediate|Basic>"
+    }
+  ]
+}"""
+
+
+def build_parse_prompt(resume_text: str) -> tuple[str, str]:
+    """Build system + user prompt to parse raw resume text into structured JSON."""
+    user_msg = (
+        f"Parse the following resume text into the JSON schema below.\n\n"
+        f"=== RESUME TEXT ===\n{resume_text[:8000]}\n\n"
+        f"=== OUTPUT SCHEMA ===\n{_PARSE_SCHEMA}"
+    )
+    return _PARSE_SYSTEM, user_msg
+
+
+def parsed_resume_to_sections(parsed: dict) -> list[dict]:
+    """Convert parsed resume JSON into section records for the DB."""
+    sections = []
+    order = 0
+
+    personal = parsed.get("personal_info", {}) or {}
+    summary_text = parsed.get("summary") or ""
+    contact = {
+        "email":    personal.get("email") or "",
+        "phone":    personal.get("phone") or "",
+        "location": personal.get("location") or "",
+        "linkedin": personal.get("linkedin") or "",
+    }
+    if summary_text or any(contact.values()):
+        sections.append({
+            "section_type": "summary",
+            "title": "Summary",
+            "content": {"text": summary_text, "contact": contact},
+            "sort_order": order,
+        })
+        order += 1
+
+    exp = parsed.get("experience") or []
+    if exp:
+        sections.append({
+            "section_type": "experience",
+            "title": "Experience",
+            "content": {"items": exp},
+            "sort_order": order,
+        })
+        order += 1
+
+    edu = parsed.get("education") or []
+    if edu:
+        sections.append({
+            "section_type": "education",
+            "title": "Education",
+            "content": {"items": edu},
+            "sort_order": order,
+        })
+        order += 1
+
+    skills = parsed.get("skills") or {}
+    if skills and any(v for v in skills.values() if v):
+        sections.append({
+            "section_type": "skills",
+            "title": "Skills",
+            "content": skills,
+            "sort_order": order,
+        })
+        order += 1
+
+    projects = parsed.get("projects") or []
+    if projects:
+        sections.append({
+            "section_type": "projects",
+            "title": "Projects",
+            "content": {"items": projects},
+            "sort_order": order,
+        })
+        order += 1
+
+    certs = parsed.get("certifications") or []
+    if certs:
+        sections.append({
+            "section_type": "certifications",
+            "title": "Certifications",
+            "content": {"items": certs},
+            "sort_order": order,
+        })
+        order += 1
+
+    achievements = parsed.get("achievements") or []
+    if achievements:
+        sections.append({
+            "section_type": "achievements",
+            "title": "Achievements",
+            "content": {"items": achievements},
+            "sort_order": order,
+        })
+        order += 1
+
+    languages = parsed.get("languages") or []
+    if languages:
+        sections.append({
+            "section_type": "languages",
+            "title": "Languages",
+            "content": {"items": languages},
+            "sort_order": order,
+        })
+        order += 1
 
     return sections
 

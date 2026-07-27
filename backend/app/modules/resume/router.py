@@ -2,7 +2,7 @@ import json
 import logging
 import re
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
 import io
 from sqlalchemy.orm import Session
@@ -15,7 +15,7 @@ from app.modules.resume.schemas import (
     AIGenerateResumeResponse, AIGenerateStreamRequest, AIImproveSectionRequest,
     AIImproveSectionResponse, CreateResumeRequest, ResumeDetail, ResumeSummary,
     ResumeTemplateOut, ResumeSectionOut, UpdateResumeRequest, UpsertSectionRequest,
-    ReorderSectionsRequest,
+    ReorderSectionsRequest, ImportParsedRequest, SetJobTargetRequest,
 )
 
 router = APIRouter(prefix="/resume", tags=["Resume Builder"])
@@ -24,6 +24,33 @@ router = APIRouter(prefix="/resume", tags=["Resume Builder"])
 @router.get("/templates", response_model=list[ResumeTemplateOut])
 def list_templates(db: Session = Depends(get_db)):
     return service.list_templates(db)
+
+
+@router.post("/parse")
+async def parse_resume_file(
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_aspirant),
+):
+    """
+    Upload a PDF or DOCX resume (max 5 MB), extract text, and return AI-parsed
+    structured JSON for user confirmation. Does NOT save to the database.
+    """
+    content = await file.read()
+    try:
+        parsed = await service.parse_resume_file(content, file.filename or "")
+        return parsed
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+
+@router.post("/import-parsed", response_model=ResumeDetail, status_code=201)
+def import_parsed_resume(
+    body: ImportParsedRequest,
+    user: User = Depends(get_current_aspirant),
+    db: Session = Depends(get_db),
+):
+    """Accept confirmed parsed resume data and create a Resume with sections."""
+    return service.import_parsed_resume(body, user, db)
 
 
 @router.get("/", response_model=list[ResumeSummary])
@@ -205,6 +232,34 @@ def save_version(
 ):
     try:
         return service.save_version(resume_id, user, db)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/{resume_id}/versions/{version_id}/restore", response_model=ResumeDetail)
+def restore_version(
+    resume_id: str,
+    version_id: str,
+    user: User = Depends(get_current_aspirant),
+    db: Session = Depends(get_db),
+):
+    """Restore a prior version snapshot, replacing current sections."""
+    try:
+        return service.restore_version(resume_id, version_id, user, db)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/{resume_id}/set-job-target")
+def set_job_target(
+    resume_id: str,
+    body: SetJobTargetRequest,
+    user: User = Depends(get_current_aspirant),
+    db: Session = Depends(get_db),
+):
+    """Set a job target for keyword scoring — accepts a job_posting_id or raw JD text."""
+    try:
+        return service.set_job_target(resume_id, body, user, db)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 

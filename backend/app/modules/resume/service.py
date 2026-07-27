@@ -16,7 +16,8 @@ from app.modules.resume.schemas import (
     AIGenerateResumeResponse, AIImproveSectionResponse,
     CreateResumeRequest, ResumeDetail, ResumeSummary,
     ResumeTemplateOut, ResumeSectionOut, UpdateResumeRequest,
-    UpsertSectionRequest, SectionReorderItem,
+    UpsertSectionRequest, SectionReorderItem, ImportParsedRequest,
+    ParsedResumeData, SetJobTargetRequest,
 )
 
 
@@ -241,11 +242,13 @@ def upsert_section(
         )
         db.add(section)
 
-    # Recompute ATS score
+    # Recompute score breakdown (stores breakdown + overall ATS score)
     db.flush()
     all_sections = db.query(ResumeSection).filter(ResumeSection.resume_id == resume_id).all()
     sections_raw = [{"section_type": s.section_type, "content": s.content} for s in all_sections]
-    resume.ats_score = ai_service.compute_ats_score(sections_raw)
+    breakdown = ai_service.compute_score_breakdown(sections_raw, job_description=resume.target_job_description)
+    resume.ats_score = breakdown["overall"]
+    resume.score_breakdown = breakdown
     resume.updated_at = datetime.now(timezone.utc)
     db.commit()
 
@@ -536,3 +539,183 @@ async def ai_generate_resume_stream(
         db.rollback()
         logger.error(f"[RESUME AI] Stream generation failed for user={user.id}: {exc}")
         yield {"type": "error", "message": f"AI generation failed: {exc}"}
+
+
+# ─── Resume file parsing ──────────────────────────────────────────────────────
+
+_PDF_MAGIC = b"%PDF"
+_DOCX_MAGIC = b"PK\x03\x04"
+MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
+
+
+def _extract_text_from_pdf(content: bytes) -> str:
+    """Extract plain text from a PDF file using PyMuPDF."""
+    try:
+        import fitz  # PyMuPDF
+        doc = fitz.open(stream=content, filetype="pdf")
+        pages = []
+        for page in doc:
+            pages.append(page.get_text())
+        doc.close()
+        return "\n".join(pages).strip()
+    except Exception as exc:
+        raise ValueError(f"Could not read PDF: {exc}")
+
+
+def _extract_text_from_docx(content: bytes) -> str:
+    """Extract plain text from a DOCX file using python-docx."""
+    try:
+        import io
+        from docx import Document
+        doc = Document(io.BytesIO(content))
+        paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+        return "\n".join(paragraphs).strip()
+    except Exception as exc:
+        raise ValueError(f"Could not read DOCX: {exc}")
+
+
+async def parse_resume_file(content: bytes, filename: str) -> ParsedResumeData:
+    """
+    Extract text from a PDF or DOCX file (verified by magic bytes),
+    send to LLM for structured parsing, and return the parsed data
+    for user confirmation — does NOT write to the database.
+    """
+    if len(content) > MAX_FILE_SIZE:
+        raise ValueError("File exceeds 5 MB limit.")
+
+    if content[:4] == _PDF_MAGIC:
+        text = _extract_text_from_pdf(content)
+    elif content[:4] == _DOCX_MAGIC:
+        text = _extract_text_from_docx(content)
+    else:
+        raise ValueError("Only PDF and DOCX files are supported. Verify file is not corrupted.")
+
+    if not text or len(text.strip()) < 50:
+        raise ValueError("No readable text found in the file. It may be scanned or image-based.")
+
+    try:
+        from app.ai.providers import create_provider
+        provider = create_provider()
+        system_prompt, user_prompt = ai_service.build_parse_prompt(text)
+        response = await provider.complete(
+            system_prompt,
+            [{"role": "user", "content": user_prompt}],
+            max_tokens=2500,
+            temperature=0.1,
+        )
+        parsed_dict = ai_service.parse_ai_resume_response(response.content)
+        return ParsedResumeData(**{k: parsed_dict.get(k) for k in ParsedResumeData.model_fields})
+    except Exception as exc:
+        logger.error(f"[RESUME PARSE] LLM parsing failed: {exc}")
+        raise ValueError(f"AI parsing failed: {exc}")
+
+
+def import_parsed_resume(body: ImportParsedRequest, user: User, db: Session) -> ResumeDetail:
+    """
+    Accept confirmed parsed resume data, create a Resume + sections, and return detail.
+    Called after the user reviews and confirms the parsed data on the frontend.
+    """
+    resume = Resume(
+        user_id=user.id,
+        title=body.title,
+        career_track_id=body.career_track_id,
+        template_id=body.template_id,
+    )
+    db.add(resume)
+    db.flush()
+
+    section_data = ai_service.parsed_resume_to_sections(body.parsed_data.model_dump())
+    for sec_info in section_data:
+        db.add(ResumeSection(resume_id=resume.id, **sec_info))
+
+    db.flush()
+    all_sections = db.query(ResumeSection).filter(ResumeSection.resume_id == resume.id).all()
+    sections_raw = [{"section_type": s.section_type, "content": s.content} for s in all_sections]
+    breakdown = ai_service.compute_score_breakdown(sections_raw)
+    resume.ats_score = breakdown["overall"]
+    resume.score_breakdown = breakdown
+    db.commit()
+    db.refresh(resume)
+
+    return get_resume(str(resume.id), user, db)
+
+
+def set_job_target(resume_id: str, body: SetJobTargetRequest, user: User, db: Session) -> dict:
+    """Store a job description target on the resume and trigger score recalculation."""
+    resume = (
+        db.query(Resume)
+        .options(joinedload(Resume.sections))
+        .filter(Resume.id == resume_id, Resume.user_id == user.id, Resume.deleted_at == None)
+        .first()
+    )
+    if not resume:
+        raise ValueError("Resume not found.")
+
+    jd_text = body.job_description
+
+    if body.job_posting_id and not jd_text:
+        from app.models.mvp3 import JobPosting
+        job = db.query(JobPosting).filter(JobPosting.id == body.job_posting_id).first()
+        if job:
+            jd_text = f"{job.title} at {job.company_name}. {job.description or ''}"
+
+    resume.target_job_description = jd_text
+    resume.updated_at = datetime.now(timezone.utc)
+
+    # Recompute score breakdown with keyword coverage now populated
+    sections_raw = [{"section_type": s.section_type, "content": s.content} for s in resume.sections]
+    breakdown = ai_service.compute_score_breakdown(sections_raw, job_description=jd_text)
+    resume.ats_score = breakdown["overall"]
+    resume.score_breakdown = breakdown
+    db.commit()
+
+    return {"message": "Job target saved.", "score_breakdown": breakdown}
+
+
+def restore_version(resume_id: str, version_id: str, user: User, db: Session) -> ResumeDetail:
+    """Replace current sections with the content snapshot from a prior version."""
+    resume = (
+        db.query(Resume)
+        .options(joinedload(Resume.sections))
+        .filter(Resume.id == resume_id, Resume.user_id == user.id, Resume.deleted_at == None)
+        .first()
+    )
+    if not resume:
+        raise ValueError("Resume not found.")
+
+    version = (
+        db.query(ResumeVersion)
+        .filter(ResumeVersion.id == version_id, ResumeVersion.resume_id == resume_id)
+        .first()
+    )
+    if not version:
+        raise ValueError("Version not found.")
+
+    # Snapshot current state before overwriting
+    if resume.sections:
+        _snapshot_version(resume, db, ai_generated=False)
+
+    # Delete current sections
+    db.query(ResumeSection).filter(ResumeSection.resume_id == resume_id).delete()
+    db.flush()
+
+    # Restore from snapshot
+    for sec in (version.content or {}).get("sections", []):
+        db.add(ResumeSection(
+            resume_id=resume_id,
+            section_type=sec.get("type", "summary"),
+            title=sec.get("title"),
+            content=sec.get("content", {}),
+            sort_order=sec.get("order", 0),
+        ))
+
+    db.flush()
+    all_sections = db.query(ResumeSection).filter(ResumeSection.resume_id == resume_id).all()
+    sections_raw = [{"section_type": s.section_type, "content": s.content} for s in all_sections]
+    breakdown = ai_service.compute_score_breakdown(sections_raw, job_description=resume.target_job_description)
+    resume.ats_score = breakdown["overall"]
+    resume.score_breakdown = breakdown
+    resume.updated_at = datetime.now(timezone.utc)
+    db.commit()
+
+    return get_resume(resume_id, user, db)

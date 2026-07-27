@@ -6,9 +6,11 @@ import AppSidebar from '@/components/layout/AppSidebar'
 import { ActivePrepBanner } from '@/components/ActivePrepBanner'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 import ResumeCopilotPanel from '@/modules/resume/components/ResumeCopilotPanel'
+import ScoreBreakdownCard from '@/modules/resume/components/ScoreBreakdownCard'
+import VersionDrawer from '@/modules/resume/components/VersionDrawer'
 import {
   ArrowLeft, Wand2, BarChart2, FileText, Plus, Eye, Edit3,
-  Download, Trash2, GripVertical, ChevronDown, ChevronUp, X,
+  Download, Trash2, GripVertical, ChevronDown, ChevronUp, X, Clock,
 } from 'lucide-react'
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -601,6 +603,8 @@ export default function ResumeEditorPage() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [copilotOpen, setCopilotOpen] = useState(false)
+  const [versionDrawerOpen, setVersionDrawerOpen] = useState(false)
+  const [scoreExpanded, setScoreExpanded] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [addSection, setAddSection] = useState(false)
   const [newSectionType, setNewSectionType] = useState('skills')
@@ -765,17 +769,27 @@ export default function ResumeEditorPage() {
 
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
             {resume.ats_score !== null && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: `${atsColor(resume.ats_score)}10`, border: `1px solid ${atsColor(resume.ats_score)}25`, borderRadius: 20, padding: '4px 11px' }}>
+              <button
+                onClick={() => setScoreExpanded(v => !v)}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, background: `${atsColor(resume.ats_score)}10`, border: `1px solid ${atsColor(resume.ats_score)}25`, borderRadius: 20, padding: '4px 11px', cursor: 'pointer' }}
+              >
                 <BarChart2 size={12} color={atsColor(resume.ats_score)} />
-                <span style={{ fontSize: 12, fontWeight: 800, color: atsColor(resume.ats_score) }}>ATS {resume.ats_score}</span>
-              </div>
+                <span style={{ fontSize: 12, fontWeight: 800, color: atsColor(resume.ats_score) }}>
+                  Score {resume.ats_score}
+                </span>
+              </button>
             )}
+            <button
+              onClick={() => setVersionDrawerOpen(true)}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 10, border: '1.5px solid #E2E8F0', background: 'white', color: '#64748B', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+            >
+              <Clock size={12} /> History
+            </button>
             <button onClick={() => setCopilotOpen(true)} style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10,
-              background: '#6366F1',
-              color: 'white', border: 'none',
+              background: '#6366F1', color: 'white', border: 'none',
               cursor: 'pointer', fontSize: 12, fontWeight: 700,
-              boxShadow: '0 3px 10px rgba(124,58,237,0.3)',
+              boxShadow: '0 3px 10px rgba(99,102,241,0.3)',
             }}>
               <Wand2 size={13} />AI Generate
             </button>
@@ -888,6 +902,31 @@ export default function ResumeEditorPage() {
           .resume-paper { display: block !important; position: fixed; top: 0; left: 0; width: 100%; }
         }
       `}</style>
+
+      {/* Score breakdown panel — slides down from header */}
+      {scoreExpanded && resume.score_breakdown && (
+        <div style={{
+          position: 'sticky', top: 64, zIndex: 15,
+          background: 'white', borderBottom: '1px solid #E2E8F0',
+          padding: '16px 24px',
+        }}>
+          <div style={{ maxWidth: 600 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Score Breakdown</span>
+              <button onClick={() => setScoreExpanded(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}><X size={14} /></button>
+            </div>
+            <ScoreBreakdownCard breakdown={resume.score_breakdown} />
+          </div>
+        </div>
+      )}
+
+      {versionDrawerOpen && (
+        <VersionDrawer
+          resumeId={resumeId!}
+          onClose={() => setVersionDrawerOpen(false)}
+          onRestored={() => qc.invalidateQueries({ queryKey: ['resume', resumeId] })}
+        />
+      )}
 
       {copilotOpen && (
         <ResumeCopilotPanel

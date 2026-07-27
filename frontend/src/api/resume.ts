@@ -3,6 +3,42 @@ import { useAuthStore } from '@/stores/authStore'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
+export interface ScoreCriterion {
+  score: number
+  explanation: string
+}
+
+export interface ScoreBreakdown {
+  ats_compatibility: ScoreCriterion
+  keyword_coverage: ScoreCriterion
+  impact: ScoreCriterion
+  completeness: ScoreCriterion
+  readability: ScoreCriterion
+  formatting: ScoreCriterion
+  overall: number
+}
+
+export interface ParsedPersonalInfo {
+  name: string | null
+  email: string | null
+  phone: string | null
+  location: string | null
+  linkedin: string | null
+  website: string | null
+}
+
+export interface ParsedResumeData {
+  personal_info: ParsedPersonalInfo | null
+  summary: string | null
+  experience: Record<string, unknown>[]
+  education: Record<string, unknown>[]
+  skills: Record<string, unknown>
+  projects: Record<string, unknown>[]
+  certifications: Record<string, unknown>[]
+  achievements: string[]
+  languages: Record<string, unknown>[]
+}
+
 export type ResumeCopilotEvent =
   | { type: 'step'; label: string }
   | { type: 'question'; id: string; section: string; question: string }
@@ -32,6 +68,7 @@ export interface ResumeSummary {
   title: string
   is_primary: boolean
   ats_score: number | null
+  score_breakdown: ScoreBreakdown | null
   career_track_name: string | null
   template_name: string | null
   section_count: number
@@ -164,6 +201,35 @@ export const resumeApi = {
 
   reorderSections: (resumeId: string, sections: { section_id: string; sort_order: number }[]) =>
     apiClient.put(`/resume/${resumeId}/sections/reorder`, { sections }),
+
+  parseResumeFile: async (file: File): Promise<ParsedResumeData> => {
+    const form = new FormData()
+    form.append('file', file)
+    const token = useAuthStore.getState().accessToken
+    const res = await fetch(`${BASE_URL}/api/resume/parse`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Parse failed' }))
+      throw new Error(err.detail ?? 'Upload failed')
+    }
+    return res.json()
+  },
+
+  importParsedResume: (data: {
+    title: string
+    career_track_id?: string
+    template_id?: string
+    parsed_data: ParsedResumeData
+  }) => apiClient.post<ResumeDetail>('/resume/import-parsed', data).then(r => r.data),
+
+  setJobTarget: (resumeId: string, data: { job_posting_id?: string; job_description?: string }) =>
+    apiClient.post(`/resume/${resumeId}/set-job-target`, data).then(r => r.data),
+
+  restoreVersion: (resumeId: string, versionId: string) =>
+    apiClient.post<ResumeDetail>(`/resume/${resumeId}/versions/${versionId}/restore`).then(r => r.data),
 
   getVersions: (resumeId: string) =>
     apiClient.get<ResumeVersion[]>(`/resume/${resumeId}/versions`).then(r => r.data),

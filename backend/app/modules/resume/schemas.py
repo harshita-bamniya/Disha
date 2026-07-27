@@ -116,3 +116,66 @@ class SectionReorderItem(BaseModel):
 
 class ReorderSectionsRequest(BaseModel):
     sections: list[SectionReorderItem]
+
+
+# ─── Resume import (upload + parse + confirm) ─────────────────────────────────
+
+class ParsedPersonalInfo(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    location: Optional[str] = None
+    linkedin: Optional[str] = None
+    website: Optional[str] = None
+
+
+class ParsedResumeData(BaseModel):
+    """Parsed resume structure returned to frontend for confirmation before import."""
+    personal_info: Optional[ParsedPersonalInfo] = None
+    summary: Optional[str] = None
+    experience: list[dict[str, Any]] = []
+    education: list[dict[str, Any]] = []
+    skills: dict[str, Any] = {}
+    projects: list[dict[str, Any]] = []
+    certifications: list[dict[str, Any]] = []
+    achievements: list[str] = []
+    languages: list[dict[str, Any]] = []
+
+
+class ImportParsedRequest(BaseModel):
+    """Confirmed parsed resume data + metadata for creating the DB records."""
+    title: str = "Imported Resume"
+    career_track_id: Optional[str] = None
+    template_id: Optional[str] = None
+    parsed_data: ParsedResumeData
+
+
+# ─── Job target ───────────────────────────────────────────────────────────────
+
+class SetJobTargetRequest(BaseModel):
+    job_posting_id: Optional[str] = None
+    job_description: Optional[str] = None
+
+
+# ─── Score breakdown ─────────────────────────────────────────────────────────
+
+class ScoreCriterion(BaseModel):
+    score: int
+    explanation: str
+
+
+class ScoreBreakdownOut(BaseModel):
+    ats_compatibility: ScoreCriterion
+    keyword_coverage: ScoreCriterion
+    impact: ScoreCriterion
+    completeness: ScoreCriterion
+    readability: ScoreCriterion
+    formatting: ScoreCriterion
+    overall: int
+
+
+# ─── Version restore ──────────────────────────────────────────────────────────
+
+class RestoreVersionResponse(BaseModel):
+    message: str
+    resume_id: str
