@@ -16,7 +16,7 @@ from app.modules.resume.schemas import (
     AIGenerateResumeResponse, AIImproveSectionResponse,
     CreateResumeRequest, ResumeDetail, ResumeSummary,
     ResumeTemplateOut, ResumeSectionOut, UpdateResumeRequest,
-    UpsertSectionRequest,
+    UpsertSectionRequest, SectionReorderItem,
 )
 
 
@@ -49,6 +49,7 @@ def _build_summary(resume: Resume) -> ResumeSummary:
         title=resume.title,
         is_primary=resume.is_primary,
         ats_score=resume.ats_score,
+        score_breakdown=resume.score_breakdown,
         career_track_name=resume.career_track.title if resume.career_track else None,
         template_name=resume.template.name if resume.template else None,
         section_count=len(resume.sections),
@@ -179,6 +180,31 @@ def delete_section(resume_id: str, section_id: str, user: User, db: Session) -> 
     if not section:
         raise ValueError("Section not found.")
     db.delete(section)
+    db.commit()
+
+
+def reorder_sections(
+    resume_id: str,
+    items: list[SectionReorderItem],
+    user: User,
+    db: Session,
+) -> None:
+    """Persist drag-to-reorder: bulk-update sort_order for the given section list."""
+    _get_resume_or_404(resume_id, user.id, db)
+
+    section_ids = [item.section_id for item in items]
+    sections = (
+        db.query(ResumeSection)
+        .filter(ResumeSection.resume_id == resume_id, ResumeSection.id.in_(section_ids))
+        .all()
+    )
+
+    section_map = {str(s.id): s for s in sections}
+    for item in items:
+        section = section_map.get(item.section_id)
+        if section:
+            section.sort_order = item.sort_order
+
     db.commit()
 
 

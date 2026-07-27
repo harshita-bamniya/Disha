@@ -48,6 +48,7 @@ class ResumeSummary(BaseModel):
     title: str
     is_primary: bool
     ats_score: Optional[int]
+    score_breakdown: Optional[dict[str, Any]] = None
     career_track_name: Optional[str]
     template_name: Optional[str]
     section_count: int
@@ -106,3 +107,12 @@ class AIGenerateStreamRequest(BaseModel):
     required_skills: Optional[list[str]] = None
     job_description: Optional[str] = None
     answers: dict[str, str] = {}
+
+
+class SectionReorderItem(BaseModel):
+    section_id: str
+    sort_order: int
+
+
+class ReorderSectionsRequest(BaseModel):
+    sections: list[SectionReorderItem]

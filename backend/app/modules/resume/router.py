@@ -15,6 +15,7 @@ from app.modules.resume.schemas import (
     AIGenerateResumeResponse, AIGenerateStreamRequest, AIImproveSectionRequest,
     AIImproveSectionResponse, CreateResumeRequest, ResumeDetail, ResumeSummary,
     ResumeTemplateOut, ResumeSectionOut, UpdateResumeRequest, UpsertSectionRequest,
+    ReorderSectionsRequest,
 )
 
 router = APIRouter(prefix="/resume", tags=["Resume Builder"])
@@ -102,6 +103,20 @@ def upsert_section(
 ):
     try:
         return service.upsert_section(resume_id, body, user, db)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.put("/{resume_id}/sections/reorder", status_code=204)
+def reorder_sections(
+    resume_id: str,
+    body: ReorderSectionsRequest,
+    user: User = Depends(get_current_aspirant),
+    db: Session = Depends(get_db),
+):
+    """Persist drag-to-reorder: update sort_order for each section in the provided list."""
+    try:
+        service.reorder_sections(resume_id, body.sections, user, db)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -224,7 +239,7 @@ def export_resume_pdf(
             m = _re.match(r'^([A-Z][a-zA-Z]+(?: [A-Z][a-zA-Z]+){0,3})', summary_text)
             if m:
                 candidate_name = m.group(1)
-    candidate_name = candidate_name or str(user.phone)
+    candidate_name = candidate_name or "Candidate"
 
     # Convert Pydantic section models to plain dicts for the PDF renderer
     sections = [

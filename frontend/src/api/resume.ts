@@ -162,6 +162,9 @@ export const resumeApi = {
     }
   },
 
+  reorderSections: (resumeId: string, sections: { section_id: string; sort_order: number }[]) =>
+    apiClient.put(`/resume/${resumeId}/sections/reorder`, { sections }),
+
   getVersions: (resumeId: string) =>
     apiClient.get<ResumeVersion[]>(`/resume/${resumeId}/versions`).then(r => r.data),
 

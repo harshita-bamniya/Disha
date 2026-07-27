@@ -193,9 +193,11 @@ class Resume(Base):
     template_id     = Column(UUID(as_uuid=True), ForeignKey("resume_templates.id", ondelete="SET NULL"), nullable=True)
     title           = Column(String(200), nullable=False, default="My Resume")
     career_track_id = Column(UUID(as_uuid=True), ForeignKey("career_tracks.id", ondelete="SET NULL"), nullable=True)
-    is_primary      = Column(Boolean, default=False, nullable=False)
-    ats_score       = Column(Integer, nullable=True)
-    deleted_at      = Column(DateTime(timezone=True), nullable=True)
+    is_primary          = Column(Boolean, default=False, nullable=False)
+    ats_score           = Column(Integer, nullable=True)
+    score_breakdown     = Column(JSONB, nullable=True)
+    target_job_description = Column(Text, nullable=True)
+    deleted_at          = Column(DateTime(timezone=True), nullable=True)
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
     updated_at      = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -230,7 +232,7 @@ class ResumeSection(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "section_type IN ('summary','experience','education','skills','achievements','projects','certifications')",
+            "section_type IN ('summary','experience','education','skills','achievements','projects','certifications','languages')",
             name="ck_section_type"
         ),
     )

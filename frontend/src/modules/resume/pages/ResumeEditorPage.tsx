@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { resumeApi, type ResumeSection, type ResumeDetail } from '@/api/resume'
@@ -607,6 +607,23 @@ export default function ResumeEditorPage() {
   const [activeTab, setActiveTab] = useState<'edit' | 'preview'>('preview')
   const { activePrep } = useActivePrepJob()
 
+  // A4 preview scale — shrinks the 794px sheet to fit smaller containers
+  const previewContainerRef = useRef<HTMLDivElement>(null)
+  const [previewScale, setPreviewScale] = useState(1)
+
+  useEffect(() => {
+    const container = previewContainerRef.current
+    if (!container) return
+    const update = () => {
+      const available = container.clientWidth - 48
+      setPreviewScale(Math.min(1, available / 794))
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(container)
+    return () => ro.disconnect()
+  }, [activeTab])
+
   async function handleDownloadPdf() {
     if (!resumeId || downloading) return
     setDownloading(true)
@@ -678,20 +695,27 @@ export default function ResumeEditorPage() {
     return '#DC2626'
   }
 
-  // drag reorder
+  // drag reorder — optimistic UI update + persist to server
   const handleDragStart = (i: number) => { dragIdx.current = i }
   const handleDragOver = (e: React.DragEvent, i: number) => { e.preventDefault() }
-  const handleDrop = (toIdx: number) => {
+  const handleDrop = useCallback((toIdx: number) => {
     if (dragIdx.current === null || dragIdx.current === toIdx) return
     const updated = [...sections]
     const [moved] = updated.splice(dragIdx.current, 1)
     updated.splice(toIdx, 0, moved)
     setSections(updated)
     dragIdx.current = null
-  }
+
+    // Persist new sort_order values to server
+    const payload = updated.map((s, idx) => ({ section_id: s.id, sort_order: idx }))
+    resumeApi.reorderSections(resumeId!, payload).catch(() => {
+      // On failure, re-sync from server
+      qc.invalidateQueries({ queryKey: ['resume', resumeId] })
+    })
+  }, [sections, resumeId, qc])
 
   if (isLoading) return (
-    <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: '#F0F7FF', display: 'flex' }}>
       <AppSidebar activePath="/app/resume" />
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: 28, height: 28, border: '3px solid #2563EB', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
@@ -705,14 +729,14 @@ export default function ResumeEditorPage() {
   const availableTypes = ALL_SECTION_TYPES.filter(t => !existingTypes.has(t))
 
   return (
-    <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: '#F0F7FF', display: 'flex' }}>
       <AppSidebar activePath="/app/resume" />
 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         {/* top bar */}
         <header style={{
           background: 'white',
-          borderBottom: '1px solid #F1F5F9',
+          borderBottom: '1px solid rgba(37,99,235,0.08)',
           padding: '0 24px', height: 64,
           display: 'flex', alignItems: 'center', gap: 10,
           position: 'sticky', top: 0, zIndex: 20,
@@ -827,7 +851,7 @@ export default function ResumeEditorPage() {
 
           {/* RIGHT: preview */}
           {activeTab === 'preview' && (
-            <div style={{ flex: 1, overflow: 'auto', background: '#CBD5E1', padding: '28px 24px' }}>
+            <div ref={previewContainerRef} style={{ flex: 1, overflow: 'auto', background: '#CBD5E1', padding: '28px 24px' }}>
               {/* toolbar */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, maxWidth: 794, margin: '0 auto 16px' }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Live Preview — A4</span>
@@ -839,9 +863,18 @@ export default function ResumeEditorPage() {
                   <Download size={12} /> {downloading ? 'Generating…' : 'Download PDF'}
                 </button>
               </div>
-              {/* A4 sheet */}
-              <div style={{ width: 794, margin: '0 auto', boxShadow: '0 8px 40px rgba(15,23,42,0.25)' }}>
-                <ResumePreview sections={sections} resume={resume} />
+              {/* A4 sheet — scaled to fit container, scrollable on very small viewports */}
+              <div style={{ overflowX: 'auto' }}>
+                <div style={{
+                  width: 794,
+                  margin: '0 auto',
+                  boxShadow: '0 8px 40px rgba(15,23,42,0.25)',
+                  transformOrigin: 'top center',
+                  transform: `scale(${previewScale})`,
+                  marginBottom: previewScale < 1 ? `${1123 * (previewScale - 1)}px` : undefined,
+                }}>
+                  <ResumePreview sections={sections} resume={resume} />
+                </div>
               </div>
             </div>
           )}
