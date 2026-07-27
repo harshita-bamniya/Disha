@@ -17,7 +17,7 @@ from app.modules.resume.schemas import (
     CreateResumeRequest, ResumeDetail, ResumeSummary,
     ResumeTemplateOut, ResumeSectionOut, UpdateResumeRequest,
     UpsertSectionRequest, SectionReorderItem, ImportParsedRequest,
-    ParsedResumeData, SetJobTargetRequest,
+    ParsedResumeData, SetJobTargetRequest, KeywordGapOut, BulletRewriteOut,
 )
 
 
@@ -670,6 +670,88 @@ def set_job_target(resume_id: str, body: SetJobTargetRequest, user: User, db: Se
     db.commit()
 
     return {"message": "Job target saved.", "score_breakdown": breakdown}
+
+
+async def keyword_gap(
+    resume_id: str,
+    job_description: str,
+    user: User,
+    db: Session,
+) -> KeywordGapOut:
+    """Analyze keyword gap between the resume and a job description via LLM."""
+    resume = (
+        db.query(Resume)
+        .options(joinedload(Resume.sections))
+        .filter(Resume.id == resume_id, Resume.user_id == user.id, Resume.deleted_at == None)
+        .first()
+    )
+    if not resume:
+        raise ValueError("Resume not found.")
+
+    import json as _json
+    resume_text = " ".join(
+        _json.dumps(s.content or {}) for s in resume.sections
+    )
+
+    try:
+        from app.ai.providers import create_provider
+        provider = create_provider()
+        system_prompt, user_prompt = ai_service.build_keyword_gap_prompt(resume_text, job_description)
+        response = await provider.complete(
+            system_prompt,
+            [{"role": "user", "content": user_prompt}],
+            max_tokens=800,
+            temperature=0.1,
+        )
+        parsed = ai_service.parse_ai_resume_response(response.content)
+        return KeywordGapOut(
+            matched=parsed.get("matched", []),
+            missing_critical=parsed.get("missing_critical", []),
+            missing_nice_to_have=parsed.get("missing_nice_to_have", []),
+            match_score=max(0, min(100, int(parsed.get("match_score", 0)))),
+        )
+    except Exception as exc:
+        logger.error(f"[RESUME] Keyword gap failed: {exc}")
+        raise ValueError(f"Keyword gap analysis failed: {exc}")
+
+
+async def rewrite_bullet(
+    resume_id: str,
+    section_id: str,
+    bullet_text: str,
+    role_context: str | None,
+    user: User,
+    db: Session,
+) -> BulletRewriteOut:
+    """Rewrite a single resume bullet with stronger action verb + outcome structure."""
+    _get_resume_or_404(resume_id, user.id, db)
+
+    section = (
+        db.query(ResumeSection)
+        .filter(ResumeSection.id == section_id, ResumeSection.resume_id == resume_id)
+        .first()
+    )
+    if not section:
+        raise ValueError("Section not found.")
+
+    try:
+        from app.ai.providers import create_provider
+        provider = create_provider()
+        system_prompt, user_prompt = ai_service.build_bullet_rewrite_prompt(bullet_text, role_context)
+        response = await provider.complete(
+            system_prompt,
+            [{"role": "user", "content": user_prompt}],
+            max_tokens=200,
+            temperature=0.3,
+        )
+        parsed = ai_service.parse_ai_resume_response(response.content)
+        return BulletRewriteOut(
+            original=bullet_text,
+            improved=parsed.get("improved", bullet_text),
+        )
+    except Exception as exc:
+        logger.error(f"[RESUME] Bullet rewrite failed: {exc}")
+        raise ValueError(f"Bullet rewrite failed: {exc}")
 
 
 def restore_version(resume_id: str, version_id: str, user: User, db: Session) -> ResumeDetail:

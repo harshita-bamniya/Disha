@@ -8,9 +8,10 @@ import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 import ResumeCopilotPanel from '@/modules/resume/components/ResumeCopilotPanel'
 import ScoreBreakdownCard from '@/modules/resume/components/ScoreBreakdownCard'
 import VersionDrawer from '@/modules/resume/components/VersionDrawer'
+import ResumeInsightsPanel from '@/modules/resume/components/ResumeInsightsPanel'
 import {
   ArrowLeft, Wand2, BarChart2, FileText, Plus, Eye, Edit3,
-  Download, Trash2, GripVertical, ChevronDown, ChevronUp, X, Clock,
+  Download, Trash2, GripVertical, ChevronDown, ChevronUp, X, Clock, Lightbulb,
 } from 'lucide-react'
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -605,6 +606,7 @@ export default function ResumeEditorPage() {
   const [copilotOpen, setCopilotOpen] = useState(false)
   const [versionDrawerOpen, setVersionDrawerOpen] = useState(false)
   const [scoreExpanded, setScoreExpanded] = useState(false)
+  const [insightsPanelOpen, setInsightsPanelOpen] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [addSection, setAddSection] = useState(false)
   const [newSectionType, setNewSectionType] = useState('skills')
@@ -780,6 +782,12 @@ export default function ResumeEditorPage() {
               </button>
             )}
             <button
+              onClick={() => setInsightsPanelOpen(v => !v)}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 10, border: `1.5px solid ${insightsPanelOpen ? '#C7D2FE' : '#E2E8F0'}`, background: insightsPanelOpen ? '#EEF2FF' : 'white', color: insightsPanelOpen ? '#6366F1' : '#64748B', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+            >
+              <Lightbulb size={12} /> Insights
+            </button>
+            <button
               onClick={() => setVersionDrawerOpen(true)}
               style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 10, border: '1.5px solid #E2E8F0', background: 'white', color: '#64748B', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
             >
@@ -862,6 +870,14 @@ export default function ResumeEditorPage() {
               </div>
             )}
           </div>
+
+          {/* INSIGHTS: right sidebar */}
+          {insightsPanelOpen && activeTab === 'preview' && (
+            <ResumeInsightsPanel
+              resume={resume}
+              onClose={() => setInsightsPanelOpen(false)}
+            />
+          )}
 
           {/* RIGHT: preview */}
           {activeTab === 'preview' && (

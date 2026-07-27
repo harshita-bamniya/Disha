@@ -179,3 +179,28 @@ class ScoreBreakdownOut(BaseModel):
 class RestoreVersionResponse(BaseModel):
     message: str
     resume_id: str
+
+
+# ─── Keyword gap ─────────────────────────────────────────────────────────────
+
+class KeywordGapRequest(BaseModel):
+    job_description: str
+
+
+class KeywordGapOut(BaseModel):
+    matched: list[str]
+    missing_critical: list[str]
+    missing_nice_to_have: list[str]
+    match_score: int
+
+
+# ─── Bullet rewriter ─────────────────────────────────────────────────────────
+
+class BulletRewriteRequest(BaseModel):
+    bullet_text: str
+    role_context: Optional[str] = None
+
+
+class BulletRewriteOut(BaseModel):
+    original: str
+    improved: str

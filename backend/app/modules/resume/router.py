@@ -16,6 +16,7 @@ from app.modules.resume.schemas import (
     AIImproveSectionResponse, CreateResumeRequest, ResumeDetail, ResumeSummary,
     ResumeTemplateOut, ResumeSectionOut, UpdateResumeRequest, UpsertSectionRequest,
     ReorderSectionsRequest, ImportParsedRequest, SetJobTargetRequest,
+    KeywordGapRequest, KeywordGapOut, BulletRewriteRequest, BulletRewriteOut,
 )
 
 router = APIRouter(prefix="/resume", tags=["Resume Builder"])
@@ -262,6 +263,35 @@ def set_job_target(
         return service.set_job_target(resume_id, body, user, db)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/{resume_id}/keyword-gap", response_model=KeywordGapOut)
+async def keyword_gap(
+    resume_id: str,
+    body: KeywordGapRequest,
+    user: User = Depends(get_current_aspirant),
+    db: Session = Depends(get_db),
+):
+    """Analyze keyword coverage against a provided job description."""
+    try:
+        return await service.keyword_gap(resume_id, body.job_description, user, db)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/{resume_id}/sections/{section_id}/rewrite-bullet", response_model=BulletRewriteOut)
+async def rewrite_bullet(
+    resume_id: str,
+    section_id: str,
+    body: BulletRewriteRequest,
+    user: User = Depends(get_current_aspirant),
+    db: Session = Depends(get_db),
+):
+    """Rewrite a single bullet point with stronger action verb + outcome structure."""
+    try:
+        return await service.rewrite_bullet(resume_id, section_id, body.bullet_text, body.role_context, user, db)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/{resume_id}/export")

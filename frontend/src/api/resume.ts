@@ -231,6 +231,20 @@ export const resumeApi = {
   restoreVersion: (resumeId: string, versionId: string) =>
     apiClient.post<ResumeDetail>(`/resume/${resumeId}/versions/${versionId}/restore`).then(r => r.data),
 
+  keywordGap: (resumeId: string, jobDescription: string) =>
+    apiClient.post<{
+      matched: string[]
+      missing_critical: string[]
+      missing_nice_to_have: string[]
+      match_score: number
+    }>(`/resume/${resumeId}/keyword-gap`, { job_description: jobDescription }).then(r => r.data),
+
+  rewriteBullet: (resumeId: string, sectionId: string, bulletText: string, roleContext?: string) =>
+    apiClient.post<{ original: string; improved: string }>(
+      `/resume/${resumeId}/sections/${sectionId}/rewrite-bullet`,
+      { bullet_text: bulletText, role_context: roleContext }
+    ).then(r => r.data),
+
   getVersions: (resumeId: string) =>
     apiClient.get<ResumeVersion[]>(`/resume/${resumeId}/versions`).then(r => r.data),
 

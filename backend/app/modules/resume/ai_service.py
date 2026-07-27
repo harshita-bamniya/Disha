@@ -592,3 +592,61 @@ def build_improve_prompt(section_type: str, content: dict, career_context: str |
     ctx = f"\nThe candidate is targeting: {career_context}" if career_context else ""
     user_msg = f"Improve this {section_type} section:{ctx}\n\n{json.dumps(content, indent=2)}"
     return _IMPROVE_SYSTEM, user_msg
+
+
+# ─── Keyword gap analyzer ─────────────────────────────────────────────────────
+
+_KW_GAP_SYSTEM = """\
+You are an ATS optimization expert. Analyze a resume against a job description and \
+classify keywords by whether the candidate's resume covers them.
+
+Return ONLY valid JSON — no markdown, no explanation — matching this schema:
+{
+  "matched": ["keyword1", "keyword2"],
+  "missing_critical": ["keyword3"],
+  "missing_nice_to_have": ["keyword4"],
+  "match_score": 72
+}
+
+Rules:
+- "matched": keywords that appear in the resume (exact or semantic equivalent)
+- "missing_critical": hard requirements from the JD missing from the resume
+- "missing_nice_to_have": preferred/bonus keywords missing from the resume
+- "match_score": integer 0-100 representing overall keyword alignment
+- Include only meaningful terms (skills, tools, methods) — ignore filler words
+- Limit each list to 10 most important items\
+"""
+
+
+def build_keyword_gap_prompt(resume_text: str, job_description: str) -> tuple[str, str]:
+    user_msg = (
+        f"=== RESUME ===\n{resume_text[:4000]}\n\n"
+        f"=== JOB DESCRIPTION ===\n{job_description[:2000]}"
+    )
+    return _KW_GAP_SYSTEM, user_msg
+
+
+# ─── Bullet rewriter ──────────────────────────────────────────────────────────
+
+_BULLET_REWRITE_SYSTEM = """\
+You are a professional resume editor specializing in high-impact bullet points.
+
+Rewrite the given resume bullet to be stronger using the STAR/CAR structure:
+- Start with a strong action verb (past tense for past roles)
+- Include a specific task or achievement
+- Add a quantified outcome where possible
+- If a metric is missing, add [N] as a placeholder — never fabricate numbers
+
+CRITICAL RULES:
+- NEVER invent or assume facts not present in the original bullet
+- Use [placeholder] where metrics or specifics would help but aren't known
+- Keep the rewritten bullet under 20 words
+- Return ONLY valid JSON: {"original": "...", "improved": "..."}
+- No markdown, no explanation\
+"""
+
+
+def build_bullet_rewrite_prompt(bullet_text: str, role_context: str | None) -> tuple[str, str]:
+    ctx = f"\nRole context: {role_context}" if role_context else ""
+    user_msg = f"Rewrite this resume bullet:{ctx}\n\nOriginal: {bullet_text}"
+    return _BULLET_REWRITE_SYSTEM, user_msg
