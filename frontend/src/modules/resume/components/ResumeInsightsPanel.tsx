@@ -81,7 +81,7 @@ export default function ResumeInsightsPanel({ resume, onClose }: Props) {
   return (
     <div style={{
       width: 320, flexShrink: 0,
-      background: '#F8FAFC', borderLeft: '1px solid rgba(226,232,240,0.8)',
+      background: '#F4F5F7', borderLeft: '1px solid rgba(0,0,0,0.08)',
       display: 'flex', flexDirection: 'column', overflowY: 'auto',
     }}>
       {/* panel header */}
@@ -98,13 +98,13 @@ export default function ResumeInsightsPanel({ resume, onClose }: Props) {
       <div style={{ padding: '10px 14px', borderBottom: '1px solid #F1F5F9', background: 'white' }}>
         {!showJdInput ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Target size={12} color="#6366F1" />
+            <Target size={12} color="#1A2744" />
             <span style={{ flex: 1, fontSize: 11, color: '#64748B' }}>
               {jobDescription ? 'Job target set' : 'No job target'}
             </span>
             <button
               onClick={() => setShowJdInput(true)}
-              style={{ fontSize: 11, color: '#6366F1', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+              style={{ fontSize: 11, color: '#1A2744', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
             >
               {jobDescription ? 'Change' : 'Set target'}
             </button>
@@ -117,7 +117,7 @@ export default function ResumeInsightsPanel({ resume, onClose }: Props) {
               placeholder="Paste job description or key requirements..."
               rows={3}
               autoFocus
-              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid #C7D2FE', fontSize: 11, resize: 'none', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit' }}
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1.5px solid rgba(26,39,68,0.2)', fontSize: 11, resize: 'none', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit' }}
             />
             <div style={{ display: 'flex', gap: 6 }}>
               <button
@@ -129,7 +129,7 @@ export default function ResumeInsightsPanel({ resume, onClose }: Props) {
               <button
                 onClick={() => setTargetMutation.mutate(jdDraft)}
                 disabled={!jdDraft.trim() || setTargetMutation.isPending}
-                style={{ flex: 2, padding: '5px', borderRadius: 7, background: '#6366F1', color: 'white', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, opacity: !jdDraft.trim() || setTargetMutation.isPending ? 0.6 : 1 }}
+                style={{ flex: 2, padding: '5px', borderRadius: 7, background: '#1A2744', color: 'white', border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, opacity: !jdDraft.trim() || setTargetMutation.isPending ? 0.6 : 1 }}
               >
                 {setTargetMutation.isPending ? 'Saving…' : 'Save Target'}
               </button>
@@ -147,8 +147,8 @@ export default function ResumeInsightsPanel({ resume, onClose }: Props) {
             style={{
               flex: 1, padding: '9px 4px', border: 'none', cursor: 'pointer',
               background: 'transparent',
-              borderBottom: activeTab === tab.id ? '2px solid #6366F1' : '2px solid transparent',
-              color: activeTab === tab.id ? '#6366F1' : '#94A3B8',
+              borderBottom: activeTab === tab.id ? '2px solid #1A2744' : '2px solid transparent',
+              color: activeTab === tab.id ? '#1A2744' : '#94A3B8',
               fontSize: 10.5, fontWeight: 700,
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
             }}

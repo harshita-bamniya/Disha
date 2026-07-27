@@ -64,7 +64,7 @@ export default function ResumeUploadModal({ onClose }: Props) {
       >
         {/* header */}
         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Upload size={16} color="#6366F1" />
+          <Upload size={16} color="#1A2744" />
           <span style={{ flex: 1, fontSize: 15, fontWeight: 800, color: '#0F172A' }}>Upload Resume</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}><X size={16} /></button>
         </div>
@@ -87,20 +87,20 @@ export default function ResumeUploadModal({ onClose }: Props) {
                 onDragLeave={() => setDragOver(false)}
                 onDrop={e => { e.preventDefault(); setDragOver(false); e.dataTransfer.files[0] && handleFile(e.dataTransfer.files[0]) }}
                 style={{
-                  border: `2px dashed ${dragOver ? '#6366F1' : '#CBD5E1'}`,
+                  border: `2px dashed ${dragOver ? '#1A2744' : '#CBD5E1'}`,
                   borderRadius: 14, padding: '36px 24px', textAlign: 'center', cursor: 'pointer',
-                  background: dragOver ? '#EEF2FF' : '#FAFAFA',
+                  background: dragOver ? '#EAECF0' : '#FAFAFA',
                   transition: 'all 0.2s',
                 }}
               >
-                <FileText size={40} color={dragOver ? '#6366F1' : '#94A3B8'} style={{ margin: '0 auto 12px' }} />
+                <FileText size={40} color={dragOver ? '#1A2744' : '#94A3B8'} style={{ margin: '0 auto 12px' }} />
                 <p style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', marginBottom: 4 }}>
                   Drag & drop your resume here
                 </p>
                 <p style={{ fontSize: 12, color: '#64748B', marginBottom: 12 }}>
                   PDF or DOCX · Max 5 MB
                 </p>
-                <span style={{ fontSize: 12, color: '#6366F1', fontWeight: 700, textDecoration: 'underline' }}>
+                <span style={{ fontSize: 12, color: '#1A2744', fontWeight: 700, textDecoration: 'underline' }}>
                   Browse file
                 </span>
               </div>
@@ -122,7 +122,7 @@ export default function ResumeUploadModal({ onClose }: Props) {
           {/* ── Step: parsing ── */}
           {step === 'parsing' && (
             <div style={{ textAlign: 'center', padding: '32px 0' }}>
-              <div style={{ width: 40, height: 40, border: '3px solid #6366F1', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+              <div style={{ width: 40, height: 40, border: '3px solid #1A2744', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
               <p style={{ fontSize: 14, fontWeight: 700, color: '#0F172A', marginBottom: 4 }}>Parsing your resume…</p>
               <p style={{ fontSize: 12, color: '#64748B' }}>AI is extracting your experience, education, and skills.</p>
             </div>
@@ -181,7 +181,7 @@ export default function ResumeUploadModal({ onClose }: Props) {
                 </button>
                 <button
                   onClick={() => importMutation.mutate()}
-                  style={{ flex: 2, padding: '9px', borderRadius: 9, background: '#6366F1', color: 'white', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                  style={{ flex: 2, padding: '9px', borderRadius: 9, background: '#1A2744', color: 'white', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
                 >
                   Save & Open Editor
                 </button>
@@ -192,7 +192,7 @@ export default function ResumeUploadModal({ onClose }: Props) {
           {/* ── Step: importing ── */}
           {step === 'importing' && (
             <div style={{ textAlign: 'center', padding: '32px 0' }}>
-              <div style={{ width: 40, height: 40, border: '3px solid #6366F1', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
+              <div style={{ width: 40, height: 40, border: '3px solid #1A2744', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
               <p style={{ fontSize: 14, fontWeight: 700, color: '#0F172A' }}>Saving your resume…</p>
             </div>
           )}

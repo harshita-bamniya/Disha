@@ -60,18 +60,18 @@ export default function ResumeListPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F0F7FF', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
       <AppSidebar activePath="/app/resume" />
-      <div style={{ flex: 1, minWidth: 0, background: '#FAFBFD' }}>
+      <div style={{ flex: 1, minWidth: 0, background: '#F4F5F7' }}>
         <header style={{
           background: 'white',
-          borderBottom: '1px solid rgba(37,99,235,0.08)',
+          borderBottom: '1px solid rgba(0,0,0,0.08)',
           padding: '0 28px', height: 64,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           position: 'sticky', top: 0, zIndex: 20,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #818CF8, #6366F1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#1A2744', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <FileText size={14} color="white" />
             </div>
             <span style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>Resume Builder</span>
@@ -82,8 +82,8 @@ export default function ResumeListPage() {
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '8px 16px', borderRadius: 10, fontSize: 12.5, fontWeight: 700,
-                background: 'white', color: '#6366F1', border: '1.5px solid #C7D2FE',
-                cursor: 'pointer', boxShadow: '0 2px 8px rgba(99,102,241,0.08)',
+                background: 'white', color: '#1A2744', border: '1.5px solid rgba(26,39,68,0.2)',
+                cursor: 'pointer', boxShadow: '0 2px 8px rgba(26,39,68,0.06)',
               }}
             >
               <Upload size={13} /> Upload Resume
@@ -93,8 +93,8 @@ export default function ResumeListPage() {
               style={{
                 display: 'flex', alignItems: 'center', gap: 6,
                 padding: '8px 16px', borderRadius: 10, fontSize: 12.5, fontWeight: 700,
-                background: 'white', color: '#2563EB', border: '1.5px solid #BFDBFE',
-                cursor: 'pointer', boxShadow: '0 2px 8px rgba(37,99,235,0.08)',
+                background: '#1A2744', color: 'white', border: 'none',
+                cursor: 'pointer', boxShadow: '0 2px 8px rgba(26,39,68,0.2)',
               }}
             >
               <Plus size={14} /> New Resume
@@ -105,7 +105,7 @@ export default function ResumeListPage() {
         <main style={{ padding: '28px 32px 48px', maxWidth: 1000, margin: '0 auto' }}>
           {isLoading && (
             <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
-              <div style={{ width: 28, height: 28, border: '3px solid #6366F1', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+              <div style={{ width: 28, height: 28, border: '3px solid #1A2744', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
             </div>
           )}
 
@@ -119,13 +119,13 @@ export default function ResumeListPage() {
               <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
                 <button
                   onClick={() => setShowUpload(true)}
-                  style={{ padding: '10px 22px', borderRadius: 10, background: '#6366F1', color: 'white', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}
+                  style={{ padding: '10px 22px', borderRadius: 10, background: '#1A2744', color: 'white', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}
                 >
                   Upload Resume
                 </button>
                 <button
                   onClick={() => setShowCreate(true)}
-                  style={{ padding: '10px 22px', borderRadius: 10, background: 'white', color: '#2563EB', border: '1.5px solid #BFDBFE', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}
+                  style={{ padding: '10px 22px', borderRadius: 10, background: 'white', color: '#1A2744', border: '1.5px solid rgba(26,39,68,0.2)', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}
                 >
                   Create from Scratch
                 </button>
@@ -141,21 +141,21 @@ export default function ResumeListPage() {
                   className="resume-card"
                   style={{
                     background: 'white', borderRadius: 16, padding: '20px',
-                    border: resume.is_primary ? '1.5px solid #BFDBFE' : '1px solid #EEF2F9',
+                    border: resume.is_primary ? '1.5px solid rgba(26,39,68,0.25)' : '1px solid #EAECF0',
                     cursor: 'pointer', position: 'relative',
                     boxShadow: '0 8px 22px rgba(15,23,42,0.06)',
                     transition: 'box-shadow 0.2s, transform 0.2s',
                   }}
                 >
                   {resume.is_primary && (
-                    <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: '#2563EB', fontWeight: 700 }}>
-                      <Star size={10} fill="#2563EB" /> Primary
+                    <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: '#1A2744', fontWeight: 700 }}>
+                      <Star size={10} fill="#1A2744" /> Primary
                     </div>
                   )}
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 10, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <FileText size={18} color="#2563EB" />
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: '#EAECF0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <FileText size={18} color="#1A2744" />
                     </div>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: '#0F172A' }}>{resume.title}</div>
@@ -192,10 +192,10 @@ export default function ResumeListPage() {
                       {resume.score_breakdown && (
                         <button
                           onClick={e => { e.stopPropagation(); setExpandedScore(expandedScore === resume.id ? null : resume.id) }}
-                          style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid rgba(226,232,240,0.8)', background: expandedScore === resume.id ? '#EFF6FF' : 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid rgba(226,232,240,0.8)', background: expandedScore === resume.id ? '#EAECF0' : 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           title="Score breakdown"
                         >
-                          <BarChart2 size={12} color={expandedScore === resume.id ? '#2563EB' : '#64748B'} />
+                          <BarChart2 size={12} color={expandedScore === resume.id ? '#1A2744' : '#64748B'} />
                         </button>
                       )}
                       <button
@@ -253,12 +253,12 @@ export default function ResumeListPage() {
                           onClick={() => setSelectedTemplate(selected ? undefined : t.id)}
                           style={{
                             padding: '10px 8px', borderRadius: 10, cursor: 'pointer', textAlign: 'center',
-                            border: selected ? '2px solid #6366F1' : '1.5px solid #E2E8F0',
-                            background: selected ? '#EEF2FF' : 'white',
+                            border: selected ? '2px solid #1A2744' : '1.5px solid #E2E8F0',
+                            background: selected ? '#EAECF0' : 'white',
                             transition: 'all 0.15s',
                           }}
                         >
-                          <div style={{ fontSize: 11, fontWeight: 800, color: selected ? '#4F46E5' : '#0F172A', marginBottom: 4 }}>{t.name}</div>
+                          <div style={{ fontSize: 11, fontWeight: 800, color: selected ? '#1A2744' : '#0F172A', marginBottom: 4 }}>{t.name}</div>
                           <span style={{ fontSize: 9, fontWeight: 700, color: badge.color, background: badge.bg, padding: '2px 5px', borderRadius: 6 }}>
                             {badge.label}
                           </span>
@@ -273,7 +273,7 @@ export default function ResumeListPage() {
                 <button onClick={() => setShowCreate(false)} style={{ padding: '8px 16px', borderRadius: 9, border: '1.5px solid rgba(226,232,240,0.8)', background: 'white', color: '#64748B', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>
                   Cancel
                 </button>
-                <button onClick={() => createMutation.mutate()} disabled={createMutation.isPending} style={{ padding: '8px 20px', borderRadius: 9, background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, opacity: createMutation.isPending ? 0.7 : 1 }}>
+                <button onClick={() => createMutation.mutate()} disabled={createMutation.isPending} style={{ padding: '8px 20px', borderRadius: 9, background: '#1A2744', color: 'white', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, opacity: createMutation.isPending ? 0.7 : 1 }}>
                   {createMutation.isPending ? 'Creating...' : 'Create'}
                 </button>
               </div>
@@ -286,7 +286,7 @@ export default function ResumeListPage() {
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
-        .resume-card:hover { box-shadow: 0 16px 36px rgba(37,99,235,0.14); transform: translateY(-3px); }
+        .resume-card:hover { box-shadow: 0 16px 36px rgba(26,39,68,0.12); transform: translateY(-3px); }
       `}</style>
     </div>
   )

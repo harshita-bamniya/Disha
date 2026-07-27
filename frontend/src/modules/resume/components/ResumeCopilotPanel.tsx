@@ -109,7 +109,7 @@ export default function ResumeCopilotPanel({ resumeId, jobContext, onClose, onCo
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           {steps.map(s => (
-            <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: s.done ? '#0F172A' : '#7C3AED', fontWeight: s.done ? 500 : 700 }}>
+            <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 13, color: s.done ? '#0F172A' : '#1A2744', fontWeight: s.done ? 500 : 700 }}>
               {s.done
                 ? <Check size={14} color="#16A34A" style={{ flexShrink: 0 }} />
                 : <Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />}
@@ -118,7 +118,7 @@ export default function ResumeCopilotPanel({ resumeId, jobContext, onClose, onCo
           ))}
 
           {question && (
-            <div style={{ marginTop: 6, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 12, padding: 14 }}>
+            <div style={{ marginTop: 6, background: '#F4F5F7', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: 14 }}>
               <p style={{ margin: '0 0 10px', fontSize: 13, color: '#0F172A', fontWeight: 600, lineHeight: 1.5 }}>
                 {question.question}
               </p>

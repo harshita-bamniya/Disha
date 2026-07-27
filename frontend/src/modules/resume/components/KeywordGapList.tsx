@@ -104,7 +104,7 @@ export default function KeywordGapList({ resumeId, jobDescription, onAddKeyword 
         <button
           onClick={() => analyzeMutation.mutate()}
           disabled={!jd.trim() || analyzeMutation.isPending}
-          style={{ padding: '9px', borderRadius: 9, background: '#6366F1', color: 'white', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, opacity: !jd.trim() || analyzeMutation.isPending ? 0.6 : 1 }}
+          style={{ padding: '9px', borderRadius: 9, background: '#1A2744', color: 'white', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, opacity: !jd.trim() || analyzeMutation.isPending ? 0.6 : 1 }}
         >
           {analyzeMutation.isPending ? 'Analyzing…' : 'Analyze Keywords'}
         </button>
@@ -129,7 +129,7 @@ export default function KeywordGapList({ resumeId, jobDescription, onAddKeyword 
         <button
           onClick={() => { setJd(jobDescription); analyzeMutation.mutate() }}
           disabled={analyzeMutation.isPending}
-          style={{ padding: '9px', borderRadius: 9, background: '#6366F1', color: 'white', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+          style={{ padding: '9px', borderRadius: 9, background: '#1A2744', color: 'white', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
         >
           Analyze Keywords
         </button>
@@ -182,7 +182,7 @@ export default function KeywordGapList({ resumeId, jobDescription, onAddKeyword 
 
       <button
         onClick={() => { setResult(null); setShowJdInput(true) }}
-        style={{ fontSize: 11, color: '#6366F1', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginTop: 4 }}
+        style={{ fontSize: 11, color: '#1A2744', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginTop: 4 }}
       >
         Re-analyze with different JD
       </button>

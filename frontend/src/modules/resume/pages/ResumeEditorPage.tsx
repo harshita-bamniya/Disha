@@ -589,12 +589,12 @@ const deleteSmallBtn: React.CSSProperties = {
   alignItems: 'center', justifyContent: 'center', color: '#DC2626', flexShrink: 0,
 }
 const addLineBtn: React.CSSProperties = {
-  background: 'none', border: 'none', color: '#2563EB', fontSize: 12,
+  background: 'none', border: 'none', color: '#1A2744', fontSize: 12,
   fontWeight: 700, cursor: 'pointer', padding: '4px 0',
 }
 const addBlockBtn: React.CSSProperties = {
-  width: '100%', padding: '8px', borderRadius: 9, border: '1.5px dashed #BFDBFE',
-  background: '#EFF6FF', color: '#2563EB', fontSize: 12, fontWeight: 700,
+  width: '100%', padding: '8px', borderRadius: 9, border: '1.5px dashed rgba(26,39,68,0.2)',
+  background: '#EAECF0', color: '#1A2744', fontSize: 12, fontWeight: 700,
   cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
 }
 
@@ -721,10 +721,10 @@ export default function ResumeEditorPage() {
   }, [sections, resumeId, qc])
 
   if (isLoading) return (
-    <div style={{ minHeight: '100vh', background: '#F0F7FF', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
       <AppSidebar activePath="/app/resume" />
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 28, height: 28, border: '3px solid #2563EB', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <div style={{ width: 28, height: 28, border: '3px solid #1A2744', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     </div>
@@ -735,14 +735,14 @@ export default function ResumeEditorPage() {
   const availableTypes = ALL_SECTION_TYPES.filter(t => !existingTypes.has(t))
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F0F7FF', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
       <AppSidebar activePath="/app/resume" />
 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         {/* top bar */}
         <header style={{
           background: 'white',
-          borderBottom: '1px solid rgba(37,99,235,0.08)',
+          borderBottom: '1px solid rgba(0,0,0,0.08)',
           padding: '0 24px', height: 64,
           display: 'flex', alignItems: 'center', gap: 10,
           position: 'sticky', top: 0, zIndex: 20,
@@ -783,7 +783,7 @@ export default function ResumeEditorPage() {
             )}
             <button
               onClick={() => setInsightsPanelOpen(v => !v)}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 10, border: `1.5px solid ${insightsPanelOpen ? '#C7D2FE' : '#E2E8F0'}`, background: insightsPanelOpen ? '#EEF2FF' : 'white', color: insightsPanelOpen ? '#6366F1' : '#64748B', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 10, border: `1.5px solid ${insightsPanelOpen ? 'rgba(26,39,68,0.25)' : '#E2E8F0'}`, background: insightsPanelOpen ? '#EAECF0' : 'white', color: insightsPanelOpen ? '#1A2744' : '#64748B', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
             >
               <Lightbulb size={12} /> Insights
             </button>
@@ -795,9 +795,9 @@ export default function ResumeEditorPage() {
             </button>
             <button onClick={() => setCopilotOpen(true)} style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10,
-              background: '#6366F1', color: 'white', border: 'none',
+              background: '#1A2744', color: 'white', border: 'none',
               cursor: 'pointer', fontSize: 12, fontWeight: 700,
-              boxShadow: '0 3px 10px rgba(99,102,241,0.3)',
+              boxShadow: '0 3px 10px rgba(26,39,68,0.3)',
             }}>
               <Wand2 size={13} />AI Generate
             </button>
@@ -815,7 +815,7 @@ export default function ResumeEditorPage() {
             borderRight: '1px solid rgba(226,232,240,0.8)',
             overflowY: 'auto',
             padding: '16px 14px',
-            background: '#F8FAFC',
+            background: '#F4F5F7',
           }}>
             <ActivePrepBanner showSwitch />
 
@@ -865,7 +865,7 @@ export default function ResumeEditorPage() {
                 </select>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button onClick={() => setAddSection(false)} style={{ flex: 1, padding: '7px', borderRadius: 8, border: '1.5px solid #E2E8F0', background: 'white', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#64748B' }}>Cancel</button>
-                  <button onClick={() => addSectionMutation.mutate()} disabled={addSectionMutation.isPending} style={{ flex: 1, padding: '7px', borderRadius: 8, background: '#2563EB', color: 'white', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Add</button>
+                  <button onClick={() => addSectionMutation.mutate()} disabled={addSectionMutation.isPending} style={{ flex: 1, padding: '7px', borderRadius: 8, background: '#1A2744', color: 'white', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>Add</button>
                 </div>
               </div>
             )}

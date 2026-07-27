@@ -52,7 +52,7 @@ export default function VersionDrawer({ resumeId, onClose, onRestored }: Props) 
           padding: '18px 20px', borderBottom: '1px solid #F1F5F9',
           display: 'flex', alignItems: 'center', gap: 10,
         }}>
-          <Clock size={16} color="#6366F1" />
+          <Clock size={16} color="#1A2744" />
           <span style={{ flex: 1, fontSize: 14, fontWeight: 800, color: '#0F172A' }}>Version History</span>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 4 }}>
             <X size={16} />
@@ -63,7 +63,7 @@ export default function VersionDrawer({ resumeId, onClose, onRestored }: Props) 
         <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
           {isLoading && (
             <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}>
-              <div style={{ width: 22, height: 22, border: '2.5px solid #6366F1', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+              <div style={{ width: 22, height: 22, border: '2.5px solid #1A2744', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
             </div>
           )}
 
@@ -75,7 +75,7 @@ export default function VersionDrawer({ resumeId, onClose, onRestored }: Props) 
 
           {versions?.map((v: ResumeVersion) => (
             <div key={v.id} style={{
-              background: '#F8FAFC', borderRadius: 12, padding: '12px 14px',
+              background: '#F4F5F7', borderRadius: 12, padding: '12px 14px',
               border: '1px solid #E2E8F0',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
