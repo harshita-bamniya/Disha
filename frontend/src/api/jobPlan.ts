@@ -49,10 +49,19 @@ export interface QuizResult {
   explanation: string
 }
 
+export interface RetryGuidance {
+  wrong_count: number
+  total_questions: number
+  message: string
+  missed_explanations: string[]
+  resources_to_revisit: Array<{ id: string; title: string; type: string; url: string }>
+}
+
 export interface QuizSubmitResponse {
   score_pct: number
   passed: boolean
   results: QuizResult[]
+  retry_guidance: RetryGuidance | null
 }
 
 export interface QuizProgress {
@@ -69,6 +78,24 @@ export interface PlanModule {
   estimated_hours: number
   resources: PlanResource[]
   quiz?: ModuleQuiz
+  /** Computed client-side — not from API */
+  _scheduleStart?: number
+  _scheduleEnd?: number
+}
+
+/** Attach day-range schedule to each module based on estimated_hours.
+ *  Assumes STUDY_HOURS_PER_DAY hours of study per day. */
+const STUDY_HOURS_PER_DAY = 2
+
+export function attachSchedule(modules: PlanModule[]): PlanModule[] {
+  let day = 1
+  return modules.map(mod => {
+    const days = Math.max(1, Math.ceil((mod.estimated_hours || 2) / STUDY_HOURS_PER_DAY))
+    const start = day
+    const end = day + days - 1
+    day = end + 1
+    return { ...mod, _scheduleStart: start, _scheduleEnd: end }
+  })
 }
 
 export interface JobPlan {
@@ -79,9 +106,16 @@ export interface JobPlan {
   modules: PlanModule[]
 }
 
+export interface VideoRating {
+  video_id: string
+  rating: 'relevant' | 'not_relevant'
+  rated_at: string
+}
+
 export interface ResourceProgress {
   done: boolean
   done_at: string | null
+  video_rating?: VideoRating
 }
 
 export type GenerationStep = 'agenda' | 'resources' | 'finalizing'
@@ -128,6 +162,9 @@ export const jobPlanApi = {
 
   markProgress: (jobId: string, resourceId: string, done: boolean) =>
     apiClient.patch(`/jobs/${jobId}/learning-plan/progress`, { resource_id: resourceId, done }).then(r => r.data),
+
+  rateVideo: (jobId: string, resourceId: string, videoId: string, rating: 'relevant' | 'not_relevant') =>
+    apiClient.patch(`/jobs/${jobId}/learning-plan/progress`, { resource_id: resourceId, video_id: videoId, video_rating: rating }).then(r => r.data),
 
   getAllMine: () =>
     apiClient.get<JobPlanSummary[]>('/jobs/learning-plans/mine').then(r => r.data),

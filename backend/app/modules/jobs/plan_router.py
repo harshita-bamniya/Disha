@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime, timezone
+from difflib import SequenceMatcher
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -12,6 +14,7 @@ from app.database import get_db
 from app.models.job_plan import JobLearningPlan
 from app.models.user import AspirantProfile, JobPosting, KrsScore, PsychologicalAssessment, User
 from app.modules.jobs.plan_generator import (
+    count_article_resources, count_youtube_resources,
     enrich_plan_with_real_videos, generate_job_plan, generate_module_quiz,
     is_plan_stale, redact_quiz_answers,
 )
@@ -19,6 +22,37 @@ from app.modules.jobs.plan_generator import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/jobs", tags=["Job Learning Plan"])
+
+
+def _tokenize(skill: str) -> set[str]:
+    return set(re.split(r"[\s\-/,]+", skill.lower().strip())) - {""}
+
+
+def _skill_covered(required: str, user_skill_set: set[str], user_tokens: list[set[str]]) -> bool:
+    """Return True if the user already has this skill under any reasonable form.
+
+    Checks in order (cheapest first):
+    1. Exact normalized match ("python" == "python")
+    2. Token overlap: ≥ 60 % of the required skill's tokens appear in any single
+       user skill ("Python 3" covers "Python"; "Data Analysis" covers "Data Analytics" partially)
+    3. Fuzzy similarity ≥ 0.82 via SequenceMatcher ("MS Excel" ~ "Microsoft Excel")
+    """
+    norm = required.lower().strip()
+    if norm in user_skill_set:
+        return True
+
+    req_tokens = _tokenize(required)
+    if req_tokens:
+        for ut in user_tokens:
+            overlap = len(req_tokens & ut) / len(req_tokens)
+            if overlap >= 0.6:
+                return True
+
+    for us in user_skill_set:
+        if SequenceMatcher(None, norm, us).ratio() >= 0.82:
+            return True
+
+    return False
 
 
 def _get_job_or_404(job_id: str, db: Session) -> JobPosting:
@@ -128,13 +162,18 @@ async def generate_plan(
 
     user_skills: list[str] = profile.skills or [] if profile else []
 
-    # Compute gap skills: required - user has
+    # Compute gap skills: required - user has (fuzzy-matched)
     required: list[str] = job.required_skills or []
     user_skill_set = {s.lower().strip() for s in user_skills}
-    gap_skills = [s for s in required if s.lower().strip() not in user_skill_set]
+    user_tokens = [_tokenize(s) for s in user_skills]
+    gap_skills = [s for s in required if not _skill_covered(s, user_skill_set, user_tokens)]
+    gaps_will_be_grouped = len(gap_skills) > 7
 
     # Upsert plan row
     plan = _get_plan(user.id, job_id, db)
+    if plan and plan.status == "generating":
+        # Already in flight — don't spawn a second task that would race to overwrite the result.
+        return {"plan_id": str(plan.id), "status": "generating", "message": "Plan generation already in progress. Poll GET /jobs/{job_id}/learning-plan."}
     if plan:
         # Regenerate: reset to generating state
         plan.status = "generating"
@@ -175,6 +214,13 @@ async def generate_plan(
         "confidence_score": psych.confidence_index if psych else None,
         "work_experience_years": profile.work_experience_years if profile else None,
         "work_experience_domain": profile.work_experience_domain if profile else None,
+        # UPSC journey — collected in onboarding but previously never reached the AI
+        "upsc_exam": profile.upsc_exam if profile else None,
+        "highest_stage_cleared": profile.highest_stage_cleared if profile else None,
+        "years_preparing": profile.years_preparing if profile else None,
+        "optional_subject": profile.optional_subject if profile else None,
+        # Career preferences
+        "preferred_sectors": profile.preferred_sectors if profile else None,
     }
 
     class _Cancelled(Exception):
@@ -221,17 +267,23 @@ async def generate_plan(
                     confidence_score=uc.get("confidence_score"),
                     work_experience_years=uc.get("work_experience_years"),
                     work_experience_domain=uc.get("work_experience_domain"),
+                    upsc_exam=uc.get("upsc_exam"),
+                    highest_stage_cleared=uc.get("highest_stage_cleared"),
+                    years_preparing=uc.get("years_preparing"),
+                    optional_subject=uc.get("optional_subject"),
+                    preferred_sectors=uc.get("preferred_sectors"),
                 )
 
                 if not _still_generating():
                     raise _Cancelled()
 
-                # Step 2: replace hallucinated YouTube links with real searched videos,
-                # reporting real per-resource progress as it happens (no canned copy).
+                # Step 2: enrich resources with real URLs (YouTube videos + article links).
+                # Compute the true total now so the frontend progress bar never goes backward.
+                resources_total = count_youtube_resources(result) + count_article_resources(result)
                 _set_step("resources", {
                     "modules_planned": len(result.get("modules", [])),
                     "resources_done": 0,
-                    "resources_total": 0,
+                    "resources_total": resources_total,
                     "current_skill": None,
                     "last_found": None,
                 })
@@ -266,7 +318,13 @@ async def generate_plan(
 
     background_tasks.add_task(_bg)
 
-    return {"plan_id": plan_id, "status": "generating", "message": "Plan generation started. Poll GET /jobs/{job_id}/learning-plan."}
+    return {
+        "plan_id": plan_id,
+        "status": "generating",
+        "message": "Plan generation started. Poll GET /jobs/{job_id}/learning-plan.",
+        "gaps_will_be_grouped": gaps_will_be_grouped,
+        "gap_count": len(gap_skills),
+    }
 
 
 @router.get("/{job_id}/learning-plan")
@@ -387,7 +445,32 @@ def submit_quiz(
     plan.progress = progress
     db.commit()
 
-    return {"score_pct": score_pct, "passed": passed, "results": results}
+    retry_guidance: dict | None = None
+    if not passed:
+        wrong_results = [r for r in results if not r["is_correct"]]
+        wrong_count = len(wrong_results)
+
+        # Pull the explanations from wrong answers so the user knows exactly what they missed.
+        missed_explanations = [r["explanation"] for r in wrong_results if r.get("explanation")]
+
+        # Return the module's resources so the frontend can tell the user what to revisit.
+        resources_to_revisit = [
+            {"id": res.get("id"), "title": res.get("title"), "type": res.get("type"), "url": res.get("url")}
+            for res in module.get("resources", [])
+        ]
+
+        retry_guidance = {
+            "wrong_count": wrong_count,
+            "total_questions": len(questions),
+            "message": (
+                f"You got {wrong_count} of {len(questions)} questions wrong. "
+                f"Review the {len(resources_to_revisit)} resource(s) below before retrying."
+            ),
+            "missed_explanations": missed_explanations,
+            "resources_to_revisit": resources_to_revisit,
+        }
+
+    return {"score_pct": score_pct, "passed": passed, "results": results, "retry_guidance": retry_guidance}
 
 
 @router.patch("/{job_id}/learning-plan/progress")
@@ -397,13 +480,13 @@ def update_progress(
     user: User = Depends(get_current_aspirant),
     db: Session = Depends(get_db),
 ):
-    """Mark a resource as done or undone.
+    """Mark a resource done/undone, or rate its selected video.
 
-    Body: { "resource_id": str, "done": bool }
+    Body (mark done): { "resource_id": str, "done": bool }
+    Body (rate video): { "resource_id": str, "video_id": str, "video_rating": "relevant"|"not_relevant" }
+    Both fields may be combined in one request.
     """
     resource_id: str = body.get("resource_id", "")
-    done: bool = bool(body.get("done", False))
-
     if not resource_id:
         raise HTTPException(status_code=422, detail="resource_id is required.")
 
@@ -412,10 +495,46 @@ def update_progress(
         raise HTTPException(status_code=404, detail="No ready plan found for this job.")
 
     progress = dict(plan.progress or {})
-    progress[resource_id] = {
-        "done": done,
-        "done_at": datetime.now(timezone.utc).isoformat() if done else None,
-    }
+    entry = dict(progress.get(resource_id, {}))
+
+    if "done" in body:
+        done = bool(body["done"])
+        entry["done"] = done
+        entry["done_at"] = datetime.now(timezone.utc).isoformat() if done else None
+
+    video_id: str | None = body.get("video_id")
+    video_rating: str | None = body.get("video_rating")
+    if video_id and video_rating:
+        if video_rating not in ("relevant", "not_relevant"):
+            raise HTTPException(status_code=422, detail="video_rating must be 'relevant' or 'not_relevant'.")
+        entry["video_rating"] = {
+            "video_id": video_id,
+            "rating": video_rating,
+            "rated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+        # If the user rejected the recommended video, promote the next available option.
+        if video_rating == "not_relevant":
+            new_modules = []
+            plan_changed = False
+            for mod in (plan.plan or {}).get("modules", []):
+                new_resources = []
+                for res in mod.get("resources", []):
+                    if res.get("id") == resource_id and res.get("recommended_video_id") == video_id:
+                        options = res.get("video_options") or []
+                        alternative = next(
+                            (v["video_id"] for v in options if v["video_id"] != video_id),
+                            None,
+                        )
+                        if alternative:
+                            res = {**res, "recommended_video_id": alternative}
+                            plan_changed = True
+                    new_resources.append(res)
+                new_modules.append({**mod, "resources": new_resources})
+            if plan_changed:
+                plan.plan = {**plan.plan, "modules": new_modules}
+
+    progress[resource_id] = entry
     plan.progress = progress
     db.commit()
 

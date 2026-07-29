@@ -171,9 +171,12 @@ def _build_user_context(user: User, db: Session) -> str:
         years = profile.years_preparing or "?"
         attempts = profile.upsc_attempts or 0
         stage = profile.highest_stage_cleared or "not specified"
-        lines.append(f"UPSC journey: {years} years of preparation, {attempts} attempt(s), highest stage: {stage}")
+        exam = profile.upsc_exam or "UPSC"
+        lines.append(f"UPSC journey: {exam.upper()}, {years} years of preparation, {attempts} attempt(s), highest stage: {stage}")
         if profile.optional_subject:
             lines.append(f"Optional subject: {profile.optional_subject}")
+        if profile.preferred_sectors:
+            lines.append(f"Target sectors: {', '.join(profile.preferred_sectors[:3])}")
         if profile.has_work_experience and profile.work_experience_years:
             lines.append(
                 f"Prior work: {profile.work_experience_years} years in "

@@ -13,6 +13,7 @@ import re
 import urllib.parse
 from typing import Any, Awaitable, Callable
 
+from app.ai.article_search import resolve_article_url
 from app.ai.providers import create_provider
 from app.ai.youtube_search import search_youtube
 
@@ -23,8 +24,33 @@ _groq = create_provider()
 _PLAN_CACHE_TTL = 60 * 60 * 24 * 7  # 7 days
 
 
-def _plan_cache_key(job_id: str, gap_skills: list[str]) -> str:
-    payload = job_id + "|" + ",".join(sorted(s.lower().strip() for s in gap_skills))
+def _plan_cache_key(
+    job_id: str,
+    gap_skills: list[str],
+    k_score: int | None = None,
+    burnout_score: int | None = None,
+    confidence_score: int | None = None,
+) -> str:
+    # Bucket continuous scores into bands so minor fluctuations don't bust the cache
+    # while still separating meaningfully different profiles.
+    def _band(score: int | None) -> str:
+        if score is None:
+            return "x"
+        if score >= 75:
+            return "h"
+        if score >= 50:
+            return "m"
+        if score >= 30:
+            return "d"
+        return "l"
+
+    payload = "|".join([
+        job_id,
+        ",".join(sorted(s.lower().strip() for s in gap_skills)),
+        _band(k_score),
+        _band(burnout_score),
+        _band(confidence_score),
+    ])
     return "plan:cache:" + hashlib.sha256(payload.encode()).hexdigest()[:24]
 
 
@@ -53,14 +79,31 @@ Skills Required by Employer: {required_skills}
 User's Current Skills: {user_skills}
 Identified Skill Gaps: {gap_skills}
 
-CANDIDATE PROFILE (use this to personalise module depth, pace, and framing):
-- Knowledge Readiness (K-score): {k_score_label} ({k_score}/100) — how well they understand the domain
-- Readiness to Switch (R-score): {r_score_label} ({r_score}/100) — career transition readiness
-- Skills Match (S-score): {s_score_label} ({s_score}/100) — alignment with market requirements
-- Burnout Level: {burnout_label} ({burnout_score}/100) — higher = more exhausted; adjust pace accordingly
-- Confidence in Transition: {confidence_label} ({confidence_score}/100) — lower = needs more encouragement in module framing
+CANDIDATE PROFILE:
+- Knowledge Readiness (K-score): {k_score_label} ({k_score}/100)
+- Readiness to Switch (R-score): {r_score_label} ({r_score}/100)
+- Skills Match (S-score): {s_score_label} ({s_score}/100)
+- Burnout Level: {burnout_label} ({burnout_score}/100)
+- Confidence in Transition: {confidence_label} ({confidence_score}/100)
 - Work Experience: {work_experience}
-- Use this profile to calibrate: a burnt-out user with low confidence needs shorter, achievable modules; a fresh high-K user can handle deeper, faster-paced content
+
+UPSC BACKGROUND (use this to recognise what knowledge the candidate already has):
+- Exam: {upsc_exam_label}
+- Highest Stage Cleared: {upsc_stage_label}
+- Years Preparing: {years_preparing_label}
+- Optional Subject: {optional_subject_label}
+- Target Sectors: {preferred_sectors_label}
+
+Apply these CONCRETE rules — do not ignore them:
+
+BURNOUT RULES (based on burnout score above):
+- Score ≥ 70 (High): cap every module's estimated_hours at 4; keep project_deliverable completable in one 90-minute sitting; prefer "beginner", "intro", or "crash course" resource titles
+- Score 40–69 (Moderate): cap estimated_hours at 6; mix one intro resource with one intermediate per module
+- Score < 40 (Low): estimated_hours up to 12; include at least one advanced or deep-dive resource per module
+
+CONFIDENCE RULES (based on confidence score above):
+- Score < 65 (Low confidence): start every why_important sentence by naming a concrete UPSC skill they already have that transfers (e.g. "Your UPSC essay writing directly applies here because..."); end the why_important with one small, achievable first step; use warm and encouraging tone throughout
+- Score ≥ 65 (High confidence): why_important should be direct and outcome-focused; highlight business impact of the skill rather than reassurance
 
 Generate a learning roadmap JSON exactly matching this schema:
 {{
@@ -114,9 +157,14 @@ Generate a learning roadmap JSON exactly matching this schema:
 }}
 
 Rules:
-- Create 4-7 modules covering ALL skill gaps, ordered by priority (1 = most critical for getting the job)
+- Create 4-7 modules covering ALL identified skill gaps, ordered by priority (1 = most critical for getting the job)
+- If there are more gap skills than modules allow, group closely related skills into a single module (e.g. "SQL & Data Analysis", "Written Communication & Report Writing") — never silently omit a gap skill; every gap must appear in at least one module's skill name or resources
 - Each module must include a project_deliverable: a concrete, completable mini-project that proves mastery (not just "read about X")
-- Each module has exactly 3 resources (2 YouTube + 1 article/read)
+- Resource count per module is determined by the burnout score above:
+    - High burnout (score ≥ 70): exactly 2 resources (1 YouTube + 1 article) — keep it light
+    - Moderate burnout (40–69): exactly 3 resources (2 YouTube + 1 article) — standard load
+    - Low burnout (score < 40) AND K-score ≥ 50: exactly 4 resources (2 YouTube + 2 article) — go deeper
+    - Low burnout (score < 40) AND K-score < 50: exactly 3 resources (2 YouTube + 1 article)
 - YouTube search_query MUST be specific: always include the skill AND the job/sector context (e.g. "{sector} {job_title} <skill> tutorial" not just "<skill> tutorial")
 - YouTube URLs must be https://www.youtube.com/results?search_query=<url-encoded-search-query>
 - Article URL must be a DIRECT link to a real page (GeeksforGeeks.org, Investopedia.com, docs.python.org, hbr.org, towardsdatascience.com, etc.) — never a Google/YouTube search page
@@ -173,22 +221,97 @@ def _url_encode(q: str) -> str:
     return urllib.parse.quote_plus(q)
 
 
-def _fix_youtube_urls(plan: dict) -> dict:
-    """Ensure YouTube resources have proper search URLs.
+# Ordered list of (source-name fragment → search URL template).
+# Checked against channel_or_source (lowercase). First match wins.
+_SOURCE_SEARCH_URLS: list[tuple[str, str]] = [
+    # ── UPSC / IAS prep ──────────────────────────────────────────────────────
+    ("insight",         "https://www.insightsonindia.com/?s={q}"),
+    ("mrunal",          "https://mrunal.org/?s={q}"),
+    ("clearias",        "https://www.clearias.com/?s={q}"),
+    ("drishti",         "https://www.drishtiias.com/search?q={q}"),
+    ("vision ias",      "https://www.visionias.in/resources/?q={q}"),
+    ("forum ias",       "https://forumias.com/?s={q}"),
+    ("byju",            "https://byjus.com/free-ias-prep/?s={q}"),
+    ("unacademy",       "https://unacademy.com/search?q={q}"),
+    ("testbook",        "https://testbook.com/blog/?s={q}"),
+    ("gradeup",         "https://gradeup.co/search?q={q}"),
+    ("studyiq",         "https://www.studyiq.com/articles?q={q}"),
+    # ── Policy / Governance / Legal ───────────────────────────────────────────
+    ("prs india",          "https://prsindia.org/prscore/search?q={q}"),
+    ("prs legislative",    "https://prsindia.org/prscore/search?q={q}"),
+    ("india kanoon",       "https://indiankanoon.org/search/?formInput={q}"),
+    # ── Sustainability / CSR / ESG ────────────────────────────────────────────
+    ("triplepundit",       "https://www.triplepundit.com/?s={q}"),
+    ("greenbiz",           "https://www.greenbiz.com/search?keywords={q}"),
+    ("esg today",          "https://www.esgtoday.com/?s={q}"),
+    ("csr wire",           "https://www.csrwire.com/search?q={q}"),
+    ("responsible investor","https://www.responsible-investor.com/search/?q={q}"),
+    # ── News / Newspapers ─────────────────────────────────────────────────────
+    ("the hindu",          "https://www.thehindu.com/search/?q={q}"),
+    ("indian express",     "https://indianexpress.com/?s={q}"),
+    ("livemint",           "https://www.livemint.com/search#gsc.q={q}"),
+    ("economic times",     "https://economictimes.indiatimes.com/searchresult.cms?query={q}"),
+    ("business standard",  "https://www.business-standard.com/search?q={q}"),
+    ("hindustan times",    "https://www.hindustantimes.com/search?q={q}"),
+    ("down to earth",      "https://www.downtoearth.org.in/search?q={q}"),
+    ("forbes",             "https://www.forbes.com/search/?q={q}"),
+    ("bloomberg",          "https://www.bloomberg.com/search?query={q}"),
+    ("reuters",            "https://www.reuters.com/search/news?blob={q}"),
+    # ── General education ─────────────────────────────────────────────────────
+    ("wikipedia",          "https://en.wikipedia.org/wiki/Special:Search?search={q}"),
+    ("britannica",         "https://www.britannica.com/search?query={q}"),
+    ("khan academy",       "https://www.khanacademy.org/search?page_search_query={q}"),
+    ("investopedia",       "https://www.investopedia.com/search?q={q}"),
+    ("geeksforgeeks",      "https://www.geeksforgeeks.org/search/?q={q}"),
+    ("coursera",           "https://www.coursera.org/search?query={q}"),
+    ("udemy",              "https://www.udemy.com/courses/search/?q={q}"),
+    ("edx",                "https://www.edx.org/search?q={q}"),
+    ("nptel",              "https://nptel.ac.in/search?q={q}"),
+    ("stanford",           "https://plato.stanford.edu/search/searcher.py?query={q}"),
+    ("hbr",                "https://hbr.org/search?term={q}"),
+    ("harvard business",   "https://hbr.org/search?term={q}"),
+    ("mckinsey",           "https://www.mckinsey.com/search#q={q}"),
+    ("deloitte",           "https://www2.deloitte.com/search.html#q={q}"),
+    ("shrm",               "https://www.shrm.org/search#q={q}"),
+    ("world bank",         "https://www.worldbank.org/en/search?q={q}"),
+    ("imf",                "https://www.imf.org/en/search#q={q}"),
+    ("niti aayog",         "https://www.niti.gov.in/search/node/{q}"),
+    ("un ",                "https://search.un.org/results.asp?query={q}"),
+    ("united nations",     "https://search.un.org/results.asp?query={q}"),
+]
 
-    Article URLs are left as-is — the LLM now provides direct links to real
-    pages. Only fall back to a Google Search URL if the LLM returned nothing
-    or a clearly broken value (not starting with http).
+def _build_article_url(res: dict) -> str:
+    """Return the most targeted fallback URL for a non-YouTube resource.
+
+    This is the static fallback set at plan-generation time. The async enrichment
+    pass (enrich_plan_with_real_videos) subsequently tries to replace it with a
+    real direct article URL via Wikipedia API or DuckDuckGo site: search.
+    Falls back to a plain Google search only for sources not in the known map.
+    """
+    source = (res.get("channel_or_source") or "").lower().strip()
+    raw_query = res.get("search_query") or res.get("title") or source
+    q = _url_encode(raw_query)
+
+    for keyword, template in _SOURCE_SEARCH_URLS:
+        if keyword in source:
+            return template.format(q=q)
+
+    return f"https://www.google.com/search?q={q}"
+
+
+def _fix_youtube_urls(plan: dict) -> dict:
+    """Normalise all resource URLs before persisting the plan.
+
+    YouTube → always build a deterministic YouTube search URL from search_query.
+    Article / Course → route to the source platform's own search page using
+                       channel_or_source so the user lands on the actual site.
     """
     for module in plan.get("modules", []):
         for res in module.get("resources", []):
             if res.get("type") == "youtube" and res.get("search_query"):
                 res["url"] = f"https://www.youtube.com/results?search_query={_url_encode(res['search_query'])}"
-            elif res.get("type") == "article":
-                url = res.get("url", "")
-                # Only use Google Search as a last-resort fallback for broken/missing URLs
-                if not url.startswith("http") and res.get("search_query"):
-                    res["url"] = f"https://www.google.com/search?q={_url_encode(res['search_query'])}"
+            elif res.get("type") in ("article", "course"):
+                res["url"] = _build_article_url(res)
     return plan
 
 
@@ -290,6 +413,11 @@ async def generate_job_plan(
     confidence_score: int | None = None,
     work_experience_years: int | None = None,
     work_experience_domain: str | None = None,
+    upsc_exam: str | None = None,
+    highest_stage_cleared: str | None = None,
+    years_preparing: int | None = None,
+    optional_subject: str | None = None,
+    preferred_sectors: list[str] | None = None,
 ) -> dict[str, Any]:
     """Call Groq and return the structured learning plan dict.
 
@@ -298,7 +426,7 @@ async def generate_job_plan(
     same job + gap-skill combination.
     """
     # ── Cache lookup ──────────────────────────────────────────────────────────
-    cache_key = _plan_cache_key(job_id, gap_skills) if job_id else None
+    cache_key = _plan_cache_key(job_id, gap_skills, k_score, burnout_score, confidence_score) if job_id else None
     if cache_key:
         try:
             cached = _redis().get(cache_key)
@@ -314,11 +442,21 @@ async def generate_job_plan(
         else "No prior work experience"
     )
 
+    _UPSC_EXAM_LABELS = {
+        "cse": "UPSC CSE (Civil Services)", "capf": "CAPF", "cds": "CDS",
+        "ies": "IES (Engineering Services)", "cms": "CMS (Medical Services)",
+        "state_pcs": "State PCS", "other": "Other competitive exam",
+    }
+    _STAGE_LABELS = {
+        "none": "No attempt yet", "prelims": "Cleared Prelims",
+        "mains": "Cleared Mains", "interview": "Appeared in Interview",
+    }
+
     prompt = PLAN_PROMPT.format(
         job_title=job_title,
         company=company,
         sector=sector,
-        description=(description or "")[:1500],
+        description=(description or "")[:4000],
         required_skills=", ".join(required_skills) if required_skills else "Not specified",
         user_skills=", ".join(user_skills) if user_skills else "None listed",
         gap_skills=", ".join(gap_skills) if gap_skills else "No gaps identified",
@@ -333,6 +471,11 @@ async def generate_job_plan(
         confidence_score=confidence_score if confidence_score is not None else "N/A",
         confidence_label=("High confidence" if (confidence_score or 0) >= 65 else "Low confidence — needs encouragement"),
         work_experience=work_exp_str,
+        upsc_exam_label=_UPSC_EXAM_LABELS.get(upsc_exam or "", upsc_exam or "Not specified"),
+        upsc_stage_label=_STAGE_LABELS.get(highest_stage_cleared or "", highest_stage_cleared or "Not specified"),
+        years_preparing_label=f"{years_preparing} year(s)" if years_preparing else "Not specified",
+        optional_subject_label=optional_subject or "Not specified",
+        preferred_sectors_label=", ".join(preferred_sectors) if preferred_sectors else "Not specified",
     )
 
     msg = await _groq.complete(
@@ -409,6 +552,16 @@ def count_youtube_resources(plan: dict[str, Any]) -> int:
     )
 
 
+def count_article_resources(plan: dict[str, Any]) -> int:
+    """Total number of article/course resources across all modules."""
+    return sum(
+        1
+        for module in plan.get("modules", [])
+        for res in module.get("resources", [])
+        if res.get("type") in ("article", "course")
+    )
+
+
 def is_plan_stale(plan: dict[str, Any] | None) -> bool:
     """True if this plan predates real-video enrichment (old hallucinated-link format).
 
@@ -443,35 +596,50 @@ async def enrich_plan_with_real_videos(
     plan: dict[str, Any],
     on_progress: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
 ) -> dict[str, Any]:
-    """For every youtube resource, search real videos and attach up to 2 candidates.
+    """Enrich all resources with real URLs resolved at generation time.
 
-    Adds `video_options` (list of real {video_id, title, channel, duration_minutes,
-    thumbnail_url, url}) and `recommended_video_id` (first/best match) to each
-    youtube-type resource. Falls back gracefully — if search finds nothing, the
-    resource keeps its original LLM-suggested search-link `url`.
+    YouTube → searches for real video candidates (up to 2), attaches
+              video_options + recommended_video_id, keeps fallback search URL.
+    Article/Course → resolves the actual article URL via Wikipedia REST API or
+              DuckDuckGo site: search so "View Resource" lands on the real page.
+              Falls back to the site-specific search URL already set by
+              _build_article_url if live resolution fails.
 
     If `on_progress` is given, it's awaited after every resource with a live
     snapshot: {"resources_done": int, "resources_total": int, "current_skill": str,
-    "last_found": str | None} — so callers can report real progress, not a fake step.
+    "last_found": str | None}.
     """
-    total = count_youtube_resources(plan)
+    total = count_youtube_resources(plan) + count_article_resources(plan)
     done = 0
     for module in plan.get("modules", []):
         for res in module.get("resources", []):
-            if res.get("type") != "youtube":
-                continue
+            res_type = res.get("type", "")
             query = res.get("search_query") or res.get("title") or ""
             found_title: str | None = None
-            if query:
-                candidates = await search_youtube(query, n=2)
-                if candidates:
-                    res["video_options"] = candidates
-                    res["recommended_video_id"] = candidates[0]["video_id"]
-                    # Point the primary url at the recommended real video.
-                    res["url"] = candidates[0]["url"]
-                    if not res.get("duration_minutes"):
-                        res["duration_minutes"] = candidates[0]["duration_minutes"]
-                    found_title = candidates[0]["title"]
+
+            if res_type == "youtube":
+                if query:
+                    candidates = await search_youtube(query, n=2)
+                    if candidates:
+                        res["video_options"] = candidates
+                        res["recommended_video_id"] = candidates[0]["video_id"]
+                        res["url"] = candidates[0]["url"]
+                        if not res.get("duration_minutes"):
+                            res["duration_minutes"] = candidates[0]["duration_minutes"]
+                        found_title = candidates[0]["title"]
+
+            elif res_type in ("article", "course"):
+                if query:
+                    source = res.get("channel_or_source") or ""
+                    real_url = await resolve_article_url(query, source)
+                    if real_url:
+                        res["url"] = real_url
+                        found_title = res.get("title")
+                    # If resolution fails, _build_article_url already set a
+                    # site-specific search URL — keep it as the fallback.
+            else:
+                continue  # skip unknown types; don't count in progress
+
             done += 1
             if on_progress:
                 await on_progress({

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { jobPlanApi, type QuizSubmitResponse } from '@/api/jobPlan'
 import AppSidebar from '@/components/layout/AppSidebar'
-import { ArrowLeft, CheckCircle2, Loader2, Zap, RotateCcw } from 'lucide-react'
+import { ArrowLeft, BookOpen, CheckCircle2, ExternalLink, Loader2, RotateCcw, Zap } from 'lucide-react'
 
 export default function QuizPage() {
   const { jobId, moduleId } = useParams<{ jobId: string; moduleId: string }>()
@@ -47,13 +47,13 @@ export default function QuizPage() {
   const allAnswered = !!quiz && quiz.questions.every(q => !!answers[q.id])
 
   return (
-    <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: '#F0F7FF', display: 'flex' }}>
       <AppSidebar activePath="/app/roadmap" />
 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <header style={{
           background: 'white',
-          borderBottom: '1px solid #F1F5F9',
+          borderBottom: '1px solid rgba(37,99,235,0.08)',
           padding: '0 28px', height: 64,
           display: 'flex', alignItems: 'center', gap: 12,
           position: 'sticky', top: 0, zIndex: 20,
@@ -78,7 +78,7 @@ export default function QuizPage() {
           )}
 
           {!isLoading && module && !quiz && (
-            <div style={{ background: 'white', borderRadius: 20, border: '1px solid #F1F5F9', padding: '40px 32px', textAlign: 'center' }}>
+            <div style={{ background: 'white', borderRadius: 20, border: '1px solid rgba(37,99,235,0.08)', padding: '40px 32px', textAlign: 'center' }}>
               <h2 style={{ fontSize: 18, fontWeight: 700, color: '#0F172A', marginBottom: 10 }}>
                 No quiz yet for {module.skill}
               </h2>
@@ -114,7 +114,7 @@ export default function QuizPage() {
                 </div>
               )}
 
-              <div style={{ background: 'white', borderRadius: 20, border: '1px solid #F1F5F9', padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 22 }}>
+              <div style={{ background: 'white', borderRadius: 20, border: '1px solid rgba(37,99,235,0.08)', padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 22 }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                   <div>
                     <h2 style={{ fontSize: 17, fontWeight: 700, color: '#0F172A', margin: 0 }}>{module.skill} — Quick Check</h2>
@@ -208,24 +208,70 @@ export default function QuizPage() {
                     )}
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <span style={{ fontSize: 15, fontWeight: 800, color: result.passed ? '#16A34A' : '#DC2626' }}>
-                      Score: {result.score_pct}% {result.passed ? '— Passed!' : '— Try again'}
-                    </span>
-                    {result.passed ? (
-                      <button onClick={() => navigate('/app/roadmap')} style={{ background: 'none', border: '1.5px solid #2563EB', borderRadius: 10, padding: '8px 16px', fontSize: 12.5, fontWeight: 700, color: '#2563EB', cursor: 'pointer' }}>
-                        Back to Plan
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => generateMutation.mutate()}
-                        disabled={generateMutation.isPending}
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: '1.5px solid #E2E8F0', borderRadius: 10, padding: '8px 16px', fontSize: 12.5, fontWeight: 700, color: '#64748B', cursor: generateMutation.isPending ? 'wait' : 'pointer' }}
-                      >
-                        {generateMutation.isPending
-                          ? <><Loader2 size={13} style={{ animation: 'spin 0.8s linear infinite' }} /> Generating new questions...</>
-                          : <><RotateCcw size={13} /> Retry with new questions</>}
-                      </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <span style={{ fontSize: 15, fontWeight: 800, color: result.passed ? '#16A34A' : '#DC2626' }}>
+                        Score: {result.score_pct}% {result.passed ? '— Passed!' : '— Not quite'}
+                      </span>
+                      {result.passed ? (
+                        <button onClick={() => navigate('/app/roadmap')} style={{ background: 'none', border: '1.5px solid #2563EB', borderRadius: 10, padding: '8px 16px', fontSize: 12.5, fontWeight: 700, color: '#2563EB', cursor: 'pointer' }}>
+                          Back to Plan
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => generateMutation.mutate()}
+                          disabled={generateMutation.isPending}
+                          style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: '1.5px solid #E2E8F0', borderRadius: 10, padding: '8px 16px', fontSize: 12.5, fontWeight: 700, color: '#64748B', cursor: generateMutation.isPending ? 'wait' : 'pointer' }}
+                        >
+                          {generateMutation.isPending
+                            ? <><Loader2 size={13} style={{ animation: 'spin 0.8s linear infinite' }} /> Generating...</>
+                            : <><RotateCcw size={13} /> Retry with new questions</>}
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Retry guidance panel — only shown on failure */}
+                    {!result.passed && result.retry_guidance && (
+                      <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 14, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: '#92400E', margin: 0 }}>
+                          {result.retry_guidance.message}
+                        </p>
+
+                        {result.retry_guidance.missed_explanations.length > 0 && (
+                          <div>
+                            <p style={{ fontSize: 11, fontWeight: 700, color: '#B45309', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 8px' }}>
+                              What you missed
+                            </p>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              {result.retry_guidance.missed_explanations.map((exp, i) => (
+                                <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                                  <span style={{ color: '#DC2626', fontSize: 12, marginTop: 1, flexShrink: 0 }}>✗</span>
+                                  <p style={{ fontSize: 12.5, color: '#374151', margin: 0, lineHeight: 1.5 }}>{exp}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {result.retry_guidance.resources_to_revisit.length > 0 && (
+                          <div>
+                            <p style={{ fontSize: 11, fontWeight: 700, color: '#B45309', textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 8px' }}>
+                              Revisit before retrying
+                            </p>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                              {result.retry_guidance.resources_to_revisit.map(res => (
+                                <a key={res.id} href={res.url} target="_blank" rel="noopener noreferrer"
+                                  style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: '#1E3A5F', textDecoration: 'none' }}
+                                >
+                                  <BookOpen size={13} color="#B45309" style={{ flexShrink: 0 }} />
+                                  {res.title}
+                                  <ExternalLink size={10} color="#9CA3AF" />
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}

@@ -55,7 +55,6 @@ def build_personalization_config(
     s_score: int,
     burnout_score: float | None,
     confidence_index: float | None,
-    risk_tolerance: float | None,
     work_experience_years: int,
     financial_pressure: bool = False,
 ) -> PersonalizationConfig:
@@ -143,11 +142,12 @@ def get_personalization_from_user(user, db) -> PersonalizationConfig:
 
     burnout     = float(psych.burnout_score)    if psych and psych.burnout_score is not None    else None
     confidence  = float(psych.confidence_index) if psych and psych.confidence_index is not None else None
-    risk_tol    = float(psych.risk_tolerance)   if psych and psych.risk_tolerance is not None   else None
     work_exp    = profile.work_experience_years if profile and profile.work_experience_years is not None else 0
 
-    # Financial pressure heuristic: risk_tolerance < 25 treated as high financial pressure
-    fin_pressure = (risk_tol is not None and risk_tol < 25)
+    # Use financial_pressure_score (numeric) directly — risk_tolerance is a string ("low"/"medium"/"high")
+    # and cannot be cast to float.
+    fin_pressure_score = float(psych.financial_pressure_score) if psych and psych.financial_pressure_score is not None else 0
+    fin_pressure = fin_pressure_score >= 65
 
     return build_personalization_config(
         k_score=k_score,
@@ -155,7 +155,6 @@ def get_personalization_from_user(user, db) -> PersonalizationConfig:
         s_score=s_score,
         burnout_score=burnout,
         confidence_index=confidence,
-        risk_tolerance=risk_tol,
         work_experience_years=work_exp,
         financial_pressure=fin_pressure,
     )

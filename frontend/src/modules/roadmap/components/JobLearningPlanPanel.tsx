@@ -4,9 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   PlayCircle, ExternalLink, CheckCircle2, Circle,
   Zap, RefreshCw, Loader2, AlertCircle, ChevronDown,
-  ChevronUp, Target, Save, Check, Sparkles, X,
+  ChevronUp, Target, Save, Check, Sparkles, X, ThumbsUp, ThumbsDown,
 } from 'lucide-react'
-import { jobPlanApi, type GenerationDetail, type GenerationStep, type PlanModule, type PlanResource, type QuizProgress } from '@/api/jobPlan'
+import { attachSchedule, jobPlanApi, type GenerationDetail, type GenerationStep, type PlanModule, type PlanResource, type QuizProgress, type VideoRating } from '@/api/jobPlan'
 import type { RoadmapOut } from '@/api/roadmap'
 
 interface Props {
@@ -109,7 +109,7 @@ function GenerationProgress({
   cancelling: boolean
 }) {
   const stepIndex = GEN_STEPS.findIndex(s => s.key === step)
-  const resourcesPct = detail?.resources_total ? (detail.resources_done ?? 0) / detail.resources_total : 0.5
+  const resourcesPct = detail?.resources_total ? (detail.resources_done ?? 0) / detail.resources_total : 0
   const pct = Math.round(((stepIndex + resourcesPct) / GEN_STEPS.length) * 100)
   const narration = buildNarration(step, detail, jobTitle)
 
@@ -145,7 +145,7 @@ function GenerationProgress({
         </button>
 
         {/* Header */}
-        <div style={{ padding: '24px 32px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
+        <div style={{ padding: '24px 32px', borderBottom: '1px solid rgba(37,99,235,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{
               width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
@@ -246,7 +246,7 @@ function GenerationProgress({
           <div style={{ padding: '24px 32px' }}>
             <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 18 }}>What BeginablAI is doing now</p>
 
-            <div style={{ marginBottom: 18, paddingBottom: 16, borderBottom: '1px solid #F1F5F9' }}>
+            <div style={{ marginBottom: 18, paddingBottom: 16, borderBottom: '1px solid rgba(37,99,235,0.08)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                 <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#16A34A' }} />
                 <p style={{ fontSize: 13, fontWeight: 700, color: '#111827', margin: 0 }}>{narration.title}</p>
@@ -275,7 +275,7 @@ function GenerationProgress({
         </div>
 
         {/* Footer progress bar */}
-        <div style={{ padding: '16px 32px 20px', borderTop: '1px solid #F1F5F9' }}>
+        <div style={{ padding: '16px 32px 20px', borderTop: '1px solid rgba(37,99,235,0.08)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ flex: 1, height: 5, background: '#F1F5F9', borderRadius: 5, overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${pct}%`, background: '#6366F1', borderRadius: 5, transition: 'width 0.6s ease' }} />
@@ -292,12 +292,15 @@ function GenerationProgress({
 }
 
 function VideoOptionCard({
-  video, recommended, selected, onSelect,
+  video, recommended, selected, onSelect, rating, onRate, jobTitle,
 }: {
   video: { video_id: string; title: string; channel: string; duration_minutes: number; thumbnail_url: string; url: string }
   recommended: boolean
   selected: boolean
   onSelect: () => void
+  rating?: 'relevant' | 'not_relevant'
+  onRate?: (r: 'relevant' | 'not_relevant') => void
+  jobTitle?: string
 }) {
   return (
     <div style={{
@@ -334,17 +337,60 @@ function VideoOptionCard({
         </p>
         <p style={{ fontSize: 10.5, color: '#9CA3AF', margin: '4px 0 0' }}>{video.channel} · {video.duration_minutes}m</p>
       </div>
+
+      {/* Rating row — only shown on selected card */}
+      {selected && onRate && (
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '6px 10px', borderTop: '1px solid #F1F5F9',
+            background: '#FAFAFA',
+          }}
+        >
+          <span style={{ fontSize: 10, color: '#9CA3AF', flex: 1 }}>
+            {jobTitle ? `For ${jobTitle}?` : 'Relevant?'}
+          </span>
+          <button
+            onClick={() => onRate('relevant')}
+            title="Relevant for this job"
+            style={{
+              background: rating === 'relevant' ? '#DCFCE7' : 'none',
+              border: 'none', borderRadius: 5, padding: '3px 5px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 3,
+              transition: 'background 0.15s',
+            }}
+          >
+            <ThumbsUp size={11} color={rating === 'relevant' ? '#16A34A' : '#9CA3AF'} />
+          </button>
+          <button
+            onClick={() => onRate('not_relevant')}
+            title="Not relevant for this job"
+            style={{
+              background: rating === 'not_relevant' ? '#FEE2E2' : 'none',
+              border: 'none', borderRadius: 5, padding: '3px 5px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 3,
+              transition: 'background 0.15s',
+            }}
+          >
+            <ThumbsDown size={11} color={rating === 'not_relevant' ? '#DC2626' : '#9CA3AF'} />
+          </button>
+        </div>
+      )}
     </div>
   )
 }
 
 function ResourceCard({
-  resource, done, onToggle, loading,
+  resource, done, onToggle, loading, onRateVideo, videoRating, jobTitle,
 }: {
   resource: PlanResource
   done: boolean
   onToggle: () => void
   loading: boolean
+  onRateVideo?: (videoId: string, rating: 'relevant' | 'not_relevant') => void
+  videoRating?: VideoRating
+  jobTitle?: string
 }) {
   const [selectedVideoId, setSelectedVideoId] = useState(resource.recommended_video_id)
 
@@ -385,6 +431,9 @@ function ResourceCard({
               recommended={v.video_id === resource.recommended_video_id}
               selected={v.video_id === selectedVideoId}
               onSelect={() => setSelectedVideoId(v.video_id)}
+              rating={videoRating?.video_id === v.video_id ? videoRating.rating : undefined}
+              onRate={onRateVideo ? (r) => onRateVideo(v.video_id, r) : undefined}
+              jobTitle={jobTitle}
             />
           ))}
         </div>
@@ -457,24 +506,26 @@ function ResourceCard({
 }
 
 function ModuleCard({
-  mod, progress, onToggleResource, togglingId, forceOpen, highlighted, jobId, quizProgress, jobTitle, onAskAI,
+  mod, progress, onToggleResource, togglingId, forceOpen, highlighted, isCurrent, jobId, quizProgress, jobTitle, onAskAI, onRateVideo,
 }: {
   mod: PlanModule
-  progress: Record<string, { done: boolean }>
+  progress: Record<string, { done: boolean; video_rating?: VideoRating }>
   onToggleResource: (resourceId: string, done: boolean) => void
   togglingId: string | null
   forceOpen?: boolean
   highlighted?: boolean
+  isCurrent?: boolean
   jobId: string
   quizProgress?: QuizProgress
   jobTitle?: string
   onAskAI?: (prompt: string) => void
+  onRateVideo?: (resourceId: string, videoId: string, rating: 'relevant' | 'not_relevant') => void
 }) {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   useEffect(() => {
-    if (forceOpen) setOpen(true)
-  }, [forceOpen])
+    if (forceOpen || isCurrent) setOpen(true)
+  }, [forceOpen, isCurrent])
   const pct = moduleProgress(mod, progress)
   const donePct = Math.round(pct)
   const doneCount = mod.resources.filter(r => progress[r.id]?.done).length
@@ -485,7 +536,10 @@ function ModuleCard({
   return (
     <div
       id={`job-module-${skillKey(mod.skill)}`}
-      style={{ borderBottom: '1px solid #F1F5F9' }}
+      style={{
+        borderBottom: '1px solid rgba(37,99,235,0.08)',
+        background: isCurrent ? 'rgba(37,99,235,0.02)' : 'transparent',
+      }}
     >
       {/* Module header */}
       <button
@@ -501,14 +555,34 @@ function ModuleCard({
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: '#1F2937' }}>
-            Topic {mod.priority}: <strong style={{ fontWeight: 700, color: '#111827' }}>{mod.skill}</strong>
-          </span>
-          {highlighted && (
-            <span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 700, color: '#6366F1', background: '#EEF2FF', padding: '2px 8px', borderRadius: 20 }}>
-              Focus
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: '#1F2937' }}>
+              Topic {mod.priority}: <strong style={{ fontWeight: 700, color: '#111827' }}>{mod.skill}</strong>
             </span>
-          )}
+            {mod._scheduleStart != null && (
+              <span style={{
+                fontSize: 10, fontWeight: 700, color: '#1E3A5F',
+                background: '#EEF4FF', border: '1px solid #C7D9F8',
+                padding: '2px 7px', borderRadius: 20, whiteSpace: 'nowrap',
+              }}>
+                Day {mod._scheduleStart}–{mod._scheduleEnd}
+              </span>
+            )}
+            {isCurrent && (
+              <span style={{
+                fontSize: 10, fontWeight: 700, color: '#2563EB',
+                background: '#DBEAFE', border: '1px solid #BFDBFE',
+                padding: '2px 8px', borderRadius: 20, whiteSpace: 'nowrap',
+              }}>
+                ▶ Continue here
+              </span>
+            )}
+            {highlighted && (
+              <span style={{ fontSize: 10.5, fontWeight: 700, color: '#6366F1', background: '#EEF2FF', padding: '2px 8px', borderRadius: 20 }}>
+                Focus
+              </span>
+            )}
+          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
@@ -538,6 +612,9 @@ function ModuleCard({
                   done={!!progress[res.id]?.done}
                   loading={togglingId === res.id}
                   onToggle={() => onToggleResource(res.id, !progress[res.id]?.done)}
+                  videoRating={progress[res.id]?.video_rating}
+                  onRateVideo={onRateVideo ? (videoId, rating) => onRateVideo(res.id, videoId, rating) : undefined}
+                  jobTitle={jobTitle}
                 />
               </div>
             ))}
@@ -648,6 +725,14 @@ export default function JobLearningPlanPanel({ activeJobId, activeJobTitle, acti
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data?.status, data?.stale, activeJobId])
+
+  const rateVideoMutation = useMutation({
+    mutationFn: ({ resourceId, videoId, rating }: { resourceId: string; videoId: string; rating: 'relevant' | 'not_relevant' }) =>
+      jobPlanApi.rateVideo(activeJobId, resourceId, videoId, rating),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['job-learning-plan', activeJobId] })
+    },
+  })
 
   const progressMutation = useMutation({
     mutationFn: ({ resourceId, done }: { resourceId: string; done: boolean }) =>
@@ -790,10 +875,30 @@ export default function JobLearningPlanPanel({ activeJobId, activeJobTitle, acti
   // Ready
   const plan = data.plan!
   const progress = data.progress ?? {}
+  const scheduledModules = attachSchedule([...plan.modules].sort((a, b) => a.priority - b.priority))
+  const totalDays = scheduledModules.at(-1)?._scheduleEnd ?? 0
   const { done, total, pct } = totalProgress(plan.modules, progress)
 
   const skillKeyFilter = highlightSkill ? skillKey(highlightSkill) : null
-  const matchingModule = skillKeyFilter ? plan.modules.find(m => skillKey(m.skill) === skillKeyFilter) : null
+  const matchingModule = skillKeyFilter
+    ? scheduledModules.find(m => skillKey(m.skill) === skillKeyFilter)
+    : null
+
+  // First module that isn't 100% complete — shown only when the user has started the plan.
+  const anyDone = done > 0
+  const currentModule = anyDone && pct < 100
+    ? scheduledModules.find(m => moduleProgress(m, progress) < 100)
+    : null
+
+  // Auto-scroll to the current module on first render (not when a skill is already highlighted).
+  useEffect(() => {
+    if (!currentModule || highlightSkill) return
+    const el = document.getElementById(`job-module-${skillKey(currentModule.skill)}`)
+    if (el) {
+      const t = setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150)
+      return () => clearTimeout(t)
+    }
+  }, [currentModule?.id, highlightSkill])
 
   if (onlyMatching) {
     return (
@@ -809,6 +914,7 @@ export default function JobLearningPlanPanel({ activeJobId, activeJobTitle, acti
             jobTitle={activeJobTitle}
             quizProgress={progress[`quiz_${matchingModule.id}`] as any}
             onToggleResource={(resourceId, done) => progressMutation.mutate({ resourceId, done })}
+            onRateVideo={(resourceId, videoId, rating) => rateVideoMutation.mutate({ resourceId, videoId, rating })}
             onAskAI={onAskAI}
           />
         ) : (
@@ -847,12 +953,13 @@ export default function JobLearningPlanPanel({ activeJobId, activeJobTitle, acti
 
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '16px 0', borderBottom: '1px solid #F1F5F9', marginBottom: 4,
+        padding: '16px 0', borderBottom: '1px solid rgba(37,99,235,0.08)', marginBottom: 4,
       }}>
         <div>
           <p style={{ fontSize: 16, fontWeight: 700, color: '#111827', margin: '0 0 2px' }}>Path Curriculum</p>
           <p style={{ fontSize: 12.5, color: '#9CA3AF', margin: 0 }}>
             {plan.modules.length} Topics · {total} Resources · {done}/{total} done
+            {totalDays > 0 && <> · <strong style={{ color: '#1E3A5F' }}>{totalDays}-day plan</strong></>}
           </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -878,8 +985,7 @@ export default function JobLearningPlanPanel({ activeJobId, activeJobTitle, acti
 
       {/* Module list */}
       <div>
-        {plan.modules
-          .sort((a, b) => a.priority - b.priority)
+        {scheduledModules
           .map(mod => {
             const isHighlighted = !!highlightSkill && skillKey(mod.skill) === skillKey(highlightSkill)
             return (
@@ -890,12 +996,12 @@ export default function JobLearningPlanPanel({ activeJobId, activeJobTitle, acti
                 togglingId={togglingId}
                 forceOpen={isHighlighted}
                 highlighted={isHighlighted}
+                isCurrent={currentModule?.id === mod.id}
                 jobId={activeJobId}
                 jobTitle={activeJobTitle}
                 quizProgress={progress[`quiz_${mod.id}`] as any}
-                    onToggleResource={(resourceId, done) =>
-                  progressMutation.mutate({ resourceId, done })
-                }
+                onToggleResource={(resourceId, done) => progressMutation.mutate({ resourceId, done })}
+                onRateVideo={(resourceId, videoId, rating) => rateVideoMutation.mutate({ resourceId, videoId, rating })}
                 onAskAI={onAskAI}
               />
             )
