@@ -11,7 +11,7 @@ from app.modules.companies.schemas import (
     AssignDepartmentRequest,
     CompanyAssetUploadResponse, CompanyProfileResponse, CompanyProfileUpdateRequest,
     CompanySubscriptionResponse,
-    DepartmentCreateRequest, DepartmentOut, DepartmentUpdateRequest,
+    DepartmentCreateRequest, DepartmentOut, DepartmentOverviewOut, DepartmentUpdateRequest,
     EmployerProfileSelfResponse, EmployerProfileUpdateRequest,
     MessageResponse, OfficeCreateRequest, OfficeOut,
     SubscriptionPlanEntry, SubscriptionUpgradeRequest, SubscriptionUsageResponse,
@@ -227,6 +227,20 @@ def get_department(
         raise HTTPException(status_code=_status_for(e), detail=str(e))
 
 
+@router.get("/departments/{department_id}/overview", response_model=DepartmentOverviewOut)
+def get_department_overview(
+    department_id: str,
+    current_user: User = Depends(require_employer),
+    db: Session = Depends(get_db),
+):
+    """Aggregated overview stats for the DepartmentDetailPage: pipeline funnel,
+    interview count, pending offers, avg time-to-hire."""
+    try:
+        return service.get_department_overview(current_user, department_id, db)
+    except _company_errors as e:
+        raise HTTPException(status_code=_status_for(e), detail=str(e))
+
+
 @router.patch("/departments/{department_id}", response_model=DepartmentOut)
 def update_department(
     department_id: str,
@@ -236,6 +250,19 @@ def update_department(
 ):
     try:
         return service.update_department(current_user, department_id, body, db)
+    except _company_errors as e:
+        raise HTTPException(status_code=_status_for(e), detail=str(e))
+
+
+@router.get("/departments/{department_id}/jobs")
+def list_department_jobs(
+    department_id: str,
+    current_user: User = Depends(require_employer),
+    db: Session = Depends(get_db),
+):
+    """All jobs (any status) linked to a department, with applicant counts."""
+    try:
+        return service.list_department_jobs(current_user, department_id, db)
     except _company_errors as e:
         raise HTTPException(status_code=_status_for(e), detail=str(e))
 

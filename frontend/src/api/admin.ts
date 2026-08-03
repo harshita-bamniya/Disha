@@ -30,7 +30,7 @@ export interface EmployerEntry {
   designation: string | null
   city: string | null
   description: string | null
-  phone: string
+  phone: string | null
   phone_verified: boolean
   is_approved: boolean
   rejection_reason: string | null
@@ -346,6 +346,53 @@ export interface EmployerVerificationDetail extends EmployerVerificationEntry {
   events: VerificationEventEntry[]
 }
 
+export interface EmployerTeamMemberEntry {
+  user_id: string
+  employer_profile_id: string
+  full_name: string | null
+  email: string | null
+  phone: string
+  role_name: string
+  is_owner: boolean
+  is_active: boolean
+  joined_at: string
+}
+
+export interface EmployerJobEntry {
+  id: string
+  title: string
+  sector: string
+  location: string | null
+  is_active: boolean
+  applicant_count: number
+  created_at: string
+}
+
+export interface EmployerDetailResponse extends EmployerEntry {
+  subscription_plan: string | null
+  team_members: EmployerTeamMemberEntry[]
+  recent_jobs: EmployerJobEntry[]
+  kyc_status: string | null
+  kyc_submitted_at: string | null
+}
+
+export interface EmployerJobsResponse {
+  total: number
+  items: EmployerJobEntry[]
+}
+
+export interface AdminJobDetailResponse extends AdminJobEntry {
+  description: string
+  required_skills: string[]
+  min_k_score: number
+  job_type: string | null
+  growth_outlook: string | null
+  status: string
+  department_id: string | null
+  department_name: string | null
+  updated_at: string | null
+}
+
 export interface GlobalSearchResult {
   type: 'user' | 'employer' | 'job' | 'application'
   id: string
@@ -383,6 +430,146 @@ export interface BillingOverviewResponse {
   trend: RevenueTrendPoint[]
 }
 
+// ── Admin notification management ─────────────────────────────────────────────
+
+export interface AdminNotificationEntry {
+  id: string
+  user_id: string
+  user_email: string | null
+  user_phone: string | null
+  type: string
+  title: string
+  body: string | null
+  link_url: string | null
+  is_read: boolean
+  delivery_status: string | null
+  email_sent_at: string | null
+  email_failed_reason: string | null
+  created_at: string
+}
+
+export interface NotificationListResponse {
+  total: number
+  items: AdminNotificationEntry[]
+}
+
+export interface NotificationStatEntry {
+  label: string
+  count: number
+}
+
+export interface NotificationStatsResponse {
+  total_today: number
+  sent_today: number
+  failed_today: number
+  unread_total: number
+  by_type: NotificationStatEntry[]
+  by_delivery_status: NotificationStatEntry[]
+}
+
+// ── Integrations ──────────────────────────────────────────────────────────────
+
+// ── System monitoring ─────────────────────────────────────────────────────────
+
+export interface DbPoolStats {
+  size: number
+  checked_in: number
+  checked_out: number
+  overflow: number
+  max_size: number
+}
+
+export interface QueueDepth { queue: string; pending: number | null }
+
+export interface RedisInfo {
+  used_memory_mb?: number
+  connected_clients?: number
+  uptime_days?: number
+  version?: string
+  error?: string
+}
+
+export interface ProcessInfo {
+  uptime_seconds: number
+  memory_mb: number | null
+  git_sha: string
+  environment: string
+  python_debug: boolean
+}
+
+export interface SystemStatusResponse {
+  checked_at: string
+  db_pool: DbPoolStats
+  celery: { broker: string; queues: QueueDepth[]; beat_tasks: string[] }
+  redis: RedisInfo
+  process: ProcessInfo
+  sentry: { configured: boolean; dsn_hint: string | null }
+}
+
+export type IntegrationStatus = 'connected' | 'not_configured' | 'error'
+
+export interface IntegrationEntry {
+  id: string
+  name: string
+  category: string
+  status: IntegrationStatus
+  detail: string
+  latency_ms: number | null
+}
+
+export interface IntegrationsResponse {
+  checked_at: string
+  integrations: IntegrationEntry[]
+}
+
+export interface PromptTemplateEntry {
+  id: string
+  name: string
+  use_case: string
+  prompt_type: 'system' | 'user' | 'assistant'
+  version: number
+  is_active: boolean
+  model_hint: string | null
+  notes: string | null
+  content_preview: string
+  created_at: string
+}
+
+export interface PromptTemplateDetail extends Omit<PromptTemplateEntry, 'content_preview'> {
+  content: string
+}
+
+export interface CreatePromptPayload {
+  name: string
+  use_case: string
+  prompt_type: 'system' | 'user' | 'assistant'
+  content: string
+  model_hint?: string | null
+  notes?: string | null
+}
+
+// ── Analytics ─────────────────────────────────────────────────────────────────
+
+export interface TimeSeriesPoint { date: string; count: number }
+export interface FunnelStage { status: string; count: number }
+export interface ScoreBin { range: string; count: number }
+export interface CohortRow { month: string; signups: number; applied: number; hired: number }
+
+export interface AnalyticsResponse {
+  period: { from_date: string; to_date: string; days: number }
+  user_growth: TimeSeriesPoint[]
+  job_volume: TimeSeriesPoint[]
+  application_funnel: FunnelStage[]
+  match_score_distribution: ScoreBin[]
+  cohort_table: CohortRow[]
+}
+
+export interface BackfillResult {
+  jobs_queued: number
+  profiles_queued: number
+  message: string
+}
+
 export interface PlatformSettingEntry {
   id: string
   key: string
@@ -401,6 +588,36 @@ export interface FeatureFlagEntry {
   updated_at: string
 }
 
+export type AnnouncementType    = 'info' | 'warning' | 'success' | 'alert'
+export type AnnouncementTarget  = 'all' | 'aspirants' | 'employers'
+export type AnnouncementChannel = 'in_app' | 'email' | 'both'
+export type AnnouncementStatus  = 'draft' | 'scheduled' | 'published'
+
+export interface AnnouncementEntry {
+  id:               string
+  title:            string
+  body:             string
+  type:             AnnouncementType
+  target:           AnnouncementTarget
+  channel:          AnnouncementChannel
+  status:           AnnouncementStatus
+  scheduled_at:     string | null
+  published_at:     string | null
+  sent_count:       number
+  created_by_name:  string | null
+  created_at:       string
+  updated_at:       string | null
+}
+
+export interface AnnouncementCreatePayload {
+  title:        string
+  body:         string
+  type:         AnnouncementType
+  target:       AnnouncementTarget
+  channel:      AnnouncementChannel
+  scheduled_at?: string | null
+}
+
 export const adminApi = {
   getStats: () =>
     apiClient.get<AdminStats>('/admin/stats').then(r => r.data),
@@ -411,6 +628,9 @@ export const adminApi = {
   // ── Employers ────────────────────────────────────────────────────────────────
   listEmployers: (status: EmployerStatus = 'pending') =>
     apiClient.get<EmployerEntry[]>('/admin/employers', { params: { status } }).then(r => r.data),
+
+  getEmployerDetail: (profileId: string) =>
+    apiClient.get<EmployerDetailResponse>(`/admin/employers/${profileId}`).then(r => r.data),
 
   revokeEmployer: (profileId: string) =>
     apiClient.post<{ message: string }>(`/admin/employers/${profileId}/revoke`).then(r => r.data),
@@ -445,11 +665,23 @@ export const adminApi = {
   listJobs: (params?: { search?: string; active_only?: boolean }) =>
     apiClient.get<AdminJobEntry[]>('/admin/jobs', { params }).then(r => r.data),
 
+  getJobDetail: (jobId: string) =>
+    apiClient.get<AdminJobDetailResponse>(`/admin/jobs/${jobId}`).then(r => r.data),
+
   toggleJob: (jobId: string) =>
     apiClient.patch<AdminJobEntry>(`/admin/jobs/${jobId}/toggle`).then(r => r.data),
 
   deleteJob: (jobId: string) =>
     apiClient.delete<{ message: string }>(`/admin/jobs/${jobId}`).then(r => r.data),
+
+  listJobApplications: (jobId: string, params?: { status?: string; limit?: number; offset?: number }) =>
+    apiClient.get<AdminApplicationEntry[]>(`/admin/jobs/${jobId}/applications`, { params }).then(r => r.data),
+
+  listEmployerJobs: (employerId: string, params?: { search?: string; active_only?: boolean; limit?: number; offset?: number }) =>
+    apiClient.get<EmployerJobsResponse>(`/admin/employers/${employerId}/jobs`, { params }).then(r => r.data),
+
+  listCandidateApplications: (userId: string, params?: { status?: string; limit?: number; offset?: number }) =>
+    apiClient.get<AdminApplicationEntry[]>(`/admin/users/${userId}/applications`, { params }).then(r => r.data),
 
   // ── Applications ──────────────────────────────────────────────────────────────
   listApplications: (params?: { status?: string; search?: string; limit?: number; offset?: number }) =>
@@ -468,6 +700,12 @@ export const adminApi = {
 
   updateRolePermissions: (roleId: string, permissionIds: string[]) =>
     apiClient.patch<RoleEntry>(`/admin/roles/${roleId}/permissions`, { permission_ids: permissionIds }).then(r => r.data),
+
+  createRole: (payload: { name: string; description?: string; permission_ids: string[]; clone_from_id?: string }) =>
+    apiClient.post<RoleEntry>('/admin/roles', payload).then(r => r.data),
+
+  deleteRole: (roleId: string) =>
+    apiClient.delete<{ message: string }>(`/admin/roles/${roleId}`).then(r => r.data),
 
   // ── Sub-admin management ─────────────────────────────────────────────────────
   listSubAdmins: () =>
@@ -532,6 +770,37 @@ export const adminApi = {
   updateSubscriptionPlan: (planId: string, payload: Partial<Omit<SubscriptionPlanAdminEntry, 'id' | 'name'>>) =>
     apiClient.patch<SubscriptionPlanAdminEntry>(`/admin/subscription-plans/${planId}`, payload).then(r => r.data),
 
+  // ── System monitoring ─────────────────────────────────────────────────────────
+  getSystemStatus: () =>
+    apiClient.get<SystemStatusResponse>('/admin/platform/system').then(r => r.data),
+
+  // ── Integrations ──────────────────────────────────────────────────────────────
+  getIntegrations: () =>
+    apiClient.get<IntegrationsResponse>('/admin/platform/integrations').then(r => r.data),
+
+  // ── Analytics ─────────────────────────────────────────────────────────────────
+  getAnalytics: (params: { days?: number; from_date?: string; to_date?: string }) =>
+    apiClient.get<AnalyticsResponse>('/admin/analytics', { params }).then(r => r.data),
+
+  // ── AI prompt management ──────────────────────────────────────────────────────
+  listPrompts: () =>
+    apiClient.get<PromptTemplateEntry[]>('/admin/platform/prompts').then(r => r.data),
+
+  getPrompt: (id: string) =>
+    apiClient.get<PromptTemplateDetail>(`/admin/platform/prompts/${id}`).then(r => r.data),
+
+  createPrompt: (payload: CreatePromptPayload) =>
+    apiClient.post<{ id: string; use_case: string; version: number }>('/admin/platform/prompts', payload).then(r => r.data),
+
+  activatePromptVersion: (id: string) =>
+    apiClient.patch<{ id: string; use_case: string; version: number; is_active: boolean }>(`/admin/platform/prompts/${id}/activate`).then(r => r.data),
+
+  seedPrompts: () =>
+    apiClient.post<{ inserted: number; message: string }>('/admin/platform/prompts/seed').then(r => r.data),
+
+  backfillEmbeddings: () =>
+    apiClient.post<BackfillResult>('/admin/platform/embeddings/backfill').then(r => r.data),
+
   // ── Platform settings & feature flags ────────────────────────────────────────
   listPlatformSettings: () =>
     apiClient.get<PlatformSettingEntry[]>('/admin/platform/settings').then(r => r.data),
@@ -544,4 +813,132 @@ export const adminApi = {
 
   updateFeatureFlag: (flagName: string, payload: { is_enabled: boolean; rollout_pct: number; target_roles?: string[] | null; description?: string }) =>
     apiClient.put<{ flag_name: string; is_enabled: boolean; rollout_pct: number }>(`/admin/platform/flags/${flagName}`, payload).then(r => r.data),
+
+  // ── Notification management ───────────────────────────────────────────────
+  getNotifications: (params?: { user_id?: string; type?: string; delivery_status?: string; is_read?: boolean; skip?: number; limit?: number }) =>
+    apiClient.get<NotificationListResponse>('/admin/notifications', { params }).then(r => r.data),
+
+  getNotificationsStats: () =>
+    apiClient.get<NotificationStatsResponse>('/admin/notifications/stats').then(r => r.data),
+
+  deleteNotification: (id: string) =>
+    apiClient.delete<{ message: string }>(`/admin/notifications/${id}`).then(r => r.data),
+
+  getUserNotifications: (userId: string, params?: { skip?: number; limit?: number }) =>
+    apiClient.get<NotificationListResponse>(`/admin/users/${userId}/notifications`, { params }).then(r => r.data),
+
+  // ── Announcements ─────────────────────────────────────────────────────────
+  listAnnouncements: (status?: AnnouncementStatus) =>
+    apiClient.get<AnnouncementEntry[]>('/admin/announcements', { params: status ? { status } : {} }).then(r => r.data),
+
+  createAnnouncement: (payload: AnnouncementCreatePayload) =>
+    apiClient.post<AnnouncementEntry>('/admin/announcements', payload).then(r => r.data),
+
+  updateAnnouncement: (id: string, payload: Partial<AnnouncementCreatePayload>) =>
+    apiClient.patch<AnnouncementEntry>(`/admin/announcements/${id}`, payload).then(r => r.data),
+
+  publishAnnouncement: (id: string) =>
+    apiClient.post<AnnouncementEntry>(`/admin/announcements/${id}/publish`).then(r => r.data),
+
+  deleteAnnouncement: (id: string) =>
+    apiClient.delete<{ message: string }>(`/admin/announcements/${id}`).then(r => r.data),
+
+  // ── Support tickets ────────────────────────────────────────────────────────
+  listTickets: (params?: {
+    status?: string; priority?: string; entity_type?: string;
+    search?: string; skip?: number; limit?: number
+  }) =>
+    apiClient.get<TicketListResponse>('/admin/support/tickets', { params }).then(r => r.data),
+
+  getTicket: (id: string) =>
+    apiClient.get<TicketDetail>(`/admin/support/tickets/${id}`).then(r => r.data),
+
+  createTicket: (payload: CreateTicketPayload) =>
+    apiClient.post<TicketEntry>('/admin/support/tickets', payload).then(r => r.data),
+
+  updateTicket: (id: string, payload: UpdateTicketPayload) =>
+    apiClient.patch<TicketEntry>(`/admin/support/tickets/${id}`, payload).then(r => r.data),
+
+  addTicketMessage: (ticketId: string, payload: AddMessagePayload) =>
+    apiClient.post<TicketMessage>(`/admin/support/tickets/${ticketId}/messages`, payload).then(r => r.data),
+
+  getEmployerSupport: (profileId: string) =>
+    apiClient.get<TicketListResponse>(`/admin/employers/${profileId}/support`).then(r => r.data),
+
+  getCandidateSupport: (userId: string) =>
+    apiClient.get<TicketListResponse>(`/admin/candidates/${userId}/support`).then(r => r.data),
 }
+
+// ── Support ticket types ──────────────────────────────────────────────────────
+
+export interface TicketEntry {
+  id: string
+  subject: string
+  status: 'open' | 'pending' | 'resolved' | 'closed'
+  priority: 'low' | 'normal' | 'high' | 'urgent'
+  category: string
+  entity_type: 'employer' | 'candidate' | 'general'
+  entity_id: string | null
+  reporter_id: string | null
+  reporter_name: string | null
+  reporter_phone: string | null
+  assigned_to: string | null
+  assignee_name: string | null
+  sla_deadline: string | null
+  message_count: number
+  created_at: string
+  updated_at: string
+  resolved_at: string | null
+  closed_at: string | null
+}
+
+export interface TicketMessage {
+  id: string
+  sender_id: string | null
+  sender_name: string | null
+  body: string
+  is_internal: boolean
+  created_at: string
+}
+
+export interface TicketAttachment {
+  id: string
+  filename: string
+  content_type: string | null
+  size_bytes: number | null
+  file_key: string
+  uploaded_by: string | null
+  created_at: string
+}
+
+export interface TicketDetail extends TicketEntry {
+  body: string | null
+  messages: TicketMessage[]
+  attachments: TicketAttachment[]
+}
+
+export interface TicketListResponse {
+  total: number
+  items: TicketEntry[]
+}
+
+export interface CreateTicketPayload {
+  subject: string
+  body?: string
+  priority?: string
+  entity_type?: string
+  entity_id?: string
+  reporter_id?: string
+}
+
+export interface UpdateTicketPayload {
+  status?: string
+  priority?: string
+  assigned_to?: string | null
+}
+
+export interface AddMessagePayload {
+  body: string
+  is_internal?: boolean
+}
+

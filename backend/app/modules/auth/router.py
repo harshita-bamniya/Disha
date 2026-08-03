@@ -41,6 +41,7 @@ async def register(body: RegisterRequest, request: Request, db: Session = Depend
         raise HTTPException(status_code=400, detail=str(e))
     dev_otp = await service.register_user(
         phone=body.phone,
+        email=body.email,
         password=body.password,
         preferred_language=body.preferred_language,
         db=db,
@@ -75,7 +76,7 @@ async def login(body: LoginRequest, request: Request, db: Session = Depends(get_
         await verify_recaptcha(body.recaptcha_token, "login")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    return service.login_user(phone=body.phone, password=body.password, db=db, request=request)
+    return service.login_user(identifier=body.identifier, password=body.password, db=db, request=request)
 
 
 @router.post("/refresh", response_model=TokenResponse)

@@ -16,7 +16,9 @@ from app.models.user import AspirantProfile, CareerTrack
 def _krs_fit(k_score: int, min_k: int) -> int:
     """How well the aspirant's K score meets the track's minimum threshold (0-100)."""
     if min_k == 0:
-        return 100
+        # No threshold set — use K score directly so UPSC depth still differentiates.
+        # Mains-cleared (K=74) ranks above someone who just started (K=20).
+        return k_score
     if k_score >= min_k:
         bonus = min((k_score - min_k) / (100 - min_k) * 20, 20)
         return min(100, round(80 + bonus))

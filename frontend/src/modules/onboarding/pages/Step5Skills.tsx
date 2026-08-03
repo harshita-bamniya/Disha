@@ -4,28 +4,8 @@ import { Plus } from 'lucide-react'
 import OnboardingLayout from '@/layouts/OnboardingLayout'
 import Button from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
-import { useOnboardingSteps } from '../hooks/useOnboarding'
+import { useOnboardingSteps, useOnboardingOptions } from '../hooks/useOnboarding'
 import { getApiError } from '@/api/client'
-
-const PREDEFINED_SKILLS = [
-  // Core analytical / research
-  'Analytical Reasoning', 'Research & Analysis', 'Data Interpretation',
-  'Data Analysis', 'Policy Research',
-  // Communication & delivery
-  'Report Writing', 'Essay Writing', 'Public Speaking',
-  // Leadership & operations
-  'Leadership', 'Management', 'Project Management', 'Strategic Planning',
-  // Domain knowledge
-  'Economics', 'Public Administration', 'Polity & Governance',
-  'Ethics & Integrity', 'International Relations', 'Law & Legal Knowledge',
-  'Stakeholder Engagement',
-  // Proficiency
-  'Communication', 'English Proficiency', 'Hindi Proficiency', 'Computer Skills',
-  // UPSC subject knowledge
-  'Science & Technology', 'Current Affairs', 'History', 'Geography', 'Environment',
-  // Sector-specific
-  'Teaching & Training', 'Budget & Finance',
-]
 
 const MAX_SKILLS = 10
 
@@ -35,7 +15,11 @@ export default function Step5Skills() {
   const [error, setError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const { skills } = useOnboardingSteps()
+  const { data: options } = useOnboardingOptions()
   const navigate = useNavigate()
+
+  const predefinedSkills = options?.skills ?? []
+  const isPredefined = (skill: string) => predefinedSkills.includes(skill)
 
   const toggle = (skill: string) => {
     setError('')
@@ -57,7 +41,6 @@ export default function Step5Skills() {
   const addCustomSkill = () => {
     const skill = customInput.trim()
     if (!skill) return
-    // Avoid duplicates (case-insensitive check)
     const existingLower = new Set([...selected].map(s => s.toLowerCase()))
     if (existingLower.has(skill.toLowerCase())) {
       setCustomInput('')
@@ -72,8 +55,6 @@ export default function Step5Skills() {
     setError('')
     inputRef.current?.focus()
   }
-
-  const isPredefined = (skill: string) => PREDEFINED_SKILLS.includes(skill)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -93,7 +74,7 @@ export default function Step5Skills() {
 
         {/* Predefined skill chips */}
         <div className="flex flex-wrap gap-2">
-          {PREDEFINED_SKILLS.map((skill) => {
+          {predefinedSkills.map((skill) => {
             const isSelected = selected.has(skill)
             const isDisabled = !isSelected && selected.size >= MAX_SKILLS
             return (
@@ -148,7 +129,7 @@ export default function Step5Skills() {
           </div>
         </div>
 
-        {/* Selected skills — show custom ones with a distinct style */}
+        {/* Custom skills added by user */}
         {[...selected].some(s => !isPredefined(s)) && (
           <div className="flex flex-col gap-1.5">
             <p className="text-xs text-gray-400">Your custom skills:</p>

@@ -7,7 +7,6 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   error?: string
   hint?: string
   prefix?: React.ReactNode
-  /** Shows a red asterisk after the label — purely visual, doesn't affect validation. */
   required?: boolean
 }
 
@@ -16,18 +15,30 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     const inputId = id ?? (typeof label === 'string' ? label.toLowerCase().replace(/\s+/g, '-') : undefined)
     const isPassword = type === 'password'
     const [showPassword, setShowPassword] = useState(false)
+    const [focused, setFocused] = useState(false)
 
     return (
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-1">
         {label && (
-          <label htmlFor={inputId} className="text-sm font-semibold text-gray-700">
-            {label}{required && <span className="text-danger ml-0.5">*</span>}
+          <label
+            htmlFor={inputId}
+            style={{
+              fontSize: 11, fontWeight: 700, letterSpacing: '0.05em',
+              textTransform: 'uppercase',
+              color: focused ? '#1A2744' : '#94A3B8',
+              transition: 'color 0.15s',
+            }}
+          >
+            {label}{required && <span style={{ color: '#DC2626', marginLeft: 2 }}>*</span>}
           </label>
         )}
 
         <div className="relative flex items-center">
           {prefix && (
-            <div className="absolute left-3.5 text-gray-400 flex items-center pointer-events-none">
+            <div
+              className="absolute left-0 flex items-center pointer-events-none"
+              style={{ color: focused ? '#1A2744' : '#94A3B8', transition: 'color 0.15s' }}
+            >
               {prefix}
             </div>
           )}
@@ -35,16 +46,22 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             type={isPassword ? (showPassword ? 'text' : 'password') : type}
+            onFocus={(e) => { setFocused(true); props.onFocus?.(e) }}
+            onBlur={(e) => { setFocused(false); props.onBlur?.(e) }}
+            style={{
+              borderBottom: error
+                ? '1.5px solid #DC2626'
+                : focused
+                  ? '1.5px solid #1A2744'
+                  : '1.5px solid #E2E8F0',
+              transition: 'border-color 0.15s',
+            }}
             className={cn(
-              'w-full h-12 rounded-xl border-[1.5px] bg-white/80 px-4 text-sm text-gray-900',
-              'placeholder:text-gray-400 outline-none transition-all duration-200',
-              'border-gray-200 focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/8',
-              'focus:shadow-[0_0_0_4px_rgba(59,130,246,0.08)]',
-              'hover:border-gray-300',
-              'disabled:bg-gray-50 disabled:text-gray-400 disabled:cursor-not-allowed',
-              error && 'border-[#DC2626] focus:border-[#DC2626] focus:ring-[#DC2626]/10 focus:shadow-[0_0_0_4px_rgba(220,38,38,0.08)]',
-              prefix && 'pl-11',
-              isPassword && 'pr-11',
+              'w-full h-11 bg-transparent outline-none text-sm',
+              'text-[#1E3A5F] placeholder:text-[#CBD5E1]',
+              'border-0 border-b rounded-none px-0',
+              prefix && 'pl-7',
+              isPassword && 'pr-8',
               className,
             )}
             {...props}
@@ -55,15 +72,22 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
               onClick={() => setShowPassword(s => !s)}
               tabIndex={-1}
               aria-label={showPassword ? 'Hide password' : 'Show password'}
-              className="absolute right-3.5 text-gray-400 hover:text-gray-600 flex items-center"
+              className="absolute right-0 flex items-center transition-colors"
+              style={{ color: focused ? '#1A2744' : '#94A3B8' }}
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           )}
         </div>
 
-        {error && <p className="text-xs text-[#DC2626] mt-0.5 flex items-center gap-1">⚠ {error}</p>}
-        {hint && !error && <p className="text-xs text-gray-400 mt-0.5">{hint}</p>}
+        {error && (
+          <p style={{ fontSize: 11, color: '#DC2626', marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+            ⚠ {error}
+          </p>
+        )}
+        {hint && !error && (
+          <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 2 }}>{hint}</p>
+        )}
       </div>
     )
   }

@@ -3,6 +3,16 @@ import { useNavigate } from 'react-router-dom'
 import { onboardingApi } from '@/api/onboarding'
 
 export const ONBOARDING_STATUS_KEY = ['onboarding', 'status']
+export const ONBOARDING_OPTIONS_KEY = ['onboarding', 'options']
+
+export function useOnboardingOptions() {
+  return useQuery({
+    queryKey: ONBOARDING_OPTIONS_KEY,
+    queryFn: onboardingApi.getOptions,
+    staleTime: Infinity,   // static data — never needs refetching
+    gcTime: Infinity,
+  })
+}
 
 export function useOnboardingStatus() {
   return useQuery({

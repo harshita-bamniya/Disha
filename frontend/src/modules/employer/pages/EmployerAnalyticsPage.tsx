@@ -1,115 +1,85 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
-import { ArrowLeft, TrendingUp, Briefcase, Users, Clock, Target } from 'lucide-react'
 import { analyticsApi } from '@/api/analytics'
+import { DS, C, fmtNum } from '../ds'
 
 const STAGE_LABELS: Record<string, string> = {
   applied: 'Applied', screening: 'Screening', shortlisted: 'Shortlisted',
-  interview_scheduled: 'Interview Sched.', interview_completed: 'Interviewed',
-  offer_sent: 'Offer Sent', hired: 'Hired',
+  interview_scheduled: 'Interview', interview_completed: 'Interviewed',
+  offer_sent: 'Offer', hired: 'Hired',
 }
 
-const STAGE_COLORS = [
-  '#3B82F6', '#0EA5E9', '#6366F1', '#8B5CF6', '#7C3AED', '#059669', '#10B981',
-]
+const STAGE_COLORS = ['#4338CA', '#0891B2', '#7C3AED', '#16A34A', '#D97706', '#2563EB', '#DC2626']
 
-// ── Mini card ─────────────────────────────────────────────────────────────────
-function MetricCard({ icon: Icon, label, value, color, sub }: {
-  icon: React.ElementType; label: string; value: string | number; color: string; sub?: string
-}) {
+// ── KPI tile ──────────────────────────────────────────────────────────────────
+function KpiTile({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
-    <div style={{
-      background: '#fff', borderRadius: 16, border: '1px solid #E5E7EB',
-      padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 12,
-    }}>
-      <div style={{ width: 38, height: 38, borderRadius: 11, background: `${color}12`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <Icon size={16} color={color} />
-      </div>
-      <div>
-        <p style={{ fontSize: 20, fontWeight: 900, color: '#1E3A5F', margin: 0, lineHeight: 1.1 }}>{value}</p>
-        <p style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, margin: '2px 0 0' }}>{label}</p>
-        {sub && <p style={{ fontSize: 10, color: '#CBD5E1', margin: '1px 0 0' }}>{sub}</p>}
-      </div>
+    <div style={{ padding: '16px 20px', borderRight: `1px solid ${C.border}` }}>
+      <p style={{ fontSize: 22, fontWeight: 700, color: C.ink1, margin: 0, letterSpacing: '-0.5px', fontVariantNumeric: 'tabular-nums' }}>{value}</p>
+      <p style={{ fontSize: 11, color: C.ink2, margin: '4px 0 0', fontWeight: 500 }}>{label}</p>
+      {sub && <p style={{ fontSize: 11, color: C.ink3, margin: '2px 0 0' }}>{sub}</p>}
     </div>
   )
 }
 
-// ── Funnel ────────────────────────────────────────────────────────────────────
+// ── Funnel bar chart ──────────────────────────────────────────────────────────
 function FunnelChart({ stages, total }: { stages: { stage: string; count: number; pct_of_total: number }[]; total: number }) {
-  const maxCount = Math.max(...stages.map(s => s.count), 1)
+  const max = Math.max(...stages.map(s => s.count), 1)
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {stages.map((s, i) => {
-        const barWidth = (s.count / maxCount) * 100
-        const color = STAGE_COLORS[i % STAGE_COLORS.length]
-        return (
-          <div key={s.stage}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, alignItems: 'center' }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, display: 'inline-block' }} />
-                {STAGE_LABELS[s.stage] ?? s.stage}
-              </span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#0F172A' }}>
-                {s.count} <span style={{ color: '#94A3B8', fontWeight: 400, fontSize: 11 }}>({s.pct_of_total}%)</span>
-              </span>
-            </div>
-            <div style={{ height: 10, background: '#F1F5F9', borderRadius: 20, overflow: 'hidden' }}>
-              <div style={{ width: `${barWidth}%`, height: '100%', background: color, borderRadius: 20, transition: 'width 0.6s ease' }} />
-            </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {stages.map((s, i) => (
+        <div key={s.stage}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 5 }}>
+            <span style={{ fontSize: 12, color: C.ink1, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 7 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: STAGE_COLORS[i % STAGE_COLORS.length], display: 'inline-block', flexShrink: 0 }} />
+              {STAGE_LABELS[s.stage] ?? s.stage}
+            </span>
+            <span style={{ fontSize: 12, color: C.ink2, fontVariantNumeric: 'tabular-nums' }}>
+              {s.count} <span style={{ color: C.ink3 }}>({s.pct_of_total}%)</span>
+            </span>
           </div>
-        )
-      })}
+          <div style={{ height: 6, background: C.borderLight, borderRadius: 99, overflow: 'hidden' }}>
+            <div style={{ width: `${(s.count / max) * 100}%`, height: '100%', background: STAGE_COLORS[i % STAGE_COLORS.length], borderRadius: 99, transition: 'width 0.5s' }} />
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
 
-// ── Donut chart (SVG) ─────────────────────────────────────────────────────────
+// ── Donut ─────────────────────────────────────────────────────────────────────
 function DonutChart({ stages }: { stages: { stage: string; count: number; pct_of_total: number }[] }) {
   const total = stages.reduce((a, s) => a + s.count, 0)
-  if (total === 0) return <p style={{ textAlign: 'center', color: '#94A3B8', fontSize: 12 }}>No data yet</p>
-
-  const R = 60
-  const CX = 90
-  const CY = 90
-  const circumference = 2 * Math.PI * R
-  let cumulativePct = 0
-
-  // Only show top 5 stages by count
+  if (total === 0) return <p style={{ textAlign: 'center', color: C.ink3, fontSize: 12, padding: '24px 0' }}>No data yet</p>
+  const R = 54, CX = 80, CY = 80, circ = 2 * Math.PI * R
+  let cum = 0
   const top = [...stages].sort((a, b) => b.count - a.count).slice(0, 5)
-
   const arcs = top.map((s, i) => {
     const pct = s.count / total
-    const offset = circumference * (1 - pct)
-    const rotation = cumulativePct * 360 - 90
-    cumulativePct += pct
-    return { ...s, pct, offset, rotation, color: STAGE_COLORS[i % STAGE_COLORS.length] }
+    const rot = cum * 360 - 90
+    cum += pct
+    return { ...s, pct, rot, color: STAGE_COLORS[i % STAGE_COLORS.length] }
   })
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-      <svg width={180} height={180} viewBox="0 0 180 180" style={{ flexShrink: 0 }}>
-        {arcs.map(a => (
-          <circle
-            key={a.stage}
-            cx={CX} cy={CY} r={R}
-            fill="none"
-            stroke={a.color}
-            strokeWidth={28}
-            strokeDasharray={`${circumference * a.pct} ${circumference * (1 - a.pct)}`}
-            strokeDashoffset={-(circumference * (cumulativePct - a.pct))}
-            transform={`rotate(${a.rotation} ${CX} ${CY})`}
+      <svg width={160} height={160} viewBox="0 0 160 160" style={{ flexShrink: 0 }}>
+        {arcs.map((a, i) => (
+          <circle key={a.stage} cx={CX} cy={CY} r={R}
+            fill="none" stroke={a.color} strokeWidth={24}
+            strokeDasharray={`${circ * a.pct} ${circ * (1 - a.pct)}`}
+            strokeDashoffset={-(circ * (arcs.slice(0, i).reduce((s, x) => s + x.pct, 0)))}
+            transform={`rotate(-90 ${CX} ${CY})`}
           />
         ))}
-        <circle cx={CX} cy={CY} r={R - 14} fill="#fff" />
-        <text x={CX} y={CY - 6} textAnchor="middle" style={{ fontSize: 18, fontWeight: 900, fill: '#1E3A5F', fontFamily: 'Hind, sans-serif' }}>{total}</text>
-        <text x={CX} y={CY + 12} textAnchor="middle" style={{ fontSize: 9, fill: '#94A3B8', fontWeight: 600, letterSpacing: 0.5 }}>TOTAL</text>
+        <circle cx={CX} cy={CY} r={R - 12} fill="#fff" />
+        <text x={CX} y={CY + 5} textAnchor="middle" style={{ fontSize: 18, fontWeight: 700, fill: C.ink1, fontVariantNumeric: 'tabular-nums' }}>{total}</text>
       </svg>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 7, flex: 1 }}>
         {arcs.map(a => (
-          <div key={a.stage} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <span style={{ width: 10, height: 10, borderRadius: 3, background: a.color, flexShrink: 0 }} />
-            <span style={{ fontSize: 11, color: '#374151', fontWeight: 600, flex: 1 }}>{STAGE_LABELS[a.stage] ?? a.stage}</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: '#0F172A' }}>{Math.round(a.pct * 100)}%</span>
+          <div key={a.stage} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: a.color, flexShrink: 0 }} />
+            <span style={{ fontSize: 12, color: C.ink2, flex: 1 }}>{STAGE_LABELS[a.stage] ?? a.stage}</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: C.ink1, fontVariantNumeric: 'tabular-nums' }}>{Math.round(a.pct * 100)}%</span>
           </div>
         ))}
       </div>
@@ -117,231 +87,129 @@ function DonutChart({ stages }: { stages: { stage: string; count: number; pct_of
   )
 }
 
-// ── Bar chart (SVG) for avg time to hire ─────────────────────────────────────
-function TTHBarChart({ jobs }: { jobs: { title: string; hired: number; total_applications: number; conversion_rate_pct: number }[] }) {
-  const top = [...jobs].filter(j => j.hired > 0).slice(0, 6)
-  if (top.length === 0) return <p style={{ fontSize: 12, color: '#94A3B8', textAlign: 'center', padding: 16 }}>No hiring data yet</p>
-
-  const maxConv = Math.max(...top.map(j => j.conversion_rate_pct), 1)
-  const barH = 24
-  const gap = 10
-  const labelW = 130
-  const chartW = 200
-  const svgH = top.length * (barH + gap)
-
+// ── Job performance table ─────────────────────────────────────────────────────
+function JobPerfTable({ jobs }: { jobs: { title: string; hired: number; total_applications: number; conversion_rate_pct: number }[] }) {
+  if (!jobs.length) return <p style={{ padding: '16px 20px', fontSize: 13, color: C.ink3, margin: 0 }}>No job data yet.</p>
+  const COLS = '1fr 90px 90px 100px'
   return (
-    <svg width={labelW + chartW + 60} height={svgH} style={{ overflow: 'visible' }}>
-      {top.map((j, i) => {
-        const y = i * (barH + gap)
-        const w = (j.conversion_rate_pct / maxConv) * chartW
-        return (
-          <g key={j.title}>
-            <text x={labelW - 8} y={y + barH / 2 + 4} textAnchor="end" style={{ fontSize: 11, fill: '#374151', fontWeight: 600 }}>
-              {j.title.length > 18 ? j.title.slice(0, 17) + '…' : j.title}
-            </text>
-            <rect x={labelW} y={y} width={w} height={barH} rx={6} fill="#3B82F6" opacity={0.85} />
-            <text x={labelW + w + 6} y={y + barH / 2 + 4} style={{ fontSize: 11, fill: '#7C3AED', fontWeight: 700 }}>
-              {j.conversion_rate_pct}%
-            </text>
-          </g>
-        )
-      })}
-    </svg>
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: COLS, padding: '8px 20px', background: '#FAFAFA', borderBottom: `1px solid ${C.border}`, fontSize: 11, fontWeight: 600, color: C.ink2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+        {['Job Title', 'Applications', 'Hired', 'Conversion'].map(h => <span key={h}>{h}</span>)}
+      </div>
+      {jobs.map((j, i) => (
+        <div key={i} style={{ display: 'grid', gridTemplateColumns: COLS, padding: '10px 20px', borderBottom: `1px solid ${C.borderLight}`, fontSize: 13, alignItems: 'center' }}
+          onMouseOver={e => { e.currentTarget.style.background = '#FAFAFA' }}
+          onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
+        >
+          <span style={{ fontWeight: 500, color: C.ink1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{j.title}</span>
+          <span style={{ color: C.ink2, fontVariantNumeric: 'tabular-nums' }}>{j.total_applications}</span>
+          <span style={{ color: C.ink2, fontVariantNumeric: 'tabular-nums' }}>{j.hired}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ flex: 1, height: 4, background: C.borderLight, borderRadius: 99, overflow: 'hidden' }}>
+              <div style={{ width: `${j.conversion_rate_pct}%`, height: '100%', background: C.accent, borderRadius: 99 }} />
+            </div>
+            <span style={{ fontSize: 12, color: C.accent, fontWeight: 600, width: 36, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{j.conversion_rate_pct}%</span>
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────────
+// ── Recruiter table ───────────────────────────────────────────────────────────
+function RecruiterTable({ recruiters }: { recruiters: { name: string; jobs_posted: number; total_applications: number; hired: number }[] }) {
+  if (!recruiters.length) return <p style={{ padding: '16px 20px', fontSize: 13, color: C.ink3, margin: 0 }}>No recruiter data yet.</p>
+  const COLS = '1fr 90px 90px 70px'
+  return (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: COLS, padding: '8px 20px', background: '#FAFAFA', borderBottom: `1px solid ${C.border}`, fontSize: 11, fontWeight: 600, color: C.ink2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+        {['Recruiter', 'Jobs Posted', 'Applications', 'Hired'].map(h => <span key={h}>{h}</span>)}
+      </div>
+      {recruiters.map((r, i) => (
+        <div key={i} style={{ display: 'grid', gridTemplateColumns: COLS, padding: '10px 20px', borderBottom: `1px solid ${C.borderLight}`, fontSize: 13, alignItems: 'center' }}
+          onMouseOver={e => { e.currentTarget.style.background = '#FAFAFA' }}
+          onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
+        >
+          <span style={{ fontWeight: 500, color: C.ink1 }}>{r.name}</span>
+          <span style={{ color: C.ink2, fontVariantNumeric: 'tabular-nums' }}>{r.jobs_posted}</span>
+          <span style={{ color: C.ink2, fontVariantNumeric: 'tabular-nums' }}>{r.total_applications}</span>
+          <span style={{ color: C.green, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{r.hired}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 export default function EmployerAnalyticsPage() {
-  const { data: funnel, isLoading: funnelLoading } = useQuery({
-    queryKey: ['employer', 'analytics', 'funnel'],
-    queryFn: analyticsApi.getEmployerFunnel,
-  })
-  const { data: perf, isLoading: perfLoading } = useQuery({
-    queryKey: ['employer', 'analytics', 'jobs'],
-    queryFn: analyticsApi.getJobPerformance,
-  })
-  const { data: recruiterPerf, isLoading: recruiterLoading } = useQuery({
-    queryKey: ['employer', 'analytics', 'recruiters'],
-    queryFn: analyticsApi.getRecruiterPerformance,
-  })
-  const { data: kpis } = useQuery({
-    queryKey: ['employer', 'dashboard', 'kpis'],
-    queryFn: analyticsApi.getDashboardKpis,
-  })
+  const { data: funnel,    isLoading: fL } = useQuery({ queryKey: ['employer','analytics','funnel'],     queryFn: analyticsApi.getEmployerFunnel })
+  const { data: perf,      isLoading: pL } = useQuery({ queryKey: ['employer','analytics','jobs'],       queryFn: analyticsApi.getJobPerformance })
+  const { data: recruiter, isLoading: rL } = useQuery({ queryKey: ['employer','analytics','recruiters'], queryFn: analyticsApi.getRecruiterPerformance })
+  const { data: kpis }                     = useQuery({ queryKey: ['employer','dashboard','kpis'],       queryFn: analyticsApi.getDashboardKpis })
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #F0F4FF 0%, #E8F0FE 50%, #F5F0FF 100%)', padding: '28px 24px' }}>
-      <div style={{ maxWidth: 960, margin: '0 auto' }}>
-
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-          <Link to="/app/employer/dashboard" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,255,255,0.95)', color: '#64748B', textDecoration: 'none' }}>
-            <ArrowLeft size={16} />
-          </Link>
-          <div>
-            <h1 style={{ fontFamily: 'Hind, sans-serif', fontSize: 20, fontWeight: 900, color: '#1E3A5F', margin: 0 }}>Hiring Analytics</h1>
-            <p style={{ fontSize: 12, color: '#94A3B8', margin: '2px 0 0' }}>Company-wide hiring performance</p>
-          </div>
+    <div style={DS.pageWrap}>
+      <header style={DS.topbar}>
+        <div>
+          <h1 style={DS.pageTitle}>Analytics</h1>
+          <p style={DS.pageSub}>Company-wide hiring performance</p>
         </div>
+      </header>
 
-        {/* KPI strip */}
-        {kpis && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 24 }}>
-            <MetricCard icon={Briefcase}  label="Active Jobs"       value={kpis.active_jobs}              color="#3B82F6" />
-            <MetricCard icon={Users}      label="Total Applications" value={kpis.total_applications}        color="#7C3AED" />
-            <MetricCard icon={Target}     label="Offers Sent"        value={kpis.offers_sent}               color="#059669" />
-            <MetricCard icon={TrendingUp} label="Hires"              value={kpis.hires}                     color="#1E3A5F" />
-            <MetricCard icon={Clock}      label="Avg. Time to Hire"  value={kpis.avg_time_to_hire_days !== null ? `${kpis.avg_time_to_hire_days}d` : '—'} color="#D97706" />
-            <MetricCard icon={TrendingUp} label="Response Rate"      value={`${kpis.response_rate_pct}%`}  color="#0EA5E9" />
-          </div>
-        )}
+      <div style={{ ...DS.content, padding: '16px 24px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 1100 }}>
 
-        {/* Row 1: Funnel + Donut */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-          {/* Funnel bar */}
-          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #E5E7EB', padding: 24 }}>
-            <h2 style={{ fontSize: 14, fontWeight: 800, color: '#1E3A5F', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 7 }}>
-              <TrendingUp size={15} color="#3B82F6" />Application Funnel
-            </h2>
-            <p style={{ fontSize: 11, color: '#94A3B8', margin: '0 0 16px' }}>
-              {funnelLoading ? 'Loading…' : `${funnel?.total_applications ?? 0} total applications`}
-            </p>
-            {funnelLoading ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[80, 60, 45, 35, 25, 15, 8].map(w => (
-                  <div key={w} style={{ height: 10, borderRadius: 20, background: '#F1F5F9', width: `${w}%` }} />
-                ))}
+          {/* KPI strip */}
+          {kpis && (
+            <div style={{ ...DS.card, display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)' }}>
+              <KpiTile label="Active Jobs"       value={fmtNum(kpis.active_jobs)} />
+              <KpiTile label="Total Applications" value={fmtNum(kpis.total_applications)} />
+              <KpiTile label="Offers Sent"        value={fmtNum(kpis.offers_sent)} />
+              <KpiTile label="Hires"              value={fmtNum(kpis.hires)} />
+              <KpiTile label="Avg. Days to Hire"  value={kpis.avg_time_to_hire_days != null ? `${kpis.avg_time_to_hire_days}d` : '—'} />
+              <KpiTile label="Response Rate"      value={`${kpis.response_rate_pct}%`} />
+            </div>
+          )}
+
+          {/* Funnel + Donut */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={DS.card}>
+              <div style={DS.cardHeader}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: C.ink1 }}>Application Funnel</span>
+                <span style={{ fontSize: 12, color: C.ink3 }}>{funnel?.total_applications ?? 0} total</span>
               </div>
-            ) : funnel ? (
-              <FunnelChart stages={funnel.stages} total={funnel.total_applications} />
-            ) : null}
-          </div>
-
-          {/* Donut breakdown */}
-          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #E5E7EB', padding: 24 }}>
-            <h2 style={{ fontSize: 14, fontWeight: 800, color: '#1E3A5F', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 7 }}>
-              <Target size={15} color="#7C3AED" />Stage Breakdown
-            </h2>
-            <p style={{ fontSize: 11, color: '#94A3B8', margin: '0 0 16px' }}>Distribution across pipeline stages</p>
-            {funnelLoading ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
-                <div style={{ width: 28, height: 28, border: '3px solid #E5E7EB', borderTopColor: '#7C3AED', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+              <div style={{ padding: 20 }}>
+                {fL ? <p style={{ fontSize: 12, color: C.ink3 }}>Loading…</p> : funnel ? <FunnelChart stages={funnel.stages} total={funnel.total_applications} /> : null}
               </div>
-            ) : funnel ? (
-              <DonutChart stages={funnel.stages} />
-            ) : null}
-          </div>
-        </div>
+            </div>
 
-        {/* Row 2: Job conversion bar chart */}
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #E5E7EB', padding: 24, marginBottom: 16 }}>
-          <h2 style={{ fontSize: 14, fontWeight: 800, color: '#1E3A5F', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 7 }}>
-            <Briefcase size={15} color="#3B82F6" />Job Conversion Rates
-          </h2>
-          <p style={{ fontSize: 11, color: '#94A3B8', margin: '0 0 16px' }}>Applications → Hire conversion per job</p>
-          {perfLoading ? (
-            <p style={{ fontSize: 13, color: '#9CA3AF' }}>Loading…</p>
-          ) : perf && perf.jobs.length > 0 ? (
-            <div style={{ overflowX: 'auto' }}>
-              <TTHBarChart jobs={perf.jobs} />
+            <div style={DS.card}>
+              <div style={DS.cardHeader}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: C.ink1 }}>Stage Breakdown</span>
+              </div>
+              <div style={{ padding: 20 }}>
+                {fL ? <p style={{ fontSize: 12, color: C.ink3 }}>Loading…</p> : funnel ? <DonutChart stages={funnel.stages} /> : null}
+              </div>
             </div>
-          ) : (
-            <p style={{ fontSize: 12, color: '#9CA3AF' }}>No job postings yet.</p>
-          )}
-        </div>
-
-        {/* Row 3: Job performance table */}
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #E5E7EB', overflow: 'hidden', marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 20px', borderBottom: '1px solid #F1F5F9' }}>
-            <Briefcase size={16} color="#3B82F6" />
-            <h2 style={{ fontSize: 14, fontWeight: 800, color: '#1E3A5F', margin: 0 }}>Job Performance</h2>
           </div>
-          {perfLoading ? (
-            <p style={{ padding: 20, fontSize: 13, color: '#9CA3AF' }}>Loading…</p>
-          ) : !perf || perf.jobs.length === 0 ? (
-            <p style={{ padding: 20, fontSize: 13, color: '#9CA3AF' }}>No job postings yet.</p>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: '#F8FAFC' }}>
-                    {['Job', 'Applications', 'Shortlisted', 'Interviewed', 'Hired', 'Conversion'].map(h => (
-                      <th key={h} style={{ textAlign: h === 'Job' ? 'left' : 'right', padding: h === 'Job' ? '10px 20px' : '10px 12px', fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {perf.jobs.map(j => (
-                    <tr key={j.job_id} style={{ borderTop: '1px solid #F1F5F9' }}>
-                      <td style={{ padding: '12px 20px', fontWeight: 700, color: '#0F172A' }}>
-                        {j.title}
-                        {!j.is_active && <span style={{ marginLeft: 6, fontSize: 10, color: '#9CA3AF', fontWeight: 600 }}>(paused)</span>}
-                      </td>
-                      <td style={{ textAlign: 'right', padding: '12px' }}>{j.total_applications}</td>
-                      <td style={{ textAlign: 'right', padding: '12px' }}>{j.shortlisted}</td>
-                      <td style={{ textAlign: 'right', padding: '12px' }}>{j.interviewed}</td>
-                      <td style={{ textAlign: 'right', padding: '12px', color: '#059669', fontWeight: 700 }}>{j.hired}</td>
-                      <td style={{ textAlign: 'right', padding: '12px 20px' }}>
-                        <span style={{ fontWeight: 700, color: j.conversion_rate_pct >= 10 ? '#059669' : j.conversion_rate_pct >= 5 ? '#D97706' : '#DC2626' }}>
-                          {j.conversion_rate_pct}%
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
 
-        {/* Recruiter performance */}
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #E5E7EB', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '16px 20px', borderBottom: '1px solid #F1F5F9' }}>
-            <Users size={16} color="#3B82F6" />
-            <h2 style={{ fontSize: 14, fontWeight: 800, color: '#1E3A5F', margin: 0 }}>Recruiter Performance</h2>
+          {/* Job performance */}
+          <div style={DS.card}>
+            <div style={DS.cardHeader}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: C.ink1 }}>Job Performance</span>
+              <span style={{ fontSize: 12, color: C.ink3 }}>{perf?.jobs.length ?? 0} jobs</span>
+            </div>
+            {pL ? <p style={{ padding: '16px 20px', fontSize: 13, color: C.ink3, margin: 0 }}>Loading…</p> : <JobPerfTable jobs={perf?.jobs ?? []} />}
           </div>
-          {recruiterLoading ? (
-            <p style={{ padding: 20, fontSize: 13, color: '#9CA3AF' }}>Loading…</p>
-          ) : !recruiterPerf || recruiterPerf.recruiters.length === 0 ? (
-            <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-              <Users size={32} color="#E5E7EB" style={{ display: 'block', margin: '0 auto 12px' }} />
-              <p style={{ fontSize: 13, color: '#9CA3AF', margin: 0 }}>No team activity recorded yet.</p>
+
+          {/* Recruiter performance */}
+          <div style={DS.card}>
+            <div style={DS.cardHeader}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: C.ink1 }}>Recruiter Performance</span>
             </div>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: '#F8FAFC' }}>
-                    {['Recruiter', 'Moved', 'Interviews', 'Notes', 'Hires', 'Avg TTH'].map(h => (
-                      <th key={h} style={{ textAlign: h === 'Recruiter' ? 'left' : 'right', padding: h === 'Recruiter' ? '10px 20px' : '10px 12px', fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5 }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {recruiterPerf.recruiters.map(r => (
-                    <tr key={r.user_id} style={{ borderTop: '1px solid #F1F5F9' }}>
-                      <td style={{ padding: '12px 20px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: '#3B82F6', flexShrink: 0 }}>
-                            {(r.name ?? 'U')[0].toUpperCase()}
-                          </div>
-                          <span style={{ fontWeight: 700, color: '#0F172A' }}>{r.name ?? 'Unknown'}</span>
-                        </div>
-                      </td>
-                      <td style={{ textAlign: 'right', padding: '12px' }}>{r.applications_moved}</td>
-                      <td style={{ textAlign: 'right', padding: '12px' }}>{r.interviews_conducted}</td>
-                      <td style={{ textAlign: 'right', padding: '12px' }}>{r.notes_added}</td>
-                      <td style={{ textAlign: 'right', padding: '12px', color: '#059669', fontWeight: 700 }}>{r.hires_closed}</td>
-                      <td style={{ textAlign: 'right', padding: '12px 20px', fontWeight: 700, color: '#D97706' }}>
-                        {r.avg_days_to_hire !== null ? `${r.avg_days_to_hire}d` : '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+            {rL ? <p style={{ padding: '16px 20px', fontSize: 13, color: C.ink3, margin: 0 }}>Loading…</p> : <RecruiterTable recruiters={recruiter?.recruiters ?? []} />}
+          </div>
+
         </div>
       </div>
     </div>

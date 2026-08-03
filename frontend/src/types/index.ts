@@ -7,6 +7,10 @@ export type UserRole =
 export const PLATFORM_ADMIN_ROLES: UserRole[] = [
   'admin', 'super_admin', 'moderator', 'verification_officer', 'finance_manager', 'support_executive',
 ]
+
+export const EMPLOYER_ROLES: UserRole[] = [
+  'employer', 'employer_owner', 'hr_manager', 'recruiter', 'interviewer', 'hiring_manager',
+]
 export type CompanySize = '1-10' | '11-50' | '51-200' | '201-500' | '501-1000' | '1000+'
 
 export interface User {

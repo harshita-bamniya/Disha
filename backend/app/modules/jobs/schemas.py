@@ -158,6 +158,20 @@ class GenerateDescriptionResponse(BaseModel):
     description: str
 
 
+class HiringTeamMemberOut(BaseModel):
+    id: str
+    employer_profile_id: str
+    contact_person: str
+    email: Optional[str] = None
+    job_role: str
+    added_at: datetime
+
+
+class HiringTeamAddRequest(BaseModel):
+    employer_profile_id: str
+    job_role: Literal["hiring_manager", "interviewer", "coordinator", "recruiter"]
+
+
 class BulkImportRowError(BaseModel):
     row: int             # 1-based, matches the row number an employer sees in their spreadsheet
     error: str

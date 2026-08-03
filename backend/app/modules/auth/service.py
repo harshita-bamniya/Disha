@@ -146,16 +146,23 @@ def _audit(db: Session, action: str, user_id=None, resource: str | None = None,
 # ── Public service functions ──────────────────────────────────────────────────
 
 async def register_user(
-    phone: str, password: str, preferred_language: str, db: Session, request: Request | None = None
+    phone: str, password: str, preferred_language: str, db: Session,
+    email: str | None = None, request: Request | None = None
 ) -> str:
     """Creates a new aspirant account and sends phone OTP. Returns dev_otp in local env."""
     existing = db.query(User).filter(User.phone == phone, User.deleted_at == None).first()
     if existing:
         raise ConflictException("An account with this phone number already exists.")
 
+    if email:
+        email_taken = db.query(User).filter(User.email == email, User.deleted_at == None).first()
+        if email_taken:
+            raise ConflictException("An account with this email address already exists.")
+
     role = _get_aspirant_role(db)
     user = User(
         phone=phone,
+        email=email,
         password_hash=hash_password(password),
         preferred_language=preferred_language,
         role_id=role.id,
@@ -260,10 +267,22 @@ def _check_lockout(user: User, db: Session) -> None:
     user.failed_login_attempts = 0
 
 
-def login_user(phone: str, password: str, db: Session, request: Request | None = None) -> TokenResponse:
-    """Authenticates user and returns a JWT token pair."""
+def login_user(identifier: str, password: str, db: Session, request: Request | None = None) -> TokenResponse:
+    """Authenticates user by phone number or email and returns a JWT token pair."""
+    import re as _re
+    # Determine if the identifier is an email or a phone number
+    is_email = bool(_re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", identifier.strip()))
+    if is_email:
+        lookup_filter = User.email == identifier.strip().lower()
+    else:
+        # Normalise phone: strip non-digits, strip leading 91 for 12-digit numbers
+        cleaned = _re.sub(r"\D", "", identifier)
+        if cleaned.startswith("91") and len(cleaned) == 12:
+            cleaned = cleaned[2:]
+        lookup_filter = User.phone == cleaned
+
     any_user = db.query(User).filter(
-        User.phone == phone,
+        lookup_filter,
         User.deleted_at == None,
     ).first()
 
@@ -291,7 +310,7 @@ def login_user(phone: str, password: str, db: Session, request: Request | None =
             )
 
     user = db.query(User).filter(
-        User.phone == phone,
+        lookup_filter,
         User.is_active == True,
         User.deleted_at == None,
     ).first()
@@ -300,7 +319,7 @@ def login_user(phone: str, password: str, db: Session, request: Request | None =
         if any_user:
             _record_login(any_user, db, request, success=False, failure_reason="bad_password")
             db.commit()
-        raise AuthException("Incorrect phone number or password.")
+        raise AuthException("Incorrect phone/email or password.")
 
     user.last_login_at = datetime.now(timezone.utc)
     _audit(db, "user_login", user_id=user.id, resource="auth", request=request)

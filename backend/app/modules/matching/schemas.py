@@ -139,6 +139,11 @@ class CandidateOut(BaseModel):
     notes: list["CandidateNoteOut"] = []
     avg_rating: Optional[float] = None
     interview_feedback: list["InterviewFeedbackOut"] = []
+    # ATS fields (Phase 5)
+    reference_number: Optional[str] = None
+    knockout_triggered: bool = False
+    knockout_action: Optional[str] = None
+    application_score: Optional[int] = None
 
     model_config = {"from_attributes": True}
 
@@ -290,6 +295,25 @@ class JobCandidatePipeline(BaseModel):
     candidates: list[CandidateOut]
 
 
+# ── ATS: form response viewer (Phase 5) ──────────────────────────────────────
+
+class FormResponseItem(BaseModel):
+    question_id: Optional[str] = None
+    question_label: str
+    question_type: str
+    text_value: Optional[str] = None
+    number_value: Optional[int] = None
+    date_value: Optional[datetime] = None
+    option_values: Optional[list[str]] = None
+    has_file: bool = False
+
+
+class ApplicationResponsesOut(BaseModel):
+    application_id: str
+    reference_number: Optional[str] = None
+    responses: list[FormResponseItem] = []
+
+
 # ── Job recommendation response ───────────────────────────────────────────────
 
 class JobRecommendationsResponse(BaseModel):
@@ -367,3 +391,111 @@ class ApplicationTrendPoint(BaseModel):
 class ApplicationTrendResponse(BaseModel):
     days: int
     series: list[ApplicationTrendPoint]
+
+
+# ── Cross-job employer list views (Phase E) ───────────────────────────────────
+
+class ApplicantListItem(BaseModel):
+    application_id: str
+    aspirant_id: str
+    full_name: Optional[str]
+    city: Optional[str]
+    job_id: str
+    job_title: str
+    department_name: Optional[str]
+    status: str
+    match_score: Optional[int]
+    applied_at: str       # ISO datetime string
+    days_ago: int
+
+
+class AllApplicantsResponse(BaseModel):
+    total: int
+    items: list[ApplicantListItem]
+
+
+class InterviewListItem(BaseModel):
+    interview_id: str
+    application_id: str
+    candidate_name: Optional[str]
+    job_id: str
+    job_title: str
+    department_name: Optional[str]
+    interviewer_name: Optional[str]
+    scheduled_at: Optional[str]
+    meeting_link: Optional[str]
+    status: str       # scheduled | completed | canceled
+    recommendation: Optional[str]
+
+
+class AllInterviewsResponse(BaseModel):
+    total: int
+    items: list[InterviewListItem]
+
+
+class OfferListItem(BaseModel):
+    offer_id: str
+    application_id: str
+    candidate_name: Optional[str]
+    job_id: str
+    job_title: str
+    department_name: Optional[str]
+    role_title: str
+    salary_ctc: str
+    start_date: str
+    status: str       # sent | accepted | declined
+    sent_at: Optional[str]
+    responded_at: Optional[str]
+
+
+class AllOffersResponse(BaseModel):
+    total: int
+    items: list[OfferListItem]
+
+
+# ── Phase F: Pipeline Stages ──────────────────────────────────────────────────
+
+class PipelineStageOut(BaseModel):
+    id: str
+    stage_key: str
+    display_name: str
+    color: str
+    position: int
+    is_visible: bool
+
+    class Config:
+        from_attributes = True
+
+
+class PipelineStageIn(BaseModel):
+    stage_key: str
+    display_name: str
+    color: str = "#6B7280"
+    position: int
+    is_visible: bool = True
+
+
+class BulkUpsertPipelineStagesRequest(BaseModel):
+    stages: list[PipelineStageIn]
+
+
+class PipelineTemplateStage(BaseModel):
+    stage_key: str
+    display_name: str
+    color: str = "#6B7280"
+    position: int
+    is_visible: bool = True
+
+
+class PipelineTemplateOut(BaseModel):
+    id: str
+    name: str
+    stages: list[PipelineTemplateStage]
+
+    class Config:
+        from_attributes = True
+
+
+class PipelineTemplateCreateRequest(BaseModel):
+    name: str
+    stages: list[PipelineTemplateStage]

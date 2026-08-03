@@ -48,8 +48,27 @@ class Application(Base):
     # Optional cover letter / context from aspirant
     cover_note      = Column(Text, nullable=True)
 
+    # ── ATS Phase 1 additions ────────────────────────────────────────────────
+    # Human-readable reference number: DISHA-{YYYY}-{6 random uppercase chars}
+    reference_number    = Column(String(30), nullable=True, unique=True, index=True)
+    # The resume file selected for this application (candidate_resume_files.id)
+    resume_id           = Column(UUID(as_uuid=True), ForeignKey("candidate_resume_files.id", ondelete="SET NULL"), nullable=True)
+    # ID of the published ApplicationForm version used at submission time
+    form_version_id     = Column(UUID(as_uuid=True), ForeignKey("ats_application_forms.id", ondelete="SET NULL"), nullable=True)
+    # True when at least one knockout rule was triggered at submission
+    knockout_triggered  = Column(Boolean, nullable=False, default=False)
+    # Knockout action taken (mirrors KnockoutRule.action) — null if no knockout
+    knockout_action     = Column(String(20), nullable=True)
+    # AI-computed application quality score (0–100), set post-submission
+    application_score   = Column(Integer, nullable=True)
+    # ────────────────────────────────────────────────────────────────────────
+
     # Current status — single source of truth (denormalized for fast reads)
     status          = Column(String(30), nullable=False, default="applied", index=True)
+
+    # Custom pipeline stage for this application — FK to the per-job stage config.
+    # NULL means the application is in the default stage for its status.
+    pipeline_stage_id = Column(UUID(as_uuid=True), ForeignKey("job_pipeline_stages.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # Employer shortlist / rejection note (visible to aspirant)
     employer_note   = Column(Text, nullable=True)
@@ -61,6 +80,16 @@ class Application(Base):
     job             = relationship("JobPosting", back_populates="applications")
     status_history  = relationship("ApplicationStatusHistory", back_populates="application",
                                    order_by="ApplicationStatusHistory.created_at", cascade="all, delete-orphan")
+
+    @property
+    def job_title(self) -> str:
+        return self.job.title if self.job else ""
+
+    @property
+    def company_name(self) -> str:
+        if self.job and self.job.employer:
+            return self.job.employer.company_name or ""
+        return ""
 
     __table_args__ = (
         UniqueConstraint("aspirant_id", "job_id", name="uq_application_aspirant_job"),
@@ -78,6 +107,7 @@ class ApplicationStatusHistory(Base):
     to_status       = Column(String(30), nullable=False)
     changed_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     note            = Column(Text, nullable=True)
+    is_automated    = Column(Boolean, nullable=False, default=False)   # True for knockout/system actions
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
 
     application     = relationship("Application", back_populates="status_history")
@@ -376,6 +406,8 @@ NOTIFICATION_TYPES = (
     "interview_reschedule_requested",
     # Offer letter e-signature — sent to the employer team on candidate response
     "offer_accepted", "offer_declined",
+    # Admin broadcast announcements (S5)
+    "announcement",
 )
 
 
@@ -391,8 +423,12 @@ class Notification(Base):
     title       = Column(String(255), nullable=False)
     body        = Column(Text, nullable=True)
     link_url    = Column(Text, nullable=True)   # frontend route to deep-link to, e.g. /app/employer/pipeline/<job_id>
-    is_read     = Column(Boolean, nullable=False, default=False, index=True)
-    created_at  = Column(DateTime(timezone=True), server_default=func.now())
+    is_read             = Column(Boolean, nullable=False, default=False, index=True)
+    created_at          = Column(DateTime(timezone=True), server_default=func.now())
+    # Email delivery tracking — populated by send_announcement_emails Celery task (S5)
+    delivery_status     = Column(String(20), nullable=True, default="pending")  # pending|sent|failed
+    email_sent_at       = Column(DateTime(timezone=True), nullable=True)
+    email_failed_reason = Column(Text, nullable=True)
 
     user        = relationship("User", foreign_keys=[user_id])
 
@@ -484,3 +520,98 @@ class GoogleCalendarToken(Base):
     updated_at    = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     user          = relationship("User")
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASE F — Pipeline Stages
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Canonical stage keys available for customisation — subset of APPLICATION_STATUSES
+# that an employer can rename/recolor. 'withdrawn' is aspirant-only and excluded.
+CUSTOMISABLE_STAGE_KEYS = (
+    "applied", "screening", "shortlisted",
+    "interview_scheduled", "interview_completed",
+    "offer_sent", "hired", "rejected",
+)
+
+
+class CompanyPipelineTemplate(Base):
+    """A named reusable template of pipeline stages for a company.
+    Stores stage configuration as JSONB so templates can be applied to new jobs
+    without N rows per template."""
+    __tablename__ = "company_pipeline_templates"
+
+    id         = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("employer_profiles.id", ondelete="CASCADE"), nullable=False, index=True)
+    name       = Column(String(100), nullable=False)
+    # [{stage_key, display_name, color, position, is_visible}]
+    stages     = Column(JSONB, nullable=False, default=list)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    company    = relationship("EmployerProfile", foreign_keys=[company_id])
+    creator    = relationship("User", foreign_keys=[created_by])
+
+
+class JobPipelineStage(Base):
+    """Per-job pipeline stage customisation.
+    One row per (job_id, stage_key). If no rows exist for a job, the UI falls
+    back to the system defaults defined in CUSTOMISABLE_STAGE_KEYS."""
+    __tablename__ = "job_pipeline_stages"
+
+    id           = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    job_id       = Column(UUID(as_uuid=True), ForeignKey("job_postings.id", ondelete="CASCADE"), nullable=False, index=True)
+    stage_key    = Column(String(30), nullable=False)   # must be in CUSTOMISABLE_STAGE_KEYS
+    display_name = Column(String(100), nullable=False)
+    color        = Column(String(7), nullable=False, default="#6B7280")  # hex
+    position     = Column(Integer, nullable=False, default=0)
+    is_visible   = Column(Boolean, nullable=False, default=True)
+    created_at   = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("job_id", "stage_key", name="uq_job_pipeline_stage_key"),
+        CheckConstraint(f"stage_key IN {CUSTOMISABLE_STAGE_KEYS}", name="ck_pipeline_stage_key"),
+    )
+
+
+# ── Admin broadcast announcements ─────────────────────────────────────────────
+
+ANNOUNCEMENT_TYPES    = ("'info'", "'warning'", "'success'", "'alert'")
+ANNOUNCEMENT_TARGETS  = ("'all'", "'aspirants'", "'employers'")
+ANNOUNCEMENT_CHANNELS = ("'in_app'", "'email'", "'both'")
+
+_ANNTYPE_SQL  = f"({', '.join(ANNOUNCEMENT_TYPES)})"
+_ANNTGT_SQL   = f"({', '.join(ANNOUNCEMENT_TARGETS)})"
+_ANNCH_SQL    = f"({', '.join(ANNOUNCEMENT_CHANNELS)})"
+
+
+class AdminAnnouncement(Base):
+    """Admin-broadcast message to a segment of users.
+
+    Lifecycle: draft → scheduled (if scheduled_at set) → published.
+    published_at is set when the message is dispatched; sent_count is updated
+    to the number of matching users at publish time.
+    """
+    __tablename__ = "admin_announcements"
+
+    id           = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    title        = Column(String(200), nullable=False)
+    body         = Column(Text, nullable=False)
+    type         = Column(String(20), nullable=False, default="info")     # info|warning|success|alert
+    target       = Column(String(30), nullable=False, default="all")      # all|aspirants|employers
+    channel      = Column(String(20), nullable=False, default="in_app")   # in_app|email|both
+    scheduled_at = Column(DateTime(timezone=True), nullable=True)
+    published_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    sent_count   = Column(Integer, nullable=False, default=0)
+    created_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at   = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at   = Column(DateTime(timezone=True), onupdate=func.now())
+
+    creator = relationship("User", foreign_keys=[created_by])
+
+    __table_args__ = (
+        CheckConstraint(f"type IN {_ANNTYPE_SQL}", name="ck_announcement_type"),
+        CheckConstraint(f"target IN {_ANNTGT_SQL}", name="ck_announcement_target"),
+        CheckConstraint(f"channel IN {_ANNCH_SQL}", name="ck_announcement_channel"),
+    )

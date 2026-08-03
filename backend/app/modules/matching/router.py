@@ -28,6 +28,7 @@ from app.models.user import User
 from app.modules.matching import service
 from app.modules.matching.schemas import (
     ApplyRequest, ApplicationDetailOut, ApplicationOut, ApplicationTrendResponse,
+    ApplicationResponsesOut,
     BulkEmailRequest, BulkEmailResponse,
     BulkStatusUpdateRequest, CandidateEmailLogOut, CandidateNoteCreateRequest, CandidateNoteOut,
     CandidateRatingRequest, DashboardKpis, EmployerFunnelResponse,
@@ -308,12 +309,70 @@ def get_job_pipeline(
     job_id: str,
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
+    # ATS filters
+    status: Optional[str] = Query(None, description="Filter by application status"),
+    search: Optional[str] = Query(None, description="Search by candidate name"),
+    knockout_triggered: Optional[bool] = Query(None, description="Filter by knockout_triggered flag"),
+    knockout_action: Optional[str] = Query(None, description="Filter by knockout action / tag"),
+    score_min: Optional[int] = Query(None, ge=0, le=100, description="Minimum ATS application score"),
+    score_max: Optional[int] = Query(None, ge=0, le=100, description="Maximum ATS application score"),
     current_user: User = Depends(_employer),
     db: Session = Depends(get_db),
 ):
-    """Employer views candidates who applied to a specific job."""
+    """Employer views candidates who applied to a specific job (with optional ATS filters)."""
     try:
-        return service.get_job_pipeline(job_id, current_user, db, limit=limit, offset=offset)
+        return service.get_job_pipeline(
+            job_id, current_user, db,
+            limit=limit, offset=offset,
+            status=status, search=search,
+            knockout_triggered=knockout_triggered,
+            knockout_action=knockout_action,
+            score_min=score_min, score_max=score_max,
+        )
+    except (AuthException, NotFoundException) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/employer/pipeline/{job_id}/export")
+def export_pipeline_csv(
+    job_id: str,
+    status: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    knockout_triggered: Optional[bool] = Query(None),
+    knockout_action: Optional[str] = Query(None),
+    score_min: Optional[int] = Query(None, ge=0, le=100),
+    score_max: Optional[int] = Query(None, ge=0, le=100),
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    """Export the filtered candidate list as a downloadable CSV."""
+    try:
+        csv_data = service.export_pipeline_csv(
+            job_id, current_user, db,
+            status=status, search=search,
+            knockout_triggered=knockout_triggered,
+            knockout_action=knockout_action,
+            score_min=score_min, score_max=score_max,
+        )
+    except (AuthException, NotFoundException) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return Response(
+        content=csv_data,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="pipeline_{job_id}.csv"'},
+    )
+
+
+@router.get("/employer/pipeline/applications/{application_id}/responses",
+            response_model=ApplicationResponsesOut)
+def get_application_responses(
+    application_id: str,
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    """Return the form question answers submitted by a candidate for a specific application."""
+    try:
+        return service.get_application_responses(application_id, current_user, db)
     except (AuthException, NotFoundException) as e:
         raise HTTPException(status_code=404, detail=str(e))
 

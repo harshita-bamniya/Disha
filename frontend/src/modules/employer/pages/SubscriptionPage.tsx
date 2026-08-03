@@ -1,5 +1,4 @@
-import { Link } from 'react-router-dom'
-import { ArrowLeft, CreditCard, CheckCircle2 } from 'lucide-react'
+import { CreditCard, CheckCircle2 } from 'lucide-react'
 import { useSubscription, useSubscriptionUsage, useSubscriptionPlans, useUpgradeSubscription, useHasPermission } from '../hooks/useJobs'
 import { getApiError } from '@/api/client'
 
@@ -33,11 +32,8 @@ export default function SubscriptionPage() {
   const canManageSubscription = useHasPermission('subscriptions:manage')
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F8FAFC', padding: '32px 24px' }}>
+    <div style={{ padding: '32px 24px' }}>
       <div style={{ maxWidth: 760, margin: '0 auto' }}>
-        <Link to="/app/employer/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#6B7280', fontSize: 13, fontWeight: 600, textDecoration: 'none', marginBottom: 20 }}>
-          <ArrowLeft size={14} />Back to dashboard
-        </Link>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
           <CreditCard size={20} color="#3B82F6" />
@@ -45,7 +41,7 @@ export default function SubscriptionPage() {
         </div>
 
         {/* Current plan + usage */}
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #E5E7EB', padding: 24, marginBottom: 24 }}>
+        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(37,99,235,0.09)', padding: 24, marginBottom: 24 }}>
           {subLoading ? (
             <p style={{ fontSize: 13, color: '#9CA3AF' }}>Loading…</p>
           ) : sub && (

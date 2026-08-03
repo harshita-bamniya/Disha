@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { jobsApi } from '@/api/jobs'
-import type { JobPostingPayload, VerificationDocType } from '@/api/jobs'
-import { companyApi, subscriptionApi } from '@/api/company'
-import type { CompanyProfileUpdatePayload, EmployerProfileUpdatePayload, TeamInvitePayload, DepartmentCreatePayload, DepartmentUpdatePayload } from '@/api/company'
+import type { JobPostingPayload } from '@/api/jobs'
+import { companyApi, subscriptionApi, hiringTeamApi } from '@/api/company'
+import type { CompanyProfileUpdatePayload, EmployerProfileUpdatePayload, TeamInvitePayload, DepartmentCreatePayload, DepartmentUpdatePayload, HiringTeamAddPayload } from '@/api/company'
 import { analyticsApi } from '@/api/analytics'
-import { getUpcomingInterviews } from '@/api/matching'
+import { getUpcomingInterviews, getPipelineStages, bulkUpsertPipelineStages, getPipelineTemplates, createPipelineTemplate, deletePipelineTemplate, applyTemplateToJob } from '@/api/matching'
+import type { PipelineStageIn } from '@/api/matching'
 
 const DASHBOARD_KEY = (departmentId?: string) => ['employer', 'dashboard', departmentId ?? '']
 const KPIS_KEY = ['employer', 'dashboard', 'kpis']
@@ -14,6 +15,7 @@ const COMPANY_KEY = ['employer', 'company']
 const TEAM_KEY = ['employer', 'company', 'team']
 const OFFICES_KEY = ['employer', 'company', 'offices']
 const DEPARTMENTS_KEY = ['employer', 'company', 'departments']
+const DEPARTMENT_JOBS_KEY = (id: string) => ['employer', 'company', 'departments', id, 'jobs']
 const SUBSCRIPTION_KEY = ['employer', 'subscription']
 const SUBSCRIPTION_USAGE_KEY = ['employer', 'subscription', 'usage']
 const SUBSCRIPTION_PLANS_KEY = ['employer', 'subscription', 'plans']
@@ -187,19 +189,10 @@ export function useVerificationStatus() {
   return useQuery({ queryKey: VERIFICATION_KEY, queryFn: jobsApi.getVerificationStatus, staleTime: 0 })
 }
 
-export function useUploadVerificationDocument() {
+export function useRequestVerification() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ docType, file }: { docType: VerificationDocType; file: File }) =>
-      jobsApi.uploadVerificationDocument(docType, file),
-    onSuccess: () => qc.invalidateQueries({ queryKey: VERIFICATION_KEY }),
-  })
-}
-
-export function useSubmitVerification() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: () => jobsApi.submitVerification(),
+    mutationFn: () => jobsApi.requestVerification(),
     onSuccess: () => qc.invalidateQueries({ queryKey: VERIFICATION_KEY }),
   })
 }
@@ -301,6 +294,30 @@ export function useDepartments() {
   return useQuery({ queryKey: DEPARTMENTS_KEY, queryFn: companyApi.listDepartments })
 }
 
+export function useDepartment(id: string) {
+  return useQuery({
+    queryKey: [...DEPARTMENTS_KEY, id],
+    queryFn: () => companyApi.getDepartment(id),
+    enabled: !!id,
+  })
+}
+
+export function useDepartmentJobs(departmentId: string) {
+  return useQuery({
+    queryKey: DEPARTMENT_JOBS_KEY(departmentId),
+    queryFn: () => companyApi.getDepartmentJobs(departmentId),
+    enabled: !!departmentId,
+  })
+}
+
+export function useDepartmentOverview(departmentId: string) {
+  return useQuery({
+    queryKey: [...DEPARTMENTS_KEY, departmentId, 'overview'],
+    queryFn: () => companyApi.getDepartmentOverview(departmentId),
+    enabled: !!departmentId,
+  })
+}
+
 export function useCreateDepartment() {
   const qc = useQueryClient()
   return useMutation({
@@ -342,6 +359,34 @@ export function useAssignMemberDepartment() {
   })
 }
 
+// ── Hiring Team ───────────────────────────────────────────────────────────────
+
+const HIRING_TEAM_KEY = (jobId: string) => ['employer', 'jobs', jobId, 'hiring-team']
+
+export function useHiringTeam(jobId: string | undefined) {
+  return useQuery({
+    queryKey: HIRING_TEAM_KEY(jobId ?? ''),
+    queryFn: () => hiringTeamApi.list(jobId!),
+    enabled: !!jobId,
+  })
+}
+
+export function useAddHiringTeamMember(jobId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: HiringTeamAddPayload) => hiringTeamApi.add(jobId, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: HIRING_TEAM_KEY(jobId) }),
+  })
+}
+
+export function useRemoveHiringTeamMember(jobId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (memberId: string) => hiringTeamApi.remove(jobId, memberId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: HIRING_TEAM_KEY(jobId) }),
+  })
+}
+
 // ── Subscriptions ──────────────────────────────────────────────────────────────
 
 export function useSubscription() {
@@ -364,5 +409,56 @@ export function useUpgradeSubscription() {
       qc.invalidateQueries({ queryKey: SUBSCRIPTION_KEY })
       qc.invalidateQueries({ queryKey: SUBSCRIPTION_USAGE_KEY })
     },
+  })
+}
+
+
+// ── Phase F: Pipeline Stage hooks ─────────────────────────────────────────────
+
+const PIPELINE_STAGES_KEY = (jobId: string) => ['employer', 'pipeline-stages', jobId]
+const PIPELINE_TEMPLATES_KEY = ['employer', 'pipeline-templates']
+
+export function usePipelineStages(jobId: string) {
+  return useQuery({
+    queryKey: PIPELINE_STAGES_KEY(jobId),
+    queryFn: () => getPipelineStages(jobId),
+    enabled: !!jobId,
+  })
+}
+
+export function useBulkUpsertPipelineStages(jobId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (stages: PipelineStageIn[]) => bulkUpsertPipelineStages(jobId, stages),
+    onSuccess: () => qc.invalidateQueries({ queryKey: PIPELINE_STAGES_KEY(jobId) }),
+  })
+}
+
+export function usePipelineTemplates() {
+  return useQuery({ queryKey: PIPELINE_TEMPLATES_KEY, queryFn: getPipelineTemplates })
+}
+
+export function useCreatePipelineTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ name, stages }: { name: string; stages: PipelineStageIn[] }) =>
+      createPipelineTemplate(name, stages),
+    onSuccess: () => qc.invalidateQueries({ queryKey: PIPELINE_TEMPLATES_KEY }),
+  })
+}
+
+export function useDeletePipelineTemplate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => deletePipelineTemplate(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: PIPELINE_TEMPLATES_KEY }),
+  })
+}
+
+export function useApplyTemplateToJob(jobId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (templateId: string) => applyTemplateToJob(jobId, templateId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: PIPELINE_STAGES_KEY(jobId) }),
   })
 }

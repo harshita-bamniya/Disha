@@ -31,6 +31,8 @@ export interface CompanyProfileUpdatePayload {
 
 export interface EmployerProfileSelf {
   id: string
+  full_name: string | null
+  email: string | null
   contact_person: string | null
   designation: string | null
   city: string | null
@@ -38,6 +40,8 @@ export interface EmployerProfileSelf {
 }
 
 export interface EmployerProfileUpdatePayload {
+  full_name?: string
+  email?: string
   contact_person?: string
   designation?: string
   city?: string
@@ -63,6 +67,7 @@ export interface TeamInvitePayload {
   contact_person: string
   role_name: 'hr_manager' | 'recruiter' | 'interviewer' | 'hiring_manager'
   department_id?: string
+  password?: string
 }
 
 export interface SubscriptionPlanEntry {
@@ -119,9 +124,31 @@ export interface DepartmentEntry {
   head_employer_id: string | null
   head_name: string | null
   member_count: number
+  total_job_count: number
   active_job_count: number
   total_applicant_count: number
   created_at: string | null
+}
+
+export interface DepartmentOverviewEntry extends DepartmentEntry {
+  pipeline_funnel: Record<string, number>
+  scheduled_interviews_count: number
+  pending_offers_count: number
+  avg_days_to_hire: number | null
+}
+
+export interface DepartmentJobEntry {
+  id: string
+  title: string
+  sector: string
+  job_type: string
+  employment_type: string
+  location: string
+  status: string
+  is_active: boolean
+  expires_at: string | null
+  created_at: string | null
+  applicant_count: number
 }
 
 export interface DepartmentCreatePayload {
@@ -200,11 +227,42 @@ export const companyApi = {
   deleteDepartment: (departmentId: string) =>
     apiClient.delete<{ message: string }>(`/employer/company/departments/${departmentId}`).then(r => r.data),
 
+  getDepartmentJobs: (departmentId: string) =>
+    apiClient.get<DepartmentJobEntry[]>(`/employer/company/departments/${departmentId}/jobs`).then(r => r.data),
+
+  getDepartmentOverview: (departmentId: string) =>
+    apiClient.get<DepartmentOverviewEntry>(`/employer/company/departments/${departmentId}/overview`).then(r => r.data),
+
   assignMemberDepartment: (employerProfileId: string, departmentId: string | null) =>
     apiClient.patch<TeamMemberEntry>(`/employer/company/team/${employerProfileId}/department`, { department_id: departmentId }).then(r => r.data),
 
   getTeamActivity: (limit = 50) =>
     apiClient.get<TeamActivityEntry[]>('/employer/company/team/activity', { params: { limit } }).then(r => r.data),
+}
+
+export interface HiringTeamMember {
+  id: string
+  employer_profile_id: string
+  contact_person: string
+  email: string | null
+  job_role: 'hiring_manager' | 'interviewer' | 'coordinator' | 'recruiter'
+  added_at: string
+}
+
+export interface HiringTeamAddPayload {
+  employer_profile_id: string
+  job_role: 'hiring_manager' | 'interviewer' | 'coordinator' | 'recruiter'
+}
+
+export const hiringTeamApi = {
+  list: (jobId: string) =>
+    apiClient.get<HiringTeamMember[]>(`/employer/jobs/${jobId}/hiring-team`).then(r => r.data),
+
+  add: (jobId: string, payload: HiringTeamAddPayload) =>
+    apiClient.post<HiringTeamMember>(`/employer/jobs/${jobId}/hiring-team`, payload).then(r => r.data),
+
+  remove: (jobId: string, memberId: string) =>
+    apiClient.delete<{ message: string }>(`/employer/jobs/${jobId}/hiring-team/${memberId}`).then(r => r.data),
 }
 
 export interface TeamActivityEntry {

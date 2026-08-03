@@ -1,16 +1,11 @@
-import { Link } from 'react-router-dom'
-import { ArrowLeft, Share2, Clock } from 'lucide-react'
+import { Share2, Clock } from 'lucide-react'
 
 export default function ReferralsPage() {
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #F0F4FF 0%, #E8F0FE 50%, #F5F0FF 100%)', padding: '28px 20px' }}>
+    <div style={{ padding: '28px 20px' }}>
       <div style={{ maxWidth: 960, margin: '0 auto' }}>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32 }}>
-          <Link to="/app/employer/dashboard" style={{ color: '#64748B', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600 }}>
-            <ArrowLeft size={14} />Back
-          </Link>
-          <div style={{ width: 1, height: 20, background: '#E5E7EB' }} />
+        <div style={{ marginBottom: 32 }}>
           <h1 style={{ fontSize: 18, fontWeight: 800, color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             <Share2 size={16} color="#6366F1" />Referrals
           </h1>

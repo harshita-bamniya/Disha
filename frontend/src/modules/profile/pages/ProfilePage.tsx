@@ -8,29 +8,12 @@ import { getApiError } from '@/api/client'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import AppSidebar from '@/components/layout/AppSidebar'
+import { useKrsDashboard, useRecompute } from '@/modules/dashboard/hooks/useKrs'
+import { useOnboardingOptions } from '@/modules/onboarding/hooks/useOnboarding'
 
-// ── Constants (mirrors backend VALID_SKILLS / VALID_SECTORS) ─────────────────
-
-const ALL_SKILLS = [
-  'Analytical Reasoning', 'Research & Analysis', 'Data Interpretation',
-  'Data Analysis', 'Policy Research',
-  'Report Writing', 'Essay Writing', 'Public Speaking',
-  'Leadership', 'Management', 'Project Management', 'Strategic Planning',
-  'Economics', 'Public Administration', 'Polity & Governance',
-  'Ethics & Integrity', 'International Relations', 'Law & Legal Knowledge',
-  'Stakeholder Engagement',
-  'Communication', 'English Proficiency', 'Hindi Proficiency', 'Computer Skills',
-  'Science & Technology', 'Current Affairs', 'History', 'Geography', 'Environment',
-  'Teaching & Training', 'Budget & Finance',
-]
-
-const SECTORS = [
-  'Government & Civil Services', 'Public Sector Undertakings (PSU)',
-  'Management Consulting', 'Education & Training', 'NGO & Social Sector',
-  'Banking & Finance', 'Legal', 'Research & Analytics', 'Media & Journalism',
-  'Healthcare & Public Health', 'IT & Technology', 'Defence & Security',
-  'International Organizations', 'Think Tanks & Policy', 'Entrepreneurship',
-]
+// ── Constants ─────────────────────────────────────────────────────────────────
+// Skills, sectors, and states are fetched from /onboarding/options (single source of truth).
+// Only salary brackets are defined here as they are UI-only, not business data.
 
 const SALARY_OPTIONS = [
   { label: 'Up to ₹5 LPA', min: 0, max: 5 },
@@ -38,17 +21,6 @@ const SALARY_OPTIONS = [
   { label: '₹10–20 LPA', min: 10, max: 20 },
   { label: '₹20–40 LPA', min: 20, max: 40 },
   { label: '₹40 LPA+', min: 40, max: 500 },
-]
-
-const STATES = [
-  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
-  'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
-  'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
-  'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
-  'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
-  'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Chandigarh', 'Puducherry',
-  'Andaman and Nicobar Islands', 'Lakshadweep',
-  'Dadra and Nagar Haveli and Daman and Diu',
 ]
 
 const PROFILE_KEY = ['onboarding', 'profile']
@@ -216,6 +188,7 @@ function Section({
 
 function PersonalSection({ profile, open, onToggle }: { profile: ProfileData; open: boolean; onToggle: () => void }) {
   const qc = useQueryClient()
+  const { data: options } = useOnboardingOptions()
   const [form, setForm] = useState({
     full_name: profile.full_name ?? '',
     date_of_birth: profile.date_of_birth ?? '',
@@ -264,7 +237,7 @@ function PersonalSection({ profile, open, onToggle }: { profile: ProfileData; op
             onBlur={e => e.currentTarget.style.borderColor = '#E5E7EB'}
           >
             <option value="">Select state</option>
-            {STATES.map(s => <option key={s} value={s}>{s}</option>)}
+            {(options?.states ?? []).map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
         {mut.error && <p style={{ fontSize: 12, color: '#DC2626' }}>{getApiError(mut.error, 'Save failed')}</p>}
@@ -384,7 +357,7 @@ function UpscSection({ profile, open, onToggle }: { profile: ProfileData; open: 
           <Input label="Years preparing" type="number" value={String(form.years_preparing)} onChange={e => setForm(p => ({ ...p, years_preparing: parseInt(e.target.value) || 0 }))} />
           <Input label="Total attempts" type="number" value={String(form.upsc_attempts)} onChange={e => setForm(p => ({ ...p, upsc_attempts: parseInt(e.target.value) || 0 }))} />
         </div>
-        <Input label="Optional subject (if any)" placeholder="Public Administration, Geography…" value={form.optional_subject} onChange={e => setForm(p => ({ ...p, optional_subject: e.target.value }))} />
+        <Input label="Optional subject" placeholder="Public Administration, Geography…" value={form.optional_subject} onChange={e => setForm(p => ({ ...p, optional_subject: e.target.value }))} />
         {mut.error && <p className="text-xs text-danger">{getApiError(mut.error, 'Save failed')}</p>}
         <Button fullWidth loading={mut.isPending} onClick={() => mut.mutate()}>Save changes</Button>
       </div>
@@ -446,6 +419,7 @@ function WorkSection({ profile, open, onToggle }: { profile: ProfileData; open: 
 
 function SkillsSection({ profile, open, onToggle }: { profile: ProfileData; open: boolean; onToggle: () => void }) {
   const qc = useQueryClient()
+  const { data: options } = useOnboardingOptions()
   const [selected, setSelected] = useState<Set<string>>(new Set(profile.skills))
   const [customInput, setCustomInput] = useState('')
   const [saved, setSaved] = useState(false)
@@ -476,7 +450,8 @@ function SkillsSection({ profile, open, onToggle }: { profile: ProfileData; open
     inputRef.current?.focus()
   }
 
-  const isPredefined = (skill: string) => ALL_SKILLS.includes(skill)
+  const allSkills = options?.skills ?? []
+  const isPredefined = (skill: string) => allSkills.includes(skill)
   const customSkills = [...selected].filter(s => !isPredefined(s))
 
   const summary = profile.skills.length > 0
@@ -490,7 +465,7 @@ function SkillsSection({ profile, open, onToggle }: { profile: ProfileData; open
 
         {/* Predefined skill chips */}
         <div className="flex flex-wrap gap-2">
-          {ALL_SKILLS.map(skill => {
+          {allSkills.map(skill => {
             const isSelected = selected.has(skill)
             const isDisabled = !isSelected && selected.size >= MAX
             return (
@@ -560,6 +535,7 @@ function SkillsSection({ profile, open, onToggle }: { profile: ProfileData; open
 
 function PreferencesSection({ profile, open, onToggle }: { profile: ProfileData; open: boolean; onToggle: () => void }) {
   const qc = useQueryClient()
+  const { data: options } = useOnboardingOptions()
   const [sectors, setSectors] = useState<Set<string>>(new Set(profile.preferred_sectors))
   // null means not yet answered (for existing profiles that already have a value, pre-fill it)
   const [openToReloc, setOpenToReloc] = useState<boolean | null>(
@@ -602,7 +578,7 @@ function PreferencesSection({ profile, open, onToggle }: { profile: ProfileData;
         <div className="flex flex-col gap-2">
           <label className="text-sm font-medium text-gray-700">Preferred sectors</label>
           <div className="flex flex-wrap gap-2">
-            {SECTORS.map(s => (
+            {(options?.sectors ?? []).map(s => (
               <button key={s} type="button"
                 onClick={() => setSectors(prev => { const n = new Set(prev); n.has(s) ? n.delete(s) : n.add(s); return n })}
                 className={cn('px-3 py-1.5 rounded-full border text-xs font-medium transition-all',
@@ -743,6 +719,109 @@ function MindsetSection({ profile, open, onToggle }: { profile: ProfileData; ope
   )
 }
 
+// ── KRS Score Panel ───────────────────────────────────────────────────────────
+
+const KRS_TILES = [
+  {
+    key: 'k',
+    label: 'Knowledge',
+    color: '#2563EB',
+    bg: '#EFF6FF',
+    border: 'rgba(37,99,235,0.12)',
+    what: "How broadly and deeply you've mastered UPSC subjects.",
+    improve: 'Fill in your Education and UPSC Journey sections.',
+    score: (d: any) => d?.krs?.k_score ?? 0,
+  },
+  {
+    key: 'r',
+    label: 'Readiness',
+    color: '#7C3AED',
+    bg: '#F5F3FF',
+    border: 'rgba(124,58,237,0.12)',
+    what: 'Your psychological preparedness for private sector work culture.',
+    improve: 'Complete the Mindset Assessment section.',
+    score: (d: any) => d?.krs?.r_score ?? 0,
+  },
+  {
+    key: 's',
+    label: 'Skills',
+    color: '#059669',
+    bg: '#ECFDF5',
+    border: 'rgba(5,150,105,0.12)',
+    what: 'How well your UPSC skills map to real corporate roles.',
+    improve: 'Add more skills in the Skills section below.',
+    score: (d: any) => d?.krs?.s_score ?? 0,
+  },
+]
+
+function KrsPanel() {
+  const { data, isLoading } = useKrsDashboard()
+  const recompute = useRecompute()
+
+  return (
+    <div style={{
+      background: 'white',
+      borderRadius: 20,
+      border: '1px solid #E2E8F0',
+      boxShadow: '0 2px 10px rgba(15,23,42,0.04)',
+      padding: '18px 22px',
+      marginBottom: 20,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 14 }}>
+        <div>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 3 }}>Your KRS Score</p>
+          <p style={{ fontSize: 12, color: '#6B7280', lineHeight: 1.6, maxWidth: 520 }}>
+            Knowledge · Readiness · Skills — Disha uses this score to match you to the right jobs and build
+            your personalised roadmap. Every profile section you complete raises it.
+          </p>
+        </div>
+        <button
+          onClick={() => recompute.mutate()}
+          disabled={recompute.isPending || isLoading}
+          style={{
+            flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5,
+            padding: '6px 12px', borderRadius: 8,
+            background: 'none', border: '1px solid #E2E8F0',
+            color: '#6B7280', fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
+          }}
+        >
+          <RefreshCw size={11} className={recompute.isPending ? 'animate-spin' : ''} />
+          {recompute.isPending ? 'Updating…' : 'Refresh'}
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+          {[1, 2, 3].map(i => (
+            <div key={i} style={{ height: 110, borderRadius: 14, background: '#F8FAFC', animation: 'pulse 2s infinite' }} />
+          ))}
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+          {KRS_TILES.map(t => (
+            <div key={t.key} style={{
+              borderRadius: 14,
+              background: t.bg,
+              border: `1px solid ${t.border}`,
+              padding: '14px 16px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, marginBottom: 2 }}>
+                <span style={{ fontSize: 28, fontWeight: 800, color: t.color, lineHeight: 1 }}>{t.score(data)}</span>
+                <span style={{ fontSize: 11, color: t.color, fontWeight: 600, opacity: 0.6 }}>/100</span>
+              </div>
+              <p style={{ fontSize: 12, fontWeight: 700, color: '#111827', marginBottom: 6 }}>{t.label}</p>
+              <p style={{ fontSize: 11.5, color: '#6B7280', lineHeight: 1.55, marginBottom: 8 }}>{t.what}</p>
+              <p style={{ fontSize: 11, color: t.color, fontWeight: 600, borderTop: `1px solid ${t.border}`, paddingTop: 8 }}>
+                ↑ {t.improve}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
@@ -758,7 +837,7 @@ export default function ProfilePage() {
     setOpenSection(prev => (prev === section ? null : section))
 
   return (
-    <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: '#F0F7FF', display: 'flex' }}>
 
       {/* ── Sidebar ── */}
       <AppSidebar activePath="/app/profile" />
@@ -769,7 +848,7 @@ export default function ProfilePage() {
         {/* Top bar */}
         <header style={{
           background: 'white',
-          borderBottom: '1px solid #F1F5F9',
+          borderBottom: '1px solid rgba(37,99,235,0.08)',
           padding: '0 32px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           position: 'sticky', top: 0, zIndex: 20,
         }}>
@@ -782,7 +861,7 @@ export default function ProfilePage() {
         <main style={{ padding: '28px 32px', flex: 1 }}>
 
           {/* Hero card */}
-          <div style={{ borderBottom: '1px solid #F1F5F9', paddingBottom: 20, marginBottom: 20 }}>
+          <div style={{ borderBottom: '1px solid rgba(37,99,235,0.08)', paddingBottom: 20, marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <div style={{
                 width: 52, height: 52, borderRadius: '50%',
@@ -808,10 +887,12 @@ export default function ProfilePage() {
             </p>
           </div>
 
+          <KrsPanel />
+
           {isLoading && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {[1,2,3,4].map(i => (
-                <div key={i} style={{ height: 80, borderRadius: 14, background: '#F8FAFC', animation: 'pulse 2s infinite', border: '1px solid #F1F5F9' }} />
+                <div key={i} style={{ height: 80, borderRadius: 14, background: '#F8FAFC', animation: 'pulse 2s infinite', border: '1px solid rgba(37,99,235,0.08)' }} />
               ))}
             </div>
           )}

@@ -6,7 +6,7 @@
  */
 import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { downloadInterviewIcs } from '@/api/matching'
 import { useUpcomingInterviews } from '../hooks/useJobs'
 import { inboxApi } from '@/api/inbox'
@@ -42,7 +42,7 @@ function TasksPanel() {
   })
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 14, padding: 16, marginBottom: 24 }}>
+    <div style={{ background: '#fff', border: '1px solid rgba(37,99,235,0.09)', borderRadius: 14, padding: 16, marginBottom: 24 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <ListTodo size={15} color="#3B82F6" />
         <h2 style={{ fontSize: 13, fontWeight: 800, color: '#0F172A', margin: 0 }}>Tasks</h2>
@@ -54,7 +54,7 @@ function TasksPanel() {
           onChange={e => setNewTitle(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && newTitle.trim()) create.mutate() }}
           placeholder="Add a follow-up, e.g. 'Call back Priya about offer'…"
-          style={{ flex: 1, height: 34, border: '1px solid #E5E7EB', borderRadius: 8, padding: '0 10px', fontSize: 12, outline: 'none' }}
+          style={{ flex: 1, height: 34, border: '1px solid rgba(37,99,235,0.09)', borderRadius: 8, padding: '0 10px', fontSize: 12, outline: 'none' }}
         />
         <button
           onClick={() => newTitle.trim() && create.mutate()}
@@ -135,7 +135,7 @@ function GoogleCalendarBanner() {
       )}
 
       {/* Connection card */}
-      <div style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+      <div style={{ background: '#fff', border: '1px solid rgba(37,99,235,0.09)', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {/* Google Calendar icon */}
           <div style={{ width: 36, height: 36, borderRadius: 8, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -182,7 +182,7 @@ export default function EmployerCalendarPage() {
 
   return (
     <div style={{ flex: 1 }}>
-      <header style={{ background: '#fff', borderBottom: '1px solid #E5E7EB', padding: '0 28px', height: 60, display: 'flex', alignItems: 'center', gap: 16, position: 'sticky', top: 0, zIndex: 10, boxShadow: '0 1px 8px rgba(0,0,0,0.04)' }}>
+      <header style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(37,99,235,0.08)', padding: '0 28px', height: 60, display: 'flex', alignItems: 'center', gap: 16, position: 'sticky', top: 0, zIndex: 10, boxShadow: '0 1px 0 rgba(37,99,235,0.06)' }}>
         <h1 style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
           <CalendarDays size={16} color="#3B82F6" />Calendar
         </h1>
@@ -214,7 +214,7 @@ export default function EmployerCalendarPage() {
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {items.map(iv => (
-                    <div key={iv.id} style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                    <div key={iv.id} style={{ background: '#fff', border: '1px solid rgba(37,99,235,0.09)', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                         <div style={{ textAlign: 'center', minWidth: 52 }}>
                           <p style={{ fontSize: 14, fontWeight: 800, color: '#3B82F6', margin: 0 }}>

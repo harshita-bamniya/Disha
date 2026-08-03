@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -15,11 +15,18 @@ from app.modules.admin.schemas import (
     AdminActivityItem,
     AdminApplicationEntry,
     AdminJobEntry,
+    AdminJobDetailResponse,
+    EmployerJobsResponse,
     AdminStatsResponse,
+    AnalyticsResponse,
+    AnnouncementCreateRequest,
+    AnnouncementEntry,
+    AnnouncementUpdateRequest,
     AspirantDetailResponse,
     AspirantUserEntry,
     BillingOverviewResponse,
     CareerTrackAdminEntry,
+    EmployerDetailResponse,
     GlobalSearchResponse,
     CareerTrackCreateRequest,
     CareerTrackUpdateRequest,
@@ -29,8 +36,11 @@ from app.modules.admin.schemas import (
     EmployerVerificationEntry,
     LoginHistoryEntry,
     MessageResponse,
+    NotificationListResponse,
+    NotificationStatsResponse,
     PendingEmployerResponse,
     PermissionEntry,
+    RoleCreateRequest,
     RoleEntry,
     RolePermissionsUpdateRequest,
     SubAdminCreateRequest,
@@ -41,6 +51,13 @@ from app.modules.admin.schemas import (
     UserManagementEntry,
     UserStatusUpdateRequest,
     VerificationReviewRequest,
+    AddMessageRequest,
+    CreateTicketRequest,
+    TicketDetailResponse,
+    TicketEntry,
+    TicketListResponse,
+    TicketMessageEntry,
+    UpdateTicketRequest,
 )
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -67,6 +84,30 @@ def global_search(
     return service.global_search(db, q)
 
 
+# ── Analytics ─────────────────────────────────────────────────────────────────
+
+@router.get("/analytics", response_model=AnalyticsResponse)
+def get_analytics(
+    days: int = Query(30, ge=7, le=365),
+    from_date: Optional[str] = Query(None, description="ISO date YYYY-MM-DD; overrides 'days'"),
+    to_date: Optional[str] = Query(None, description="ISO date YYYY-MM-DD; overrides 'days'"),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_permission("analytics", "view")),
+):
+    from datetime import timezone as _tz
+    if from_date and to_date:
+        try:
+            from_dt = datetime.fromisoformat(from_date).replace(tzinfo=_tz.utc)
+            to_dt = datetime.fromisoformat(to_date).replace(hour=23, minute=59, second=59, tzinfo=_tz.utc)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="from_date / to_date must be YYYY-MM-DD.")
+    else:
+        to_dt = datetime.now(_tz.utc)
+        from_dt = to_dt - timedelta(days=days - 1)
+        from_dt = from_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+    return service.get_analytics(db, from_dt, to_dt)
+
+
 # ── Employers ─────────────────────────────────────────────────────────────────
 
 @router.get("/employers", response_model=list[PendingEmployerResponse])
@@ -80,15 +121,58 @@ def list_employers(
     return service.list_employers(db, status, limit=limit, offset=offset)
 
 
+@router.get("/employers/{profile_id}", response_model=EmployerDetailResponse)
+def get_employer_detail(
+    profile_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return service.get_employer_detail(profile_id, db)
+
+
+@router.get("/employers/{profile_id}/support", response_model=TicketListResponse)
+def get_employer_support_tickets(
+    profile_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_permission("companies", "view")),
+):
+    return service.list_employer_support_tickets(profile_id, db)
+
+
+@router.get("/employers/{profile_id}/jobs", response_model=EmployerJobsResponse)
+def list_employer_jobs(
+    profile_id: str,
+    search: Optional[str] = Query(None),
+    active_only: bool = False,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return service.list_employer_jobs_admin(profile_id, db, search, active_only, limit, offset)
+
+
+@router.get("/users/{user_id}/applications", response_model=list[AdminApplicationEntry])
+def list_candidate_applications(
+    user_id: str,
+    status: Optional[str] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return service.list_candidate_applications(user_id, db, status, limit, offset)
+
+
 @router.post("/employers/{profile_id}/revoke", response_model=MessageResponse)
 @limiter.limit("10/minute")
 def revoke_employer(
     request: Request,
     profile_id: str,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_permission("companies", "verify")),
 ):
-    return service.revoke_employer(profile_id, str(admin.id), db)
+    return service.revoke_employer(profile_id, str(admin.id), db, request=request)
 
 
 # ── Aspirant users ─────────────────────────────────────────────────────────────
@@ -111,6 +195,15 @@ def get_user_detail(
     admin: User = Depends(require_admin),
 ):
     return service.get_aspirant_detail(user_id, db)
+
+
+@router.get("/candidates/{user_id}/support", response_model=TicketListResponse)
+def get_candidate_support_tickets(
+    user_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_permission("users", "view")),
+):
+    return service.list_candidate_support_tickets(user_id, db)
 
 
 @router.post("/users/{user_id}/deactivate", response_model=MessageResponse)
@@ -136,7 +229,7 @@ def reactivate_user(
 @router.get("/career-tracks", response_model=list[CareerTrackAdminEntry])
 def list_career_tracks(
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_permission("career_tracks", "view")),
 ):
     return service.list_career_tracks_admin(db)
 
@@ -145,7 +238,7 @@ def list_career_tracks(
 def create_career_track(
     body: CareerTrackCreateRequest,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_permission("career_tracks", "write")),
 ):
     try:
         return service.create_career_track(body, db)
@@ -158,7 +251,7 @@ def update_career_track(
     track_id: str,
     body: CareerTrackUpdateRequest,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_permission("career_tracks", "write")),
 ):
     return service.update_career_track(track_id, body, db)
 
@@ -169,7 +262,7 @@ def delete_career_track(
     request: Request,
     track_id: str,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_permission("career_tracks", "delete")),
 ):
     return service.delete_career_track(track_id, db)
 
@@ -184,6 +277,27 @@ def list_jobs(
     admin: User = Depends(require_admin),
 ):
     return service.list_admin_jobs(db, search, active_only)
+
+
+@router.get("/jobs/{job_id}", response_model=AdminJobDetailResponse)
+def get_job_detail(
+    job_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return service.get_admin_job_detail(job_id, db)
+
+
+@router.get("/jobs/{job_id}/applications", response_model=list[AdminApplicationEntry])
+def list_job_applications(
+    job_id: str,
+    status: Optional[str] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return service.list_job_applications(job_id, db, status, limit, offset)
 
 
 @router.patch("/jobs/{job_id}/toggle", response_model=AdminJobEntry)
@@ -249,14 +363,42 @@ def list_roles(
     return service.list_roles(db)
 
 
+@router.post("/roles", response_model=RoleEntry, status_code=201)
+def create_role(
+    request: Request,
+    body: RoleCreateRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_super_admin),
+):
+    try:
+        return service.create_role(body, str(admin.id), db, request=request)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+@router.delete("/roles/{role_id}", response_model=MessageResponse)
+@limiter.limit("10/minute")
+def delete_role(
+    request: Request,
+    role_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_super_admin),
+):
+    try:
+        return service.delete_role(role_id, str(admin.id), db, request=request)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
 @router.patch("/roles/{role_id}/permissions", response_model=RoleEntry)
 def update_role_permissions(
+    request: Request,
     role_id: str,
     body: RolePermissionsUpdateRequest,
     db: Session = Depends(get_db),
     admin: User = Depends(require_super_admin),
 ):
-    return service.update_role_permissions(role_id, body.permission_ids, str(admin.id), db)
+    return service.update_role_permissions(role_id, body.permission_ids, str(admin.id), db, request=request)
 
 
 # ── Sub-admin management (super_admin only) ───────────────────────────────────
@@ -271,24 +413,26 @@ def list_sub_admins(
 
 @router.post("/sub-admins", response_model=SubAdminEntry, status_code=201)
 def create_sub_admin(
+    request: Request,
     body: SubAdminCreateRequest,
     db: Session = Depends(get_db),
     admin: User = Depends(require_super_admin),
 ):
     try:
-        return service.create_sub_admin(body, str(admin.id), db)
+        return service.create_sub_admin(body, str(admin.id), db, request=request)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
 
 
 @router.patch("/sub-admins/{user_id}/role", response_model=SubAdminEntry)
 def update_sub_admin_role(
+    request: Request,
     user_id: str,
     body: SubAdminRoleUpdateRequest,
     db: Session = Depends(get_db),
     admin: User = Depends(require_super_admin),
 ):
-    return service.update_sub_admin_role(user_id, body.role_id, str(admin.id), db)
+    return service.update_sub_admin_role(user_id, body.role_id, str(admin.id), db, request=request)
 
 
 @router.delete("/sub-admins/{user_id}", response_model=MessageResponse)
@@ -299,7 +443,7 @@ def delete_sub_admin(
     db: Session = Depends(get_db),
     admin: User = Depends(require_super_admin),
 ):
-    return service.delete_sub_admin(user_id, str(admin.id), db)
+    return service.delete_sub_admin(user_id, str(admin.id), db, request=request)
 
 
 # ── User management: status / login history / sessions ───────────────────────
@@ -318,13 +462,14 @@ def list_managed_users(
 
 @router.patch("/user-management/{user_id}/status", response_model=MessageResponse)
 def update_user_status(
+    request: Request,
     user_id: str,
     body: UserStatusUpdateRequest,
     db: Session = Depends(get_db),
     admin: User = Depends(require_permission("users", "suspend")),
 ):
     try:
-        return service.update_user_status(user_id, body.status, body.reason, str(admin.id), db)
+        return service.update_user_status(user_id, body.status, body.reason, str(admin.id), db, request=request)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
@@ -349,12 +494,13 @@ def get_device_sessions(
 
 @router.post("/user-management/{user_id}/sessions/{session_id}/revoke", response_model=MessageResponse)
 def revoke_device_session(
+    request: Request,
     user_id: str,
     session_id: str,
     db: Session = Depends(get_db),
     admin: User = Depends(require_permission("users", "suspend")),
 ):
-    return service.revoke_device_session(user_id, session_id, db, actor_id=str(admin.id))
+    return service.revoke_device_session(user_id, session_id, db, actor_id=str(admin.id), request=request)
 
 
 # ── Employer KYC verification ─────────────────────────────────────────────────
@@ -390,6 +536,7 @@ def download_verification_document(
 
 @router.post("/employer-verifications/{verification_id}/review", response_model=EmployerVerificationDetail)
 def review_employer_verification(
+    request: Request,
     verification_id: str,
     body: VerificationReviewRequest,
     db: Session = Depends(get_db),
@@ -397,7 +544,7 @@ def review_employer_verification(
 ):
     try:
         return service.review_employer_verification(
-            verification_id, body.action, body.notes, body.rejection_reason, str(admin.id), db,
+            verification_id, body.action, body.notes, body.rejection_reason, str(admin.id), db, request=request,
         )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
@@ -441,9 +588,169 @@ def list_subscription_plans(
 
 @router.patch("/subscription-plans/{plan_id}", response_model=SubscriptionPlanAdminEntry)
 def update_subscription_plan(
+    request: Request,
     plan_id: str,
     body: SubscriptionPlanUpdateRequest,
     db: Session = Depends(get_db),
     admin: User = Depends(require_permission("subscriptions", "manage")),
 ):
-    return service.update_subscription_plan(plan_id, body, str(admin.id), db)
+    return service.update_subscription_plan(plan_id, body, str(admin.id), db, request=request)
+
+
+# ── Announcements ─────────────────────────────────────────────────────────────
+
+@router.get("/announcements", response_model=list[AnnouncementEntry])
+def list_announcements(
+    status: Optional[Literal["draft", "scheduled", "published"]] = Query(None),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return service.list_announcements(db, status)
+
+
+@router.post("/announcements", response_model=AnnouncementEntry, status_code=201)
+def create_announcement(
+    request: Request,
+    body: AnnouncementCreateRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_super_admin),
+):
+    return service.create_announcement(body, str(admin.id), db, request=request)
+
+
+@router.patch("/announcements/{ann_id}", response_model=AnnouncementEntry)
+def update_announcement(
+    request: Request,
+    ann_id: str,
+    body: AnnouncementUpdateRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_super_admin),
+):
+    return service.update_announcement(ann_id, body, str(admin.id), db, request=request)
+
+
+@router.post("/announcements/{ann_id}/publish", response_model=AnnouncementEntry)
+def publish_announcement(
+    request: Request,
+    ann_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_super_admin),
+):
+    return service.publish_announcement(ann_id, str(admin.id), db, request=request)
+
+
+@router.delete("/announcements/{ann_id}", response_model=MessageResponse)
+@limiter.limit("30/minute")
+def delete_announcement(
+    request: Request,
+    ann_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_super_admin),
+):
+    service.delete_announcement(ann_id, str(admin.id), db, request=request)
+    return MessageResponse(message="Announcement deleted")
+
+
+# ── Notification management ───────────────────────────────────────────────────
+
+@router.get("/notifications/stats", response_model=NotificationStatsResponse)
+def get_notifications_stats(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return service.get_notifications_stats(db)
+
+
+@router.get("/notifications", response_model=NotificationListResponse)
+def list_notifications(
+    user_id: Optional[str] = Query(None),
+    type: Optional[str] = Query(None, alias="type"),
+    delivery_status: Optional[str] = Query(None),
+    is_read: Optional[bool] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return service.list_notifications(db, user_id=user_id, type_filter=type,
+                                      delivery_status=delivery_status, is_read=is_read,
+                                      skip=skip, limit=limit)
+
+
+@router.delete("/notifications/{notification_id}", response_model=MessageResponse)
+def delete_notification(
+    notification_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return service.delete_notification(notification_id, db)
+
+
+@router.get("/users/{user_id}/notifications", response_model=NotificationListResponse)
+def get_user_notifications(
+    user_id: str,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_permission("users", "view")),
+):
+    return service.get_user_notifications(user_id, db, skip=skip, limit=limit)
+
+
+# ── Support tickets ───────────────────────────────────────────────────────────
+
+@router.get("/support/tickets", response_model=TicketListResponse)
+def list_tickets(
+    status: Optional[str] = Query(None),
+    priority: Optional[str] = Query(None),
+    entity_type: Optional[str] = Query(None),
+    category: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return service.list_tickets(db, status=status, priority=priority,
+                                entity_type=entity_type, category=category,
+                                search=search, skip=skip, limit=limit)
+
+
+@router.post("/support/tickets", response_model=TicketEntry)
+def create_ticket(
+    request: Request,
+    req: CreateTicketRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return service.create_ticket(req, str(admin.id), db, request=request)
+
+
+@router.get("/support/tickets/{ticket_id}", response_model=TicketDetailResponse)
+def get_ticket(
+    ticket_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return service.get_ticket(ticket_id, db)
+
+
+@router.patch("/support/tickets/{ticket_id}", response_model=TicketEntry)
+def update_ticket(
+    request: Request,
+    ticket_id: str,
+    req: UpdateTicketRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return service.update_ticket(ticket_id, req, str(admin.id), db, request=request)
+
+
+@router.post("/support/tickets/{ticket_id}/messages", response_model=TicketMessageEntry)
+def add_ticket_message(
+    ticket_id: str,
+    req: AddMessageRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return service.add_ticket_message(ticket_id, req, str(admin.id), db)

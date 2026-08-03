@@ -3,13 +3,14 @@ import type { AuthTokens, CompanySize, User } from '@/types'
 
 export interface RegisterPayload {
   phone: string
+  email?: string
   password: string
   preferred_language?: string
   recaptcha_token?: string
 }
 
 export interface LoginPayload {
-  phone: string
+  identifier: string  // phone number OR email address
   password: string
   recaptcha_token?: string
 }

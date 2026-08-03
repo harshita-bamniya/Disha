@@ -2,13 +2,25 @@
 KRS Scoring Engine — rule-based, no AI keys required.
 
 K = Knowledge  (0-100)  — depth of UPSC / competitive exam journey
-R = Readiness  (0-100)  — education + work experience + skill breadth + psychological state
+R = Readiness  (0-100)  — education + work experience + skill breadth + full psychological profile
 S = Skills     (0-100)  — how well the user's skills cover real market demand
 
-Composite = K*0.40 + R*0.35 + S*0.25  (0-100)
+Composite = K×0.35 + R×0.30 + S×0.35  (0-100)
+            Skills relevance shares equal weight with UPSC depth because
+            employers screen primarily on skills, not exam history.
 
-S-score (fully dynamic):
-  Anchors = all unique required_skills across every career track in the DB.
+K score (max raw 123 → /123×100):
+  stage_cleared (80) + years_preparing (18) + exam_type (12)
+  + attempts/grit bonus (8) + optional_subject transferability (5)
+
+R score:
+  Without psych — max raw 95  → /95×100
+  With psych    — max raw 160 → /160×100
+  Uses ALL 7 mindset fields (previous engine ignored 5 of them).
+
+S score (fully dynamic):
+  Anchors = required_skills from all active JobPostings (real market demand)
+            UNION required_skills from CareerTracks (curated UPSC archetypes).
   For each user skill vector, find max cosine similarity to any anchor vector.
   S = mean(max_sims) × breadth_bonus × 100
   Falls back to breadth-only when DB or embeddings are unavailable.
@@ -28,33 +40,77 @@ def _clamp(val: float, lo: float = 0, hi: float = 100) -> int:
     return max(lo, min(hi, round(val)))
 
 
+# ── Optional subject transferability lookup ───────────────────────────────────
+
+_OPTIONAL_TRANSFERABILITY: dict[str, int] = {
+    "public administration": 5,
+    "economics": 5,
+    "law": 4,
+    "international relations": 4,
+    "political science": 2,
+    "geography": 2,
+    "history": 2,
+    "sociology": 2,
+    "philosophy": 1,
+}
+
+
 # ── K score ───────────────────────────────────────────────────────────────────
 
 def compute_k_score(profile: AspirantProfile) -> int:
-    """Knowledge score: how deep has the aspirant gone in UPSC preparation."""
+    """
+    Knowledge score: how deep has the aspirant gone in UPSC preparation.
+
+    Signals used:
+      - Stage cleared  (max 80) — primary differentiator
+      - Years preparing (max 18) — sustained effort
+      - Exam type      (max 12) — CSE/IES > state exams
+      - Attempts       (max  8) — grit/persistence
+      - Optional subject (max 5) — private-sector transferability
+    Max raw = 123.
+    """
     raw = 0.0
 
     stage_pts = {"none": 10, "prelims": 35, "mains": 60, "interview": 80}
     raw += stage_pts.get(profile.highest_stage_cleared or "none", 10)
 
     yrs = profile.years_preparing or 0
-    if yrs >= 6:
-        raw += 18
-    elif yrs >= 3:
-        raw += 12
-    elif yrs >= 1:
-        raw += 5
+    if yrs >= 6:   raw += 18
+    elif yrs >= 3: raw += 12
+    elif yrs >= 1: raw += 5
 
     exam_pts = {"cse": 12, "ies": 10, "cms": 10, "capf": 8, "cds": 8, "state_pcs": 6, "other": 4}
     raw += exam_pts.get(profile.upsc_exam or "other", 4)
 
-    return _clamp(raw / 110 * 100)
+    attempts = profile.upsc_attempts or 0
+    if attempts >= 4:   raw += 8
+    elif attempts >= 3: raw += 5
+    elif attempts >= 2: raw += 3
+
+    opt = (profile.optional_subject or "").lower().strip()
+    raw += next((v for k, v in _OPTIONAL_TRANSFERABILITY.items() if k in opt), 1)
+
+    return _clamp(raw / 123 * 100)
 
 
 # ── R score ───────────────────────────────────────────────────────────────────
 
 def compute_r_score(profile: AspirantProfile, psych=None) -> int:
-    """Readiness score: education + experience + skill breadth + psychological readiness."""
+    """
+    Readiness score: education + work experience + skill breadth + psychological profile.
+
+    Without psych → max raw 95  → normalised /95×100
+    With psych    → max raw 160 → normalised /160×100
+
+    All 7 mindset-assessment fields are used:
+      confidence_index        → up to 18 pts (direct transition confidence)
+      burnout_score           → up to 12 pts (lower burnout = more energy)
+      risk_tolerance          → up to  8 pts (high = willing to leap)
+      motivation_type         → up to  6 pts (extrinsic = aligned with private sector)
+      identity_attachment     → up to  8 pts (low = mentally moved on)
+      support_system          → up to  5 pts (strong = backing for the change)
+      financial_pressure_score→ up to  8 pts (some pressure = motivating sweet spot)
+    """
     raw = 0.0
 
     edu_pts = {"doctorate": 30, "post_graduate": 22, "graduate": 16, "diploma": 12, "other": 10}
@@ -62,44 +118,66 @@ def compute_r_score(profile: AspirantProfile, psych=None) -> int:
 
     if profile.has_work_experience:
         yrs = profile.work_experience_years or 0
-        if yrs >= 5:
-            raw += 40
-        elif yrs >= 3:
-            raw += 30
-        elif yrs >= 1:
-            raw += 18
+        if yrs >= 5:   raw += 40
+        elif yrs >= 3: raw += 30
+        elif yrs >= 1: raw += 18
 
     n_skills = len(profile.skills or [])
-    if n_skills >= 7:
-        raw += 25
-    elif n_skills >= 4:
-        raw += 15
-    elif n_skills >= 1:
-        raw += 5
+    if n_skills >= 7:   raw += 25
+    elif n_skills >= 4: raw += 15
+    elif n_skills >= 1: raw += 5
 
     if not psych:
         return _clamp(raw / 95 * 100)
 
-    psych_score = (psych.confidence_index * 0.6 + (100 - psych.burnout_score) * 0.4)
-    raw += (psych_score / 100) * 30
+    # Confidence in private-sector transition (0-100 → 0-18 pts)
+    raw += (psych.confidence_index / 100) * 18
 
-    return _clamp(raw / 125 * 100)
+    # Low burnout = more capacity to make the leap (0-100 → 0-12 pts, inverted)
+    raw += ((100 - psych.burnout_score) / 100) * 12
+
+    # Risk tolerance: high risk appetite = more likely to commit to the transition
+    raw += {"low": 0, "medium": 5, "high": 8}.get(psych.risk_tolerance or "medium", 5)
+
+    # Motivation: extrinsic (salary/recognition) is most aligned with private sector norms
+    raw += {"intrinsic": 4, "extrinsic": 6, "mixed": 5}.get(psych.motivation_type or "mixed", 5)
+
+    # Identity attachment: low = mentally moved on from UPSC identity = more ready
+    raw += {"low": 8, "medium": 4, "high": 0}.get(psych.identity_attachment or "medium", 4)
+
+    # Support system: family/friend backing eases the transition significantly
+    raw += {"strong": 5, "moderate": 3, "weak": 0}.get(psych.support_system or "moderate", 3)
+
+    # Financial pressure: some pressure motivates; urgency or none reduces decision quality
+    # Stored values: no_rush=10, some_pressure=35, significant=65, urgent=90
+    pressure_pts = {10: 3, 35: 8, 65: 5, 90: 2}
+    raw += pressure_pts.get(psych.financial_pressure_score, 4)
+
+    return _clamp(raw / 160 * 100)
 
 
 # ── S score ───────────────────────────────────────────────────────────────────
 
 def _fetch_anchor_vectors(db: Session) -> list[list[float]]:
     """
-    Fetch embeddings for all unique required_skills across every career track.
-    These represent real market demand — no hardcoded anchors.
-    Skills not yet in skill_vectors are embedded on-demand and cached.
+    Build the market-demand anchor set from two sources:
+      1. Active JobPostings.required_skills — real skills employers are hiring for right now.
+      2. CareerTracks.required_skills       — curated UPSC-to-private-sector archetypes.
+    Using both means the score is immediately meaningful (career tracks) and
+    grows more accurate as more employers join the platform (job postings).
     """
-    from app.models.user import CareerTrack
+    from app.models.user import CareerTrack, JobPosting
     from app.models.mvp2 import SkillVector
 
-    tracks = db.query(CareerTrack).all()
     all_skills: set[str] = set()
-    for t in tracks:
+
+    # Active job postings — reflects live market demand
+    for j in db.query(JobPosting).filter(JobPosting.is_active == True).all():
+        for s in (j.required_skills or []):
+            all_skills.add(s.lower().strip())
+
+    # Career track archetypes — always included as a curated baseline
+    for t in db.query(CareerTrack).all():
         for s in (t.required_skills or []):
             all_skills.add(s.lower().strip())
 
@@ -131,7 +209,7 @@ def compute_s_score(profile: AspirantProfile, db: Session | None = None) -> int:
     """
     Skills score: how well the user's skill set covers real market demand.
 
-    With DB: anchors = all required_skills from career tracks (dynamic).
+    With DB:    anchors = active JobPostings + CareerTracks (dynamic + curated).
     Without DB: breadth-only fallback.
     """
     skills = list(profile.skills or [])
@@ -150,7 +228,6 @@ def compute_s_score(profile: AspirantProfile, db: Session | None = None) -> int:
         from app.models.mvp2 import SkillVector
         from app.modules.recommendations.embedder import embed_batch
 
-        # Fetch or embed user skill vectors
         normalised = [s.lower().strip() for s in skills]
         cached = {
             r.skill_text: r.embedding
@@ -206,7 +283,8 @@ def compute_s_score(profile: AspirantProfile, db: Session | None = None) -> int:
 # ── Composite ─────────────────────────────────────────────────────────────────
 
 def compute_composite(k: int, r: int, s: int) -> int:
-    return _clamp(k * 0.40 + r * 0.35 + s * 0.25)
+    # S shares equal weight with K — employers screen on skills, not just exam depth.
+    return _clamp(k * 0.35 + r * 0.30 + s * 0.35)
 
 
 def compute_all(profile: AspirantProfile, psych=None, db: Session | None = None) -> dict[str, int]:

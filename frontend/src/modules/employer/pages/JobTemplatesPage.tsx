@@ -3,9 +3,8 @@
  * Templates pre-fill the job form so recruiters don't retype the same role spec repeatedly.
  */
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
 import {
-  ArrowLeft, FileSignature, Plus, Trash2, X, Briefcase, Tags, Code2,
+  FileSignature, Plus, Trash2, X, Briefcase, Tags, Code2,
   Clock4, GraduationCap, Sparkles, Globe, Copy,
 } from 'lucide-react'
 import { useJobTemplates, useCreateJobTemplate, useDeleteJobTemplate } from '../hooks/useJobs'
@@ -37,7 +36,7 @@ function TemplateCard({
 
   return (
     <div style={{
-      background: '#fff', borderRadius: 18, border: '1px solid #E5E7EB',
+      background: '#fff', borderRadius: 18, border: '1px solid rgba(37,99,235,0.09)',
       padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 12,
       transition: 'box-shadow 0.2s',
     }}
@@ -108,7 +107,7 @@ function TemplateCard({
         </p>
       )}
 
-      <p style={{ fontSize: 10, color: '#CBD5E1', margin: 0, paddingTop: 4, borderTop: '1px solid #F1F5F9' }}>
+      <p style={{ fontSize: 10, color: '#CBD5E1', margin: 0, paddingTop: 4, borderTop: '1px solid rgba(37,99,235,0.08)' }}>
         Created {new Date(template.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
       </p>
     </div>
@@ -234,19 +233,14 @@ export default function JobTemplatesPage() {
   const totalSkills = (templates ?? []).reduce((a, t) => a + t.required_skills.length, 0)
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #F0F4FF 0%, #E8F0FE 50%, #F5F0FF 100%)', padding: '28px 20px' }}>
+    <div style={{ padding: '28px 20px' }}>
       <div style={{ maxWidth: 920, margin: '0 auto' }}>
 
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <Link to="/app/employer/dashboard" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,255,255,0.95)', color: '#64748B', textDecoration: 'none' }}>
-              <ArrowLeft size={16} />
-            </Link>
-            <div>
-              <h1 style={{ fontSize: 20, fontWeight: 900, color: '#1E3A5F', margin: 0 }}>Job Templates</h1>
-              <p style={{ fontSize: 12, color: '#94A3B8', margin: '2px 0 0' }}>Reusable job specs — fill in the form in seconds</p>
-            </div>
+          <div>
+            <h1 style={{ fontSize: 20, fontWeight: 900, color: '#1E3A5F', margin: 0 }}>Job Templates</h1>
+            <p style={{ fontSize: 12, color: '#94A3B8', margin: '2px 0 0' }}>Reusable job specs — fill in the form in seconds</p>
           </div>
           <button
             onClick={() => setShowCreate(true)}

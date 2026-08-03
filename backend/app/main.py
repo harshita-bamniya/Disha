@@ -36,6 +36,10 @@ from app.modules.roadmap.router import router as roadmap_router
 from app.modules.jobs.plan_router import router as job_plan_router
 from app.modules.companion.router import router as companion_router
 from app.modules.calendar.router import router as calendar_router
+from app.modules.support.router import employer_router as support_employer_router, candidate_router as support_candidate_router
+from app.modules.resume_library.router import router as resume_library_router
+from app.modules.application_forms.router import router as application_forms_router
+from app.modules.applications.router import router as applications_router
 
 settings = get_settings()
 
@@ -122,13 +126,17 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 class LimitRequestSizeMiddleware(BaseHTTPMiddleware):
     MAX_CONTENT_LENGTH = 2 * 1024 * 1024  # 2 MB
     # Document upload routes accept scanned PDFs/images — allow more headroom.
+    UPLOAD_PATH_PREFIXES = (
+        "/api/employer/verification/documents",   # KYC docs: 10 MB
+        "/api/candidates/me/resumes",             # resume library: 5 MB (checked in service)
+    )
     UPLOAD_PATH_PREFIX = "/api/employer/verification/documents"
     UPLOAD_MAX_CONTENT_LENGTH = 10 * 1024 * 1024  # 10 MB
 
     async def dispatch(self, request: Request, call_next):
         limit = (
             self.UPLOAD_MAX_CONTENT_LENGTH
-            if request.url.path.startswith(self.UPLOAD_PATH_PREFIX)
+            if any(request.url.path.startswith(p) for p in self.UPLOAD_PATH_PREFIXES)
             else self.MAX_CONTENT_LENGTH
         )
         content_length = request.headers.get("content-length")
@@ -233,6 +241,11 @@ app.include_router(roadmap_router, prefix="/api")
 app.include_router(job_plan_router, prefix="/api")
 app.include_router(companion_router, prefix="/api")
 app.include_router(calendar_router, prefix="/api")
+app.include_router(support_employer_router, prefix="/api")
+app.include_router(support_candidate_router, prefix="/api")
+app.include_router(resume_library_router, prefix="/api")
+app.include_router(application_forms_router, prefix="/api")
+app.include_router(applications_router, prefix="/api")
 
 
 # ── Health ────────────────────────────────────────────────────────────────────

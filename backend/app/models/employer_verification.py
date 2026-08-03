@@ -14,7 +14,7 @@ from sqlalchemy.sql import func
 
 from app.database import Base
 
-VERIFICATION_STATUSES = ("draft", "pending", "under_review", "approved", "rejected", "resubmitted")
+VERIFICATION_STATUSES = ("requested", "under_review", "approved", "rejected")
 DOCUMENT_TYPES = ("gst_certificate", "pan_card", "company_registration", "business_email")
 DOCUMENT_STATUSES = ("pending", "verified", "rejected")
 

@@ -40,7 +40,7 @@ export default function RoadmapPage() {
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null)
 
   return (
-    <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: '#F0F7FF', display: 'flex' }}>
       <AppSidebar activePath="/app/roadmap" />
 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
@@ -48,7 +48,7 @@ export default function RoadmapPage() {
         {/* Header */}
         <header style={{
           background: 'white',
-          borderBottom: '1px solid #F1F5F9',
+          borderBottom: '1px solid rgba(37,99,235,0.08)',
           padding: '0 28px', height: 64,
           display: 'flex', alignItems: 'center', gap: 12,
           position: 'sticky', top: 0, zIndex: 20,

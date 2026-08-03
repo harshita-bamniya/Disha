@@ -1,8 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { adminApi } from '@/api/admin'
-import type { CareerTrackCreatePayload, CareerTrackUpdatePayload, EmployerStatus, SubAdminCreatePayload } from '@/api/admin'
+import type {
+  AnnouncementCreatePayload, AnnouncementStatus,
+  CareerTrackCreatePayload, CareerTrackUpdatePayload, EmployerStatus, SubAdminCreatePayload,
+} from '@/api/admin'
 
-const STATS_KEY         = ['admin', 'stats']
+const STATS_KEY              = ['admin', 'stats']
+const NOTIFICATIONS_KEY      = (params?: object) => ['admin', 'notifications', params ?? {}]
+const NOTIFICATION_STATS_KEY = ['admin', 'notifications', 'stats']
 const EMPLOYERS_KEY     = (status: EmployerStatus) => ['admin', 'employers', status]
 const USERS_KEY         = (search?: string) => ['admin', 'users', search ?? '']
 const CAREER_TRACKS_KEY = ['admin', 'career-tracks']
@@ -30,6 +35,14 @@ export function useAdminEmployers(status: EmployerStatus = 'pending') {
 // useApproveEmployer/useRejectEmployer were removed — they bypassed KYC
 // document review entirely. Approval now only happens via the KYC verification
 // queue (useReviewEmployerVerification, below).
+
+export function useAdminEmployerDetail(profileId: string | null) {
+  return useQuery({
+    queryKey: ['admin', 'employers', profileId],
+    queryFn: () => adminApi.getEmployerDetail(profileId!),
+    enabled: !!profileId,
+  })
+}
 
 export function useRevokeEmployer() {
   const qc = useQueryClient()
@@ -115,6 +128,38 @@ export function useAdminJobs(search?: string, activeOnly?: boolean) {
   })
 }
 
+export function useAdminJobDetail(jobId: string | null) {
+  return useQuery({
+    queryKey: ['admin', 'jobs', jobId],
+    queryFn: () => adminApi.getJobDetail(jobId!),
+    enabled: !!jobId,
+  })
+}
+
+export function useJobApplications(jobId: string | null, params?: { status?: string }) {
+  return useQuery({
+    queryKey: ['admin', 'jobs', jobId, 'applications', params?.status ?? ''],
+    queryFn: () => adminApi.listJobApplications(jobId!, params),
+    enabled: !!jobId,
+  })
+}
+
+export function useEmployerJobs(employerId: string | null, params?: { search?: string; active_only?: boolean }) {
+  return useQuery({
+    queryKey: ['admin', 'employers', employerId, 'jobs', params?.search ?? '', params?.active_only ?? false],
+    queryFn: () => adminApi.listEmployerJobs(employerId!, params),
+    enabled: !!employerId,
+  })
+}
+
+export function useCandidateApplications(userId: string | null, params?: { status?: string }) {
+  return useQuery({
+    queryKey: ['admin', 'candidates', userId, 'applications', params?.status ?? ''],
+    queryFn: () => adminApi.listCandidateApplications(userId!, params),
+    enabled: !!userId,
+  })
+}
+
 export function useToggleAdminJob() {
   const qc = useQueryClient()
   return useMutation({
@@ -167,6 +212,23 @@ export function useUpdateRolePermissions() {
   return useMutation({
     mutationFn: ({ roleId, permissionIds }: { roleId: string; permissionIds: string[] }) =>
       adminApi.updateRolePermissions(roleId, permissionIds),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ROLES_KEY }),
+  })
+}
+
+export function useCreateRole() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: { name: string; description?: string; permission_ids: string[]; clone_from_id?: string }) =>
+      adminApi.createRole(payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ROLES_KEY }),
+  })
+}
+
+export function useDeleteRole() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (roleId: string) => adminApi.deleteRole(roleId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ROLES_KEY }),
   })
 }
@@ -331,5 +393,152 @@ export function useReviewEmployerVerification() {
       qc.invalidateQueries({ queryKey: ['admin', 'employers'] })
       qc.invalidateQueries({ queryKey: STATS_KEY })
     },
+  })
+}
+
+// ── Announcements ─────────────────────────────────────────────────────────────
+
+const ANNOUNCEMENTS_KEY = (status?: AnnouncementStatus) => ['admin', 'announcements', status ?? '']
+
+export function useAnnouncements(status?: AnnouncementStatus) {
+  return useQuery({
+    queryKey: ANNOUNCEMENTS_KEY(status),
+    queryFn: () => adminApi.listAnnouncements(status),
+  })
+}
+
+export function useCreateAnnouncement() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: AnnouncementCreatePayload) => adminApi.createAnnouncement(payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'announcements'] }),
+  })
+}
+
+export function useUpdateAnnouncement() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Partial<AnnouncementCreatePayload> }) =>
+      adminApi.updateAnnouncement(id, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'announcements'] }),
+  })
+}
+
+export function usePublishAnnouncement() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => adminApi.publishAnnouncement(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'announcements'] }),
+  })
+}
+
+export function useDeleteAnnouncement() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => adminApi.deleteAnnouncement(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'announcements'] }),
+  })
+}
+
+// ── Support tickets ───────────────────────────────────────────────────────────
+
+export function useAdminTickets(params?: {
+  status?: string; priority?: string; entity_type?: string; search?: string
+}) {
+  return useQuery({
+    queryKey: ['admin', 'tickets', params],
+    queryFn: () => adminApi.listTickets(params),
+    staleTime: 30_000,
+  })
+}
+
+export function useAdminTicket(id: string | undefined) {
+  return useQuery({
+    queryKey: ['admin', 'ticket', id],
+    queryFn: () => adminApi.getTicket(id!),
+    enabled: !!id,
+    staleTime: 30_000,
+  })
+}
+
+export function useCreateTicket() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: adminApi.createTicket,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'tickets'] }),
+  })
+}
+
+export function useUpdateTicket(id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: import('@/api/admin').UpdateTicketPayload) => adminApi.updateTicket(id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'ticket', id] })
+      qc.invalidateQueries({ queryKey: ['admin', 'tickets'] })
+    },
+  })
+}
+
+export function useAddTicketMessage(ticketId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (payload: import('@/api/admin').AddMessagePayload) => adminApi.addTicketMessage(ticketId, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin', 'ticket', ticketId] }),
+  })
+}
+
+export function useEmployerSupportTickets(profileId: string | null) {
+  return useQuery({
+    queryKey: ['admin', 'employers', profileId, 'support'],
+    queryFn: () => adminApi.getEmployerSupport(profileId!),
+    enabled: !!profileId,
+  })
+}
+
+export function useCandidateSupportTickets(userId: string | null) {
+  return useQuery({
+    queryKey: ['admin', 'candidates', userId, 'support'],
+    queryFn: () => adminApi.getCandidateSupport(userId!),
+    enabled: !!userId,
+  })
+}
+
+// ── Notification management ───────────────────────────────────────────────────
+
+export function useAdminNotifications(params?: {
+  user_id?: string; type?: string; delivery_status?: string; is_read?: boolean; skip?: number; limit?: number
+}) {
+  return useQuery({
+    queryKey: NOTIFICATIONS_KEY(params),
+    queryFn: () => adminApi.getNotifications(params),
+    staleTime: 30_000,
+  })
+}
+
+export function useNotificationsStats() {
+  return useQuery({
+    queryKey: NOTIFICATION_STATS_KEY,
+    queryFn: () => adminApi.getNotificationsStats(),
+    staleTime: 60_000,
+  })
+}
+
+export function useDeleteNotification() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => adminApi.deleteNotification(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'notifications'] })
+    },
+  })
+}
+
+export function useUserNotifications(userId: string | null) {
+  return useQuery({
+    queryKey: ['admin', 'users', userId, 'notifications'],
+    queryFn: () => adminApi.getUserNotifications(userId!),
+    enabled: !!userId,
+    staleTime: 30_000,
   })
 }

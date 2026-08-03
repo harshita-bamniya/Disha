@@ -98,7 +98,12 @@ def get_dashboard(user: User, db: Session) -> KrsDashboardResponse:
     krs = db.query(KrsScore).filter(KrsScore.user_id == user.id).first()
 
     zeroed = krs and krs.composite == 0 and krs.k_score == 0 and krs.r_score == 0 and krs.s_score == 0
-    if not krs or not profile or zeroed:
+    stale = (
+        krs and profile
+        and profile.updated_at and krs.updated_at
+        and profile.updated_at > krs.updated_at
+    )
+    if not krs or not profile or zeroed or stale:
         if profile and profile.is_completed:
             krs = compute_and_store(user, db)
         else:

@@ -9,15 +9,13 @@ function useCountUp(target: number, duration = 1200, run = false) {
   const [val, setVal] = useState(0)
   useEffect(() => {
     if (!run) return
-    let raf: number
-    const t0 = performance.now()
-    const tick = (now: number) => {
-      const p = Math.min(1, (now - t0) / duration)
+    const t0 = Date.now()
+    const id = setInterval(() => {
+      const p = Math.min(1, (Date.now() - t0) / duration)
       setVal(Math.round((1 - Math.pow(1 - p, 3)) * target))
-      if (p < 1) raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
+      if (p >= 1) clearInterval(id)
+    }, 16)
+    return () => clearInterval(id)
   }, [target, duration, run])
   return val
 }
@@ -75,7 +73,7 @@ function CompositeRing({ value, run }: { value: number; run: boolean }) {
           />
         </svg>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontSize: 32, fontWeight: 700, color: '#111827', lineHeight: 1 }}>{run ? counted : value}</span>
+          <span style={{ fontSize: 32, fontWeight: 700, color: '#111827', lineHeight: 1 }}>{counted > 0 ? counted : value}</span>
           <span style={{ fontSize: 10, fontWeight: 600, color: '#9CA3AF', marginTop: 2 }}>/100</span>
         </div>
       </div>
@@ -98,7 +96,7 @@ function ScoreBar({ label, value, color, icon, desc, run }: {
     return () => clearTimeout(t)
   }, [run, value])
   return (
-    <div style={{ padding: '14px 0', borderTop: '1px solid #F1F5F9' }}>
+    <div style={{ padding: '14px 0', borderTop: '1px solid rgba(37,99,235,0.08)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 30, height: 30, borderRadius: 8, background: `${color}10`, display: 'flex', alignItems: 'center', justifyContent: 'center', color }}>
@@ -109,7 +107,7 @@ function ScoreBar({ label, value, color, icon, desc, run }: {
             <p style={{ fontSize: 11, color: '#9CA3AF' }}>{desc}</p>
           </div>
         </div>
-        <span style={{ fontSize: 20, fontWeight: 700, color }}>{run ? counted : value}</span>
+        <span style={{ fontSize: 20, fontWeight: 700, color }}>{counted > 0 ? counted : value}</span>
       </div>
       <div style={{ height: 5, borderRadius: 5, background: '#F1F5F9', overflow: 'hidden' }}>
         <div style={{ height: '100%', width: barW, background: color, borderRadius: 5, transition: 'width 1.4s cubic-bezier(0.34,1.1,0.64,1)' }} />
@@ -135,7 +133,7 @@ export default function SkillsReportPage() {
   const nextOnboardingStep = onboarding?.current_step ?? 2
 
   return (
-    <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: '#F0F7FF', display: 'flex' }}>
       <AppSidebar activePath="/app/skills/report" />
 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
@@ -143,7 +141,7 @@ export default function SkillsReportPage() {
         {/* Top bar */}
         <header style={{
           background: 'white',
-          borderBottom: '1px solid #F1F5F9',
+          borderBottom: '1px solid rgba(37,99,235,0.08)',
           padding: '0 28px', height: 64,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           position: 'sticky', top: 0, zIndex: 20,
@@ -251,7 +249,7 @@ export default function SkillsReportPage() {
                 </div>
 
                 {/* Stats strip */}
-                <div style={{ marginTop: 22, paddingTop: 18, borderTop: '1px solid #F1F5F9', display: 'flex', gap: 28, flexWrap: 'wrap' }}>
+                <div style={{ marginTop: 22, paddingTop: 18, borderTop: '1px solid rgba(37,99,235,0.08)', display: 'flex', gap: 28, flexWrap: 'wrap' }}>
                   {[
                     { label: 'Composite Score', value: `${composite}`, sub: composite >= 70 ? 'Strong' : composite >= 40 ? 'Developing' : 'Early Stage' },
                     { label: 'Skills Verified', value: `${data.skills.length}`, sub: 'extracted from profile' },
@@ -296,7 +294,7 @@ export default function SkillsReportPage() {
                   ) : (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                       {data.skills.map(sk => (
-                        <span key={sk} style={{ padding: '5px 12px', background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#374151' }}>
+                        <span key={sk} style={{ padding: '5px 12px', background: '#F8FAFC', border: '1px solid rgba(37,99,235,0.08)', borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#374151' }}>
                           ✓ {sk}
                         </span>
                       ))}
@@ -320,7 +318,7 @@ export default function SkillsReportPage() {
                   ) : (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                       {data.missing_skills.map(sk => (
-                        <span key={sk} style={{ padding: '5px 12px', background: '#F8FAFC', border: '1px solid #F1F5F9', borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#374151' }}>
+                        <span key={sk} style={{ padding: '5px 12px', background: '#F8FAFC', border: '1px solid rgba(37,99,235,0.08)', borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#374151' }}>
                           + {sk}
                         </span>
                       ))}

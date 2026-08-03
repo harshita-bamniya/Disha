@@ -433,3 +433,119 @@ export const unsaveCandidate = (aspirantId: string): Promise<{ aspirant_id: stri
 
 export const checkCandidateSaved = (aspirantId: string): Promise<{ aspirant_id: string; saved: boolean }> =>
   apiClient.get(`/employer/talent-pool/${aspirantId}/is-saved`).then((r) => r.data)
+
+// ── Cross-job employer list views (Phase E) ───────────────────────────────────
+
+export interface ApplicantListItem {
+  application_id: string
+  aspirant_id: string
+  full_name: string | null
+  city: string | null
+  job_id: string
+  job_title: string
+  department_name: string | null
+  status: string
+  match_score: number | null
+  applied_at: string
+  days_ago: number
+}
+
+export interface AllApplicantsResponse {
+  total: number
+  items: ApplicantListItem[]
+}
+
+export interface InterviewListItem {
+  interview_id: string
+  application_id: string
+  candidate_name: string | null
+  job_id: string
+  job_title: string
+  department_name: string | null
+  interviewer_name: string | null
+  scheduled_at: string | null
+  meeting_link: string | null
+  status: 'scheduled' | 'completed' | 'canceled'
+  recommendation: string | null
+}
+
+export interface AllInterviewsResponse {
+  total: number
+  items: InterviewListItem[]
+}
+
+export interface OfferListItem {
+  offer_id: string
+  application_id: string
+  candidate_name: string | null
+  job_id: string
+  job_title: string
+  department_name: string | null
+  role_title: string
+  salary_ctc: string
+  start_date: string
+  status: 'sent' | 'accepted' | 'declined'
+  sent_at: string | null
+  responded_at: string | null
+}
+
+export interface AllOffersResponse {
+  total: number
+  items: OfferListItem[]
+}
+
+export interface ApplicantFilters { status?: string; job_id?: string; department_id?: string; limit?: number; offset?: number }
+export interface InterviewFilters { status?: string; job_id?: string; limit?: number; offset?: number }
+export interface OfferFilters { status?: string; job_id?: string; limit?: number; offset?: number }
+
+export const getAllApplicants = (params: ApplicantFilters = {}): Promise<AllApplicantsResponse> =>
+  apiClient.get('/employer/applicants', { params }).then((r) => r.data)
+
+export const getAllInterviews = (params: InterviewFilters = {}): Promise<AllInterviewsResponse> =>
+  apiClient.get('/employer/all-interviews', { params }).then((r) => r.data)
+
+export const getAllOffers = (params: OfferFilters = {}): Promise<AllOffersResponse> =>
+  apiClient.get('/employer/all-offers', { params }).then((r) => r.data)
+
+// ── Phase F: Pipeline Stages ──────────────────────────────────────────────────
+
+export interface PipelineStage {
+  id: string
+  stage_key: string
+  display_name: string
+  color: string
+  position: number
+  is_visible: boolean
+}
+
+export interface PipelineStageIn {
+  stage_key: string
+  display_name: string
+  color: string
+  position: number
+  is_visible: boolean
+}
+
+export interface PipelineTemplate {
+  id: string
+  name: string
+  stages: PipelineStageIn[]
+}
+
+export const getPipelineStages = (jobId: string): Promise<PipelineStage[]> =>
+  apiClient.get(`/employer/jobs/${jobId}/pipeline-stages`).then((r) => r.data)
+
+export const bulkUpsertPipelineStages = (jobId: string, stages: PipelineStageIn[]): Promise<PipelineStage[]> =>
+  apiClient.put(`/employer/jobs/${jobId}/pipeline-stages`, { stages }).then((r) => r.data)
+
+export const applyTemplateToJob = (jobId: string, templateId: string): Promise<PipelineStage[]> =>
+  apiClient.post(`/employer/jobs/${jobId}/pipeline-stages/from-template/${templateId}`).then((r) => r.data)
+
+export const getPipelineTemplates = (): Promise<PipelineTemplate[]> =>
+  apiClient.get('/employer/pipeline-templates').then((r) => r.data)
+
+export const createPipelineTemplate = (name: string, stages: PipelineStageIn[]): Promise<PipelineTemplate> =>
+  apiClient.post('/employer/pipeline-templates', { name, stages }).then((r) => r.data)
+
+export const deletePipelineTemplate = (id: string): Promise<void> =>
+  apiClient.delete(`/employer/pipeline-templates/${id}`).then((r) => r.data)

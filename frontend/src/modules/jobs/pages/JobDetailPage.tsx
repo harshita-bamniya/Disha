@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { MapPin, Wifi, Briefcase, Target, Sparkles, Mic, Check, IndianRupee, ArrowUpRight, X } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { MapPin, Wifi, Briefcase, Target, Sparkles, Mic, Check, IndianRupee, ArrowUpRight } from 'lucide-react'
 import AppSidebar from '@/components/layout/AppSidebar'
-import { getJobDetail, applyToJob } from '@/api/matching'
+import { getJobDetail } from '@/api/matching'
 import { resumeApi } from '@/api/resume'
 import { jobPlanApi } from '@/api/jobPlan'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
@@ -27,9 +27,6 @@ function skillBarColor(pct: number) {
 export default function JobDetailPage() {
   const { jobId } = useParams<{ jobId: string }>()
   const navigate = useNavigate()
-  const qc = useQueryClient()
-  const [coverNote, setCoverNote] = useState('')
-  const [showApplyForm, setShowApplyForm] = useState(false)
   const [applied, setApplied] = useState(false)
   const [generatingResume, setGeneratingResume] = useState(false)
   const [resumeError, setResumeError] = useState<string | null>(null)
@@ -41,16 +38,6 @@ export default function JobDetailPage() {
   })
   const { activePrep, startPrep, isStartingPrep } = useActivePrepJob()
   const isActivePrepJob = activePrep?.job_id === jobId
-
-  const applyMutation = useMutation({
-    mutationFn: () => applyToJob(jobId!, coverNote || undefined),
-    onSuccess: () => {
-      setApplied(true)
-      setShowApplyForm(false)
-      qc.invalidateQueries({ queryKey: ['my-applications'] })
-      if (jobId) trackJobEvent('application_submitted', jobId)
-    },
-  })
 
   function handleGenerateRoadmap() {
     if (!jobId) return
@@ -231,8 +218,8 @@ export default function JobDetailPage() {
                 ) : (
                   <button
                     onClick={() => {
-                      setShowApplyForm(v => !v)
-                      if (jobId && !showApplyForm) trackJobEvent('application_started', jobId)
+                      if (jobId) trackJobEvent('application_started', jobId)
+                      navigate(`/app/jobs/${jobId}/apply`)
                     }}
                     style={{
                       height: 40, padding: '0 22px', borderRadius: 10,
@@ -247,61 +234,6 @@ export default function JobDetailPage() {
               </div>
             </div>
 
-            {/* ══ APPLY FORM (inline, below hero) ══ */}
-            {showApplyForm && !applied && (
-              <div style={{
-                background: '#fff', border: `1px solid ${BORDER}`, borderTop: 'none',
-                padding: '20px 28px',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <p style={{ fontSize: 13.5, fontWeight: 700, color: INK, margin: 0 }}>Add a cover note <span style={{ fontSize: 11.5, fontWeight: 500, color: MUTED }}>(optional)</span></p>
-                  <button onClick={() => setShowApplyForm(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: MUTED, display: 'flex', padding: 4 }}>
-                    <X size={15} />
-                  </button>
-                </div>
-                <textarea
-                  value={coverNote}
-                  onChange={e => setCoverNote(e.target.value)}
-                  placeholder="Tell the employer why you're a great fit for this role…"
-                  maxLength={1000}
-                  rows={4}
-                  style={{
-                    width: '100%', border: `1px solid ${BORDER}`, borderRadius: 10,
-                    padding: '11px 14px', fontSize: 13, resize: 'none',
-                    outline: 'none', color: INK, background: CREAM, boxSizing: 'border-box',
-                    fontFamily: 'inherit',
-                  }}
-                  onFocus={e => { e.currentTarget.style.borderColor = NAVY }}
-                  onBlur={e => { e.currentTarget.style.borderColor = BORDER }}
-                />
-                <p style={{ fontSize: 11, color: MUTED, textAlign: 'right', margin: '4px 0 12px' }}>{coverNote.length}/1000</p>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button
-                    onClick={() => setShowApplyForm(false)}
-                    style={{ flex: 1, height: 40, borderRadius: 10, border: `1px solid ${BORDER}`, background: CREAM, fontSize: 13, fontWeight: 600, color: INK_S, cursor: 'pointer' }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => applyMutation.mutate()}
-                    disabled={applyMutation.isPending}
-                    style={{
-                      flex: 1, height: 40, borderRadius: 10, border: 'none',
-                      background: NAVY, fontSize: 13, fontWeight: 700, color: '#fff',
-                      cursor: applyMutation.isPending ? 'not-allowed' : 'pointer',
-                      opacity: applyMutation.isPending ? 0.7 : 1,
-                    }}
-                  >
-                    {applyMutation.isPending ? 'Submitting…' : 'Submit Application'}
-                  </button>
-                </div>
-                {applyMutation.isError && (
-                  <p style={{ fontSize: 12, color: '#DC2626', marginTop: 8 }}>
-                    {(applyMutation.error as any)?.response?.data?.detail || 'Failed to submit application.'}
-                  </p>
-                )}
-              </div>
-            )}
 
             {/* ══ CONTENT CARD ══ */}
             <div style={{

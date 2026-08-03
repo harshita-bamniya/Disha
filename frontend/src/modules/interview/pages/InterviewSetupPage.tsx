@@ -402,130 +402,163 @@ export default function InterviewSetupPage() {
   const isLast  = step === STEPS.length - 1
 
   return (
-    <div style={{ minHeight: '100vh', background: CREAM, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 16px' }}>
-      <div style={{ width: '100%', maxWidth: 660 }}>
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
 
-        {/* ── header ── */}
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 13, background: NAVY, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-            <Target size={22} color={WHITE} />
+      {/* ── navy sidebar ── */}
+      <div style={{
+        width: 260, flexShrink: 0, background: NAVY,
+        display: 'flex', flexDirection: 'column', padding: '32px 24px',
+        position: 'relative', overflow: 'hidden',
+      }}>
+        <div style={{ position: 'absolute', width: 220, height: 220, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', top: -70, right: -60, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', width: 140, height: 140, borderRadius: '50%', background: 'rgba(255,255,255,0.03)', bottom: 80, left: -40, pointerEvents: 'none' }} />
+
+        {/* brand */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, position: 'relative' }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Target size={18} color={WHITE} />
           </div>
-          <h1 style={{ fontSize: 22, fontWeight: 900, color: INK, margin: '0 0 6px' }}>
-            AI Interview Setup
-          </h1>
-          <p style={{ fontSize: 13.5, color: MUTED, margin: 0 }}>
-            Configure your interview for a personalized, realistic experience
-          </p>
+          <div>
+            <div style={{ fontSize: 9.5, fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: '.5px', textTransform: 'uppercase' }}>DISHA AI</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: WHITE }}>AI Mock Interview</div>
+          </div>
         </div>
 
-        {/* ── job context banner ── */}
+        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 1.6, marginBottom: 36, position: 'relative' }}>
+          Configure your session for a targeted, realistic experience.
+        </p>
+
+        {/* vertical stepper */}
+        <div style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
+          {STEPS.map((label, i) => {
+            const state = i < step ? 'done' : i === step ? 'active' : 'pending'
+            const isLast = i === STEPS.length - 1
+            return (
+              <div key={label} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', paddingBottom: isLast ? 0 : 24 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 24, flexShrink: 0 }}>
+                  <div style={{
+                    width: 24, height: 24, borderRadius: '50%',
+                    background: state === 'active' ? WHITE : state === 'done' ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 10, fontWeight: 800,
+                    color: state === 'active' ? NAVY : state === 'done' ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.25)',
+                  }}>
+                    {state === 'done' ? <CheckCircle size={12} /> : i + 1}
+                  </div>
+                  {!isLast && <div style={{ width: 1, flex: 1, minHeight: 16, background: 'rgba(255,255,255,0.12)', marginTop: 4 }} />}
+                </div>
+                <div style={{
+                  fontSize: 12.5, fontWeight: state === 'active' ? 700 : 500, paddingTop: 3,
+                  color: state === 'active' ? WHITE : state === 'done' ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.22)',
+                }}>
+                  {label}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* job context */}
         {jobContext && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px',
-            borderRadius: 12, marginBottom: 22,
-            background: NAVY, border: `1px solid rgba(255,255,255,0.08)`,
-          }}>
-            <Sparkles size={14} color="rgba(255,255,255,0.7)" style={{ flexShrink: 0 }} />
-            <div style={{ flex: 1 }}>
-              <span style={{ fontSize: 11.5, fontWeight: 800, color: 'rgba(255,255,255,0.55)' }}>
-                {cardJobContext ? 'Interviewing for — ' : 'Interviewing for your active prep job — '}
-              </span>
-              <span style={{ fontSize: 11.5, color: WHITE, fontWeight: 700 }}>{jobContext.job_title}</span>
-              <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.55)' }}> at {jobContext.company_name}</span>
+          <div style={{ marginTop: 'auto', paddingTop: 24, position: 'relative' }}>
+            <div style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.10)', borderRadius: 10, padding: '12px 14px' }}>
+              <div style={{ fontSize: 9.5, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 5 }}>
+                {cardJobContext ? 'Interviewing for' : 'Active prep job'}
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: WHITE, marginBottom: 2 }}>{jobContext.job_title}</div>
+              <div style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.45)' }}>{jobContext.company_name}</div>
             </div>
           </div>
         )}
+      </div>
 
-        {/* ── step indicator ── */}
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 28 }}>
-          {STEPS.map((s, i) => (
-            <div key={s} style={{ flex: 1, display: 'flex', alignItems: 'center' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                <div style={{
-                  width: 30, height: 30, borderRadius: '50%', marginBottom: 5,
-                  background: i <= step ? NAVY : CREAM_DK,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 11, fontWeight: 800,
-                  color: i <= step ? WHITE : MUTED,
-                }}>
-                  {i < step ? <CheckCircle size={13} /> : i + 1}
-                </div>
-                <span style={{ fontSize: 10, color: i === step ? NAVY : MUTED, fontWeight: i === step ? 700 : 500, whiteSpace: 'nowrap' }}>
-                  {s}
-                </span>
+      {/* ── right panel ── */}
+      <div style={{ flex: 1, background: CREAM, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+        {/* inner centering column */}
+        <div style={{ flex: 1, minHeight: 0, padding: '24px 28px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div style={{ width: '100%', maxWidth: 720, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+
+            {/* step eyebrow */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, flexShrink: 0 }}>
+              <span style={{ fontSize: 10.5, fontWeight: 800, color: NAVY, background: 'rgba(26,39,68,0.08)', borderRadius: 20, padding: '3px 10px', letterSpacing: '.3px' }}>
+                Step {step + 1} of {STEPS.length}
+              </span>
+              <span style={{ fontSize: 11.5, color: MUTED, fontWeight: 600 }}>{STEPS[step]}</span>
+            </div>
+
+            {/* card — flex:1 so it fills remaining height; buttons pinned inside at bottom */}
+            <div style={{ flex: 1, minHeight: 0, background: WHITE, borderRadius: 18, border: `1px solid ${CREAM_DK}`, boxShadow: '0 2px 12px rgba(26,39,68,0.06)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+              {/* step content — scrolls only if truly needed */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '28px 32px 20px' }}>
+                {hasJobContext ? (
+                  <>
+                    {step === 0 && <Step2Experience level={level} setLevel={setLevel} totalQ={totalQ} setTotalQ={setTotalQ} jobDesc={jobDesc} setJobDesc={setJobDesc} />}
+                    {step === 1 && <Step3Device {...device} />}
+                    {step === 2 && <Step4Instructions role={role} level={level} totalQ={totalQ} />}
+                  </>
+                ) : (
+                  <>
+                    {step === 0 && <Step1Role value={role} onChange={setRole} />}
+                    {step === 1 && <Step2Experience level={level} setLevel={setLevel} totalQ={totalQ} setTotalQ={setTotalQ} jobDesc={jobDesc} setJobDesc={setJobDesc} />}
+                    {step === 2 && <Step3Device {...device} />}
+                    {step === 3 && <Step4Instructions role={role} level={level} totalQ={totalQ} />}
+                  </>
+                )}
               </div>
-              {i < STEPS.length - 1 && (
-                <div style={{ height: 2, flex: 1, background: i < step ? NAVY : CREAM_DK, margin: '0 4px', marginBottom: 22 }} />
+
+              {/* nav buttons — always pinned to bottom of card */}
+              <div style={{ flexShrink: 0, borderTop: `1px solid ${CREAM_DK}`, padding: '16px 32px 24px', display: 'flex', gap: 10 }}>
+                <button
+                  onClick={() => step > 0 ? setStep(s => s - 1) : navigate(-1)}
+                  style={{
+                    flex: 1, padding: '12px 0', borderRadius: 10, cursor: 'pointer',
+                    border: `1px solid ${CREAM_DK}`, background: WHITE,
+                    fontSize: 13, fontWeight: 700, color: INK_S,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                  }}>
+                  <ChevronLeft size={14} /> Back
+                </button>
+                <button
+                  onClick={() => {
+                    if (isLast) {
+                      createMutation.mutate()
+                    } else {
+                      setStep(s => s + 1)
+                      const deviceStep = hasJobContext ? 1 : 2
+                      if (step === deviceStep - 1) setTimeout(() => device.checkAll(), 100)
+                    }
+                  }}
+                  disabled={!canNext || createMutation.isPending}
+                  style={{
+                    flex: 3, padding: '12px 0', borderRadius: 10,
+                    cursor: canNext ? 'pointer' : 'not-allowed',
+                    border: 'none',
+                    background: canNext ? NAVY : CREAM_DK,
+                    color: canNext ? WHITE : MUTED,
+                    fontSize: 14, fontWeight: 700,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                    opacity: createMutation.isPending ? 0.85 : 1,
+                  }}>
+                  {createMutation.isPending
+                    ? <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> Generating your interview…</>
+                    : isLast
+                    ? <>Start Interview <ChevronRight size={14} /></>
+                    : <>Continue <ChevronRight size={14} /></>
+                  }
+                </button>
+              </div>
+
+              {createMutation.isPending && (
+                <p style={{ textAlign: 'center', fontSize: 12, color: NAVY, padding: '0 32px 14px', fontWeight: 600 }}>
+                  AI is building your personalized {role} interview… ~5 seconds
+                </p>
               )}
             </div>
-          ))}
-        </div>
 
-        {/* ── step content ── */}
-        <div style={{ background: WHITE, borderRadius: 18, padding: '26px 28px', border: `1px solid ${CREAM_DK}`, marginBottom: 16, boxShadow: '0 2px 12px rgba(26,39,68,0.06)' }}>
-          {hasJobContext ? (
-            <>
-              {step === 0 && <Step2Experience level={level} setLevel={setLevel} totalQ={totalQ} setTotalQ={setTotalQ} jobDesc={jobDesc} setJobDesc={setJobDesc} />}
-              {step === 1 && <Step3Device {...device} />}
-              {step === 2 && <Step4Instructions role={role} level={level} totalQ={totalQ} />}
-            </>
-          ) : (
-            <>
-              {step === 0 && <Step1Role value={role} onChange={setRole} />}
-              {step === 1 && <Step2Experience level={level} setLevel={setLevel} totalQ={totalQ} setTotalQ={setTotalQ} jobDesc={jobDesc} setJobDesc={setJobDesc} />}
-              {step === 2 && <Step3Device {...device} />}
-              {step === 3 && <Step4Instructions role={role} level={level} totalQ={totalQ} />}
-            </>
-          )}
+          </div>
         </div>
-
-        {/* ── navigation ── */}
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button
-            onClick={() => step > 0 ? setStep(s => s - 1) : navigate(-1)}
-            style={{
-              flex: 1, padding: '13px 0', borderRadius: 11, cursor: 'pointer',
-              border: `1px solid ${CREAM_DK}`, background: WHITE,
-              fontSize: 13, fontWeight: 700, color: INK_S,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-            }}>
-            <ChevronLeft size={14} /> Back
-          </button>
-          <button
-            onClick={() => {
-              if (isLast) {
-                createMutation.mutate()
-              } else {
-                setStep(s => s + 1)
-                const deviceStep = hasJobContext ? 1 : 2
-                if (step === deviceStep - 1) setTimeout(() => device.checkAll(), 100)
-              }
-            }}
-            disabled={!canNext || createMutation.isPending}
-            style={{
-              flex: 3, padding: '13px 0', borderRadius: 11,
-              cursor: canNext ? 'pointer' : 'not-allowed',
-              border: 'none',
-              background: canNext ? NAVY : CREAM_DK,
-              color: canNext ? WHITE : MUTED,
-              fontSize: 14, fontWeight: 700,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-              opacity: createMutation.isPending ? 0.85 : 1,
-            }}>
-            {createMutation.isPending
-              ? <><Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> Generating your interview…</>
-              : isLast
-              ? <>Start Interview <ChevronRight size={14} /></>
-              : <>Continue <ChevronRight size={14} /></>
-            }
-          </button>
-        </div>
-
-        {createMutation.isPending && (
-          <p style={{ textAlign: 'center', fontSize: 12, color: NAVY, marginTop: 10, fontWeight: 600 }}>
-            AI is building your personalized {role} interview… This takes ~5 seconds.
-          </p>
-        )}
       </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>

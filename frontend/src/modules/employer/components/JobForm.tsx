@@ -1,15 +1,19 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   Briefcase, Clock4, GraduationCap, FileSignature, Sparkles,
   Globe, MapPinned, Shuffle, Building2, MapPin, IndianRupee,
   CalendarClock, TrendingUp, GaugeCircle, Tags, X, Plus, Info, Wand2,
+  Users, Trash2, ClipboardList, CheckCircle2, Loader2, ChevronDown,
 } from 'lucide-react'
+import { applicationFormsApi, type ApplicationFormOut, type FormSectionOut } from '@/api/applicationForms'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
-import { useSuggestSkills, useGenerateDescription, useJobTemplates, useCreateJobTemplate, useDepartments } from '../hooks/useJobs'
+import { useSuggestSkills, useGenerateDescription, useJobTemplates, useCreateJobTemplate, useDepartments, useHiringTeam, useAddHiringTeamMember, useRemoveHiringTeamMember } from '../hooks/useJobs'
+import { useTeamMembers } from '../hooks/useJobs'
 import { getApiError } from '@/api/client'
 import type { JobPostingPayload, GrowthOutlook, JobPosting, JobType, EmploymentType } from '@/api/jobs'
+import type { HiringTeamMember } from '@/api/company'
 
 const SECTORS = [
   'Government & Civil Services', 'Public Sector Undertakings (PSU)',
@@ -96,6 +100,367 @@ function FormSection({ title, children }: { title: string; children: React.React
       <h3 className="text-sm font-bold text-gray-900 tracking-tight">{title}</h3>
       {children}
     </section>
+  )
+}
+
+const JOB_ROLE_LABELS: Record<HiringTeamMember['job_role'], string> = {
+  hiring_manager: 'Hiring Manager',
+  interviewer:    'Interviewer',
+  coordinator:    'Coordinator',
+  recruiter:      'Recruiter',
+}
+
+const JOB_ROLE_COLORS: Record<HiringTeamMember['job_role'], string> = {
+  hiring_manager: 'bg-violet-50 text-violet-700 border-violet-200',
+  interviewer:    'bg-blue-50 text-blue-700 border-blue-200',
+  coordinator:    'bg-amber-50 text-amber-700 border-amber-200',
+  recruiter:      'bg-emerald-50 text-emerald-700 border-emerald-200',
+}
+
+// ── Screening Questions ───────────────────────────────────────────────────────
+
+const QUICK_QUESTIONS = [
+  { label: 'Are you authorized to work in India?',            question_type: 'yes_no',            is_required: true  },
+  { label: 'How many years of relevant experience do you have?', question_type: 'experience_years', is_required: true  },
+  { label: 'What is your current notice period (in days)?',   question_type: 'notice_period',     is_required: false },
+  { label: 'What is your expected annual salary (in LPA)?',   question_type: 'salary_expectation', is_required: false },
+  { label: 'Are you open to relocation?',                     question_type: 'relocation',        is_required: false },
+  { label: 'What is your preferred work arrangement?',        question_type: 'remote_preference', is_required: false },
+  { label: 'When can you start?',                             question_type: 'availability',      is_required: false },
+]
+
+const QT_LABELS: Record<string, string> = {
+  yes_no: 'Yes / No', short_text: 'Short answer', long_text: 'Paragraph',
+  experience_years: 'Years of experience', notice_period: 'Notice period (days)',
+  salary_expectation: 'Salary expectation', relocation: 'Relocation', remote_preference: 'Work preference',
+  availability: 'Availability', number: 'Number', date: 'Date', dropdown: 'Dropdown',
+}
+
+function ScreeningQuestionsSection({ jobId }: { jobId: string }) {
+  const [form,       setForm]       = useState<ApplicationFormOut | null>(null)
+  const [section,    setSection]    = useState<FormSectionOut | null>(null)
+  const [loading,    setLoading]    = useState(true)
+  const [publishing, setPublishing] = useState(false)
+  const [published,  setPublished]  = useState(false)
+  const [savingQ,    setSavingQ]    = useState(false)
+  const [deleting,   setDeleting]   = useState<string | null>(null)
+  const [error,      setError]      = useState<string | null>(null)
+
+  // new custom question state
+  const [newLabel,   setNewLabel]   = useState('')
+  const [newType,    setNewType]    = useState('short_text')
+  const [newReq,     setNewReq]     = useState(false)
+  const [showCustom, setShowCustom] = useState(false)
+
+  // settings
+  const [resumeCfg, setResumeCfg]   = useState('required')
+  const [coverCfg,  setCoverCfg]    = useState('optional')
+
+  const loadForm = useCallback(async () => {
+    setLoading(true); setError(null)
+    try {
+      let f = await applicationFormsApi.getDraftForm(jobId).catch(() => null)
+      if (!f) f = await applicationFormsApi.createForm(jobId)
+      setForm(f)
+      setResumeCfg(f.settings_json?.resume_config ?? 'required')
+      setCoverCfg(f.settings_json?.require_cover_letter ?? 'optional')
+      // pick or create the questions section
+      const qs = f.sections.find(s => s.section_type === 'questions' || s.section_type === 'custom')
+      if (qs) { setSection(qs) }
+      else {
+        const sec = await applicationFormsApi.addSection(f.id, { title: 'Screening Questions', section_type: 'questions' })
+        setSection(sec)
+        setForm(prev => prev ? { ...prev, sections: [...prev.sections, sec] } : prev)
+      }
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? 'Could not load form. Try refreshing.')
+    } finally { setLoading(false) }
+  }, [jobId])
+
+  useEffect(() => { loadForm() }, [loadForm])
+
+  async function saveSettings(resumeVal: string, coverVal: string) {
+    if (!form) return
+    try {
+      const updated = await applicationFormsApi.updateForm(form.id, {
+        resume_config: resumeVal,
+        require_cover_letter: coverVal,
+        require_portfolio: form.settings_json?.require_portfolio ?? 'hidden',
+        require_work_authorization: form.settings_json?.require_work_authorization ?? false,
+        allow_attachments: form.settings_json?.allow_attachments ?? false,
+        max_attachment_size_mb: form.settings_json?.max_attachment_size_mb ?? 10,
+      })
+      setForm(updated)
+    } catch { /* silent */ }
+  }
+
+  async function addQuestion(body: { label: string; question_type: string; is_required: boolean }) {
+    if (!section) return
+    setSavingQ(true)
+    try {
+      const q = await applicationFormsApi.addQuestion(section.id, body)
+      setSection(prev => prev ? { ...prev, questions: [...prev.questions, q] } : prev)
+      setPublished(false)
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? 'Failed to add question.')
+    } finally { setSavingQ(false) }
+  }
+
+  async function deleteQuestion(qid: string) {
+    setDeleting(qid)
+    try {
+      await applicationFormsApi.deleteQuestion(qid)
+      setSection(prev => prev ? { ...prev, questions: prev.questions.filter(q => q.id !== qid) } : prev)
+      setPublished(false)
+    } catch { setError('Failed to delete question.') }
+    finally { setDeleting(null) }
+  }
+
+  async function publish() {
+    if (!form) return
+    setPublishing(true); setError(null)
+    try {
+      await applicationFormsApi.publishForm(form.id)
+      setPublished(true)
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? 'Publish failed.')
+    } finally { setPublishing(false) }
+  }
+
+  const inp: React.CSSProperties = {
+    height: 36, padding: '0 12px', borderRadius: 9,
+    border: '1.5px solid #E5E7EB', fontSize: 13, color: '#1E3A5F',
+    outline: 'none', background: '#FFF', boxSizing: 'border-box' as const,
+  }
+
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 0', color: '#94A3B8', fontSize: 13 }}>
+      <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> Loading screening form…
+    </div>
+  )
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {error && (
+        <div style={{ padding: '8px 12px', borderRadius: 9, background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', fontSize: 12 }}>
+          {error}
+        </div>
+      )}
+
+      {/* Settings row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#1E3A5F', marginBottom: 5 }}>Resume</label>
+          <select value={resumeCfg} onChange={e => { setResumeCfg(e.target.value); saveSettings(e.target.value, coverCfg) }} style={{ ...inp, width: '100%', appearance: 'none' }}>
+            <option value="required">Required</option>
+            <option value="optional">Optional</option>
+            <option value="hidden">Hide (not requested)</option>
+          </select>
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#1E3A5F', marginBottom: 5 }}>Cover letter</label>
+          <select value={coverCfg} onChange={e => { setCoverCfg(e.target.value); saveSettings(resumeCfg, e.target.value) }} style={{ ...inp, width: '100%', appearance: 'none' }}>
+            <option value="required">Required</option>
+            <option value="optional">Optional</option>
+            <option value="hidden">Hide</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Existing questions */}
+      {section && section.questions.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.4px' }}>
+            Questions ({section.questions.length})
+          </p>
+          {section.questions.map(q => (
+            <div key={q.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 12px', borderRadius: 9, background: '#F8F9FB', border: '1px solid rgba(0,0,0,0.06)' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ margin: 0, fontSize: 13, color: '#1E3A5F', fontWeight: 500 }}>{q.label}</p>
+                <p style={{ margin: 0, fontSize: 10, color: '#94A3B8' }}>
+                  {QT_LABELS[q.question_type] ?? q.question_type}
+                  {q.is_required && <span style={{ color: '#DC2626', marginLeft: 4 }}>Required</span>}
+                </p>
+              </div>
+              <button onClick={() => deleteQuestion(q.id)} disabled={deleting === q.id}
+                style={{ background: 'none', border: 'none', cursor: deleting === q.id ? 'default' : 'pointer', color: '#94A3B8', padding: 4, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                {deleting === q.id ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> : <X size={13} />}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Quick-add */}
+      <div>
+        <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '.4px' }}>
+          Quick add
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {QUICK_QUESTIONS.filter(qq => !section?.questions.some(q => q.label === qq.label)).map(qq => (
+            <button key={qq.label} type="button" onClick={() => addQuestion(qq)} disabled={savingQ}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 5,
+                padding: '5px 11px', borderRadius: 20,
+                border: '1.5px solid #E5E7EB', background: '#FFF',
+                fontSize: 11, fontWeight: 600, color: '#1A2744',
+                cursor: savingQ ? 'default' : 'pointer', opacity: savingQ ? 0.6 : 1,
+              }}>
+              <Plus size={11} /> {qq.label.length > 40 ? qq.label.slice(0, 38) + '…' : qq.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Custom question toggle */}
+      <div>
+        <button type="button" onClick={() => setShowCustom(p => !p)}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#1A2744', padding: 0 }}>
+          <Plus size={13} /> Add custom question
+          <ChevronDown size={13} style={{ transform: showCustom ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+        </button>
+
+        {showCustom && (
+          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8, padding: 14, borderRadius: 11, border: '1.5px dashed #E5E7EB', background: '#FAFAFA' }}>
+            <input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="Question text…"
+              style={{ ...inp, width: '100%' }} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <select value={newType} onChange={e => setNewType(e.target.value)} style={{ ...inp, flex: 1, appearance: 'none' }}>
+                {Object.entries(QT_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#475569', cursor: 'pointer', flexShrink: 0 }}>
+                <input type="checkbox" checked={newReq} onChange={e => setNewReq(e.target.checked)} style={{ accentColor: '#1A2744' }} />
+                Required
+              </label>
+              <button type="button" disabled={!newLabel.trim() || savingQ}
+                onClick={() => { addQuestion({ label: newLabel.trim(), question_type: newType, is_required: newReq }); setNewLabel(''); setNewReq(false); setShowCustom(false) }}
+                style={{ height: 36, padding: '0 16px', borderRadius: 9, border: 'none', background: '#1A2744', color: '#FFF', fontSize: 12, fontWeight: 700, cursor: !newLabel.trim() || savingQ ? 'default' : 'pointer', opacity: !newLabel.trim() ? 0.5 : 1 }}>
+                Add
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Publish */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <button type="button" onClick={publish} disabled={publishing || published}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '8px 18px', borderRadius: 9, border: 'none',
+            background: published ? 'rgba(22,163,74,0.1)' : '#1A2744',
+            color: published ? '#16A34A' : '#FFF',
+            fontSize: 12, fontWeight: 700,
+            cursor: publishing || published ? 'default' : 'pointer',
+          }}>
+          {publishing
+            ? <><Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} /> Publishing…</>
+            : published
+              ? <><CheckCircle2 size={13} /> Form published</>
+              : <><ClipboardList size={13} /> Publish form to candidates</>}
+        </button>
+        {!published && <p style={{ margin: 0, fontSize: 11, color: '#94A3B8' }}>Candidates won't see questions until you publish.</p>}
+      </div>
+    </div>
+  )
+}
+
+function HiringTeamSection({ jobId }: { jobId: string }) {
+  const { data: members = [], isLoading } = useHiringTeam(jobId)
+  const { data: teamMembers = [] } = useTeamMembers()
+  const addMember = useAddHiringTeamMember(jobId)
+  const removeMember = useRemoveHiringTeamMember(jobId)
+
+  const [selectedProfile, setSelectedProfile] = useState('')
+  const [selectedRole, setSelectedRole] = useState<HiringTeamMember['job_role']>('hiring_manager')
+
+  const existingIds = new Set(members.map(m => m.employer_profile_id))
+  const available = teamMembers.filter(t => !existingIds.has(t.employer_profile_id))
+
+  const handleAdd = () => {
+    if (!selectedProfile) return
+    addMember.mutate(
+      { employer_profile_id: selectedProfile, job_role: selectedRole },
+      { onSuccess: () => setSelectedProfile('') },
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {isLoading ? (
+        <p className="text-xs text-gray-400">Loading team…</p>
+      ) : members.length === 0 ? (
+        <p className="text-xs text-gray-400">No hiring team assigned yet. Add members below.</p>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {members.map(m => (
+            <div key={m.id} className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <Users className="w-3.5 h-3.5 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">{m.contact_person}</p>
+                  {m.email && <p className="text-xs text-gray-400 truncate">{m.email}</p>}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className={cn('text-xs font-semibold px-2.5 py-1 rounded-lg border', JOB_ROLE_COLORS[m.job_role])}>
+                  {JOB_ROLE_LABELS[m.job_role]}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeMember.mutate(m.id)}
+                  disabled={removeMember.isPending}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-danger hover:bg-danger/5 transition-colors disabled:opacity-40"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {available.length > 0 && (
+        <div className="flex gap-2">
+          <select
+            value={selectedProfile}
+            onChange={e => setSelectedProfile(e.target.value)}
+            className="flex-1 h-10 rounded-xl border-[1.5px] border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-primary"
+          >
+            <option value="">Select team member…</option>
+            {available.map(t => (
+              <option key={t.employer_profile_id} value={t.employer_profile_id}>
+                {t.contact_person} ({t.role_name})
+              </option>
+            ))}
+          </select>
+          <select
+            value={selectedRole}
+            onChange={e => setSelectedRole(e.target.value as HiringTeamMember['job_role'])}
+            className="w-44 h-10 rounded-xl border-[1.5px] border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-primary"
+          >
+            <option value="hiring_manager">Hiring Manager</option>
+            <option value="interviewer">Interviewer</option>
+            <option value="coordinator">Coordinator</option>
+            <option value="recruiter">Recruiter</option>
+          </select>
+          <button
+            type="button"
+            onClick={handleAdd}
+            disabled={!selectedProfile || addMember.isPending}
+            className="shrink-0 inline-flex items-center gap-1 h-10 px-4 rounded-xl bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/15 transition-colors disabled:opacity-40"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add
+          </button>
+        </div>
+      )}
+      {addMember.isError && (
+        <p className="text-xs text-danger">{getApiError(addMember.error, 'Could not add member.')}</p>
+      )}
+    </div>
   )
 }
 
@@ -701,6 +1066,25 @@ export default function JobForm({ initial, onSubmit, loading, onCancel }: JobFor
         </div>
         {errors.skills && <p className="text-xs text-danger">{errors.skills}</p>}
       </FormSection>
+
+      {/* ── Screening Questions ── */}
+      {initial?.id ? (
+        <FormSection title="Screening questions">
+          <ScreeningQuestionsSection jobId={initial.id} />
+        </FormSection>
+      ) : (
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gray-50 border border-gray-200">
+          <ClipboardList className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+          <p className="text-xs text-gray-500">Screening questions can be configured after the job is saved.</p>
+        </div>
+      )}
+
+      {/* ── Hiring Team (edit mode only) ── */}
+      {initial?.id && (
+        <FormSection title="Hiring team">
+          <HiringTeamSection jobId={initial.id} />
+        </FormSection>
+      )}
 
       {!initial && (
         <button

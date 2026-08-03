@@ -50,7 +50,7 @@ export default function InterviewHomePage() {
   const recentSessions = sessions?.slice(0, 5) ?? []
 
   return (
-    <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: '#F0F7FF', display: 'flex' }}>
       <AppSidebar activePath="/app/interview" />
       <div style={{ flex: 1, minWidth: 0 }}>
         <header style={{

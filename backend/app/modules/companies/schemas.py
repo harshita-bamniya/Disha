@@ -34,8 +34,10 @@ class CompanyProfileUpdateRequest(BaseModel):
 
 
 class EmployerProfileUpdateRequest(BaseModel):
-    """Recruiter-side fields that live on EmployerProfile, not Company —
-    used by the post-login setup wizard's 'Recruiter information' step."""
+    """Recruiter-side fields — post-login setup wizard.
+    full_name/email are saved to the users row; the rest to EmployerProfile."""
+    full_name: Optional[str] = None
+    email: Optional[str] = None
     contact_person: Optional[str] = None
     designation: Optional[str] = None
     city: Optional[str] = None
@@ -44,6 +46,8 @@ class EmployerProfileUpdateRequest(BaseModel):
 
 class EmployerProfileSelfResponse(BaseModel):
     id: str
+    full_name: Optional[str] = None
+    email: Optional[str] = None
     contact_person: Optional[str] = None
     designation: Optional[str] = None
     city: Optional[str] = None
@@ -62,7 +66,7 @@ class TeamMemberEntry(BaseModel):
     employer_profile_id: str
     email: Optional[str] = None
     phone: Optional[str] = None
-    contact_person: str
+    contact_person: Optional[str] = None
     role_name: str
     is_owner: bool
     is_active: bool
@@ -78,6 +82,9 @@ class TeamInviteRequest(BaseModel):
     # Optional: assign the new member directly to a department at invite time.
     # Company-wide roles (hr_manager) should leave this null.
     department_id: Optional[str] = None
+    # If provided, set as the user's login password immediately so they can sign in
+    # without going through the forgot-password flow.
+    password: Optional[str] = Field(None, min_length=6, max_length=128)
 
 
 class AssignDepartmentRequest(BaseModel):
@@ -161,6 +168,28 @@ class DepartmentOut(BaseModel):
     head_name: Optional[str] = None         # contact_person of the head EmployerProfile
     # Computed stats — populated by the service layer
     member_count: int = 0                   # recruiters/HMs assigned to this dept
+    total_job_count: int = 0                # all jobs (draft + published + closed)
+    active_job_count: int = 0              # published / is_active=True only
+    total_applicant_count: int = 0
+    created_at: Optional[datetime] = None
+
+
+class DepartmentOverviewOut(BaseModel):
+    """Richer overview for the DepartmentDetailPage — includes pipeline funnel,
+    interview/offer counts, and avg time-to-hire beyond the basic DepartmentOut stats."""
+    id: str
+    name: str
+    description: Optional[str] = None
+    head_employer_id: Optional[str] = None
+    head_name: Optional[str] = None
+    member_count: int = 0
+    total_job_count: int = 0
     active_job_count: int = 0
     total_applicant_count: int = 0
+    # Pipeline funnel counts
+    pipeline_funnel: dict = {}              # {"applied": N, "shortlisted": N, ...}
+    # Cross-cutting counts
+    scheduled_interviews_count: int = 0    # interviews with status='scheduled'
+    pending_offers_count: int = 0          # offer letters with status='sent'
+    avg_days_to_hire: Optional[float] = None  # mean days from applied → hired
     created_at: Optional[datetime] = None

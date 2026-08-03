@@ -43,3 +43,4 @@ backend/uploads/
 
 # Celery beat's scheduling state — local runtime DB, not source
 backend/celerybeat-schedule
+user_credentials.md

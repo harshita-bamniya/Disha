@@ -43,7 +43,7 @@ def get_dashboard(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    # Store in cache
+    # Store fresh result in cache (also overwrites any stale cached value)
     try:
         redis.setex(cache_key, _KRS_CACHE_TTL, result.model_dump_json())
     except Exception:

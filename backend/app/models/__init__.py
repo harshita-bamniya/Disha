@@ -32,3 +32,10 @@ from app.models.employer_verification import (  # noqa: F401
     EmployerVerification, EmployerVerificationDocument, EmployerVerificationEvent,
 )
 from app.models.subscription import SubscriptionPlan, CompanySubscription  # noqa: F401
+from app.models.support import SupportTicket, TicketMessage, TicketAttachment  # noqa: F401
+from app.models.ats import (  # noqa: F401
+    ApplicationForm, FormSection, AtsQuestion, AtsQuestionBank,
+    KnockoutRule, ConditionalRule, FormTemplate,
+    CandidateResumeFile, ApplicationDraft,
+    ApplicationResponse, ApplicationDocument,
+)

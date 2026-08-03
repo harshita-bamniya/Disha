@@ -135,7 +135,7 @@ export default function RoadmapCounsellorPanel({ jobId, jobTitle, company, secto
       {/* Header */}
       <div style={{
         padding: '18px 24px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0,
-        borderBottom: '1px solid #F1F5F9',
+        borderBottom: '1px solid rgba(37,99,235,0.08)',
       }}>
         <div style={{
           width: 30, height: 30, borderRadius: '50%',

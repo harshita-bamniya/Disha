@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.rbac import get_current_verified_user, require_employer, require_permission
@@ -9,6 +9,7 @@ from app.modules.jobs import service
 from app.modules.jobs.schemas import (
     BulkImportResponse,
     EmployerDashboardResponse, EmployerPermissionsResponse, GenerateDescriptionRequest, GenerateDescriptionResponse,
+    HiringTeamAddRequest, HiringTeamMemberOut,
     JobPostingRequest, JobPostingResponse, JobTemplateCreateRequest, JobTemplateOut,
     SuggestSkillsRequest, SuggestSkillsResponse, VerificationStatusResponse,
 )
@@ -233,7 +234,7 @@ def delete_job(
         raise HTTPException(status_code=400, detail=e.detail)
 
 
-# ── Employer KYC verification (self-service) ──────────────────────────────────
+# ── Employer verification (self-service) ──────────────────────────────────────
 
 @router.get("/verification", response_model=VerificationStatusResponse)
 def get_verification_status(
@@ -243,25 +244,52 @@ def get_verification_status(
     return service.get_verification_status(current_user, db)
 
 
-@router.post("/verification/documents", response_model=VerificationStatusResponse)
-async def upload_verification_document(
-    doc_type: str = Form(...),
-    file: UploadFile = File(...),
+@router.post("/verification/request", response_model=VerificationStatusResponse)
+def request_verification(
     current_user: User = Depends(_employer),
     db: Session = Depends(get_db),
 ):
     try:
-        return await service.upload_verification_document(current_user, doc_type, file, db)
+        return service.request_verification(current_user, db)
     except (AuthException, BadRequestException) as e:
         raise HTTPException(status_code=400, detail=e.detail)
 
 
-@router.post("/verification/submit", response_model=VerificationStatusResponse)
-def submit_verification(
+# ── Hiring Team ────────────────────────────────────────────────────────────────
+
+@router.get("/jobs/{job_id}/hiring-team", response_model=list[HiringTeamMemberOut])
+def list_hiring_team(
+    job_id: str,
     current_user: User = Depends(_employer),
     db: Session = Depends(get_db),
 ):
     try:
-        return service.submit_verification(current_user, db)
+        return service.list_hiring_team(current_user, job_id, db)
+    except (AuthException, BadRequestException) as e:
+        raise HTTPException(status_code=400, detail=e.detail)
+
+
+@router.post("/jobs/{job_id}/hiring-team", response_model=HiringTeamMemberOut, status_code=201)
+def add_hiring_team_member(
+    job_id: str,
+    body: HiringTeamAddRequest,
+    current_user: User = Depends(require_permission("jobs", "edit")),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.add_hiring_team_member(current_user, job_id, body, db)
+    except (AuthException, BadRequestException) as e:
+        raise HTTPException(status_code=400, detail=e.detail)
+
+
+@router.delete("/jobs/{job_id}/hiring-team/{member_id}")
+def remove_hiring_team_member(
+    job_id: str,
+    member_id: str,
+    current_user: User = Depends(require_permission("jobs", "edit")),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.remove_hiring_team_member(current_user, job_id, member_id, db)
     except (AuthException, BadRequestException) as e:
         raise HTTPException(status_code=400, detail=e.detail)

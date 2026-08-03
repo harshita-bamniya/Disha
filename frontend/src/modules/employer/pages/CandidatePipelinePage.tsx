@@ -742,7 +742,7 @@ function KanbanCard({ candidate, jobId, onDragStart }: {
         onDragStart={() => onDragStart(candidate.application_id)}
         onClick={() => setDrawerOpen(true)}
         style={{
-          background: '#fff', borderRadius: 12, border: '1px solid #E5E7EB',
+          background: '#fff', borderRadius: 12, border: '1px solid rgba(37,99,235,0.09)',
           padding: '12px 14px', marginBottom: 10, cursor: 'grab',
           boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
         }}
@@ -906,7 +906,7 @@ function ManageStagesModal({ jobId, stages, onClose }: {
       }}>
         {/* Header */}
         <div style={{
-          padding: '20px 24px', borderBottom: '1px solid #F1F5F9',
+          padding: '20px 24px', borderBottom: '1px solid rgba(37,99,235,0.08)',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: '#fff', zIndex: 1,
         }}>
           <div>
@@ -1015,7 +1015,7 @@ function ManageStagesModal({ jobId, stages, onClose }: {
                 style={{ height: 34, padding: '0 14px', borderRadius: 8, border: 'none', background: '#6366F1', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                 Save
               </button>
-              <button onClick={() => setShowSaveTemplate(false)} style={{ height: 34, padding: '0 10px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff', fontSize: 12, cursor: 'pointer' }}>
+              <button onClick={() => setShowSaveTemplate(false)} style={{ height: 34, padding: '0 10px', borderRadius: 8, border: '1px solid rgba(37,99,235,0.09)', background: '#fff', fontSize: 12, cursor: 'pointer' }}>
                 Cancel
               </button>
             </div>
@@ -1023,7 +1023,7 @@ function ManageStagesModal({ jobId, stages, onClose }: {
         </div>
 
         {/* Footer */}
-        <div style={{ padding: '12px 24px 20px', borderTop: '1px solid #F1F5F9', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+        <div style={{ padding: '12px 24px 20px', borderTop: '1px solid rgba(37,99,235,0.08)', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{ height: 38, padding: '0 20px', borderRadius: 10, border: '1.5px solid #E5E7EB', background: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: '#374151' }}>Cancel</button>
           <button onClick={handleSave} disabled={save.isPending} style={{ height: 38, padding: '0 24px', borderRadius: 10, border: 'none', background: '#1E293B', color: '#fff', fontSize: 13, fontWeight: 700, cursor: save.isPending ? 'not-allowed' : 'pointer' }}>
             {save.isPending ? 'Saving…' : 'Save Stages'}

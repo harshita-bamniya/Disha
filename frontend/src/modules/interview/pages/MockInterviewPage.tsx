@@ -380,7 +380,7 @@ export default function MockInterviewPage() {
   // ── SETUP SCREEN ─────────────────────────────────────────────────────────────
   if (phase === 'setup') {
     return (
-      <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
+      <div style={{ minHeight: '100vh', background: '#F0F7FF', display: 'flex' }}>
         <AppSidebar activePath="/app/jobs" />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
           <div style={{ width: '100%', maxWidth: 560 }}>
@@ -459,7 +459,7 @@ export default function MockInterviewPage() {
   // ── INTERVIEW SCREEN ──────────────────────────────────────────────────────────
   if (phase === 'interview') {
     return (
-      <div style={{ minHeight: '100vh', background: 'white', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ minHeight: '100vh', background: '#F0F7FF', display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
         <header style={{
           background: 'white', borderBottom: '1px solid rgba(226,232,240,0.8)',
@@ -640,7 +640,7 @@ export default function MockInterviewPage() {
   if (phase === 'report' && report) {
     const vc = verdictColor(report.verdict)
     return (
-      <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
+      <div style={{ minHeight: '100vh', background: '#F0F7FF', display: 'flex' }}>
         <AppSidebar activePath="/app/jobs" />
         <div style={{ flex: 1, overflowY: 'auto', padding: '32px 40px' }}>
           <div style={{ maxWidth: 720, margin: '0 auto' }}>

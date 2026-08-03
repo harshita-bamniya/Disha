@@ -113,7 +113,7 @@ export interface VerificationEventOut {
 
 export interface VerificationStatusResponse {
   id: string | null
-  status: 'not_submitted' | 'pending' | 'under_review' | 'approved' | 'rejected' | 'resubmitted'
+  status: 'not_submitted' | 'requested' | 'under_review' | 'approved' | 'rejected'
   rejection_reason: string | null
   submitted_at: string | null
   reviewed_at: string | null
@@ -188,19 +188,10 @@ export const jobsApi = {
   deleteJob: (id: string) =>
     apiClient.delete(`/employer/jobs/${id}`),
 
-  // ── KYC verification ──────────────────────────────────────────────────────────
+  // ── Verification ──────────────────────────────────────────────────────────────
   getVerificationStatus: () =>
     apiClient.get<VerificationStatusResponse>('/employer/verification').then((r) => r.data),
 
-  uploadVerificationDocument: (docType: VerificationDocType, file: File) => {
-    const form = new FormData()
-    form.append('doc_type', docType)
-    form.append('file', file)
-    return apiClient.post<VerificationStatusResponse>('/employer/verification/documents', form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }).then((r) => r.data)
-  },
-
-  submitVerification: () =>
-    apiClient.post<VerificationStatusResponse>('/employer/verification/submit').then((r) => r.data),
+  requestVerification: () =>
+    apiClient.post<VerificationStatusResponse>('/employer/verification/request').then((r) => r.data),
 }

@@ -3,28 +3,18 @@ import { useNavigate } from 'react-router-dom'
 import { authApi, type TokenResponse } from '@/api/auth'
 import { useAuthStore } from '@/stores/authStore'
 import type { User } from '@/types'
+import { EMPLOYER_ROLES, PLATFORM_ADMIN_ROLES } from '@/types'
 
 /** Shared by useLogin/useGoogleLogin/useVerifyLogin2fa — same role-based
  * redirect everywhere a real token pair gets issued. */
 function redirectByRole(user: User, navigate: ReturnType<typeof useNavigate>) {
-  if (user.role === 'employer') navigate('/app/employer/dashboard')
-  else if (user.role === 'admin') navigate('/admin')
+  if (EMPLOYER_ROLES.includes(user.role)) navigate('/app/employer/dashboard')
+  else if (PLATFORM_ADMIN_ROLES.includes(user.role)) navigate('/admin')
   else navigate('/app/dashboard')
 }
 
 export function useRegister() {
-  const navigate = useNavigate()
-
-  return useMutation({
-    mutationFn: authApi.register,
-    onSuccess: (data, variables) => {
-      sessionStorage.setItem('pending_phone', variables.phone)
-      if (data.dev_otp) {
-        sessionStorage.setItem('dev_otp', data.dev_otp)
-      }
-      navigate('/auth/verify')
-    },
-  })
+  return useMutation({ mutationFn: authApi.register })
 }
 
 export function useVerifyPhone() {
@@ -34,7 +24,6 @@ export function useVerifyPhone() {
   return useMutation({
     mutationFn: authApi.verifyPhone,
     onSuccess: (data) => {
-      // Backend returns token pair after verification — auto-login, go straight to dashboard
       setAuth(data.user!, {
         access_token: data.access_token!,
         refresh_token: data.refresh_token!,
@@ -42,7 +31,8 @@ export function useVerifyPhone() {
       })
       sessionStorage.removeItem('pending_phone')
       sessionStorage.removeItem('dev_otp')
-      navigate('/app/dashboard')
+      // New registrations always need step 1 — go directly to onboarding
+      navigate('/app/onboarding/step/1')
     },
   })
 }
@@ -95,19 +85,7 @@ export function useVerifyLogin2fa() {
 }
 
 export function useRegisterEmployer() {
-  const navigate = useNavigate()
-
-  return useMutation({
-    mutationFn: authApi.registerEmployer,
-    onSuccess: (data, variables) => {
-      sessionStorage.setItem('pending_phone', variables.phone)
-      sessionStorage.setItem('pending_employer', '1')
-      if (data.dev_otp) {
-        sessionStorage.setItem('dev_otp', data.dev_otp)
-      }
-      navigate('/auth/verify-employer')
-    },
-  })
+  return useMutation({ mutationFn: authApi.registerEmployer })
 }
 
 export function useVerifyEmployerPhone() {

@@ -92,7 +92,16 @@ export interface ProfileData {
   disha_insight: string | null
 }
 
+export interface OnboardingOptions {
+  skills: string[]
+  sectors: string[]
+  states: string[]
+}
+
 export const onboardingApi = {
+  getOptions: () =>
+    apiClient.get<OnboardingOptions>('/onboarding/options').then(r => r.data),
+
   getStatus: () =>
     apiClient.get<OnboardingStatus>('/onboarding/status').then((r) => r.data),
 

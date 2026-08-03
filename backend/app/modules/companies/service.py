@@ -69,9 +69,17 @@ def update_company_profile(user: User, data: CompanyProfileUpdateRequest, db: Se
 
 
 def update_employer_profile(user: User, data: EmployerProfileUpdateRequest, db: Session) -> EmployerProfileSelfResponse:
-    """Updates the recruiter-side fields (contact person, designation, city, GST)
-    that live on EmployerProfile rather than the shared Company row."""
+    """Updates recruiter-side fields. full_name/email save to the users row;
+    the rest (contact_person, designation, city, gst_number) go to EmployerProfile."""
     profile = _get_own_profile(user, db)
+    # Save user-level fields
+    if data.full_name is not None:
+        user.full_name = data.full_name
+        # Mirror into contact_person so admin views stay consistent
+        if not data.contact_person:
+            profile.contact_person = data.full_name
+    if data.email is not None:
+        user.email = data.email
     for field in ("contact_person", "designation", "city", "gst_number"):
         val = getattr(data, field)
         if val is not None:
@@ -79,8 +87,9 @@ def update_employer_profile(user: User, data: EmployerProfileUpdateRequest, db: 
     db.commit()
     db.refresh(profile)
     return EmployerProfileSelfResponse(
-        id=str(profile.id), contact_person=profile.contact_person,
-        designation=profile.designation, city=profile.city, gst_number=profile.gst_number,
+        id=str(profile.id), full_name=user.full_name, email=user.email,
+        contact_person=profile.contact_person, designation=profile.designation,
+        city=profile.city, gst_number=profile.gst_number,
     )
 
 
@@ -154,8 +163,10 @@ def invite_team_member(user: User, data: TeamInviteRequest, db: Session) -> Team
     if not role:
         raise BadRequestException(f"Role '{data.role_name}' not seeded in database.")
 
+    from app.core.security import hash_password
     new_user = User(
         email=data.email, role_id=role.id, email_verified=True, is_active=True,
+        password_hash=hash_password(data.password) if data.password else None,
     )
     db.add(new_user)
     db.flush()
@@ -360,10 +371,13 @@ def _dept_to_out(dept: CompanyDepartment, db: Session) -> DepartmentOut:
     ).count()
 
     job_ids_q = db.query(JobPosting.id).filter(JobPosting.department_id == dept.id)
+    job_ids = [r[0] for r in job_ids_q.all()]
+
+    total_job_count = len(job_ids)
     active_job_count = db.query(JobPosting).filter(
         JobPosting.department_id == dept.id, JobPosting.is_active == True,
     ).count()
-    job_ids = [r[0] for r in job_ids_q.all()]
+
     total_applicant_count = 0
     if job_ids:
         total_applicant_count = db.query(Application).filter(
@@ -376,7 +390,8 @@ def _dept_to_out(dept: CompanyDepartment, db: Session) -> DepartmentOut:
         id=str(dept.id), name=dept.name, description=dept.description,
         head_employer_id=str(dept.head_employer_id) if dept.head_employer_id else None,
         head_name=head_name,
-        member_count=member_count, active_job_count=active_job_count,
+        member_count=member_count, total_job_count=total_job_count,
+        active_job_count=active_job_count,
         total_applicant_count=total_applicant_count,
         created_at=dept.created_at,
     )
@@ -507,6 +522,82 @@ def delete_department(user: User, department_id: str, db: Session) -> MessageRes
     return MessageResponse(message="Department removed.")
 
 
+def get_department_overview(user: User, department_id: str, db: Session):
+    from datetime import timezone as _tz
+    from app.models.user import JobPosting
+    from app.models.mvp3 import Application, CandidateInterviewFeedback, OfferLetter
+    from app.modules.companies.schemas import DepartmentOverviewOut
+
+    profile = _get_own_profile(user, db)
+    company = _get_company_or_404(profile, db)
+    dept = db.query(CompanyDepartment).filter(
+        CompanyDepartment.id == department_id,
+        CompanyDepartment.company_id == company.id,
+    ).first()
+    if not dept:
+        raise NotFoundException("Department not found.")
+
+    member_count = db.query(EmployerProfile).filter(EmployerProfile.department_id == dept.id).count()
+    job_ids = [r[0] for r in db.query(JobPosting.id).filter(JobPosting.department_id == dept.id).all()]
+    total_job_count = len(job_ids)
+    active_job_count = db.query(JobPosting).filter(
+        JobPosting.department_id == dept.id, JobPosting.is_active == True,
+    ).count()
+
+    applications = (
+        db.query(Application).filter(Application.job_id.in_(job_ids)).all()
+        if job_ids else []
+    )
+    total_applicant_count = len(applications)
+    app_ids = [a.id for a in applications]
+
+    # Pipeline funnel
+    funnel: dict[str, int] = {}
+    for app in applications:
+        funnel[app.status] = funnel.get(app.status, 0) + 1
+
+    # Interview and offer counts
+    scheduled_interviews = (
+        db.query(CandidateInterviewFeedback).filter(
+            CandidateInterviewFeedback.application_id.in_(app_ids),
+            CandidateInterviewFeedback.status == "scheduled",
+        ).count()
+        if app_ids else 0
+    )
+    pending_offers = (
+        db.query(OfferLetter).filter(
+            OfferLetter.application_id.in_(app_ids),
+            OfferLetter.status == "sent",
+        ).count()
+        if app_ids else 0
+    )
+
+    # Avg days to hire: mean of (updated_at - created_at) for applications with status='hired'
+    hired_apps = [a for a in applications if a.status == "hired"]
+    avg_days = None
+    if hired_apps:
+        deltas = [
+            (a.updated_at.replace(tzinfo=_tz.utc) - a.created_at.replace(tzinfo=_tz.utc)).total_seconds() / 86400
+            for a in hired_apps
+            if a.updated_at and a.created_at
+        ]
+        if deltas:
+            avg_days = round(sum(deltas) / len(deltas), 1)
+
+    return DepartmentOverviewOut(
+        id=str(dept.id), name=dept.name, description=dept.description,
+        head_employer_id=str(dept.head_employer_id) if dept.head_employer_id else None,
+        head_name=dept.head.contact_person if dept.head else None,
+        member_count=member_count, total_job_count=total_job_count,
+        active_job_count=active_job_count, total_applicant_count=total_applicant_count,
+        pipeline_funnel=funnel,
+        scheduled_interviews_count=scheduled_interviews,
+        pending_offers_count=pending_offers,
+        avg_days_to_hire=avg_days,
+        created_at=dept.created_at,
+    )
+
+
 def assign_member_department(
     user: User, employer_profile_id: str, data: AssignDepartmentRequest, db: Session
 ) -> TeamMemberEntry:
@@ -538,6 +629,58 @@ def assign_member_department(
     db.refresh(target)
     target_user = db.query(User).filter(User.id == target.user_id).first()
     return _member_to_entry(target, target_user)
+
+
+def list_department_jobs(user: User, department_id: str, db: Session) -> list[dict]:
+    """Return all jobs (any status) belonging to a department, with applicant counts."""
+    from app.models.user import JobPosting
+    from app.models.mvp3 import Application
+    from sqlalchemy import func
+
+    profile = _get_own_profile(user, db)
+    company = _get_company_or_404(profile, db)
+
+    dept = db.query(CompanyDepartment).filter(
+        CompanyDepartment.id == department_id,
+        CompanyDepartment.company_id == company.id,
+    ).first()
+    if not dept:
+        raise NotFoundException("Department not found.")
+
+    jobs = (
+        db.query(JobPosting)
+        .filter(JobPosting.department_id == dept.id)
+        .order_by(JobPosting.created_at.desc())
+        .all()
+    )
+
+    job_ids = [j.id for j in jobs]
+    counts: dict = {}
+    if job_ids:
+        rows = (
+            db.query(Application.job_id, func.count(Application.id))
+            .filter(Application.job_id.in_(job_ids))
+            .group_by(Application.job_id)
+            .all()
+        )
+        counts = {str(r[0]): r[1] for r in rows}
+
+    return [
+        {
+            "id": str(j.id),
+            "title": j.title,
+            "sector": j.sector,
+            "job_type": j.job_type,
+            "employment_type": j.employment_type,
+            "location": j.location,
+            "status": j.status,
+            "is_active": j.is_active,
+            "expires_at": str(j.expires_at) if j.expires_at else None,
+            "created_at": j.created_at.isoformat() if j.created_at else None,
+            "applicant_count": counts.get(str(j.id), 0),
+        }
+        for j in jobs
+    ]
 
 
 # ── Team activity log ──────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Literal, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # ── Aspirant detail (full profile modal) ─────────────────────────────────────
@@ -66,7 +66,7 @@ class AspirantDetailResponse(BaseModel):
     """Full profile for the admin user detail modal."""
     # Identity
     user_id: str
-    phone: str
+    phone: Optional[str] = None
     email: Optional[str] = None
     is_active: bool
     registered_at: datetime
@@ -100,7 +100,7 @@ class AspirantDetailResponse(BaseModel):
 class AspirantUserEntry(BaseModel):
     """One row in the admin aspirant list."""
     user_id: str
-    phone: str
+    phone: Optional[str] = None
     email: Optional[str] = None
     full_name: Optional[str] = None
     city: Optional[str] = None
@@ -168,7 +168,7 @@ class PendingEmployerResponse(BaseModel):
     designation: Optional[str] = None
     city: Optional[str] = None
     description: Optional[str] = None
-    phone: str
+    phone: Optional[str] = None
     phone_verified: bool
     is_approved: bool
     rejection_reason: Optional[str] = None
@@ -270,6 +270,13 @@ class RoleEntry(BaseModel):
 
 class RolePermissionsUpdateRequest(BaseModel):
     permission_ids: list[str]   # full replacement set for this role
+
+
+class RoleCreateRequest(BaseModel):
+    name: str = Field(..., min_length=2, max_length=50, pattern=r'^[a-z][a-z0-9_]*$')
+    description: Optional[str] = Field(None, max_length=300)
+    permission_ids: list[str] = []
+    clone_from_id: Optional[str] = None   # if set, pre-populate permissions from this role
 
 
 # ── Sub-admin management ──────────────────────────────────────────────────────
@@ -429,6 +436,56 @@ class SubscriptionPlanUpdateRequest(BaseModel):
     is_active: Optional[bool] = None
 
 
+# ── Employer detail (admin view) ──────────────────────────────────────────────
+
+class EmployerTeamMemberEntry(BaseModel):
+    user_id: str
+    employer_profile_id: str
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    role_name: str
+    is_owner: bool
+    is_active: bool
+    joined_at: datetime
+
+
+class EmployerJobEntry(BaseModel):
+    id: str
+    title: str
+    sector: str
+    location: Optional[str] = None
+    is_active: bool
+    applicant_count: int = 0
+    created_at: datetime
+
+
+class EmployerDetailResponse(BaseModel):
+    id: str
+    user_id: str
+    company_name: str
+    industry: Optional[str] = None
+    company_size: Optional[str] = None
+    website: Optional[str] = None
+    gst_number: Optional[str] = None
+    contact_person: Optional[str] = None
+    designation: Optional[str] = None
+    city: Optional[str] = None
+    description: Optional[str] = None
+    phone: Optional[str] = None
+    phone_verified: bool
+    is_approved: bool
+    rejection_reason: Optional[str] = None
+    registered_at: datetime
+    job_count: int = 0
+    application_count: int = 0
+    subscription_plan: Optional[str] = None
+    team_members: list[EmployerTeamMemberEntry] = []
+    recent_jobs: list[EmployerJobEntry] = []
+    kyc_status: Optional[str] = None
+    kyc_submitted_at: Optional[datetime] = None
+
+
 class PlanRevenueEntry(BaseModel):
     plan_id: str
     plan_name: str
@@ -440,6 +497,45 @@ class PlanRevenueEntry(BaseModel):
 class RevenueTrendPoint(BaseModel):
     month: str                  # "2026-06"
     new_subscriptions: int      # derived from CompanySubscription.created_at — real data
+
+
+# ── Analytics ─────────────────────────────────────────────────────────────────
+
+class TimeSeriesPoint(BaseModel):
+    date: str   # "YYYY-MM-DD"
+    count: int
+
+
+class FunnelStage(BaseModel):
+    status: str
+    count: int
+
+
+class ScoreBin(BaseModel):
+    range: str  # e.g. "0–20"
+    count: int
+
+
+class CohortRow(BaseModel):
+    month: str   # "YYYY-MM"
+    signups: int
+    applied: int
+    hired: int
+
+
+class AnalyticsPeriod(BaseModel):
+    from_date: str
+    to_date: str
+    days: int
+
+
+class AnalyticsResponse(BaseModel):
+    period: AnalyticsPeriod
+    user_growth: list[TimeSeriesPoint]
+    job_volume: list[TimeSeriesPoint]
+    application_funnel: list[FunnelStage]
+    match_score_distribution: list[ScoreBin]
+    cohort_table: list[CohortRow]
 
 
 class BillingOverviewResponse(BaseModel):
@@ -454,3 +550,180 @@ class BillingOverviewResponse(BaseModel):
     # there's no cancellation timestamp in the data model yet (CompanySubscription
     # has no canceled_at), so a churn-over-time trend would be fabricated. Once a
     # real cancel flow exists, add canceled_at and extend this honestly.
+
+
+# ── Admin announcements ───────────────────────────────────────────────────────
+
+AnnouncementType    = Literal["info", "warning", "success", "alert"]
+AnnouncementTarget  = Literal["all", "aspirants", "employers"]
+AnnouncementChannel = Literal["in_app", "email", "both"]
+AnnouncementStatus  = Literal["draft", "scheduled", "published"]
+
+
+class AnnouncementCreateRequest(BaseModel):
+    title:        str                = Field(..., min_length=3, max_length=200)
+    body:         str                = Field(..., min_length=10)
+    type:         AnnouncementType   = "info"
+    target:       AnnouncementTarget = "all"
+    channel:      AnnouncementChannel = "in_app"
+    scheduled_at: Optional[datetime] = None
+
+
+class AnnouncementUpdateRequest(BaseModel):
+    title:        Optional[str]                = Field(None, min_length=3, max_length=200)
+    body:         Optional[str]                = Field(None, min_length=10)
+    type:         Optional[AnnouncementType]   = None
+    target:       Optional[AnnouncementTarget] = None
+    channel:      Optional[AnnouncementChannel]= None
+    scheduled_at: Optional[datetime]           = None
+
+
+class AnnouncementEntry(BaseModel):
+    id:           str
+    title:        str
+    body:         str
+    type:         str
+    target:       str
+    channel:      str
+    status:       AnnouncementStatus
+    scheduled_at: Optional[datetime] = None
+    published_at: Optional[datetime] = None
+    sent_count:   int
+    created_by_name: Optional[str] = None
+    created_at:   datetime
+    updated_at:   Optional[datetime] = None
+
+
+# ── Job detail (admin view) ───────────────────────────────────────────────────
+
+class AdminJobDetailResponse(AdminJobEntry):
+    description: str
+    required_skills: list[str] = []
+    min_k_score: int = 0
+    job_type: Optional[str] = None
+    growth_outlook: Optional[str] = None
+    status: str
+    department_id: Optional[str] = None
+    department_name: Optional[str] = None
+    updated_at: Optional[datetime] = None
+
+
+# ── Employer-scoped jobs (paginated) ─────────────────────────────────────────
+
+class EmployerJobsResponse(BaseModel):
+    total: int
+    items: list[EmployerJobEntry]
+
+
+# ── Support tickets ───────────────────────────────────────────────────────────
+
+class TicketAttachmentEntry(BaseModel):
+    id: str
+    filename: str
+    content_type: Optional[str] = None
+    size_bytes: Optional[int] = None
+    file_key: str
+    uploaded_by: Optional[str] = None
+    created_at: datetime
+
+
+class TicketMessageEntry(BaseModel):
+    id: str
+    sender_id: Optional[str] = None
+    sender_name: Optional[str] = None
+    body: str
+    is_internal: bool
+    created_at: datetime
+
+
+class TicketEntry(BaseModel):
+    id: str
+    subject: str
+    status: str
+    priority: str
+    category: str = "general"
+    entity_type: str
+    entity_id: Optional[str] = None
+    reporter_id: Optional[str] = None
+    reporter_name: Optional[str] = None
+    reporter_phone: Optional[str] = None
+    assigned_to: Optional[str] = None
+    assignee_name: Optional[str] = None
+    sla_deadline: Optional[datetime] = None
+    message_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+    resolved_at: Optional[datetime] = None
+    closed_at: Optional[datetime] = None
+
+
+class TicketDetailResponse(TicketEntry):
+    body: Optional[str] = None
+    messages: list[TicketMessageEntry] = []
+    attachments: list[TicketAttachmentEntry] = []
+
+
+class TicketListResponse(BaseModel):
+    total: int
+    items: list[TicketEntry]
+
+
+class CreateTicketRequest(BaseModel):
+    subject: str = Field(..., min_length=3, max_length=300)
+    body: Optional[str] = None
+    priority: str = "normal"
+    entity_type: str = "general"
+    entity_id: Optional[str] = None
+    reporter_id: Optional[str] = None
+
+
+class AddMessageRequest(BaseModel):
+    body: str = Field(..., min_length=1)
+    is_internal: bool = False
+
+
+class UpdateTicketRequest(BaseModel):
+    status: Optional[str] = None
+    priority: Optional[str] = None
+    assigned_to: Optional[str] = None
+    category: Optional[str] = None
+
+
+# ── Admin notification management ─────────────────────────────────────────────
+
+class NotificationEntry(BaseModel):
+    id: str
+    user_id: str
+    user_email: Optional[str] = None
+    user_phone: Optional[str] = None
+    type: str
+    title: str
+    body: Optional[str] = None
+    link_url: Optional[str] = None
+    is_read: bool
+    delivery_status: Optional[str] = None
+    email_sent_at: Optional[datetime] = None
+    email_failed_reason: Optional[str] = None
+    created_at: datetime
+
+
+class NotificationListResponse(BaseModel):
+    total: int
+    items: list[NotificationEntry]
+
+
+class NotificationStatEntry(BaseModel):
+    label: str
+    count: int
+
+
+class NotificationStatsResponse(BaseModel):
+    total_today: int
+    sent_today: int
+    failed_today: int
+    unread_total: int
+    by_type: list[NotificationStatEntry]
+    by_delivery_status: list[NotificationStatEntry]
+
+
+

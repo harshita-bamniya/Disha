@@ -448,6 +448,9 @@ class JobPosting(Base):
 
     id            = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     employer_id   = Column(UUID(as_uuid=True), ForeignKey("employer_profiles.id", ondelete="CASCADE"), nullable=False, index=True)
+    # Direct company FK for owner/hr_admin level queries without joining through EmployerProfile.
+    # Nullable for backwards-compatibility; all new jobs should set this via the service layer.
+    company_id    = Column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True)
     # Department scoping (Module 06) — which department owns this job. Nullable for
     # backwards-compatibility with pre-department postings; all new jobs should set this.
     department_id = Column(UUID(as_uuid=True), ForeignKey("company_departments.id", ondelete="SET NULL"), nullable=True, index=True)
@@ -479,6 +482,26 @@ class JobPosting(Base):
     department   = relationship("CompanyDepartment", foreign_keys=[department_id])
     preparations = relationship("UserJobPreparation", back_populates="job", cascade="all, delete-orphan")
     applications = relationship("Application", back_populates="job", cascade="all, delete-orphan")
+    hiring_team  = relationship("JobHiringTeam", back_populates="job", cascade="all, delete-orphan")
+
+
+class JobHiringTeam(Base):
+    """Per-job hiring team: maps employer profiles to a specific job with a job-level role.
+    Separate from the company-level role on EmployerProfile — a recruiter can be
+    assigned as hiring_manager on one job and interviewer on another."""
+    __tablename__ = "job_hiring_team"
+
+    id                  = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    job_id              = Column(UUID(as_uuid=True), ForeignKey("job_postings.id", ondelete="CASCADE"), nullable=False, index=True)
+    employer_profile_id = Column(UUID(as_uuid=True), ForeignKey("employer_profiles.id", ondelete="CASCADE"), nullable=False, index=True)
+    # Job-level role — distinct from the company-level role on EmployerProfile
+    job_role            = Column(String(30), nullable=False)  # hiring_manager | interviewer | coordinator | recruiter
+    added_at            = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (UniqueConstraint("job_id", "employer_profile_id", name="uq_job_hiring_team_member"),)
+
+    job             = relationship("JobPosting", back_populates="hiring_team")
+    employer_profile = relationship("EmployerProfile")
 
 
 # ── Module 04: Career Mapping ─────────────────────────────────────────────────

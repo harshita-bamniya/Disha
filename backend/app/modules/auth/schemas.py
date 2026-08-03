@@ -6,6 +6,7 @@ import re
 
 class RegisterRequest(BaseModel):
     phone: str
+    email: str | None = None
     password: str
     preferred_language: str = "hi"
     recaptcha_token: str | None = None
@@ -19,6 +20,16 @@ class RegisterRequest(BaseModel):
         if not re.match(r"^[6-9]\d{9}$", cleaned):
             raise ValueError("Enter a valid 10-digit Indian mobile number")
         return cleaned
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str | None) -> str | None:
+        if v is None or v.strip() == "":
+            return None
+        v = v.strip().lower()
+        if not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", v):
+            raise ValueError("Enter a valid email address")
+        return v
 
     @field_validator("password")
     @classmethod
@@ -49,17 +60,9 @@ class RegisterRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    phone: str
+    identifier: str  # phone number OR email address
     password: str
     recaptcha_token: str | None = None
-
-    @field_validator("phone")
-    @classmethod
-    def validate_phone(cls, v: str) -> str:
-        cleaned = re.sub(r"\D", "", v)
-        if cleaned.startswith("91") and len(cleaned) == 12:
-            cleaned = cleaned[2:]
-        return cleaned
 
 
 class VerifyPhoneRequest(BaseModel):

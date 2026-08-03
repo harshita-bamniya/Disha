@@ -1,0 +1,28 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Frontend Dev Server",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5180,
+      "cwd": "frontend",
+      "autoPort": true
+    },
+    {
+      "name": "Disha Frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5181,
+      "cwd": "frontend",
+      "autoPort": true
+    },
+    {
+      "name": "VayuShield",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "cd /d E:\\GalaxyWeblinks\\Hackathon\\vayushield-ai\\frontend && npm run dev -- --port 5182 --host"],
+      "port": 5182,
+      "autoPort": true
+    }
+  ]
+}

@@ -21,7 +21,7 @@ from app.models.mvp3 import (
     CandidateInterviewFeedback, OfferLetter,
 )
 from app.models.user import (
-    AspirantProfile, EmployerProfile, JobPosting, KrsScore, PsychologicalAssessment, User,
+    AuditLog, AspirantProfile, EmployerProfile, JobPosting, KrsScore, PsychologicalAssessment, User,
     UserCareerSelection,
 )
 from app.modules.matching.schemas import (
@@ -38,7 +38,18 @@ from app.modules.recommendations.ranker import RankedJob, rank_jobs_for_user
 
 logger = logging.getLogger(__name__)
 
-_APPLICATION_LIMIT = 10   # Default; overridable via platform_settings
+_APPLICATION_LIMIT = 10
+
+
+def _audit_matching(db: Session, action: str, user_id, resource: str, resource_id, extra: dict | None = None) -> None:
+    import uuid as _uuid
+    db.add(AuditLog(
+        user_id=_uuid.UUID(str(user_id)) if user_id else None,
+        action=action,
+        resource=resource,
+        resource_id=_uuid.UUID(str(resource_id)) if resource_id else None,
+        new_value=extra,
+    ))   # Default; overridable via platform_settings
 
 
 def _get_platform_setting(key: str, default, db: Session):
@@ -131,7 +142,7 @@ def get_job_recommendations(
     from app.models.mvp3 import Application as AppModel
     recent_apps = (
         db.query(AppModel.aspirant_id, AppModel.job_id)
-        .order_by(AppModel.applied_at.desc())
+        .order_by(AppModel.created_at.desc())
         .limit(2000)
         .all()
     )
@@ -547,8 +558,29 @@ def _get_scoped_job_ids(profile: EmployerProfile, company_employer_ids: list, ro
     return [r[0] for r in q.all()]
 
 
-def get_job_pipeline(job_id: str, user: User, db: Session, limit: int = 100, offset: int = 0) -> JobCandidatePipeline:
-    """Return applications for a job (paginated), enriched with aspirant profiles."""
+def get_job_pipeline(
+    job_id: str,
+    user: User,
+    db: Session,
+    limit: int = 100,
+    offset: int = 0,
+    *,
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    knockout_triggered: Optional[bool] = None,
+    knockout_action: Optional[str] = None,
+    score_min: Optional[int] = None,
+    score_max: Optional[int] = None,
+) -> JobCandidatePipeline:
+    """Return applications for a job (paginated), enriched with aspirant profiles.
+
+    Optional ATS filters (all additive):
+      status             — exact match on application status
+      search             — substring match on candidate full_name (via AspirantProfile)
+      knockout_triggered — True/False filter
+      knockout_action    — exact match on Application.knockout_action
+      score_min/max      — inclusive filter on Application.application_score
+    """
     employer = _get_employer_profile_approved(user, db)
     company_employer_ids = _get_company_employer_ids(employer, db)
     q = db.query(JobPosting).filter(
@@ -563,8 +595,30 @@ def get_job_pipeline(job_id: str, user: User, db: Session, limit: int = 100, off
         db.query(Application)
         .options(joinedload(Application.status_history))
         .filter(Application.job_id == job_id)
-        .order_by(Application.match_score.desc())
     )
+
+    # ── ATS filters ──────────────────────────────────────────────────────────
+    if status:
+        apps_q = apps_q.filter(Application.status == status)
+    if knockout_triggered is not None:
+        apps_q = apps_q.filter(Application.knockout_triggered == knockout_triggered)
+    if knockout_action:
+        apps_q = apps_q.filter(Application.knockout_action == knockout_action)
+    if score_min is not None:
+        apps_q = apps_q.filter(Application.application_score >= score_min)
+    if score_max is not None:
+        apps_q = apps_q.filter(Application.application_score <= score_max)
+
+    if search:
+        # Join to AspirantProfile for name search
+        search_term = f"%{search.strip()}%"
+        apps_q = (
+            apps_q
+            .join(AspirantProfile, AspirantProfile.user_id == Application.aspirant_id)
+            .filter(AspirantProfile.full_name.ilike(search_term))
+        )
+
+    apps_q = apps_q.order_by(Application.match_score.desc())
     total_applications = apps_q.count()
     apps = apps_q.offset(offset).limit(limit).all()
 
@@ -707,6 +761,11 @@ def get_job_pipeline(job_id: str, user: User, db: Session, limit: int = 100, off
             notes=notes_by_app.get(app.id, []),
             avg_rating=ratings_by_app.get(app.id),
             interview_feedback=feedback_by_app.get(app.id, []),
+            # ATS fields
+            reference_number=app.reference_number,
+            knockout_triggered=bool(app.knockout_triggered),
+            knockout_action=app.knockout_action,
+            application_score=app.application_score,
         ))
 
     return JobCandidatePipeline(
@@ -716,6 +775,113 @@ def get_job_pipeline(job_id: str, user: User, db: Session, limit: int = 100, off
         by_status=by_status,
         candidates=candidates,
     )
+
+
+def get_application_responses(application_id: str, user: User, db: Session):
+    """Return form question responses for a single application (employer-facing).
+
+    Returns an ApplicationResponsesOut with a list of FormResponseItem.
+    The employer must own the job the application belongs to.
+    """
+    from app.modules.matching.schemas import ApplicationResponsesOut, FormResponseItem
+    from app.models.ats import ApplicationResponse
+
+    employer = _get_employer_profile_approved(user, db)
+    company_employer_ids = _get_company_employer_ids(employer, db)
+    job_ids = _get_scoped_job_ids(employer, company_employer_ids, user.role_name, db)
+
+    app = (
+        db.query(Application)
+        .filter(Application.id == application_id, Application.job_id.in_(job_ids))
+        .first()
+    )
+    if not app:
+        raise NotFoundException("Application not found.")
+
+    rows = (
+        db.query(ApplicationResponse)
+        .filter(ApplicationResponse.application_id == app.id)
+        .order_by(ApplicationResponse.answered_at)
+        .all()
+    )
+
+    items = [
+        FormResponseItem(
+            question_id=str(r.question_id) if r.question_id else None,
+            question_label=r.question_label,
+            question_type=r.question_type,
+            text_value=r.text_value,
+            number_value=r.number_value,
+            date_value=r.date_value,
+            option_values=r.option_values_json,
+            has_file=r.file_attachment_id is not None,
+        )
+        for r in rows
+    ]
+
+    return ApplicationResponsesOut(
+        application_id=str(app.id),
+        reference_number=app.reference_number,
+        responses=items,
+    )
+
+
+def export_pipeline_csv(
+    job_id: str,
+    user: User,
+    db: Session,
+    *,
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    knockout_triggered: Optional[bool] = None,
+    knockout_action: Optional[str] = None,
+    score_min: Optional[int] = None,
+    score_max: Optional[int] = None,
+) -> str:
+    """Export all matching pipeline candidates as a CSV string.
+
+    Applies the same filters as get_job_pipeline (no pagination — exports all rows).
+    Returns raw CSV text for streaming as a file download.
+    """
+    import csv
+    import io
+
+    pipeline = get_job_pipeline(
+        job_id, user, db,
+        limit=10_000, offset=0,
+        status=status, search=search,
+        knockout_triggered=knockout_triggered,
+        knockout_action=knockout_action,
+        score_min=score_min, score_max=score_max,
+    )
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow([
+        "Reference #", "Full Name", "City", "State",
+        "Highest Qualification", "UPSC Attempts", "Highest Stage Cleared",
+        "Skills", "Match Score", "Application Score",
+        "Status", "Knockout Triggered", "Knockout Action",
+        "Applied At",
+    ])
+    for c in pipeline.candidates:
+        writer.writerow([
+            c.reference_number or "",
+            c.full_name or "",
+            c.city or "",
+            c.state or "",
+            c.highest_qualification or "",
+            c.upsc_attempts if c.upsc_attempts is not None else "",
+            c.highest_stage_cleared or "",
+            "; ".join(c.skills),
+            c.match_score if c.match_score is not None else "",
+            c.application_score if c.application_score is not None else "",
+            c.status,
+            "Yes" if c.knockout_triggered else "No",
+            c.knockout_action or "",
+            c.applied_at.isoformat(),
+        ])
+    return buf.getvalue()
 
 
 def update_application_status(
@@ -786,6 +952,9 @@ def update_application_status(
         )
         db.commit()
 
+    _audit_matching(db, "application.status_changed", user.id, "application", application_id,
+                    {"from": prev, "to": new_status})
+    db.commit()
     logger.info(
         "[MATCHING] Application %s: %s → %s by employer %s",
         application_id, prev, new_status, user.id
@@ -990,6 +1159,8 @@ async def send_offer_letter(application_id: str, body, user: User, db: Session) 
         f"{employer.company_name or 'The employer'} sent you an offer letter for {body.role_title}. Review and respond in your applications.",
         "/app/jobs/applications",
     )
+    _audit_matching(db, "offer_letter.sent", user.id, "offer_letter", str(offer.id),
+                    {"application_id": application_id, "role_title": body.role_title})
     db.commit()
 
     return _offer_to_out(offer)
@@ -1064,6 +1235,8 @@ def accept_offer_letter(
             application_id=app.id, from_status=prev, to_status="hired",
             changed_by=user.id, note=f"Offer accepted & digitally signed by {signature_name}",
         ))
+    _audit_matching(db, "offer_letter.signed", user.id, "offer_letter", str(offer.id),
+                    {"application_id": application_id, "signature_name": signature_name})
     db.commit()
     db.refresh(offer)
 
@@ -1631,7 +1804,17 @@ RESPONDED_STATUSES = (
 def get_dashboard_kpis(user: User, db: Session) -> DashboardKpis:
     from datetime import datetime, timezone, timedelta
 
-    employer = _get_employer_profile_approved(user, db)
+    # Return zeroed KPIs for pending employers — throwing 404 here blanks the dashboard.
+    profile = db.query(EmployerProfile).filter(EmployerProfile.user_id == user.id).first()
+    if not profile:
+        raise AuthException("Employer profile not found.")
+    if not profile.is_approved:
+        return DashboardKpis(
+            active_jobs=0, draft_jobs=0, paused_jobs=0, closed_jobs=0, archived_jobs=0,
+            applications_today=0, total_applications=0, interviews_scheduled=0,
+            offers_sent=0, hires=0, response_rate_pct=0.0, avg_time_to_hire_days=None,
+        )
+    employer = profile
     company_employer_ids = _get_company_employer_ids(employer, db)
 
     jobs_q = db.query(JobPosting.status, JobPosting.id).filter(
@@ -1722,3 +1905,355 @@ def get_application_trend(user: User, db: Session, days: int = 30) -> Applicatio
         for i in range(days)
     ]
     return ApplicationTrendResponse(days=days, series=series)
+
+# ── Cross-job list views (Phase E) ─────────────────────────────────────────────
+
+def list_all_applicants(
+    user, db,
+    status=None,
+    job_id=None,
+    department_id=None,
+    limit=50,
+    offset=0,
+):
+    from app.models.user import AspirantProfile
+    from app.modules.matching.schemas import ApplicantListItem, AllApplicantsResponse
+    from datetime import datetime, timezone
+
+    employer = _get_employer_profile_approved(user, db)
+    company_employer_ids = _get_company_employer_ids(employer, db)
+    job_ids = _get_scoped_job_ids(employer, company_employer_ids, user.role_name, db)
+
+    q = (
+        db.query(Application, JobPosting)
+        .join(JobPosting, Application.job_id == JobPosting.id)
+        .filter(Application.job_id.in_(job_ids))
+    )
+    if status:
+        q = q.filter(Application.status == status)
+    if job_id:
+        q = q.filter(Application.job_id == job_id)
+    if department_id:
+        q = q.filter(JobPosting.department_id == department_id)
+
+    total = q.count()
+    rows = q.order_by(Application.created_at.desc()).offset(offset).limit(limit).all()
+
+    aspirant_ids = [app.aspirant_id for app, _ in rows]
+    profiles = {}
+    if aspirant_ids:
+        for p in db.query(AspirantProfile).filter(AspirantProfile.user_id.in_(aspirant_ids)).all():
+            profiles[str(p.user_id)] = p
+
+    dept_names = {}
+    dept_ids = {str(job.department_id) for _, job in rows if job.department_id}
+    if dept_ids:
+        from app.models.company import CompanyDepartment
+        for d in db.query(CompanyDepartment).filter(CompanyDepartment.id.in_(dept_ids)).all():
+            dept_names[str(d.id)] = d.name
+
+    now = datetime.now(timezone.utc)
+    items = []
+    for app, job in rows:
+        profile = profiles.get(str(app.aspirant_id))
+        created = app.created_at.replace(tzinfo=timezone.utc) if app.created_at.tzinfo is None else app.created_at
+        days_ago = int((now - created).total_seconds() / 86400)
+        items.append(ApplicantListItem(
+            application_id=str(app.id),
+            aspirant_id=str(app.aspirant_id),
+            full_name=profile.full_name if profile else None,
+            city=profile.city if profile else None,
+            job_id=str(job.id),
+            job_title=job.title,
+            department_name=dept_names.get(str(job.department_id)) if job.department_id else None,
+            status=app.status,
+            match_score=app.match_score,
+            applied_at=app.created_at.isoformat(),
+            days_ago=days_ago,
+        ))
+
+    return AllApplicantsResponse(total=total, items=items)
+
+
+def list_all_interviews(
+    user, db,
+    status=None,
+    job_id=None,
+    limit=50,
+    offset=0,
+):
+    from app.models.user import AspirantProfile
+    from app.modules.matching.schemas import InterviewListItem, AllInterviewsResponse
+
+    employer = _get_employer_profile_approved(user, db)
+    company_employer_ids = _get_company_employer_ids(employer, db)
+    job_ids = _get_scoped_job_ids(employer, company_employer_ids, user.role_name, db)
+
+    q = (
+        db.query(CandidateInterviewFeedback, Application, JobPosting)
+        .join(Application, CandidateInterviewFeedback.application_id == Application.id)
+        .join(JobPosting, Application.job_id == JobPosting.id)
+        .filter(Application.job_id.in_(job_ids))
+    )
+    if status:
+        q = q.filter(CandidateInterviewFeedback.status == status)
+    if job_id:
+        q = q.filter(Application.job_id == job_id)
+
+    total = q.count()
+    rows = q.order_by(CandidateInterviewFeedback.scheduled_at.desc().nullslast()).offset(offset).limit(limit).all()
+
+    aspirant_ids = [app.aspirant_id for _, app, _ in rows]
+    profiles = {}
+    if aspirant_ids:
+        for p in db.query(AspirantProfile).filter(AspirantProfile.user_id.in_(aspirant_ids)).all():
+            profiles[str(p.user_id)] = p
+
+    interviewer_ids = [iv.interviewer_id for iv, _, _ in rows if iv.interviewer_id]
+    interviewer_names = {}
+    if interviewer_ids:
+        for ep in db.query(EmployerProfile).filter(EmployerProfile.user_id.in_(interviewer_ids)).all():
+            interviewer_names[str(ep.user_id)] = ep.contact_person
+
+    dept_names = {}
+    dept_ids = {str(job.department_id) for _, _, job in rows if job.department_id}
+    if dept_ids:
+        from app.models.company import CompanyDepartment
+        for d in db.query(CompanyDepartment).filter(CompanyDepartment.id.in_(dept_ids)).all():
+            dept_names[str(d.id)] = d.name
+
+    items = []
+    for iv, app, job in rows:
+        profile = profiles.get(str(app.aspirant_id))
+        items.append(InterviewListItem(
+            interview_id=str(iv.id),
+            application_id=str(app.id),
+            candidate_name=profile.full_name if profile else None,
+            job_id=str(job.id),
+            job_title=job.title,
+            department_name=dept_names.get(str(job.department_id)) if job.department_id else None,
+            interviewer_name=interviewer_names.get(str(iv.interviewer_id)) if iv.interviewer_id else None,
+            scheduled_at=iv.scheduled_at.isoformat() if iv.scheduled_at else None,
+            meeting_link=iv.meeting_link,
+            status=iv.status,
+            recommendation=iv.recommendation,
+        ))
+
+    return AllInterviewsResponse(total=total, items=items)
+
+
+def list_all_offers(
+    user, db,
+    status=None,
+    job_id=None,
+    limit=50,
+    offset=0,
+):
+    from app.models.user import AspirantProfile
+    from app.models.mvp3 import OfferLetter
+    from app.modules.matching.schemas import OfferListItem, AllOffersResponse
+
+    employer = _get_employer_profile_approved(user, db)
+    company_employer_ids = _get_company_employer_ids(employer, db)
+    job_ids = _get_scoped_job_ids(employer, company_employer_ids, user.role_name, db)
+
+    q = (
+        db.query(OfferLetter, Application, JobPosting)
+        .join(Application, OfferLetter.application_id == Application.id)
+        .join(JobPosting, Application.job_id == JobPosting.id)
+        .filter(Application.job_id.in_(job_ids))
+    )
+    if status:
+        q = q.filter(OfferLetter.status == status)
+    if job_id:
+        q = q.filter(Application.job_id == job_id)
+
+    total = q.count()
+    rows = q.order_by(OfferLetter.sent_at.desc()).offset(offset).limit(limit).all()
+
+    aspirant_ids = [app.aspirant_id for _, app, _ in rows]
+    profiles = {}
+    if aspirant_ids:
+        for p in db.query(AspirantProfile).filter(AspirantProfile.user_id.in_(aspirant_ids)).all():
+            profiles[str(p.user_id)] = p
+
+    dept_names = {}
+    dept_ids = {str(job.department_id) for _, _, job in rows if job.department_id}
+    if dept_ids:
+        from app.models.company import CompanyDepartment
+        for d in db.query(CompanyDepartment).filter(CompanyDepartment.id.in_(dept_ids)).all():
+            dept_names[str(d.id)] = d.name
+
+    items = []
+    for offer, app, job in rows:
+        profile = profiles.get(str(app.aspirant_id))
+        items.append(OfferListItem(
+            offer_id=str(offer.id),
+            application_id=str(app.id),
+            candidate_name=profile.full_name if profile else None,
+            job_id=str(job.id),
+            job_title=job.title,
+            department_name=dept_names.get(str(job.department_id)) if job.department_id else None,
+            role_title=offer.role_title,
+            salary_ctc=offer.salary_ctc,
+            start_date=offer.start_date,
+            status=offer.status,
+            sent_at=offer.sent_at.isoformat() if offer.sent_at else None,
+            responded_at=offer.responded_at.isoformat() if offer.responded_at else None,
+        ))
+
+    return AllOffersResponse(total=total, items=items)
+
+
+# ── Phase F: Pipeline Stage CRUD ──────────────────────────────────────────────
+
+def _get_job_for_employer(job_id: str, current_user, db: Session):
+    """Fetch job posting, ensuring it belongs to the employer's company."""
+    ep = _get_employer_profile_approved(current_user, db)
+    job = db.query(JobPosting).filter(JobPosting.id == job_id).first()
+    if not job:
+        raise NotFoundException("Job not found")
+    # Company-wide check — allow all employer profiles in the same company
+    company_ids = _get_company_employer_ids(ep, db)
+    if job.employer_id not in company_ids:
+        raise AuthException("Not authorised")
+    return ep, job
+
+
+def get_pipeline_stages(job_id: str, current_user, db: Session):
+    from app.models.mvp3 import JobPipelineStage, CUSTOMISABLE_STAGE_KEYS
+    from app.modules.matching.schemas import PipelineStageOut
+    _get_job_for_employer(job_id, current_user, db)
+    rows = (
+        db.query(JobPipelineStage)
+        .filter(JobPipelineStage.job_id == job_id)
+        .order_by(JobPipelineStage.position)
+        .all()
+    )
+    if not rows:
+        # Return system defaults
+        defaults = [
+            {"applied": ("#3B82F6", 0)},
+            {"screening": ("#D97706", 1)},
+            {"shortlisted": ("#059669", 2)},
+            {"interview_scheduled": ("#6366F1", 3)},
+            {"interview_completed": ("#0EA5E9", 4)},
+            {"offer_sent": ("#7C3AED", 5)},
+            {"hired": ("#059669", 6)},
+            {"rejected": ("#DC2626", 7)},
+        ]
+        LABELS = {
+            "applied": "Applied",
+            "screening": "Screening",
+            "shortlisted": "Shortlisted",
+            "interview_scheduled": "Interview",
+            "interview_completed": "Interviewed",
+            "offer_sent": "Offer Sent",
+            "hired": "Hired",
+            "rejected": "Rejected",
+        }
+        stages = []
+        for i, d in enumerate(defaults):
+            for key, (color, pos) in d.items():
+                stages.append(PipelineStageOut(
+                    id="",
+                    stage_key=key,
+                    display_name=LABELS[key],
+                    color=color,
+                    position=pos,
+                    is_visible=True,
+                ))
+        return stages
+    return [PipelineStageOut(
+        id=str(r.id), stage_key=r.stage_key, display_name=r.display_name,
+        color=r.color, position=r.position, is_visible=r.is_visible,
+    ) for r in rows]
+
+
+def bulk_upsert_pipeline_stages(job_id: str, payload, current_user, db: Session):
+    from app.models.mvp3 import JobPipelineStage, CUSTOMISABLE_STAGE_KEYS
+    from app.modules.matching.schemas import PipelineStageOut
+    _get_job_for_employer(job_id, current_user, db)
+    for s in payload.stages:
+        if s.stage_key not in CUSTOMISABLE_STAGE_KEYS:
+            raise BadRequestException(f"Invalid stage_key: {s.stage_key}")
+    # Delete existing rows for this job, then bulk-insert
+    db.query(JobPipelineStage).filter(JobPipelineStage.job_id == job_id).delete()
+    for s in payload.stages:
+        db.add(JobPipelineStage(
+            job_id=job_id,
+            stage_key=s.stage_key,
+            display_name=s.display_name,
+            color=s.color,
+            position=s.position,
+            is_visible=s.is_visible,
+        ))
+    db.commit()
+    return get_pipeline_stages(job_id, current_user, db)
+
+
+def list_pipeline_templates(current_user, db: Session):
+    from app.models.mvp3 import CompanyPipelineTemplate
+    from app.modules.matching.schemas import PipelineTemplateOut, PipelineTemplateStage
+    ep = _get_employer_profile_approved(current_user, db)
+    rows = (
+        db.query(CompanyPipelineTemplate)
+        .filter(CompanyPipelineTemplate.company_id == ep.id)
+        .order_by(CompanyPipelineTemplate.created_at)
+        .all()
+    )
+    result = []
+    for r in rows:
+        stages = [PipelineTemplateStage(**s) for s in (r.stages or [])]
+        result.append(PipelineTemplateOut(id=str(r.id), name=r.name, stages=stages))
+    return result
+
+
+def create_pipeline_template(payload, current_user, db: Session):
+    from app.models.mvp3 import CompanyPipelineTemplate, CUSTOMISABLE_STAGE_KEYS
+    from app.modules.matching.schemas import PipelineTemplateOut, PipelineTemplateStage
+    ep = _get_employer_profile_approved(current_user, db)
+    for s in payload.stages:
+        if s.stage_key not in CUSTOMISABLE_STAGE_KEYS:
+            raise BadRequestException(f"Invalid stage_key: {s.stage_key}")
+    tmpl = CompanyPipelineTemplate(
+        company_id=ep.id,
+        name=payload.name,
+        stages=[s.dict() for s in payload.stages],
+        created_by=current_user.id,
+    )
+    db.add(tmpl)
+    db.commit()
+    db.refresh(tmpl)
+    stages = [PipelineTemplateStage(**s) for s in (tmpl.stages or [])]
+    return PipelineTemplateOut(id=str(tmpl.id), name=tmpl.name, stages=stages)
+
+
+def delete_pipeline_template(template_id: str, current_user, db: Session):
+    from app.models.mvp3 import CompanyPipelineTemplate
+    ep = _get_employer_profile_approved(current_user, db)
+    tmpl = db.query(CompanyPipelineTemplate).filter(
+        CompanyPipelineTemplate.id == template_id,
+        CompanyPipelineTemplate.company_id == ep.id,
+    ).first()
+    if not tmpl:
+        raise NotFoundException("Template not found")
+    db.delete(tmpl)
+    db.commit()
+    return {"deleted": True}
+
+
+def apply_template_to_job(job_id: str, template_id: str, current_user, db: Session):
+    from app.models.mvp3 import CompanyPipelineTemplate
+    from app.modules.matching.schemas import BulkUpsertPipelineStagesRequest, PipelineStageIn
+    ep, _ = _get_job_for_employer(job_id, current_user, db)
+    tmpl = db.query(CompanyPipelineTemplate).filter(
+        CompanyPipelineTemplate.id == template_id,
+        CompanyPipelineTemplate.company_id == ep.id,
+    ).first()
+    if not tmpl:
+        raise NotFoundException("Template not found")
+    stages = [PipelineStageIn(**s) for s in (tmpl.stages or [])]
+    return bulk_upsert_pipeline_stages(
+        job_id, BulkUpsertPipelineStagesRequest(stages=stages), current_user, db
+    )

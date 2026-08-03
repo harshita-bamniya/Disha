@@ -1,7 +1,7 @@
 """Add languages to resume_sections CHECK constraint; add score_breakdown and target_job_description to resumes.
 
 Revision ID: m1n2o3p4q5r6
-Revises: l7m8n9o0p1q2
+Revises: l7m8n9o0p1q2, a3b4c5d6e7f8, b2c3d4e5f6g7
 Create Date: 2026-07-27
 """
 from alembic import op
@@ -9,7 +9,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 revision = "m1n2o3p4q5r6"
-down_revision = "l7m8n9o0p1q2"
+down_revision = ("l7m8n9o0p1q2", "a3b4c5d6e7f8", "b2c3d4e5f6g7")
 branch_labels = None
 depends_on = None
 

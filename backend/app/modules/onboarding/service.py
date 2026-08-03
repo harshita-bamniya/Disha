@@ -1,5 +1,6 @@
 import logging
 import httpx
+import asyncio
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
@@ -212,7 +213,7 @@ def save_preferences(user: User, data: PreferencesRequest, db: Session) -> StepS
     return StepSavedResponse(message="Preferences saved", current_step=profile.current_step, is_completed=profile.is_completed)
 
 
-def save_psychology(user: User, data: PsychologicalAssessmentRequest, db: Session) -> StepSavedResponse:
+async def save_psychology(user: User, data: PsychologicalAssessmentRequest, db: Session) -> StepSavedResponse:
     """Step 7: save psychological assessment, generate Groq insight, trigger KRS."""
     profile = _get_or_create_profile(user, db)
 
@@ -260,7 +261,7 @@ def save_psychology(user: User, data: PsychologicalAssessmentRequest, db: Sessio
 
     # Attempt Groq insight AFTER the commit — if it times out the user still
     # lands on the dashboard; they just don't see the personalised message.
-    insight = _call_groq_insight(profile, burnout, confidence, pressure, data)
+    insight = await _call_groq_insight(profile, burnout, confidence, pressure, data)
     if insight:
         assessment.disha_insight = insight
         db.commit()
@@ -275,7 +276,7 @@ def save_psychology(user: User, data: PsychologicalAssessmentRequest, db: Sessio
 
 # ── Groq helper ───────────────────────────────────────────────────────────────
 
-def _call_groq_insight(
+async def _call_groq_insight(
     profile: AspirantProfile,
     burnout: int,
     confidence: int,
@@ -317,20 +318,20 @@ def _call_groq_insight(
     )
 
     try:
-        response = httpx.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {settings.groq_api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": "llama-3.1-8b-instant",
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 180,
-                "temperature": 0.75,
-            },
-            timeout=httpx.Timeout(connect=5.0, read=10.0, write=5.0, pool=2.0),
-        )
+        async with httpx.AsyncClient(timeout=httpx.Timeout(connect=5.0, read=10.0, write=5.0, pool=2.0)) as client:
+            response = await client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {settings.groq_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "llama-3.1-8b-instant",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 180,
+                    "temperature": 0.75,
+                },
+            )
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"].strip()
     except Exception as exc:

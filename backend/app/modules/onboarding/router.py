@@ -1,17 +1,39 @@
 from fastapi import APIRouter, Depends
+from redis import Redis
 from sqlalchemy.orm import Session
 
 from app.core.rbac import get_current_verified_user
-from app.database import get_db
+from app.database import get_db, get_redis
 from app.models.user import User
 from app.modules.onboarding import service
 from app.modules.onboarding.schemas import (
-    EducationRequest, OnboardingStatusResponse, PersonalInfoRequest,
+    EducationRequest, INDIAN_STATES, OnboardingStatusResponse, PersonalInfoRequest,
     PreferencesRequest, ProfileResponse, PsychologicalAssessmentRequest, SkillsRequest,
-    StepSavedResponse, UpscJourneyRequest, WorkExperienceRequest,
+    StepSavedResponse, UpscJourneyRequest, VALID_SECTORS, VALID_SKILLS, WorkExperienceRequest,
 )
 
+
+def _bust_krs_cache(user_id, redis: Redis) -> None:
+    """Delete the cached KRS dashboard so the next GET recomputes from DB."""
+    try:
+        redis.delete(f"krs:dashboard:{user_id}")
+    except Exception:
+        pass
+
 router = APIRouter(prefix="/onboarding", tags=["Onboarding"])
+
+
+@router.get("/options", tags=["Onboarding"])
+def get_options():
+    """
+    Returns the canonical skill list, sector list, and Indian states — the single
+    source of truth for all onboarding and profile UI. No auth required.
+    """
+    return {
+        "skills": sorted(VALID_SKILLS),
+        "sectors": sorted(VALID_SECTORS),
+        "states": INDIAN_STATES,
+    }
 
 
 @router.get("/profile", response_model=ProfileResponse)
@@ -35,8 +57,11 @@ def save_personal(
     body: PersonalInfoRequest,
     current_user: User = Depends(get_current_verified_user),
     db: Session = Depends(get_db),
+    redis: Redis = Depends(get_redis),
 ):
-    return service.save_personal(current_user, body, db)
+    result = service.save_personal(current_user, body, db)
+    _bust_krs_cache(current_user.id, redis)
+    return result
 
 
 @router.put("/education", response_model=StepSavedResponse)
@@ -44,8 +69,11 @@ def save_education(
     body: EducationRequest,
     current_user: User = Depends(get_current_verified_user),
     db: Session = Depends(get_db),
+    redis: Redis = Depends(get_redis),
 ):
-    return service.save_education(current_user, body, db)
+    result = service.save_education(current_user, body, db)
+    _bust_krs_cache(current_user.id, redis)
+    return result
 
 
 @router.put("/upsc-journey", response_model=StepSavedResponse)
@@ -53,8 +81,11 @@ def save_upsc_journey(
     body: UpscJourneyRequest,
     current_user: User = Depends(get_current_verified_user),
     db: Session = Depends(get_db),
+    redis: Redis = Depends(get_redis),
 ):
-    return service.save_upsc_journey(current_user, body, db)
+    result = service.save_upsc_journey(current_user, body, db)
+    _bust_krs_cache(current_user.id, redis)
+    return result
 
 
 @router.put("/work-experience", response_model=StepSavedResponse)
@@ -62,8 +93,11 @@ def save_work_experience(
     body: WorkExperienceRequest,
     current_user: User = Depends(get_current_verified_user),
     db: Session = Depends(get_db),
+    redis: Redis = Depends(get_redis),
 ):
-    return service.save_work_experience(current_user, body, db)
+    result = service.save_work_experience(current_user, body, db)
+    _bust_krs_cache(current_user.id, redis)
+    return result
 
 
 @router.put("/skills", response_model=StepSavedResponse)
@@ -71,8 +105,11 @@ def save_skills(
     body: SkillsRequest,
     current_user: User = Depends(get_current_verified_user),
     db: Session = Depends(get_db),
+    redis: Redis = Depends(get_redis),
 ):
-    return service.save_skills(current_user, body, db)
+    result = service.save_skills(current_user, body, db)
+    _bust_krs_cache(current_user.id, redis)
+    return result
 
 
 @router.put("/preferences", response_model=StepSavedResponse)
@@ -80,14 +117,20 @@ def save_preferences(
     body: PreferencesRequest,
     current_user: User = Depends(get_current_verified_user),
     db: Session = Depends(get_db),
+    redis: Redis = Depends(get_redis),
 ):
-    return service.save_preferences(current_user, body, db)
+    result = service.save_preferences(current_user, body, db)
+    _bust_krs_cache(current_user.id, redis)
+    return result
 
 
 @router.put("/psychology", response_model=StepSavedResponse)
-def save_psychology(
+async def save_psychology(
     body: PsychologicalAssessmentRequest,
     current_user: User = Depends(get_current_verified_user),
     db: Session = Depends(get_db),
+    redis: Redis = Depends(get_redis),
 ):
-    return service.save_psychology(current_user, body, db)
+    result = await service.save_psychology(current_user, body, db)
+    _bust_krs_cache(current_user.id, redis)
+    return result

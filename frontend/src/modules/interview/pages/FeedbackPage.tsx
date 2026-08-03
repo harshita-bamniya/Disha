@@ -154,7 +154,7 @@ export default function FeedbackPage() {
   })
 
   if (isLoading) return (
-    <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: '#F0F7FF', display: 'flex' }}>
       <AppSidebar activePath="/app/interview" />
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: 28, height: 28, border: '3px solid rgba(45,106,79,0.2)', borderTopColor: '#2D6A4F', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
@@ -168,7 +168,7 @@ export default function FeedbackPage() {
   const overallColor = feedback.overall_avg >= 8 ? '#16A34A' : feedback.overall_avg >= 6 ? '#D97706' : '#DC2626'
 
   return (
-    <div style={{ minHeight: '100vh', background: 'white', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: '#F0F7FF', display: 'flex' }}>
       <AppSidebar activePath="/app/interview" />
       <div style={{ flex: 1, minWidth: 0 }}>
         <header style={{
