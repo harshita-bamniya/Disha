@@ -1,24 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 import EmployerSidebar from './EmployerSidebar'
 import { Menu } from 'lucide-react'
-
-function useIsMobile() {
-  const [mobile, setMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768)
-  useEffect(() => {
-    const handler = () => setMobile(window.innerWidth < 768)
-    window.addEventListener('resize', handler)
-    return () => window.removeEventListener('resize', handler)
-  }, [])
-  return mobile
-}
+import { useIsMobile } from '@/shared/hooks/useIsMobile'
+import { tokens } from '@/design-system'
 
 export default function EmployerLayout() {
   const isMobile = useIsMobile()
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F9FAFB', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: tokens.color.surface.bg, display: 'flex' }}>
 
       {/* Desktop sidebar */}
       {!isMobile && <EmployerSidebar />}

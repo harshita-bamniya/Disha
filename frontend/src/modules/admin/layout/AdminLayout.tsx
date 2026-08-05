@@ -12,6 +12,7 @@ import { useAuthStore } from '@/stores/authStore'
 import { useLogout } from '@/modules/auth/hooks/useAuth'
 import { adminApi } from '@/api/admin'
 import { cn } from '@/lib/utils'
+import { useIsMobile } from '@/shared/hooks/useIsMobile'
 
 const N = {
   navy:     '#1A2744',
@@ -259,16 +260,6 @@ function NavGroupItem({ group, sidebarOpen, role }: { group: NavGroup; sidebarOp
 }
 
 // ── Layout ──────────────────────────────────────────────────────────────────────
-
-function useIsMobile() {
-  const [mobile, setMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768)
-  useEffect(() => {
-    const handler = () => setMobile(window.innerWidth < 768)
-    window.addEventListener('resize', handler)
-    return () => window.removeEventListener('resize', handler)
-  }, [])
-  return mobile
-}
 
 export default function AdminLayout() {
   const user        = useAuthStore(s => s.user)

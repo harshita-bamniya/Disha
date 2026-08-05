@@ -8,8 +8,9 @@ import {
 import { useKrsDashboard } from '@/modules/dashboard/hooks/useKrs'
 import { useLogout } from '@/modules/auth/hooks/useAuth'
 import NotificationBell from '@/components/NotificationBell'
+import { useIsMobile } from '@/shared/hooks/useIsMobile'
 
-type NavPath =
+export type NavPath =
   | '/app/dashboard'
   | '/app/profile'
   | '/app/resume'
@@ -49,16 +50,6 @@ const N12  = 'rgba(26,39,68,0.12)'   // stronger border
 const N40  = 'rgba(26,39,68,0.40)'   // section labels
 const N60  = 'rgba(26,39,68,0.60)'   // inactive nav text
 const INK  = '#1E3A5F'               // primary text
-
-function useIsMobile() {
-  const [mobile, setMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768)
-  useEffect(() => {
-    const handler = () => setMobile(window.innerWidth < 768)
-    window.addEventListener('resize', handler)
-    return () => window.removeEventListener('resize', handler)
-  }, [])
-  return mobile
-}
 
 function NavBtn({ icon, label, isActive, onClick }: {
   icon: React.ReactNode; label: string; isActive: boolean; onClick: () => void
