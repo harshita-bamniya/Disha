@@ -793,9 +793,17 @@ export default function ApplyPage() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: CREAM, fontFamily: 'Hind, sans-serif' }}>
-      <AppSidebar />
+      <AppSidebar activePath="/app/jobs" />
 
-      <main style={{ flex: 1, padding: '32px 24px', maxWidth: 680, margin: '0 auto', width: '100%' }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <header style={{ background: WHITE, borderBottom: `1px solid ${BORDER}`, padding: '0 32px', height: 64, display: 'flex', alignItems: 'center', position: 'sticky', top: 0, zIndex: 20 }}>
+          <div>
+            <h1 style={{ fontSize: 15, fontWeight: 700, color: NAVY, margin: 0 }}>Apply for job</h1>
+            <p style={{ fontSize: 11.5, color: MUTED, margin: 0 }}>Submit your application in a few steps</p>
+          </div>
+        </header>
+
+        <main style={{ flex: 1, padding: '32px 24px', maxWidth: 680, margin: '0 auto', width: '100%' }}>
 
         {/* loading */}
         {isLoading && (
@@ -964,7 +972,8 @@ export default function ApplyPage() {
             </div>
           </div>
         )}
-      </main>
+        </main>
+      </div>
 
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </div>

@@ -289,19 +289,13 @@ export default function ResumeLibraryPage() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: CREAM, fontFamily: 'Hind, sans-serif' }}>
-      <AppSidebar />
+      <AppSidebar activePath="/app/resume-library" />
 
-      <main style={{ flex: 1, padding: '32px 28px', maxWidth: 900, margin: '0 auto', width: '100%' }}>
-
-        {/* header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, gap: 16 }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <header style={{ background: WHITE, borderBottom: `1px solid ${BORDER}`, padding: '0 32px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 20 }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: NAVY }}>
-              Resume Library
-            </h1>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: INK_S }}>
-              Upload and manage the resume files you attach to job applications.
-            </p>
+            <h1 style={{ fontSize: 15, fontWeight: 700, color: NAVY, margin: 0 }}>Resume Library</h1>
+            <p style={{ fontSize: 11.5, color: MUTED, margin: 0 }}>Upload and manage the resume files you attach to job applications.</p>
           </div>
           <button
             onClick={() => setShowUpload(v => !v)}
@@ -316,7 +310,9 @@ export default function ResumeLibraryPage() {
             <Upload size={15} />
             Upload resume
           </button>
-        </div>
+        </header>
+
+        <main style={{ padding: '32px 28px', maxWidth: 900, margin: '0 auto', width: '100%', flex: 1 }}>
 
         {/* upload zone */}
         {showUpload && (
@@ -406,7 +402,8 @@ export default function ResumeLibraryPage() {
             </p>
           </div>
         )}
-      </main>
+        </main>
+      </div>
 
       <style>{`
         @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }

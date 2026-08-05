@@ -564,7 +564,7 @@ export default function MyApplicationsPage() {
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
 
         {/* top bar */}
-        <header style={{ background: WHITE, borderBottom: `1px solid ${BORDER}`, padding: '0 24px', height: 58, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 20 }}>
+        <header style={{ background: WHITE, borderBottom: `1px solid ${BORDER}`, padding: '0 24px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
             <div style={{ width: 27, height: 27, borderRadius: '50%', background: NAVY, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <FileText size={13} color={WHITE} />
@@ -609,7 +609,7 @@ export default function MyApplicationsPage() {
           <div style={{ display: 'flex', alignItems: 'flex-start' }}>
 
             {/* left filter sidebar */}
-            <div style={{ width: 160, flexShrink: 0, padding: '20px 16px', position: 'sticky', top: 58 }}>
+            <div style={{ width: 160, flexShrink: 0, padding: '20px 16px', position: 'sticky', top: 64 }}>
               <p style={{ fontSize: 10, fontWeight: 800, color: MUTED, textTransform: 'uppercase', letterSpacing: '.5px', margin: '0 0 8px' }}>Filter</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 20 }}>
                 {FILTER_BTNS.map(f => (
