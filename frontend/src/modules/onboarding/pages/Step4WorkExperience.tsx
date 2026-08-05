@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Briefcase, UserCheck } from 'lucide-react'
 import OnboardingLayout from '@/layouts/OnboardingLayout'
 import Input from '@/components/ui/Input'
+import Select from '@/components/ui/Select'
 import Button from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import { useOnboardingSteps } from '../hooks/useOnboarding'
@@ -86,22 +87,15 @@ export default function Step4WorkExperience() {
               max={50}
             />
 
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-gray-700">Domain / Sector</label>
-              <select
-                value={form.work_experience_domain}
-                onChange={(e) => { setForm((p) => ({ ...p, work_experience_domain: e.target.value })); setErrors((p) => ({ ...p, domain: '' })) }}
-                className={cn(
-                  'w-full h-11 rounded-xl border bg-white px-4 text-sm text-gray-900 outline-none transition-all',
-                  'border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/10',
-                  errors.domain && 'border-danger',
-                )}
-              >
-                <option value="">Select domain</option>
-                {DOMAINS.map((d) => <option key={d} value={d}>{d}</option>)}
-              </select>
-              {errors.domain && <p className="text-xs text-danger mt-0.5">{errors.domain}</p>}
-            </div>
+            <Select
+              label="Domain / Sector"
+              value={form.work_experience_domain}
+              onChange={(e) => { setForm((p) => ({ ...p, work_experience_domain: e.target.value })); setErrors((p) => ({ ...p, domain: '' })) }}
+              error={errors.domain}
+            >
+              <option value="">Select domain</option>
+              {DOMAINS.map((d) => <option key={d} value={d}>{d}</option>)}
+            </Select>
 
             <Input
               label="Last designation"

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ShieldCheck, ShieldOff, Copy, Check, AlertTriangle } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
+import { Skeleton } from '@/shared/components/feedback/Skeleton'
 import { authApi } from '@/api/auth'
 import { getApiError } from '@/api/client'
 
@@ -56,7 +57,13 @@ export default function TwoFactorSettings() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  if (isLoading) return null
+  if (isLoading) return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 max-w-lg flex flex-col gap-3">
+      <Skeleton width={160} height={20} />
+      <Skeleton width="80%" height={14} />
+      <Skeleton width={120} height={36} rounded={10} />
+    </div>
+  )
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 max-w-lg">

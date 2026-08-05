@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { User, MapPin, GraduationCap, Briefcase, Sparkles } from 'lucide-react'
 import OnboardingLayout from '@/layouts/OnboardingLayout'
 import Input from '@/components/ui/Input'
+import Select from '@/components/ui/Select'
 import Button from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import { useOnboardingSteps } from '../hooks/useOnboarding'
@@ -142,17 +143,10 @@ export default function Step1Personal() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-gray-700">State / UT</label>
-          <select
-            value={form.state}
-            onChange={set('state')}
-            className="w-full h-11 rounded-xl border bg-white px-4 text-sm text-gray-900 outline-none transition-all border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/10"
-          >
-            <option value="">Select state</option>
-            {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
+        <Select label="State / UT" value={form.state} onChange={set('state')}>
+          <option value="">Select state</option>
+          {STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+        </Select>
 
         {serverError && <p className="text-sm text-danger bg-danger/5 border border-danger/20 rounded-xl px-4 py-3">{serverError}</p>}
 
