@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { resumeApi, type ParsedResumeData } from '@/api/resume'
 import { Upload, FileText, CheckCircle, X, AlertCircle } from 'lucide-react'
+import { Modal } from '@/shared/components/overlays/Modal'
 
 interface Props {
   onClose: () => void
@@ -54,14 +55,7 @@ export default function ResumeUploadModal({ onClose }: Props) {
   const p = parsed
 
   return (
-    <div
-      onClick={onClose}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 16 }}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{ background: 'white', borderRadius: 20, width: '100%', maxWidth: 520, maxHeight: '90vh', overflow: 'auto', boxShadow: '0 24px 64px rgba(15,23,42,0.2)' }}
-      >
+    <Modal onClose={onClose} maxWidth={520} radius={20}>
         {/* header */}
         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: 10 }}>
           <Upload size={16} color="#1A2744" />
@@ -197,9 +191,8 @@ export default function ResumeUploadModal({ onClose }: Props) {
             </div>
           )}
         </div>
-      </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-    </div>
+    </Modal>
   )
 }
 

@@ -4,6 +4,7 @@ import {
 } from 'lucide-react'
 import type { LiveJob } from '@/api/krs'
 import { krsApi } from '@/api/krs'
+import { Modal } from '@/shared/components/overlays/Modal'
 
 interface Props {
   job: LiveJob
@@ -46,17 +47,13 @@ export default function JobAnalysisDrawer({ job, kScore, onClose, onRemove, onAp
   }, [job.id])
 
   return (
-    <div onClick={onClose} style={{
-      position: 'fixed', inset: 0, zIndex: 200,
-      background: 'rgba(15,23,42,0.4)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
-    }}>
-      <div onClick={e => e.stopPropagation()} style={{
-        background: 'white', borderRadius: 18,
-        width: '100%', maxWidth: 800, maxHeight: '90vh',
-        boxShadow: '0 20px 60px rgba(15,23,42,0.18)',
-        overflow: 'hidden', display: 'flex', flexDirection: 'column',
-      }}>
+    <Modal
+      onClose={onClose}
+      maxWidth={800} radius={18}
+      overlayBg="rgba(15,23,42,0.4)" overlayPadding={24}
+      shadow="0 20px 60px rgba(15,23,42,0.18)"
+      overflow="hidden" flexColumn
+    >
         {/* Header */}
         <div style={{ padding: '24px 32px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
@@ -210,9 +207,8 @@ export default function JobAnalysisDrawer({ job, kScore, onClose, onRemove, onAp
             onMouseOut={e => { e.currentTarget.style.borderColor = '#BFDBFE'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(37,99,235,0.08)' }}
           ><ExternalLink size={13} /> Apply Now</button>
         </div>
-      </div>
 
       <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }`}</style>
-    </div>
+    </Modal>
   )
 }
