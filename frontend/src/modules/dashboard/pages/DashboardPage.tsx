@@ -45,7 +45,7 @@ function JobSpotlight({ job, onOpen, onApply, onPrepare, onGenerateResume, onVie
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        background: 'white', borderRadius: 18, overflow: 'hidden',
+        background: 'white', borderRadius: tokens.radius.xl, overflow: 'hidden',
         border: `1px solid ${hov ? 'rgba(26,39,68,0.14)' : BORDER}`,
         boxShadow: hov ? '0 16px 40px rgba(15,23,42,0.10)' : '0 4px 16px rgba(15,23,42,0.05)',
         transform: hov ? 'translateY(-2px)' : 'translateY(0)',

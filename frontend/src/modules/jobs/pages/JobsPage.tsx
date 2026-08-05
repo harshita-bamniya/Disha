@@ -54,7 +54,7 @@ function JobCard({ job, hasRoadmap }: { job: JobListItem; hasRoadmap: boolean })
 
   return (
     <div style={{
-      background: '#fff', borderRadius: 14, border: `1px solid ${BORDER}`,
+      background: '#fff', borderRadius: tokens.radius.xl, border: `1px solid ${BORDER}`,
       overflow: 'hidden', boxShadow: '0 2px 8px rgba(15,23,42,.04)',
     }}>
 
