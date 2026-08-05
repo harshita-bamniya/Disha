@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { interviewApi } from '@/api/interview'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
 import { ArrowLeft, CheckCircle, TrendingUp, MessageSquare, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react'
 import { useState } from 'react'
 
@@ -154,13 +154,12 @@ export default function FeedbackPage() {
   })
 
   if (isLoading) return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/interview" />
+    <AspLayout activePath="/app/interview">
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: 28, height: 28, border: '3px solid rgba(45,106,79,0.2)', borderTopColor: '#2D6A4F', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
-    </div>
+    </AspLayout>
   )
 
   if (!feedback) return null
@@ -168,9 +167,7 @@ export default function FeedbackPage() {
   const overallColor = feedback.overall_avg >= 8 ? '#16A34A' : feedback.overall_avg >= 6 ? '#D97706' : '#DC2626'
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/interview" />
-      <div style={{ flex: 1, minWidth: 0 }}>
+    <AspLayout activePath="/app/interview">
         <header style={{
           background: 'white',
           borderBottom: '1px solid rgba(226,232,240,0.8)',
@@ -227,8 +224,7 @@ export default function FeedbackPage() {
             <FeedbackCard key={item.id} item={item} index={idx} />
           ))}
         </main>
-      </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-    </div>
+    </AspLayout>
   )
 }

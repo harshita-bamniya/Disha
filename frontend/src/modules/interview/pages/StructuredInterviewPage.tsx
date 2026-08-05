@@ -10,7 +10,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { interviewApi, type SessionDetail, type SessionFeedback, type NextQuestionResult } from '@/api/interview'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
 import {
   Brain, ChevronRight, CheckCircle2, Loader2, Send, RotateCcw,
   ArrowLeft, Zap, AlertCircle, TrendingUp, MessageSquare, Star,
@@ -175,8 +175,7 @@ export default function StructuredInterviewPage() {
   // ── SETUP ─────────────────────────────────────────────────────────────────────
   if (phase === 'setup') {
     return (
-      <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-        <AppSidebar activePath="/app/mock-interview" />
+      <AspLayout activePath="/app/mock-interview">
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
           <div style={{ width: '100%', maxWidth: 520 }}>
             <button onClick={() => navigate(-1)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', fontSize: 13, marginBottom: 24 }}>
@@ -259,7 +258,7 @@ export default function StructuredInterviewPage() {
           </div>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-      </div>
+      </AspLayout>
     )
   }
 
@@ -271,10 +270,7 @@ export default function StructuredInterviewPage() {
       : null
 
     return (
-      <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-        <AppSidebar activePath="/app/mock-interview" />
-
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+      <AspLayout activePath="/app/mock-interview">
           {/* Header */}
           <header style={{
             background: 'white',
@@ -499,18 +495,14 @@ export default function StructuredInterviewPage() {
               </div>
             </div>
           </div>
-        </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-      </div>
+      </AspLayout>
     )
   }
 
   // ── FEEDBACK ──────────────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/mock-interview" />
-
-      <div style={{ flex: 1, minWidth: 0 }}>
+    <AspLayout activePath="/app/mock-interview">
         <header style={{
           background: 'white',
           borderBottom: '1px solid rgba(226,232,240,0.8)',
@@ -673,8 +665,7 @@ export default function StructuredInterviewPage() {
             </div>
           ))}
         </main>
-      </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-    </div>
+    </AspLayout>
   )
 }

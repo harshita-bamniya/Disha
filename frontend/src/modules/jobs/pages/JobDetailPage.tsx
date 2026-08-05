@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { MapPin, Wifi, Briefcase, Target, Sparkles, Mic, Check, IndianRupee, ArrowUpRight } from 'lucide-react'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
 import { getJobDetail } from '@/api/matching'
 import { resumeApi } from '@/api/resume'
 import { jobPlanApi } from '@/api/jobPlan'
@@ -73,24 +73,22 @@ export default function JobDetailPage() {
 
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh', background: CREAM }}>
-        <AppSidebar activePath="/app/jobs" />
+      <AspLayout activePath="/app/jobs">
         <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ width: 28, height: 28, border: `2px solid ${NAVY}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
         </main>
         <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-      </div>
+      </AspLayout>
     )
   }
 
   if (isError || !job) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh', background: CREAM }}>
-        <AppSidebar activePath="/app/jobs" />
+      <AspLayout activePath="/app/jobs">
         <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#DC2626', fontSize: 14 }}>
           Job not found or no longer active.
         </main>
-      </div>
+      </AspLayout>
     )
   }
 
@@ -98,11 +96,7 @@ export default function JobDetailPage() {
   const overlap = job.skill_overlap_pct ?? 0
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: CREAM }}>
-      <AppSidebar activePath="/app/jobs" />
-
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-
+    <AspLayout activePath="/app/jobs">
         {/* ── top bar ── */}
         <header style={{
           background: '#fff', borderBottom: `1px solid ${BORDER}`,
@@ -392,11 +386,10 @@ export default function JobDetailPage() {
 
           </div>
         </div>
-      </div>
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
       `}</style>
-    </div>
+    </AspLayout>
   )
 }

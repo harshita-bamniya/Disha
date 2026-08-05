@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { resumeApi, type ResumeSection, type ResumeDetail } from '@/api/resume'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
 import { ActivePrepBanner } from '@/components/ActivePrepBanner'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 import ResumeCopilotPanel from '@/modules/resume/components/ResumeCopilotPanel'
@@ -721,13 +721,12 @@ export default function ResumeEditorPage() {
   }, [sections, resumeId, qc])
 
   if (isLoading) return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/resume" />
+    <AspLayout activePath="/app/resume">
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: 28, height: 28, border: '3px solid #1A2744', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
-    </div>
+    </AspLayout>
   )
   if (!resume) return null
 
@@ -735,10 +734,7 @@ export default function ResumeEditorPage() {
   const availableTypes = ALL_SECTION_TYPES.filter(t => !existingTypes.has(t))
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/resume" />
-
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+    <AspLayout activePath="/app/resume">
         {/* top bar */}
         <header style={{
           background: 'white',
@@ -909,7 +905,6 @@ export default function ResumeEditorPage() {
             </div>
           )}
         </div>
-      </div>
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg) } }
@@ -963,7 +958,7 @@ export default function ResumeEditorPage() {
           }}
         />
       )}
-    </div>
+    </AspLayout>
   )
 }
 
