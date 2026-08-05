@@ -374,7 +374,7 @@ export default function CounsellorPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F0F7FF', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
       <AppSidebar activePath="/app/counsellor" />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, MessageSquare, X, Send, Clock, CheckCircle2, AlertCircle } from 'lucide-react'
 import { candidateSupportApi, type CreateTicketPayload, type TicketDetail } from '@/api/support'
 import { getApiError } from '@/api/client'
+import AppSidebar from '@/components/layout/AppSidebar'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -207,23 +208,27 @@ export default function CandidateSupportPage() {
   const tickets = data?.items ?? []
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: 900, margin: '0 auto' }}>
+    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
+      <AppSidebar activePath="/app/support" />
+
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        {/* Top bar */}
+        <header style={{ background: 'white', borderBottom: '1px solid rgba(26,39,68,0.08)', padding: '0 32px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 20 }}>
+          <div>
+            <h1 style={{ fontSize: 15, fontWeight: 700, color: '#111827', margin: 0 }}>Support</h1>
+            <p style={{ fontSize: 11.5, color: '#9CA3AF', margin: 0 }}>Get help from the Disha team</p>
+          </div>
+          <button
+            onClick={() => setShowNew(true)}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', border: 'none', borderRadius: 10, background: '#1A2744', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+          >
+            <Plus size={15} /> New Ticket
+          </button>
+        </header>
+
+        <main style={{ padding: '28px 32px', flex: 1, maxWidth: 900 }}>
       {showNew && <NewTicketModal onClose={() => setShowNew(false)} />}
       {selected && <TicketThread ticketId={selected.id} reporterId={selected.reporterId} onClose={() => setSelected(null)} />}
-
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: '#0F172A', fontFamily: 'Hind, sans-serif' }}>Support</h1>
-          <p style={{ margin: '4px 0 0', fontSize: 14, color: '#64748B' }}>Get help from the Disha team</p>
-        </div>
-        <button
-          onClick={() => setShowNew(true)}
-          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '10px 18px', border: 'none', borderRadius: 10, background: '#4F7FE8', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
-        >
-          <Plus size={16} /> New Ticket
-        </button>
-      </div>
 
       {/* Ticket list */}
       {isLoading && <p style={{ color: '#94A3B8', fontSize: 14 }}>Loading tickets…</p>}
@@ -273,6 +278,8 @@ export default function CandidateSupportPage() {
           ))}
         </div>
       )}
+        </main>
+      </div>
     </div>
   )
 }

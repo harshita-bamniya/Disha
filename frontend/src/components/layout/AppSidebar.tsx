@@ -41,14 +41,14 @@ const TOOLS_NAV: { icon: React.ReactNode; label: string; path: NavPath }[] = [
   { icon: <Brain size={16} />,       label: 'AI Counsellor',  path: '/app/counsellor'      },
 ]
 
-// Landing-page aligned palette — #1A2744 is the exact brand/CTA color from DishaLanding.tsx
-const NAVY      = '#1A2744'
-const NAVY_DARK = '#111C35'
-const W08 = 'rgba(255,255,255,0.08)'
-const W10 = 'rgba(255,255,255,0.10)'
-const W15 = 'rgba(255,255,255,0.15)'
-const W40 = 'rgba(255,255,255,0.40)'
-const W60 = 'rgba(255,255,255,0.60)'
+// White sidebar palette — navy is the brand accent on a white/light surface
+const NAVY = '#1A2744'
+const N06  = 'rgba(26,39,68,0.06)'   // hover bg
+const N08  = 'rgba(26,39,68,0.08)'   // active bg / borders
+const N12  = 'rgba(26,39,68,0.12)'   // stronger border
+const N40  = 'rgba(26,39,68,0.40)'   // section labels
+const N60  = 'rgba(26,39,68,0.60)'   // inactive nav text
+const INK  = '#1E3A5F'               // primary text
 
 function useIsMobile() {
   const [mobile, setMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768)
@@ -70,19 +70,17 @@ function NavBtn({ icon, label, isActive, onClick }: {
         width: '100%', display: 'flex', alignItems: 'center',
         gap: 10, justifyContent: 'flex-start',
         padding: '9px 12px',
-        borderRadius: isActive ? '0 9px 9px 0' : 10,
+        borderRadius: 10,
         marginBottom: 2,
-        background: isActive ? W10 : 'transparent',
-        color: isActive ? 'white' : W60,
+        background: isActive ? N08 : 'transparent',
+        color: isActive ? NAVY : N60,
         border: 'none',
-        borderLeftWidth: isActive ? 2 : 0,
-        borderLeftStyle: 'solid' as const,
-        borderLeftColor: isActive ? 'rgba(255,255,255,0.65)' : 'transparent',
+        borderLeft: isActive ? `2px solid ${NAVY}` : '2px solid transparent',
         cursor: 'pointer', textAlign: 'left' as const,
         fontSize: 13, fontWeight: isActive ? 700 : 500, transition: 'all 0.18s',
       }}
-      onMouseOver={e => { if (!isActive) e.currentTarget.style.background = W08 }}
-      onMouseOut={e => { if (!isActive) e.currentTarget.style.background = 'transparent' }}
+      onMouseOver={e => { if (!isActive) { e.currentTarget.style.background = N06; e.currentTarget.style.color = INK } }}
+      onMouseOut={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = N60 } }}
     >
       {icon}
       <span style={{ marginLeft: 2 }}>{label}</span>
@@ -111,46 +109,46 @@ export default function AppSidebar({ activePath }: { activePath?: NavPath }) {
   const sidebar = (
     <aside style={{
       width: 260,
-      background: `linear-gradient(180deg, ${NAVY} 0%, ${NAVY_DARK} 100%)`,
+      background: '#FFFFFF',
       display: 'flex', flexDirection: 'column',
       height: '100vh', overflowY: 'auto', overflowX: 'hidden',
-      boxShadow: '4px 0 24px rgba(10,18,40,0.22)',
+      borderRight: `1px solid ${N08}`,
+      boxShadow: '4px 0 16px rgba(26,39,68,0.06)',
       flexShrink: 0,
     }}>
 
       {/* Logo row */}
-      <div style={{ padding: '20px 20px', borderBottom: `1px solid ${W08}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <span style={{ fontSize: 18, fontWeight: 800, color: '#fff', letterSpacing: '-0.4px' }}>BeginableAI</span>
-        {/* Close button: X on mobile, sidebar-hide on desktop */}
+      <div style={{ padding: '20px 20px', borderBottom: `1px solid ${N08}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <span style={{ fontSize: 18, fontWeight: 800, color: NAVY, letterSpacing: '-0.4px' }}>BeginableAI</span>
         <button
           onClick={() => isMobile ? setMobileOpen(false) : setHidden(true)}
           title={isMobile ? 'Close menu' : 'Hide sidebar'}
-          style={{ width: 28, height: 28, borderRadius: 8, background: W10, border: `1px solid ${W15}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: W60, flexShrink: 0, transition: 'background 0.18s, color 0.18s' }}
-          onMouseOver={e => { e.currentTarget.style.background = W15; e.currentTarget.style.color = 'white' }}
-          onMouseOut={e => { e.currentTarget.style.background = W10; e.currentTarget.style.color = W60 }}
+          style={{ width: 28, height: 28, borderRadius: 8, background: N06, border: `1px solid ${N08}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: N60, flexShrink: 0, transition: 'background 0.18s, color 0.18s' }}
+          onMouseOver={e => { e.currentTarget.style.background = N12; e.currentTarget.style.color = NAVY }}
+          onMouseOut={e => { e.currentTarget.style.background = N06; e.currentTarget.style.color = N60 }}
         >
           <X size={14} />
         </button>
       </div>
 
       {/* User card */}
-      <div style={{ padding: '14px 20px', borderBottom: `1px solid ${W08}` }}>
+      <div style={{ padding: '14px 20px', borderBottom: `1px solid ${N08}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ position: 'relative', flexShrink: 0 }}>
             <div style={{
               width: 38, height: 38, borderRadius: '50%',
-              background: 'rgba(255,255,255,0.12)',
-              border: '1px solid rgba(255,255,255,0.20)',
+              background: NAVY,
+              border: `1px solid ${N12}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontWeight: 700, fontSize: 15, color: 'white',
             }}>
               {name.charAt(0).toUpperCase()}
             </div>
-            <div style={{ position: 'absolute', bottom: -1, right: -1, width: 10, height: 10, borderRadius: '50%', background: '#22C55E', border: `2px solid ${NAVY}` }} />
+            <div style={{ position: 'absolute', bottom: -1, right: -1, width: 10, height: 10, borderRadius: '50%', background: '#22C55E', border: '2px solid white' }} />
           </div>
           <div style={{ overflow: 'hidden', flex: 1 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: 'white', whiteSpace: 'nowrap' }}>{name}</p>
-            <p style={{ fontSize: 11, color: W60, whiteSpace: 'nowrap' }}>{skills.length} skills · UPSC aspirant</p>
+            <p style={{ fontSize: 13, fontWeight: 700, color: INK, whiteSpace: 'nowrap' }}>{name}</p>
+            <p style={{ fontSize: 11, color: N60, whiteSpace: 'nowrap' }}>{skills.length} skills · UPSC aspirant</p>
           </div>
           <NotificationBell audience="aspirant" />
         </div>
@@ -158,21 +156,21 @@ export default function AppSidebar({ activePath }: { activePath?: NavPath }) {
 
       {/* Nav */}
       <nav style={{ padding: '12px 12px', flex: 1, overflowY: 'auto' }}>
-        <p style={{ fontSize: 10, fontWeight: 700, color: W40, textTransform: 'uppercase', letterSpacing: '0.8px', padding: '0 8px', marginBottom: 6 }}>Navigation</p>
+        <p style={{ fontSize: 10, fontWeight: 700, color: N40, textTransform: 'uppercase', letterSpacing: '0.8px', padding: '0 8px', marginBottom: 6 }}>Navigation</p>
         {MAIN_NAV.map(item => (
           <NavBtn key={item.path} icon={item.icon} label={item.label}
             isActive={activePath === item.path || (item.path === '/app/roadmap/history' && !!activePath?.startsWith('/app/roadmap'))}
             onClick={() => go(item.path)} />
         ))}
 
-        <p style={{ fontSize: 10, fontWeight: 700, color: W40, textTransform: 'uppercase', letterSpacing: '0.8px', padding: '12px 8px 6px', marginTop: 4, borderTop: `1px solid ${W08}` }}>Tools</p>
+        <p style={{ fontSize: 10, fontWeight: 700, color: N40, textTransform: 'uppercase', letterSpacing: '0.8px', padding: '12px 8px 6px', marginTop: 4, borderTop: `1px solid ${N08}` }}>Tools</p>
         {TOOLS_NAV.map(item => (
           <NavBtn key={item.path} icon={item.icon} label={item.label}
             isActive={activePath === item.path} onClick={() => go(item.path)} />
         ))}
 
-        {/* Support + Security sit directly below Tools */}
-        <div style={{ height: 1, background: W08, margin: '8px 0' }} />
+        {/* Support + Security */}
+        <div style={{ height: 1, background: N08, margin: '8px 0' }} />
         {[
           { label: 'Support',  path: '/app/support',  icon: <HelpCircle size={14} />  },
           { label: 'Security', path: '/app/security', icon: <ShieldCheck size={14} /> },
@@ -181,23 +179,23 @@ export default function AppSidebar({ activePath }: { activePath?: NavPath }) {
             style={{
               width: '100%', display: 'flex', alignItems: 'center', gap: 10,
               padding: '9px 12px', borderRadius: 10, marginBottom: 2,
-              background: (activePath as string) === item.path ? W10 : 'transparent',
-              border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: W60,
+              background: (activePath as string) === item.path ? N08 : 'transparent',
+              border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500, color: N60,
               transition: 'all 0.18s',
             }}
-            onMouseOver={e => { e.currentTarget.style.background = W08; e.currentTarget.style.color = 'white' }}
-            onMouseOut={e => { e.currentTarget.style.background = (activePath as string) === item.path ? W10 : 'transparent'; e.currentTarget.style.color = W60 }}>
+            onMouseOver={e => { e.currentTarget.style.background = N06; e.currentTarget.style.color = INK }}
+            onMouseOut={e => { e.currentTarget.style.background = (activePath as string) === item.path ? N08 : 'transparent'; e.currentTarget.style.color = N60 }}>
             {item.icon}{item.label}
           </button>
         ))}
       </nav>
 
       {/* Logout */}
-      <div style={{ padding: '8px 20px 16px', borderTop: `1px solid ${W08}`, marginTop: 8 }}>
+      <div style={{ padding: '8px 20px 16px', borderTop: `1px solid ${N08}`, marginTop: 8 }}>
         <button onClick={() => logout.mutate()}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '10px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.45)', transition: 'all 0.2s' }}
-          onMouseOver={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.10)'; e.currentTarget.style.color = 'rgba(255,255,255,0.75)' }}
-          onMouseOut={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = 'rgba(255,255,255,0.45)' }}>
+          style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '10px 12px', borderRadius: 10, background: 'transparent', border: `1px solid ${N12}`, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: N60, transition: 'all 0.2s' }}
+          onMouseOver={e => { e.currentTarget.style.background = N06; e.currentTarget.style.color = NAVY }}
+          onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = N60 }}>
           <LogOut size={14} />Log out
         </button>
       </div>
@@ -214,15 +212,15 @@ export default function AppSidebar({ activePath }: { activePath?: NavPath }) {
           style={{
             position: 'fixed', top: 14, left: 14, zIndex: 1100,
             width: 42, height: 42, borderRadius: 12,
-            background: NAVY, border: 'none', cursor: 'pointer',
+            background: 'white', border: `1px solid ${N12}`, cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 16px rgba(10,18,40,0.30)',
+            boxShadow: '0 4px 16px rgba(26,39,68,0.12)',
             opacity: mobileOpen ? 0 : 1,
             pointerEvents: mobileOpen ? 'none' : 'auto',
             transition: 'opacity 0.2s',
           }}
         >
-          <Menu size={18} color="white" />
+          <Menu size={18} color={NAVY} />
         </button>
 
         {mobileOpen && (
@@ -248,16 +246,16 @@ export default function AppSidebar({ activePath }: { activePath?: NavPath }) {
           style={{
             position: 'fixed', top: 16, left: 16, zIndex: 200,
             width: 42, height: 42, borderRadius: 12,
-            background: NAVY, border: '1px solid rgba(255,255,255,0.12)',
+            background: 'white', border: `1px solid ${N12}`,
             cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 20px rgba(10,18,40,0.35)',
+            boxShadow: '0 4px 16px rgba(26,39,68,0.12)',
             transition: 'box-shadow 0.2s, background 0.2s',
           }}
-          onMouseOver={e => { e.currentTarget.style.background = '#243359'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(10,18,40,0.45)' }}
-          onMouseOut={e => { e.currentTarget.style.background = NAVY; e.currentTarget.style.boxShadow = '0 4px 20px rgba(10,18,40,0.35)' }}
+          onMouseOver={e => { e.currentTarget.style.background = N06; e.currentTarget.style.boxShadow = '0 6px 20px rgba(26,39,68,0.16)' }}
+          onMouseOut={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(26,39,68,0.12)' }}
         >
-          <Menu size={18} color="white" />
+          <Menu size={18} color={NAVY} />
         </button>
       )}
 

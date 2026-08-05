@@ -42,10 +42,10 @@ export default function RoadmapHistoryPage() {
   const isEmpty = !isLoadingAny && jobPlans.length === 0
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F0F7FF', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
       <AppSidebar activePath="/app/roadmap" />
 
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: '#FAFBFD' }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
         <header style={{
           background: 'white',
           borderBottom: '1px solid rgba(37,99,235,0.08)',

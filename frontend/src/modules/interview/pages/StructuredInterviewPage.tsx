@@ -175,7 +175,7 @@ export default function StructuredInterviewPage() {
   // ── SETUP ─────────────────────────────────────────────────────────────────────
   if (phase === 'setup') {
     return (
-      <div style={{ minHeight: '100vh', background: '#F0F7FF', display: 'flex' }}>
+      <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
         <AppSidebar activePath="/app/mock-interview" />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
           <div style={{ width: '100%', maxWidth: 520 }}>
@@ -271,7 +271,7 @@ export default function StructuredInterviewPage() {
       : null
 
     return (
-      <div style={{ minHeight: '100vh', background: '#F0F7FF', display: 'flex' }}>
+      <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
         <AppSidebar activePath="/app/mock-interview" />
 
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
@@ -507,7 +507,7 @@ export default function StructuredInterviewPage() {
 
   // ── FEEDBACK ──────────────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: '100vh', background: '#F0F7FF', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
       <AppSidebar activePath="/app/mock-interview" />
 
       <div style={{ flex: 1, minWidth: 0 }}>

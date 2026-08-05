@@ -133,7 +133,7 @@ export default function SkillsReportPage() {
   const nextOnboardingStep = onboarding?.current_step ?? 2
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F0F7FF', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
       <AppSidebar activePath="/app/skills/report" />
 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>

@@ -356,7 +356,7 @@ export default function CompanionPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #FFF6F2 0%, #FFFBF8 45%, #F8EFFA 100%)', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
       <AppSidebar activePath="/app/companion" />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>

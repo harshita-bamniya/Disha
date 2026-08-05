@@ -47,7 +47,7 @@ export default function QuizPage() {
   const allAnswered = !!quiz && quiz.questions.every(q => !!answers[q.id])
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F0F7FF', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
       <AppSidebar activePath="/app/roadmap" />
 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>

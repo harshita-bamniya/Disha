@@ -27,13 +27,13 @@ const PROFILE_KEY = ['onboarding', 'profile']
 
 // ── Section icons map ─────────────────────────────────────────────────────────
 const SECTION_META: Record<string, { Icon: LucideIcon; color: string; bg: string }> = {
-  'Personal Info':       { Icon: User,           color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' },
-  'Education':           { Icon: GraduationCap,  color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' },
-  'UPSC Journey':        { Icon: ClipboardList,  color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' },
-  'Work Experience':     { Icon: Briefcase,      color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' },
-  'Skills':              { Icon: Zap,            color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' },
-  'Preferences':         { Icon: Target,         color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' },
-  'Mindset Assessment':  { Icon: Brain,          color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' },
+  'Personal Info':       { Icon: User,           color: '#1A2744', bg: 'rgba(26,39,68,0.07)' },
+  'Education':           { Icon: GraduationCap,  color: '#1A2744', bg: 'rgba(26,39,68,0.07)' },
+  'UPSC Journey':        { Icon: ClipboardList,  color: '#1A2744', bg: 'rgba(26,39,68,0.07)' },
+  'Work Experience':     { Icon: Briefcase,      color: '#1A2744', bg: 'rgba(26,39,68,0.07)' },
+  'Skills':              { Icon: Zap,            color: '#1A2744', bg: 'rgba(26,39,68,0.07)' },
+  'Preferences':         { Icon: Target,         color: '#1A2744', bg: 'rgba(26,39,68,0.07)' },
+  'Mindset Assessment':  { Icon: Brain,          color: '#1A2744', bg: 'rgba(26,39,68,0.07)' },
 }
 
 // ── Premium chip selector ─────────────────────────────────────────────────────
@@ -100,7 +100,7 @@ function Section({
     <div style={{
       background: 'white',
       borderRadius: 20,
-      border: isOpen ? '1.5px solid rgba(59,130,246,0.22)' : '1px solid #E2E8F0',
+      border: isOpen ? '1.5px solid rgba(26,39,68,0.18)' : '1px solid #E2E8F0',
       boxShadow: isOpen
         ? '0 12px 36px rgba(15,23,42,0.10)'
         : '0 2px 10px rgba(15,23,42,0.04)',
@@ -111,7 +111,7 @@ function Section({
       {isOpen && (
         <div style={{
           height: 3,
-          background: '#2563EB',
+          background: '#1A2744',
         }} />
       )}
 
@@ -124,7 +124,7 @@ function Section({
           background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left',
           transition: 'background 0.2s',
         }}
-        onMouseOver={e => { if (!isOpen) e.currentTarget.style.background = 'rgba(59,130,246,0.02)' }}
+        onMouseOver={e => { if (!isOpen) e.currentTarget.style.background = 'rgba(26,39,68,0.02)' }}
         onMouseOut={e => { e.currentTarget.style.background = 'none' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0 }}>
@@ -163,9 +163,9 @@ function Section({
         </div>
         <div style={{
           width: 30, height: 30, borderRadius: 8, flexShrink: 0,
-          background: isOpen ? 'rgba(59,130,246,0.08)' : 'rgba(0,0,0,0.04)',
+          background: isOpen ? 'rgba(26,39,68,0.08)' : 'rgba(0,0,0,0.04)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: isOpen ? '#3B82F6' : '#9CA3AF',
+          color: isOpen ? '#1A2744' : '#9CA3AF',
           transition: 'all 0.2s',
         }}>
           {isOpen ? <ChevronUp size={14} /> : <Pencil size={14} />}
@@ -762,7 +762,7 @@ function KrsPanel() {
     <div style={{
       background: 'white',
       borderRadius: 20,
-      border: '1px solid #E2E8F0',
+      border: '1px solid rgba(26,39,68,0.08)',
       boxShadow: '0 2px 10px rgba(15,23,42,0.04)',
       padding: '18px 22px',
       marginBottom: 20,
@@ -781,7 +781,7 @@ function KrsPanel() {
           style={{
             flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5,
             padding: '6px 12px', borderRadius: 8,
-            background: 'none', border: '1px solid #E2E8F0',
+            background: 'none', border: '1px solid rgba(26,39,68,0.10)',
             color: '#6B7280', fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
           }}
         >
@@ -837,7 +837,7 @@ export default function ProfilePage() {
     setOpenSection(prev => (prev === section ? null : section))
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F0F7FF', display: 'flex' }}>
+    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
 
       {/* ── Sidebar ── */}
       <AppSidebar activePath="/app/profile" />
@@ -848,7 +848,7 @@ export default function ProfilePage() {
         {/* Top bar */}
         <header style={{
           background: 'white',
-          borderBottom: '1px solid rgba(37,99,235,0.08)',
+          borderBottom: '1px solid rgba(26,39,68,0.08)',
           padding: '0 32px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           position: 'sticky', top: 0, zIndex: 20,
         }}>
@@ -861,14 +861,14 @@ export default function ProfilePage() {
         <main style={{ padding: '28px 32px', flex: 1 }}>
 
           {/* Hero card */}
-          <div style={{ borderBottom: '1px solid rgba(37,99,235,0.08)', paddingBottom: 20, marginBottom: 20 }}>
+          <div style={{ borderBottom: '1px solid rgba(26,39,68,0.08)', paddingBottom: 20, marginBottom: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
               <div style={{
                 width: 52, height: 52, borderRadius: '50%',
-                background: '#EFF6FF',
-                border: '1px solid #DBEAFE',
+                background: '#1A2744',
+                border: '1px solid rgba(26,39,68,0.18)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 22, flexShrink: 0, color: '#2563EB', fontWeight: 700,
+                fontSize: 22, flexShrink: 0, color: 'white', fontWeight: 700,
               }}>
                 {profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : <User size={22} />}
               </div>
