@@ -9,6 +9,7 @@ import { useKrsDashboard } from '@/modules/dashboard/hooks/useKrs'
 import { useLogout } from '@/modules/auth/hooks/useAuth'
 import NotificationBell from '@/components/NotificationBell'
 import { useIsMobile } from '@/shared/hooks/useIsMobile'
+import { tokens } from '@/design-system'
 
 export type NavPath =
   | '/app/dashboard'
@@ -43,13 +44,13 @@ const TOOLS_NAV: { icon: React.ReactNode; label: string; path: NavPath }[] = [
 ]
 
 // White sidebar palette — navy is the brand accent on a white/light surface
-const NAVY = '#1A2744'
+const NAVY = tokens.color.brand.navy
 const N06  = 'rgba(26,39,68,0.06)'   // hover bg
 const N08  = 'rgba(26,39,68,0.08)'   // active bg / borders
 const N12  = 'rgba(26,39,68,0.12)'   // stronger border
 const N40  = 'rgba(26,39,68,0.40)'   // section labels
 const N60  = 'rgba(26,39,68,0.60)'   // inactive nav text
-const INK  = '#1E3A5F'               // primary text
+const INK  = tokens.color.brand.ink               // primary text
 
 function NavBtn({ icon, label, isActive, onClick }: {
   icon: React.ReactNode; label: string; isActive: boolean; onClick: () => void

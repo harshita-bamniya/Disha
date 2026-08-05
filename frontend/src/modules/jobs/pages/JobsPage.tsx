@@ -9,15 +9,16 @@ import AspLayout from '@/shared/layouts/AspLayout'
 import { getJobs, type JobListItem } from '@/api/matching'
 import { jobPlanApi } from '@/api/jobPlan'
 import { trackJobEvent } from '@/lib/analytics'
+import { tokens } from '@/design-system'
 
 // ── palette ────────────────────────────────────────────────────────────────────
-const NAVY   = '#1A2744'
-const INK    = '#1E3A5F'
-const INK_S  = '#475569'
-const MUTED  = '#94A3B8'
-const CREAM  = '#F4F5F7'
-const CREAM_DK = '#EAECF0'
-const BORDER = 'rgba(0,0,0,0.08)'
+const NAVY   = tokens.color.brand.navy
+const INK    = tokens.color.brand.ink
+const INK_S  = tokens.color.brand.inkSoft
+const MUTED  = tokens.color.brand.muted
+const CREAM  = tokens.color.surface.bg
+const CREAM_DK = tokens.color.surface.elevated
+const BORDER = tokens.color.brand.border
 
 // ── filter options ─────────────────────────────────────────────────────────────
 const SECTORS   = ['Policy', 'ESG', 'EdTech', 'NGO', 'Consulting', 'Public Affairs', 'Research']

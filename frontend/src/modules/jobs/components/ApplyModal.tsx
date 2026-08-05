@@ -14,17 +14,18 @@ import { applicationsApi, type AnswerIn, type FormSectionOut, type QuestionOut }
 import { resumeLibraryApi, type ResumeFile } from '@/api/resumeLibrary'
 import { useAuthStore } from '@/stores/authStore'
 import { apiClient } from '@/api/client'
+import { tokens } from '@/design-system'
 
 // ── palette ───────────────────────────────────────────────────────────────────
-const NAVY     = '#1A2744'
-const INK      = '#1E3A5F'
-const INK_S    = '#475569'
-const MUTED    = '#94A3B8'
-const CREAM_DK = '#EAECF0'
-const BORDER   = 'rgba(0,0,0,0.08)'
-const WHITE    = '#FFFFFF'
-const RED      = '#DC2626'
-const GREEN    = '#16A34A'
+const NAVY     = tokens.color.brand.navy
+const INK      = tokens.color.brand.ink
+const INK_S    = tokens.color.brand.inkSoft
+const MUTED    = tokens.color.brand.muted
+const CREAM_DK = tokens.color.surface.elevated
+const BORDER   = tokens.color.brand.border
+const WHITE    = tokens.color.surface.card
+const RED      = tokens.color.state.danger
+const GREEN    = tokens.color.state.success
 
 // ── types ─────────────────────────────────────────────────────────────────────
 type AnswerMap = Record<string, { text?: string; number?: number; date?: string; options?: string[] }>

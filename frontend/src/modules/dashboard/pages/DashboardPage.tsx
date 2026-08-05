@@ -16,16 +16,17 @@ import { getApiError } from '@/api/client'
 import { authApi } from '@/api/auth'
 import ProfileCompletionCard from '../components/ProfileCompletionCard'
 import ApplyModal from '@/modules/jobs/components/ApplyModal'
+import { tokens } from '@/design-system'
 
 // Landing-page palette
-const NAVY     = '#1A2744'
+const NAVY     = tokens.color.brand.navy
 const NAVY_SFT = '#243359'
-const INK      = '#1E3A5F'
+const INK      = tokens.color.brand.ink
 const INK_SFT  = '#475569'
-const CREAM    = '#F4F5F7'
-const CREAM_DK = '#EAECF0'
-const MUTED    = '#94A3B8'
-const BORDER   = 'rgba(0,0,0,0.08)'
+const CREAM    = tokens.color.surface.bg
+const CREAM_DK = tokens.color.surface.elevated
+const MUTED    = tokens.color.brand.muted
+const BORDER   = tokens.color.brand.border
 
 // ── JobSpotlight ──────────────────────────────────────────────────────────────
 function JobSpotlight({ job, onOpen, onApply, onPrepare, onGenerateResume, onViewRoadmap,
