@@ -115,6 +115,7 @@ export default function AppSidebar({ activePath }: { activePath?: NavPath }) {
         <button
           onClick={() => isMobile ? setMobileOpen(false) : setHidden(true)}
           title={isMobile ? 'Close menu' : 'Hide sidebar'}
+          aria-label={isMobile ? 'Close menu' : 'Hide sidebar'}
           style={{ width: 28, height: 28, borderRadius: 8, background: N06, border: `1px solid ${N08}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: N60, flexShrink: 0, transition: 'background 0.18s, color 0.18s' }}
           onMouseOver={e => { e.currentTarget.style.background = N12; e.currentTarget.style.color = NAVY }}
           onMouseOut={e => { e.currentTarget.style.background = N06; e.currentTarget.style.color = N60 }}

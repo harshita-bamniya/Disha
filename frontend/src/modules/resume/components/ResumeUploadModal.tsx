@@ -60,7 +60,7 @@ export default function ResumeUploadModal({ onClose }: Props) {
         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: 10 }}>
           <Upload size={16} color="#1A2744" />
           <span style={{ flex: 1, fontSize: 15, fontWeight: 800, color: '#0F172A' }}>Upload Resume</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}><X size={16} /></button>
+          <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8' }}><X size={16} /></button>
         </div>
 
         <div style={{ padding: '20px 24px 24px' }}>
