@@ -5,7 +5,7 @@ import { MapPin, Map, BookOpen, ExternalLink, X, CheckCircle2, TrendingUp, Zap, 
 import { useOnboardingStatus } from '@/modules/onboarding/hooks/useOnboarding'
 import type { LiveJob } from '@/api/krs'
 import { formatSalary } from '@/api/jobs'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
 import JobAnalysisDrawer from '@/components/JobAnalysisDrawer'
 import { resumeApi } from '@/api/resume'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
@@ -400,11 +400,7 @@ export default function DashboardPage() {
   const skillPct = currentViewedJob?.skill_overlap ?? 0
 
   return (
-    <div style={{ height: '100vh', background: CREAM, display: 'flex', overflow: 'hidden' }}>
-      <AppSidebar activePath="/app/dashboard" />
-
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-
+    <AspLayout activePath="/app/dashboard" scroll="contained">
         {/* Topbar */}
         <header style={{ background: 'white', borderBottom: `1px solid ${BORDER}`, padding: '0 32px', height: 66, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, zIndex: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
@@ -610,7 +606,6 @@ export default function DashboardPage() {
             </div>
           )}
         </main>
-      </div>
 
       {selectedJob && (
         <JobModal job={selectedJob} onClose={() => setSelectedJob(null)}
@@ -637,6 +632,6 @@ export default function DashboardPage() {
         @keyframes popIn   { from{opacity:0;transform:scale(.95)} to{opacity:1;transform:scale(1)} }
         @keyframes rowIn   { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
       `}</style>
-    </div>
+    </AspLayout>
   )
 }
