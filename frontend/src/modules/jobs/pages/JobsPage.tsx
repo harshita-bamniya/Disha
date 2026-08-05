@@ -3,9 +3,10 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import {
   Briefcase, MapPin, Wifi, AlertCircle, Search,
-  IndianRupee, X, ArrowUpRight, ChevronLeft, ChevronRight,
+  IndianRupee, X, ArrowUpRight,
 } from 'lucide-react'
 import AspLayout from '@/shared/layouts/AspLayout'
+import { Pagination } from '@/shared/components/navigation/Pagination'
 import { getJobs, type JobListItem } from '@/api/matching'
 import { jobPlanApi } from '@/api/jobPlan'
 import { trackJobEvent } from '@/lib/analytics'
@@ -443,38 +444,7 @@ export default function JobsPage() {
                   )
                 }
 
-                {data.total > limit && (
-                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 24 }}>
-                    <button
-                      disabled={page === 0}
-                      onClick={() => setPage(p => p - 1)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 4,
-                        padding: '8px 14px', fontSize: 12, border: `1px solid ${BORDER}`,
-                        borderRadius: 9, background: '#fff', cursor: page === 0 ? 'not-allowed' : 'pointer',
-                        opacity: page === 0 ? 0.4 : 1, color: INK_S,
-                      }}
-                    >
-                      <ChevronLeft size={14} /> Previous
-                    </button>
-                    <span style={{ fontSize: 12, color: MUTED }}>
-                      Page {page + 1} of {Math.ceil(data.total / limit)}
-                    </span>
-                    <button
-                      disabled={(page + 1) * limit >= data.total}
-                      onClick={() => setPage(p => p + 1)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 4,
-                        padding: '8px 14px', fontSize: 12, border: `1px solid ${BORDER}`,
-                        borderRadius: 9, background: '#fff',
-                        cursor: (page + 1) * limit >= data.total ? 'not-allowed' : 'pointer',
-                        opacity: (page + 1) * limit >= data.total ? 0.4 : 1, color: INK_S,
-                      }}
-                    >
-                      Next <ChevronRight size={14} />
-                    </button>
-                  </div>
-                )}
+                <Pagination page={page} total={data.total} limit={limit} onPageChange={setPage} />
               </>
             )}
           </main>
