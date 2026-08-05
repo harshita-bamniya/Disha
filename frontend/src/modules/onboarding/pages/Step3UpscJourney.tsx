@@ -145,13 +145,9 @@ export default function Step3UpscJourney() {
         {serverError && <p className="text-sm text-danger bg-danger/5 border border-danger/20 rounded-xl px-4 py-3">{serverError}</p>}
 
         <div className="flex items-center gap-3 mt-2">
-          <button
-            type="button"
-            onClick={() => navigate('/app/onboarding/step/4')}
-            className="text-sm font-medium text-gray-500 hover:text-primary transition-colors px-2 py-2 whitespace-nowrap"
-          >
+          <Button type="button" variant="link" onClick={() => navigate('/app/onboarding/step/4')}>
             Skip for now
-          </button>
+          </Button>
           <Button type="submit" fullWidth size="lg" loading={upscJourney.isPending}>Continue →</Button>
         </div>
       </form>

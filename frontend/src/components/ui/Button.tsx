@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger'
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger' | 'link'
   size?: 'sm' | 'md' | 'lg'
   loading?: boolean
   fullWidth?: boolean
@@ -36,6 +36,10 @@ const variants = {
     'shadow-[0_4px_12px_rgba(220,38,38,0.25)]',
     'transition-all duration-200',
   ].join(' '),
+  // Text-only link button — e.g. "Skip for now" beside a primary CTA.
+  // Bypasses `sizes[size]` (see below) so it keeps its own compact padding
+  // instead of a fixed button height.
+  link: 'text-sm font-medium text-gray-500 hover:text-primary transition-colors px-2 py-2 whitespace-nowrap',
 }
 
 const sizes = {
@@ -61,7 +65,7 @@ export default function Button({
         'inline-flex items-center justify-center gap-2 font-medium',
         'disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 disabled:hover:translate-y-0',
         variants[variant],
-        sizes[size],
+        variant !== 'link' && sizes[size],
         fullWidth && 'w-full',
         className,
       )}
