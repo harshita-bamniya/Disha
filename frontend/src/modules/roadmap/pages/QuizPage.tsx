@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { jobPlanApi, type QuizSubmitResponse } from '@/api/jobPlan'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
 import { ArrowLeft, BookOpen, CheckCircle2, ExternalLink, Loader2, RotateCcw, Zap } from 'lucide-react'
 
 export default function QuizPage() {
@@ -47,10 +47,7 @@ export default function QuizPage() {
   const allAnswered = !!quiz && quiz.questions.every(q => !!answers[q.id])
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/roadmap" />
-
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+    <AspLayout activePath="/app/roadmap">
         <header style={{
           background: 'white',
           borderBottom: '1px solid rgba(37,99,235,0.08)',
@@ -279,9 +276,8 @@ export default function QuizPage() {
             </div>
           )}
         </main>
-      </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-    </div>
+    </AspLayout>
   )
 }

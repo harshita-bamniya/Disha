@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { interviewApi } from '@/api/interview'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
 import { ActivePrepBanner } from '@/components/ActivePrepBanner'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 import { MessageSquare, Play, BarChart2, ChevronRight, CheckCircle, Clock } from 'lucide-react'
@@ -50,9 +50,7 @@ export default function InterviewHomePage() {
   const recentSessions = sessions?.slice(0, 5) ?? []
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/interview" />
-      <div style={{ flex: 1, minWidth: 0 }}>
+    <AspLayout activePath="/app/interview">
         <header style={{
           background: 'white',
           borderBottom: '1px solid rgba(226,232,240,0.8)',
@@ -253,8 +251,7 @@ export default function InterviewHomePage() {
             </div>
           </div>
         </main>
-      </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-    </div>
+    </AspLayout>
   )
 }

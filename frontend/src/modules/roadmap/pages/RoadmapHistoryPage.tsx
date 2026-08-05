@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { jobPlanApi } from '@/api/jobPlan'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
 import { Map, ChevronRight, TrendingUp, Loader2, ArrowRight, Briefcase, Trash2 } from 'lucide-react'
 
 function statusBadge(status: 'generating' | 'ready' | 'failed') {
@@ -42,10 +42,7 @@ export default function RoadmapHistoryPage() {
   const isEmpty = !isLoadingAny && jobPlans.length === 0
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/roadmap" />
-
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+    <AspLayout activePath="/app/roadmap">
         <header style={{
           background: 'white',
           borderBottom: '1px solid rgba(37,99,235,0.08)',
@@ -166,9 +163,8 @@ export default function RoadmapHistoryPage() {
             </div>
           )}
         </main>
-      </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-    </div>
+    </AspLayout>
   )
 }

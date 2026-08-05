@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 import JobLearningPlanPanel from '../components/JobLearningPlanPanel'
 import RoadmapCounsellorPanel from '../components/RoadmapCounsellorPanel'
@@ -40,11 +40,7 @@ export default function RoadmapPage() {
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null)
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/roadmap" />
-
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-
+    <AspLayout activePath="/app/roadmap">
         {/* Header */}
         <header style={{
           background: 'white',
@@ -114,9 +110,8 @@ export default function RoadmapPage() {
             />
           )}
         </div>
-      </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-    </div>
+    </AspLayout>
   )
 }
