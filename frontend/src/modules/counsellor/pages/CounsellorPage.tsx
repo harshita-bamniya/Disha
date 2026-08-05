@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { counsellorApi, type ConversationSummary, type MessageOut, type CounsellorMemory } from '@/api/counsellor'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 import { Send, Plus, Archive, MessageCircle, AlertTriangle, Briefcase, BrainCircuit, Zap, Brain, ChevronDown, ChevronUp, X, Mic, MicOff, Trash2 } from 'lucide-react'
 
@@ -374,10 +374,7 @@ export default function CounsellorPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/counsellor" />
-
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+    <AspLayout activePath="/app/counsellor">
         {/* Top bar */}
         <header style={{
           background: 'white',
@@ -702,7 +699,6 @@ export default function CounsellorPage() {
             )}
           </div>
         </div>
-      </div>
 
       <style>{`
         @keyframes fadeInMsg { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }
@@ -710,6 +706,6 @@ export default function CounsellorPage() {
         @keyframes bounce { 0%, 60%, 100% { transform: translateY(0) } 30% { transform: translateY(-5px) } }
         @keyframes spin { to { transform: rotate(360deg) } }
       `}</style>
-    </div>
+    </AspLayout>
   )
 }

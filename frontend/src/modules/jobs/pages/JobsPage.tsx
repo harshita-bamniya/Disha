@@ -5,7 +5,7 @@ import {
   Briefcase, MapPin, Wifi, AlertCircle, Search,
   IndianRupee, X, ArrowUpRight, ChevronLeft, ChevronRight,
 } from 'lucide-react'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
 import { getJobs, type JobListItem } from '@/api/matching'
 import { jobPlanApi } from '@/api/jobPlan'
 import { trackJobEvent } from '@/lib/analytics'
@@ -288,11 +288,7 @@ export default function JobsPage() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: CREAM }}>
-      <AppSidebar activePath="/app/jobs" />
-
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-
+    <AspLayout activePath="/app/jobs">
         {/* ── top bar ── */}
         <header style={{
           background: '#fff', borderBottom: `1px solid ${BORDER}`,
@@ -482,7 +478,6 @@ export default function JobsPage() {
             )}
           </main>
         </div>
-      </div>
-    </div>
+    </AspLayout>
   )
 }

@@ -13,7 +13,8 @@ import {
   AlertCircle, ArrowLeft, ArrowRight, Check,
   CheckCircle2, FileText, Loader2, Send, Upload, X,
 } from 'lucide-react'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
+import PageHeader from '@/shared/layouts/PageHeader'
 import { applicationsApi, type AnswerIn, type FormSectionOut, type QuestionOut } from '@/api/applications'
 import { resumeLibraryApi, type ResumeFile } from '@/api/resumeLibrary'
 import { useAuthStore } from '@/stores/authStore'
@@ -792,18 +793,10 @@ export default function ApplyPage() {
   const isLoading = eligLoading || (!!elig?.eligible && formLoading)
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: CREAM, fontFamily: 'Hind, sans-serif' }}>
-      <AppSidebar activePath="/app/jobs" />
+    <AspLayout activePath="/app/jobs">
+      <PageHeader title="Apply for job" subtitle="Submit your application in a few steps" />
 
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <header style={{ background: WHITE, borderBottom: `1px solid ${BORDER}`, padding: '0 32px', height: 64, display: 'flex', alignItems: 'center', position: 'sticky', top: 0, zIndex: 20 }}>
-          <div>
-            <h1 style={{ fontSize: 15, fontWeight: 700, color: NAVY, margin: 0 }}>Apply for job</h1>
-            <p style={{ fontSize: 11.5, color: MUTED, margin: 0 }}>Submit your application in a few steps</p>
-          </div>
-        </header>
-
-        <main style={{ flex: 1, padding: '32px 24px', maxWidth: 680, margin: '0 auto', width: '100%' }}>
+      <main style={{ flex: 1, padding: '32px 24px', maxWidth: 680, margin: '0 auto', width: '100%' }}>
 
         {/* loading */}
         {isLoading && (
@@ -973,9 +966,8 @@ export default function ApplyPage() {
           </div>
         )}
         </main>
-      </div>
 
       <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
-    </div>
+    </AspLayout>
   )
 }

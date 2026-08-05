@@ -7,7 +7,8 @@ import { cn } from '@/lib/utils'
 import { getApiError } from '@/api/client'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
+import PageHeader from '@/shared/layouts/PageHeader'
 import { useKrsDashboard, useRecompute } from '@/modules/dashboard/hooks/useKrs'
 import { useOnboardingOptions } from '@/modules/onboarding/hooks/useOnboarding'
 
@@ -837,28 +838,10 @@ export default function ProfilePage() {
     setOpenSection(prev => (prev === section ? null : section))
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
+    <AspLayout activePath="/app/profile">
+      <PageHeader title="Profile" subtitle="Every update improves your KRS score & job matches" />
 
-      {/* ── Sidebar ── */}
-      <AppSidebar activePath="/app/profile" />
-
-      {/* ── Main content ── */}
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-
-        {/* Top bar */}
-        <header style={{
-          background: 'white',
-          borderBottom: '1px solid rgba(26,39,68,0.08)',
-          padding: '0 32px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          position: 'sticky', top: 0, zIndex: 20,
-        }}>
-          <div>
-            <h1 style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>Profile</h1>
-            <p style={{ fontSize: 11.5, color: '#9CA3AF' }}>Every update improves your KRS score & job matches</p>
-          </div>
-        </header>
-
-        <main style={{ padding: '28px 32px', flex: 1 }}>
+      <main style={{ padding: '28px 32px', flex: 1 }}>
 
           {/* Hero card */}
           <div style={{ borderBottom: '1px solid rgba(26,39,68,0.08)', paddingBottom: 20, marginBottom: 20 }}>
@@ -928,9 +911,8 @@ export default function ProfilePage() {
               </div>
             </div>
           )}
-        </main>
-      </div>
+      </main>
       <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
-    </div>
+    </AspLayout>
   )
 }

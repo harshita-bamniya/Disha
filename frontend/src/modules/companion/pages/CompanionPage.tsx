@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   companionApi, type MessageOut, type Mood, type TimelineEntry,
 } from '@/api/companion'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
 import {
   Send, Heart, Sparkles, BookHeart, AlertTriangle, X, Plus, Trash2, Flame,
 } from 'lucide-react'
@@ -356,10 +356,7 @@ export default function CompanionPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/companion" />
-
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+    <AspLayout activePath="/app/companion">
         {/* Top bar */}
         <header style={{
           background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(20px)',
@@ -502,7 +499,6 @@ export default function CompanionPage() {
             </div>
           </div>
         </div>
-      </div>
 
       <style>{`
         @keyframes fadeInMsg { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }
@@ -510,6 +506,6 @@ export default function CompanionPage() {
         @keyframes bounce { 0%, 60%, 100% { transform: translateY(0) } 30% { transform: translateY(-5px) } }
         @keyframes spin { to { transform: rotate(360deg) } }
       `}</style>
-    </div>
+    </AspLayout>
   )
 }

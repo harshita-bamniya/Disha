@@ -5,7 +5,7 @@ import {
   ArrowUpRight, Clock, AlertTriangle, FileText, ChevronDown, ChevronUp,
   ListChecks, Hourglass, Star, TrendingUp, Download, Gift, PenLine, Mic,
 } from 'lucide-react'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
 import {
   getMyApplications, getApplicationDetail, withdrawApplication,
   getMyInterviews, requestInterviewReschedule,
@@ -558,11 +558,7 @@ export default function MyApplicationsPage() {
   ]
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: CREAM }}>
-      <AppSidebar activePath="/app/jobs/applications" />
-
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-
+    <AspLayout activePath="/app/jobs/applications">
         {/* top bar */}
         <header style={{ background: WHITE, borderBottom: `1px solid ${BORDER}`, padding: '0 24px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
@@ -678,11 +674,10 @@ export default function MyApplicationsPage() {
             </div>
           </div>
         </div>
-      </div>
 
       <style>{`
         @keyframes spin    { to { transform: rotate(360deg); } }
       `}</style>
-    </div>
+    </AspLayout>
   )
 }

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { resumeApi } from '@/api/resume'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
 import ResumeUploadModal from '@/modules/resume/components/ResumeUploadModal'
 import ScoreBreakdownCard from '@/modules/resume/components/ScoreBreakdownCard'
 import { FileText, Plus, Star, Trash2, Edit3, Upload, BarChart2, ChevronDown } from 'lucide-react'
@@ -60,9 +60,7 @@ export default function ResumeListPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/resume" />
-      <div style={{ flex: 1, minWidth: 0, background: '#F4F5F7' }}>
+    <AspLayout activePath="/app/resume">
         <header style={{
           background: 'white',
           borderBottom: '1px solid rgba(0,0,0,0.08)',
@@ -280,7 +278,6 @@ export default function ResumeListPage() {
             </div>
           </div>
         )}
-      </div>
 
       {showUpload && <ResumeUploadModal onClose={() => setShowUpload(false)} />}
 
@@ -288,6 +285,6 @@ export default function ResumeListPage() {
         @keyframes spin { to { transform: rotate(360deg) } }
         .resume-card:hover { box-shadow: 0 16px 36px rgba(26,39,68,0.12); transform: translateY(-3px); }
       `}</style>
-    </div>
+    </AspLayout>
   )
 }
