@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { tokens } from '@/design-system'
 
 type StatCardColor = 'navy' | 'green' | 'amber' | 'red' | 'blue'
@@ -12,7 +13,7 @@ const COLOR_MAP: Record<StatCardColor, { iconBg: string; iconColor: string }> = 
   blue:  { iconBg: 'rgba(37,99,235,0.1)',  iconColor: tokens.color.state.info },
 }
 
-export function StatCard({
+export const StatCard = memo(function StatCard({
   icon: Icon, label, value, sub, color = 'navy',
 }: {
   icon: React.ElementType; label: string; value: number | string; sub?: string; color?: StatCardColor
@@ -37,4 +38,4 @@ export function StatCard({
       {sub && <p style={{ fontSize: 12, color: tokens.color.brand.muted, marginTop: 5 }}>{sub}</p>}
     </div>
   )
-}
+})

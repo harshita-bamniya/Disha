@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { memo, type ReactNode } from 'react'
 
 // Shared structural shell for AI chat messages (audit H-09: Companion,
 // Counsellor, and Interview each had a hand-rolled, near-identical
@@ -19,7 +19,7 @@ export interface ChatBubbleTheme {
   typingDotColor: string
 }
 
-export function ChatBubble({ isUser, content, streaming, theme }: {
+export const ChatBubble = memo(function ChatBubble({ isUser, content, streaming, theme }: {
   isUser: boolean
   content: string
   streaming?: boolean
@@ -50,11 +50,11 @@ export function ChatBubble({ isUser, content, streaming, theme }: {
       </div>
     </div>
   )
-}
+})
 
 // Assistant "typing…" bubble — three bouncing dots, same avatar/bubble
 // styling as ChatBubble's assistant side.
-export function ChatTypingIndicator({ theme }: { theme: ChatBubbleTheme }) {
+export const ChatTypingIndicator = memo(function ChatTypingIndicator({ theme }: { theme: ChatBubbleTheme }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
       <div style={{ flexShrink: 0, marginRight: 10 }}>{theme.avatar}</div>
@@ -69,4 +69,4 @@ export function ChatTypingIndicator({ theme }: { theme: ChatBubbleTheme }) {
       </div>
     </div>
   )
-}
+})

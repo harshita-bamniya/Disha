@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, LogOut, FileText, Briefcase, Map,
@@ -52,7 +52,7 @@ const N40  = 'rgba(26,39,68,0.40)'   // section labels
 const N60  = 'rgba(26,39,68,0.60)'   // inactive nav text
 const INK  = tokens.color.brand.ink               // primary text
 
-function NavBtn({ icon, label, isActive, onClick }: {
+const NavBtn = memo(function NavBtn({ icon, label, isActive, onClick }: {
   icon: React.ReactNode; label: string; isActive: boolean; onClick: () => void
 }) {
   return (
@@ -78,7 +78,7 @@ function NavBtn({ icon, label, isActive, onClick }: {
       <span style={{ marginLeft: 2 }}>{label}</span>
     </button>
   )
-}
+})
 
 export default function AppSidebar({ activePath }: { activePath?: NavPath }) {
   const navigate = useNavigate()

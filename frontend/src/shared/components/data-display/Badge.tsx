@@ -1,6 +1,7 @@
+import { memo } from 'react'
 import { cn } from '@/lib/utils'
 
-export function Badge({ children, color = 'gray' }: { children: React.ReactNode; color?: string }) {
+export const Badge = memo(function Badge({ children, color = 'gray' }: { children: React.ReactNode; color?: string }) {
   const cls: Record<string, string> = {
     green:  'bg-green-50 text-green-700 border-green-100',
     amber:  'bg-amber-50 text-amber-700 border-amber-100',
@@ -15,4 +16,4 @@ export function Badge({ children, color = 'gray' }: { children: React.ReactNode;
       {children}
     </span>
   )
-}
+})
