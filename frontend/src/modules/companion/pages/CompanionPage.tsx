@@ -7,6 +7,19 @@ import AspLayout from '@/shared/layouts/AspLayout'
 import {
   Send, Heart, Sparkles, BookHeart, AlertTriangle, X, Plus, Trash2, Flame,
 } from 'lucide-react'
+import { ChatBubble, type ChatBubbleTheme } from '@/shared/components/ai/ChatBubble'
+
+const COMPANION_THEME: ChatBubbleTheme = {
+  avatar: (
+    <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #F4A896, #E08E79)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(224,142,121,0.35)' }}>
+      <Heart size={14} color="white" fill="white" />
+    </div>
+  ),
+  userBg: 'linear-gradient(135deg, #B98AC2, #9B6EB0)', userText: 'white', userShadow: '0 4px 14px rgba(155,110,176,0.3)',
+  assistantBg: 'white', assistantText: '#3D2B2B', assistantShadow: '0 2px 8px rgba(120,80,60,0.07)',
+  assistantBorder: '1px solid rgba(244,168,150,0.25)',
+  streamingDotColor: '#D6A8A0',
+}
 
 const MOODS: { key: Mood; emoji: string; label: string }[] = [
   { key: 'great', emoji: '😄', label: 'Great' },
@@ -30,36 +43,13 @@ const OPENERS = [
 
 // ── Message bubble ────────────────────────────────────────────────────────────
 function MessageBubble({ msg }: { msg: MessageOut | { role: string; content: string; id: string; streaming?: boolean } }) {
-  const isUser = msg.role === 'user'
   return (
-    <div style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start', marginBottom: 16, animation: 'fadeInMsg 0.3s ease both' }}>
-      {!isUser && (
-        <div style={{
-          width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-          background: 'linear-gradient(135deg, #F4A896, #E08E79)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          marginRight: 10, marginTop: 2, boxShadow: '0 2px 8px rgba(224,142,121,0.35)',
-        }}>
-          <Heart size={14} color="white" fill="white" />
-        </div>
-      )}
-      <div style={{
-        maxWidth: '72%',
-        background: isUser ? 'linear-gradient(135deg, #B98AC2, #9B6EB0)' : 'white',
-        color: isUser ? 'white' : '#3D2B2B',
-        padding: '12px 16px',
-        borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-        fontSize: 14, lineHeight: 1.7,
-        boxShadow: isUser ? '0 4px 14px rgba(155,110,176,0.3)' : '0 2px 8px rgba(120,80,60,0.07)',
-        border: isUser ? 'none' : '1px solid rgba(244,168,150,0.25)',
-        whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-      }}>
-        {msg.content}
-        {'streaming' in msg && msg.streaming && (
-          <span style={{ display: 'inline-block', width: 10, height: 10, background: '#D6A8A0', borderRadius: '50%', marginLeft: 4, animation: 'blink 1s infinite' }} />
-        )}
-      </div>
-    </div>
+    <ChatBubble
+      isUser={msg.role === 'user'}
+      content={msg.content}
+      streaming={'streaming' in msg && msg.streaming}
+      theme={COMPANION_THEME}
+    />
   )
 }
 

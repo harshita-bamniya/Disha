@@ -5,6 +5,17 @@ import { counsellorApi, type ConversationSummary, type MessageOut, type Counsell
 import AspLayout from '@/shared/layouts/AspLayout'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 import { Send, Plus, Archive, MessageCircle, AlertTriangle, Briefcase, BrainCircuit, Zap, Brain, ChevronDown, ChevronUp, X, Mic, MicOff, Trash2 } from 'lucide-react'
+import { ChatBubble, type ChatBubbleTheme } from '@/shared/components/ai/ChatBubble'
+
+const COUNSELLOR_THEME: ChatBubbleTheme = {
+  avatar: (
+    <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #818CF8, #6366F1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: 'white', fontWeight: 800 }}>D</div>
+  ),
+  userBg: '#2563EB', userText: 'white', userShadow: '0 4px 14px rgba(59,130,246,0.3)',
+  assistantBg: 'white', assistantText: '#1e293b', assistantShadow: '0 2px 8px rgba(0,0,0,0.06)',
+  assistantBorder: '1px solid rgba(226,232,240,0.8)',
+  streamingDotColor: '#94A3B8',
+}
 
 const CRISIS_NUMBERS = [
   { name: 'iCall (TISS)', number: '9152987821' },
@@ -21,47 +32,13 @@ const SUGGESTED_PROMPTS = [
 
 // ── Message bubble ────────────────────────────────────────────────────────────
 function MessageBubble({ msg }: { msg: MessageOut | { role: string; content: string; id: string; streaming?: boolean } }) {
-  const isUser = msg.role === 'user'
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: isUser ? 'flex-end' : 'flex-start',
-      marginBottom: 16,
-      animation: 'fadeInMsg 0.3s ease both',
-    }}>
-      {!isUser && (
-        <div style={{
-          width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-          background: 'linear-gradient(135deg, #818CF8, #6366F1)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 14, color: 'white', fontWeight: 800, marginRight: 10, marginTop: 2,
-        }}>D</div>
-      )}
-      <div style={{
-        maxWidth: '72%',
-        background: isUser ? '#2563EB' : 'white',
-        color: isUser ? 'white' : '#1e293b',
-        padding: '12px 16px',
-        borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-        fontSize: 14,
-        lineHeight: 1.7,
-        boxShadow: isUser
-          ? '0 4px 14px rgba(59,130,246,0.3)'
-          : '0 2px 8px rgba(0,0,0,0.06)',
-        border: isUser ? 'none' : '1px solid rgba(226,232,240,0.8)',
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
-      }}>
-        {msg.content}
-        {'streaming' in msg && msg.streaming && (
-          <span style={{
-            display: 'inline-block', width: 10, height: 10,
-            background: '#94A3B8', borderRadius: '50%', marginLeft: 4,
-            animation: 'blink 1s infinite',
-          }} />
-        )}
-      </div>
-    </div>
+    <ChatBubble
+      isUser={msg.role === 'user'}
+      content={msg.content}
+      streaming={'streaming' in msg && msg.streaming}
+      theme={COUNSELLOR_THEME}
+    />
   )
 }
 
