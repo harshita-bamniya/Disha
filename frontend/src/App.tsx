@@ -131,7 +131,6 @@ const ResumeListPage        = lazy(() => import('@/modules/resume/pages/ResumeLi
 const ResumeLibraryPage     = lazy(() => import('@/modules/resume/pages/ResumeLibraryPage'))
 const ResumeEditorPage      = lazy(() => import('@/modules/resume/pages/ResumeEditorPage'))
 const CounsellorPage        = lazy(() => import('@/modules/counsellor/pages/CounsellorPage'))
-const MockInterviewPage       = lazy(() => import('@/modules/interview/pages/MockInterviewPage'))
 const StructuredInterviewPage = lazy(() => import('@/modules/interview/pages/StructuredInterviewPage'))
 const InterviewSetupPage      = lazy(() => import('@/modules/interview/pages/InterviewSetupPage'))
 const InterviewLobbyPage      = lazy(() => import('@/modules/interview/pages/InterviewLobbyPage'))
