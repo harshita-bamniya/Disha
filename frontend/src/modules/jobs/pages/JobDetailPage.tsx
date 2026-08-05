@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { MapPin, Wifi, Briefcase, Target, Sparkles, Mic, Check, IndianRupee, ArrowUpRight } from 'lucide-react'
 import AspLayout from '@/shared/layouts/AspLayout'
+import { Breadcrumb } from '@/shared/components/navigation/Breadcrumb'
 import { getJobDetail } from '@/api/matching'
 import { resumeApi } from '@/api/resume'
 import { jobPlanApi } from '@/api/jobPlan'
@@ -123,6 +124,8 @@ export default function JobDetailPage() {
         {/* ── scrollable body ── */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '28px 36px 48px' }}>
           <div style={{ maxWidth: 760, margin: '0 auto' }}>
+
+            <Breadcrumb items={[{ label: 'Jobs', href: '/app/jobs' }, { label: job.title }]} />
 
             {/* ══ NAVY HERO ══ */}
             <div style={{

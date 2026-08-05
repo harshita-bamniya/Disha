@@ -1,15 +1,17 @@
 import { cn } from '@/lib/utils'
-import { Download, ChevronRight } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Download } from 'lucide-react'
 
 const N = { navy: '#1A2744', ink: '#1E3A5F', muted: '#94A3B8' }
 
-// Spinner, Empty, Badge, and StatCard now live in shared/components/ (audit
-// QW-7) — re-exported here so existing admin page imports keep working.
+// Spinner, Empty, Badge, StatCard, Breadcrumb, and Tabs (as TabBar) now live
+// in shared/components/ (audit QW-7 / Sprint 4) — re-exported here so
+// existing admin page imports keep working.
 export { Spinner } from '@/shared/components/feedback/Spinner'
 export { Empty } from '@/shared/components/feedback/EmptyState'
 export { Badge } from '@/shared/components/data-display/Badge'
 export { StatCard } from '@/shared/components/data-display/StatCard'
+export { Breadcrumb } from '@/shared/components/navigation/Breadcrumb'
+export { Tabs as TabBar, type TabDef } from '@/shared/components/navigation/Tabs'
 
 // ── Detail helpers ─────────────────────────────────────────────────────────────
 
@@ -82,62 +84,6 @@ export function ExportButton<T extends Record<string, unknown>>({ rows, filename
 
 export function formatPaise(paise: number): string {
   return `₹${(paise / 100).toLocaleString('en-IN')}`
-}
-
-// ── Breadcrumb ─────────────────────────────────────────────────────────────────
-
-export function Breadcrumb({ items }: { items: Array<{ label: string; href?: string }> }) {
-  return (
-    <nav className="flex items-center gap-1.5 text-xs mb-6">
-      {items.map((item, i) => (
-        <span key={i} className="flex items-center gap-1.5">
-          {i > 0 && <ChevronRight className="w-3 h-3 shrink-0" style={{ color: '#CBD5E1' }} />}
-          {item.href
-            ? <Link to={item.href} style={{ color: N.muted, fontWeight: 600 }} className="hover:text-gray-700 transition-colors">{item.label}</Link>
-            : <span style={{ color: N.ink, fontWeight: 700 }}>{item.label}</span>
-          }
-        </span>
-      ))}
-    </nav>
-  )
-}
-
-// ── Tab bar ────────────────────────────────────────────────────────────────────
-
-export interface TabDef { key: string; label: string; count?: number }
-
-export function TabBar({ tabs, active, onChange }: { tabs: TabDef[]; active: string; onChange: (key: string) => void }) {
-  return (
-    <div className="flex items-center gap-0 overflow-x-auto mb-6" style={{ borderBottom: '0.5px solid #E2E8F0' }}>
-      {tabs.map(tab => {
-        const isActive = active === tab.key
-        return (
-          <button
-            key={tab.key}
-            onClick={() => onChange(tab.key)}
-            className="flex items-center gap-1.5 px-4 py-3 text-sm font-semibold whitespace-nowrap border-b-2 -mb-px transition-all"
-            style={{
-              borderBottomColor: isActive ? N.navy : 'transparent',
-              color: isActive ? N.navy : '#64748B',
-            }}
-            onMouseOver={e => { if (!isActive) e.currentTarget.style.color = N.ink }}
-            onMouseOut={e => { if (!isActive) e.currentTarget.style.color = '#64748B' }}
-          >
-            {tab.label}
-            {tab.count !== undefined && (
-              <span style={{
-                padding: '1px 6px', borderRadius: 20, fontSize: 10, fontWeight: 700,
-                background: isActive ? 'rgba(26,39,68,0.08)' : '#F1F5F9',
-                color: isActive ? N.navy : N.muted,
-              }}>
-                {tab.count}
-              </span>
-            )}
-          </button>
-        )
-      })}
-    </div>
-  )
 }
 
 // ── Status colour maps ─────────────────────────────────────────────────────────
