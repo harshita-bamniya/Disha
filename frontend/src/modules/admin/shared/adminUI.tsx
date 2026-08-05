@@ -4,74 +4,12 @@ import { Link } from 'react-router-dom'
 
 const N = { navy: '#1A2744', ink: '#1E3A5F', muted: '#94A3B8' }
 
-// ── Spinner ────────────────────────────────────────────────────────────────────
-
-export function Spinner({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
-  const s = size === 'sm' ? 'w-4 h-4' : size === 'lg' ? 'w-10 h-10' : 'w-6 h-6'
-  return (
-    <div className="flex justify-center py-10">
-      <div className={cn(s, 'border-2 border-t-transparent rounded-full animate-spin')} style={{ borderColor: `${N.navy} transparent transparent transparent` }} />
-    </div>
-  )
-}
-
-// ── Empty state ────────────────────────────────────────────────────────────────
-
-export function Empty({ icon: Icon, text }: { icon: React.ElementType; text: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <Icon className="w-10 h-10 mb-3" style={{ color: '#E2E8F0' }} />
-      <p className="text-sm font-semibold" style={{ color: N.muted }}>{text}</p>
-    </div>
-  )
-}
-
-// ── Badge ──────────────────────────────────────────────────────────────────────
-
-export function Badge({ children, color = 'gray' }: { children: React.ReactNode; color?: string }) {
-  const cls: Record<string, string> = {
-    green:  'bg-green-50 text-green-700 border-green-100',
-    amber:  'bg-amber-50 text-amber-700 border-amber-100',
-    red:    'bg-red-50 text-red-700 border-red-100',
-    navy:   'bg-[rgba(26,39,68,0.07)] text-[#1A2744] border-[rgba(26,39,68,0.12)]',
-    blue:   'bg-blue-50 text-blue-700 border-blue-100',
-    gray:   'bg-gray-50 text-gray-500 border-gray-100',
-    purple: 'bg-purple-50 text-purple-700 border-purple-100',
-  }
-  return (
-    <span className={cn('px-2 py-0.5 rounded-full text-xs font-semibold border', cls[color] ?? cls.gray)}>
-      {children}
-    </span>
-  )
-}
-
-// ── Stat card ──────────────────────────────────────────────────────────────────
-
-export function StatCard({
-  icon: Icon, label, value, sub,
-}: {
-  icon: React.ElementType; label: string; value: number | string; sub?: string; color?: string; accent?: string
-}) {
-  return (
-    <div style={{
-      background: '#fff', borderRadius: 16,
-      border: '1px solid rgba(0,0,0,0.08)',
-      padding: '20px 22px',
-      display: 'flex', flexDirection: 'column' as const, gap: 0,
-      transition: 'background 0.2s',
-    }}
-      onMouseOver={e => (e.currentTarget.style.background = '#EAECF0')}
-      onMouseOut={e => (e.currentTarget.style.background = '#fff')}
-    >
-      <div style={{ width: 40, height: 40, borderRadius: 12, background: '#EAECF0', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-        <Icon size={18} color={N.ink} />
-      </div>
-      <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '1.5px', color: N.muted, marginBottom: 8 }}>{label}</p>
-      <p style={{ fontSize: 28, fontWeight: 800, color: N.ink, lineHeight: 1 }}>{value}</p>
-      {sub && <p style={{ fontSize: 12, color: N.muted, marginTop: 5 }}>{sub}</p>}
-    </div>
-  )
-}
+// Spinner, Empty, Badge, and StatCard now live in shared/components/ (audit
+// QW-7) — re-exported here so existing admin page imports keep working.
+export { Spinner } from '@/shared/components/feedback/Spinner'
+export { Empty } from '@/shared/components/feedback/EmptyState'
+export { Badge } from '@/shared/components/data-display/Badge'
+export { StatCard } from '@/shared/components/data-display/StatCard'
 
 // ── Detail helpers ─────────────────────────────────────────────────────────────
 
