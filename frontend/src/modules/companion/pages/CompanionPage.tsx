@@ -7,7 +7,7 @@ import AspLayout from '@/shared/layouts/AspLayout'
 import {
   Send, Heart, Sparkles, BookHeart, AlertTriangle, X, Plus, Trash2, Flame,
 } from 'lucide-react'
-import { ChatBubble, type ChatBubbleTheme } from '@/shared/components/ai/ChatBubble'
+import { ChatBubble, ChatTypingIndicator, type ChatBubbleTheme } from '@/shared/components/ai/ChatBubble'
 
 const COMPANION_THEME: ChatBubbleTheme = {
   avatar: (
@@ -19,6 +19,7 @@ const COMPANION_THEME: ChatBubbleTheme = {
   assistantBg: 'white', assistantText: '#3D2B2B', assistantShadow: '0 2px 8px rgba(120,80,60,0.07)',
   assistantBorder: '1px solid rgba(244,168,150,0.25)',
   streamingDotColor: '#D6A8A0',
+  typingDotColor: '#E0B8AE',
 }
 
 const MOODS: { key: Mood; emoji: string; label: string }[] = [
@@ -53,24 +54,6 @@ function MessageBubble({ msg }: { msg: MessageOut | { role: string; content: str
   )
 }
 
-function TypingIndicator() {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-      <div style={{
-        width: 32, height: 32, borderRadius: '50%',
-        background: 'linear-gradient(135deg, #F4A896, #E08E79)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 10,
-      }}>
-        <Heart size={14} color="white" fill="white" />
-      </div>
-      <div style={{ background: 'white', padding: '12px 16px', borderRadius: '18px 18px 18px 4px', border: '1px solid rgba(244,168,150,0.25)', boxShadow: '0 2px 8px rgba(120,80,60,0.07)', display: 'flex', gap: 5 }}>
-        {[0, 1, 2].map(i => (
-          <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: '#E0B8AE', animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite` }} />
-        ))}
-      </div>
-    </div>
-  )
-}
 
 // ── Mood check-in widget ───────────────────────────────────────────────────────
 function MoodCheckIn() {
@@ -413,7 +396,7 @@ export default function CompanionPage() {
                 </div>
               )}
               {messages.map(m => <MessageBubble key={m.id} msg={m} />)}
-              {isStreaming && messages[messages.length - 1]?.role !== 'assistant' && <TypingIndicator />}
+              {isStreaming && messages[messages.length - 1]?.role !== 'assistant' && <ChatTypingIndicator theme={COMPANION_THEME} />}
               {error && (
                 <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#DC2626', marginBottom: 12 }}>
                   {error}

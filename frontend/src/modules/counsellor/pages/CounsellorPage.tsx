@@ -5,7 +5,7 @@ import { counsellorApi, type ConversationSummary, type MessageOut, type Counsell
 import AspLayout from '@/shared/layouts/AspLayout'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 import { Send, Plus, Archive, MessageCircle, AlertTriangle, Briefcase, BrainCircuit, Zap, Brain, ChevronDown, ChevronUp, X, Mic, MicOff, Trash2 } from 'lucide-react'
-import { ChatBubble, type ChatBubbleTheme } from '@/shared/components/ai/ChatBubble'
+import { ChatBubble, ChatTypingIndicator, type ChatBubbleTheme } from '@/shared/components/ai/ChatBubble'
 
 const COUNSELLOR_THEME: ChatBubbleTheme = {
   avatar: (
@@ -15,6 +15,7 @@ const COUNSELLOR_THEME: ChatBubbleTheme = {
   assistantBg: 'white', assistantText: '#1e293b', assistantShadow: '0 2px 8px rgba(0,0,0,0.06)',
   assistantBorder: '1px solid rgba(226,232,240,0.8)',
   streamingDotColor: '#94A3B8',
+  typingDotColor: '#94A3B8',
 }
 
 const CRISIS_NUMBERS = [
@@ -42,31 +43,6 @@ function MessageBubble({ msg }: { msg: MessageOut | { role: string; content: str
   )
 }
 
-// ── Typing indicator ──────────────────────────────────────────────────────────
-function TypingIndicator() {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-      <div style={{
-        width: 32, height: 32, borderRadius: '50%',
-        background: 'linear-gradient(135deg, #818CF8, #6366F1)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 14, color: 'white', fontWeight: 800, marginRight: 10,
-      }}>D</div>
-      <div style={{
-        background: 'white', padding: '12px 16px', borderRadius: '18px 18px 18px 4px',
-        border: '1px solid rgba(226,232,240,0.8)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-        display: 'flex', gap: 5,
-      }}>
-        {[0, 1, 2].map(i => (
-          <div key={i} style={{
-            width: 7, height: 7, borderRadius: '50%', background: '#94A3B8',
-            animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`,
-          }} />
-        ))}
-      </div>
-    </div>
-  )
-}
 
 const MEMORY_TYPE_COLORS: Record<string, string> = {
   fact: '#3B82F6',
@@ -584,7 +560,7 @@ export default function CounsellorPage() {
                     <MessageBubble key={m.id} msg={m} />
                   ))}
                   {isStreaming && messages[messages.length - 1]?.role !== 'assistant' && (
-                    <TypingIndicator />
+                    <ChatTypingIndicator theme={COUNSELLOR_THEME} />
                   )}
                   {error && (
                     <div style={{
