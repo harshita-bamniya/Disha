@@ -195,7 +195,6 @@ export default function EmployerCalendarPage() {
         {isLoading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
             <div style={{ width: 32, height: 32, border: '3px solid rgba(59,130,246,0.2)', borderTopColor: '#3B82F6', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-            <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
           </div>
         ) : isError ? (
           <p style={{ textAlign: 'center', color: '#DC2626', padding: 40 }}>Failed to load upcoming interviews.</p>

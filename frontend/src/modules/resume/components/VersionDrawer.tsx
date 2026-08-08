@@ -125,7 +125,6 @@ export default function VersionDrawer({ resumeId, onClose, onRestored }: Props) 
           ))}
         </div>
 
-        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     </div>
   )

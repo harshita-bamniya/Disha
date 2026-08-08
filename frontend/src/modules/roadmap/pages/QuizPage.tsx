@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { jobPlanApi, type QuizSubmitResponse } from '@/api/jobPlan'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
+import PageHeader from '@/shared/layouts/PageHeader'
 import { ArrowLeft, BookOpen, CheckCircle2, ExternalLink, Loader2, RotateCcw, Zap } from 'lucide-react'
 
 export default function QuizPage() {
@@ -47,24 +48,19 @@ export default function QuizPage() {
   const allAnswered = !!quiz && quiz.questions.every(q => !!answers[q.id])
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/roadmap" />
-
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <header style={{
-          background: 'white',
-          borderBottom: '1px solid rgba(37,99,235,0.08)',
-          padding: '0 28px', height: 64,
-          display: 'flex', alignItems: 'center', gap: 12,
-          position: 'sticky', top: 0, zIndex: 20,
-        }}>
-          <button onClick={() => navigate('/app/roadmap')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 8, color: '#9CA3AF', display: 'flex', alignItems: 'center' }}>
+    <AspLayout activePath="/app/roadmap">
+      <PageHeader
+        title={module ? `Quiz · ${module.skill}` : 'Quiz'}
+        icon={<BookOpen size={14} color="#6366F1" />}
+        back={
+          <button
+            onClick={() => navigate('/app/roadmap')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 8, color: '#9CA3AF', display: 'flex', alignItems: 'center' }}
+          >
             <ArrowLeft size={18} />
           </button>
-          <span style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>
-            Quiz{module ? ` · ${module.skill}` : ''}
-          </span>
-        </header>
+        }
+      />
 
         <main style={{ padding: '28px', maxWidth: 680, margin: '0 auto', width: '100%' }}>
           {isLoading && (
@@ -279,9 +275,7 @@ export default function QuizPage() {
             </div>
           )}
         </main>
-      </div>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-    </div>
+    </AspLayout>
   )
 }

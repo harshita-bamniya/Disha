@@ -155,7 +155,6 @@ export default function JobPlanChatWidget({ jobId, jobTitle, company, sector, sk
         </button>
       </div>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }

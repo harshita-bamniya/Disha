@@ -7,6 +7,7 @@ import { getAllApplicants } from '@/api/matching'
 import type { ApplicantListItem } from '@/api/matching'
 import { useDepartments, useEmployerPermissions, useEmployerDashboard } from '../hooks/useJobs'
 import { DS, C, statusDot, fmtDate, initials } from '../ds'
+import Pagination from '@/shared/components/navigation/Pagination'
 
 const TABS = [
   { value: '',                   label: 'All'         },
@@ -171,7 +172,6 @@ export default function EmployerApplicantsPage() {
           ) : isLoading ? (
             <div style={{ padding: '48px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: C.ink3 }}>
               <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
-              <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
               Loading…
             </div>
           ) : filtered.length === 0 ? (
@@ -184,12 +184,13 @@ export default function EmployerApplicantsPage() {
           )}
         </div>
 
-        {/* Pagination */}
         {total > LIMIT && (
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 14 }}>
-            <button onClick={() => setOffset(Math.max(0, offset - LIMIT))} disabled={offset === 0} style={{ ...DS.btnSecondary, opacity: offset === 0 ? 0.4 : 1 }}>← Prev</button>
-            <span style={{ fontSize: 12, color: C.ink3, alignSelf: 'center' }}>{offset + 1}–{Math.min(offset + LIMIT, total)} of {total}</span>
-            <button onClick={() => setOffset(offset + LIMIT)} disabled={offset + LIMIT >= total} style={{ ...DS.btnSecondary, opacity: offset + LIMIT >= total ? 0.4 : 1 }}>Next →</button>
+          <div style={{ marginTop: 14 }}>
+            <Pagination
+              page={Math.floor(offset / LIMIT) + 1}
+              totalPages={Math.ceil(total / LIMIT)}
+              onChange={p => setOffset((p - 1) * LIMIT)}
+            />
           </div>
         )}
       </div>

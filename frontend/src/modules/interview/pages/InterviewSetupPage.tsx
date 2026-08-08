@@ -9,15 +9,10 @@ import {
   Volume2, Camera, CameraOff, Loader, Sparkles, Target
 } from 'lucide-react'
 
-// ── palette ────────────────────────────────────────────────────────────────────
-const NAVY     = '#1A2744'
-const INK      = '#1E3A5F'
-const INK_S    = '#475569'
-const MUTED    = '#94A3B8'
-const CREAM    = '#F4F5F7'
-const CREAM_DK = '#EAECF0'
-const BORDER   = 'rgba(0,0,0,0.08)'
-const WHITE    = '#fff'
+import { NAVY, INK, INK_SFT as INK_S, MUTED, CREAM, BORDER, colors } from '@/design-system/tokens'
+import Button from '@/shared/components/primitives/Button'
+const CREAM_DK = colors.surface.elevated
+const WHITE    = colors.surface.card
 
 // ── Role catalogue ─────────────────────────────────────────────────────────────
 const ROLES = [
@@ -251,16 +246,14 @@ function Step3Device({ cam, mic, net, videoRef, checkAll }: ReturnType<typeof us
         </div>
       </div>
 
-      <button onClick={checkAll} style={{
-        width: '100%', padding: '11px 0', borderRadius: 11,
-        background: allOk ? 'rgba(22,163,74,0.08)' : NAVY,
-        border: allOk ? '1.5px solid rgba(22,163,74,0.3)' : 'none',
-        color: allOk ? '#16A34A' : WHITE,
-        fontSize: 13, fontWeight: 700, cursor: 'pointer',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-      }}>
+      <Button
+        fullWidth
+        variant={allOk ? 'outline' : 'primary'}
+        onClick={checkAll}
+        className={allOk ? 'text-green-700 border-green-300 bg-green-50 hover:bg-green-100' : ''}
+      >
         {allOk ? <><CheckCircle size={13} /> All systems ready</> : 'Run System Check'}
-      </button>
+      </Button>
 
       {(cam === 'denied' || mic === 'denied') && (
         <div style={{ marginTop: 12, padding: '11px 14px', borderRadius: 10, background: '#FEF2F2', border: '1px solid #FECACA', display: 'flex', gap: 9, alignItems: 'flex-start' }}>
@@ -561,7 +554,6 @@ export default function InterviewSetupPage() {
         </div>
       </div>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }

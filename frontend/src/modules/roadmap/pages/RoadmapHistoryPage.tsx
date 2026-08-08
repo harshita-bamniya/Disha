@@ -3,7 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { jobPlanApi } from '@/api/jobPlan'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
+import PageHeader from '@/shared/layouts/PageHeader'
 import { Map, ChevronRight, TrendingUp, Loader2, ArrowRight, Briefcase, Trash2 } from 'lucide-react'
 
 function statusBadge(status: 'generating' | 'ready' | 'failed') {
@@ -42,22 +43,11 @@ export default function RoadmapHistoryPage() {
   const isEmpty = !isLoadingAny && jobPlans.length === 0
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/roadmap" />
-
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        <header style={{
-          background: 'white',
-          borderBottom: '1px solid rgba(37,99,235,0.08)',
-          padding: '0 28px', height: 64,
-          display: 'flex', alignItems: 'center', gap: 10,
-          position: 'sticky', top: 0, zIndex: 20,
-        }}>
-          <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #818CF8, #6366F1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Map size={14} color="white" />
-          </div>
-          <span style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>My Roadmaps</span>
-        </header>
+    <AspLayout activePath="/app/roadmap/history">
+      <PageHeader
+        title="My Roadmaps"
+        icon={<Map size={14} color="#6366F1" />}
+      />
 
         <main style={{ padding: '32px 36px', flex: 1 }}>
           {isLoadingAny && (
@@ -166,9 +156,7 @@ export default function RoadmapHistoryPage() {
             </div>
           )}
         </main>
-      </div>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-    </div>
+    </AspLayout>
   )
 }

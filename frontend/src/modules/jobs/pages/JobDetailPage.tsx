@@ -2,21 +2,18 @@ import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { MapPin, Wifi, Briefcase, Target, Sparkles, Mic, Check, IndianRupee, ArrowUpRight } from 'lucide-react'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
+import PageHeader from '@/shared/layouts/PageHeader'
+import Breadcrumb from '@/shared/components/navigation/Breadcrumb'
+import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors } from '@/design-system/tokens'
 import { getJobDetail } from '@/api/matching'
 import { resumeApi } from '@/api/resume'
 import { jobPlanApi } from '@/api/jobPlan'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 import { trackJobEvent } from '@/lib/analytics'
 
-// ── palette ────────────────────────────────────────────────────────────────────
-const NAVY     = '#1A2744'
-const INK      = '#1E3A5F'
-const INK_S    = '#475569'
-const MUTED    = '#94A3B8'
-const CREAM    = '#F4F5F7'
-const CREAM_DK = '#EAECF0'
-const BORDER   = 'rgba(0,0,0,0.08)'
+const INK_S    = INK_SFT
+const CREAM_DK = colors.surface.elevated
 
 function skillBarColor(pct: number) {
   if (pct >= 60) return '#059669'
@@ -72,24 +69,21 @@ export default function JobDetailPage() {
 
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh', background: CREAM }}>
-        <AppSidebar activePath="/app/jobs" />
+      <AspLayout activePath="/app/jobs">
         <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ width: 28, height: 28, border: `2px solid ${NAVY}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
         </main>
-        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-      </div>
+      </AspLayout>
     )
   }
 
   if (isError || !job) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh', background: CREAM }}>
-        <AppSidebar activePath="/app/jobs" />
+      <AspLayout activePath="/app/jobs">
         <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#DC2626', fontSize: 14 }}>
           Job not found or no longer active.
         </main>
-      </div>
+      </AspLayout>
     )
   }
 
@@ -97,33 +91,28 @@ export default function JobDetailPage() {
   const overlap = job.skill_overlap_pct ?? 0
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: CREAM }}>
-      <AppSidebar activePath="/app/jobs" />
-
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-
-        {/* ── top bar ── */}
-        <header style={{
-          background: '#fff', borderBottom: `1px solid ${BORDER}`,
-          padding: '0 24px', height: 58,
-          display: 'flex', alignItems: 'center', gap: 10,
-          position: 'sticky', top: 0, zIndex: 20,
-        }}>
-          <Link
-            to="/app/jobs"
+    <AspLayout activePath="/app/jobs">
+      <PageHeader
+        title={job.title}
+        icon={<Briefcase size={13} color={NAVY} />}
+        back={
+          <button
+            onClick={() => navigate(-1)}
             style={{
               width: 30, height: 30, borderRadius: '50%', background: CREAM,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: INK_S, textDecoration: 'none', fontSize: 16, flexShrink: 0,
+              color: INK_S, border: 'none', cursor: 'pointer', fontSize: 16, flexShrink: 0,
             }}
-          >
-            ←
-          </Link>
-          <div style={{ width: 27, height: 27, borderRadius: '50%', background: NAVY, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Briefcase size={13} color="#fff" />
-          </div>
-          <p style={{ fontSize: 14, fontWeight: 700, color: INK, margin: 0 }}>Job Details</p>
-        </header>
+          >←</button>
+        }
+        below={
+          <Breadcrumb items={[
+            { label: 'Jobs', href: '/app/jobs' },
+            { label: job.company_name ?? 'Company' },
+            { label: job.title },
+          ]} />
+        }
+      />
 
         {/* ── scrollable body ── */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '28px 36px 48px' }}>
@@ -391,11 +380,7 @@ export default function JobDetailPage() {
 
           </div>
         </div>
-      </div>
 
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg) } }
-      `}</style>
-    </div>
+    </AspLayout>
   )
 }

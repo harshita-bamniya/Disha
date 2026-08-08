@@ -18,6 +18,7 @@ import { formatSalary, EMPLOYMENT_TYPE_LABELS } from '@/api/jobs'
 import { getApiError } from '@/api/client'
 import NotificationBell from '@/components/NotificationBell'
 import { DS, C, statusDot, fmtDate } from '../ds'
+import Button from '@/components/ui/Button'
 
 type View = 'list' | 'new' | { edit: JobPosting }
 
@@ -51,14 +52,14 @@ function BulkImportModal({ onClose }: { onClose: () => void }) {
       <div style={{ background: '#fff', borderRadius: 10, padding: 24, maxWidth: 460, width: '100%', border: `1px solid ${C.border}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h3 style={{ fontSize: 15, fontWeight: 600, color: C.ink1, margin: 0 }}>Bulk import jobs</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.ink3, padding: 2 }}><X size={16} /></button>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close"><X size={16} /></Button>
         </div>
         <p style={{ fontSize: 13, color: C.ink2, marginBottom: 14, lineHeight: 1.5 }}>
           Upload a CSV to create multiple job postings at once. All saved as <strong>drafts</strong>.
         </p>
-        <button onClick={downloadTemplate} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 500, color: C.accent, background: C.accentBg, border: 'none', borderRadius: 6, padding: '7px 12px', cursor: 'pointer', marginBottom: 14 }}>
+        <Button variant="ghost" size="sm" onClick={downloadTemplate} style={{ marginBottom: 14, color: C.accent, background: C.accentBg }}>
           <Download size={13} />Download template
-        </button>
+        </Button>
         <input type="file" accept=".csv,text/csv" onChange={e => setFile(e.target.files?.[0] ?? null)} style={{ width: '100%', fontSize: 12, marginBottom: 14 }} />
         {bulk.isError && <p style={{ fontSize: 12, color: C.red, marginBottom: 10 }}>{getApiError(bulk.error, 'Import failed.')}</p>}
         {bulk.data && (
@@ -72,12 +73,12 @@ function BulkImportModal({ onClose }: { onClose: () => void }) {
           </div>
         )}
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={onClose} style={{ ...DS.btnSecondary, flex: 1, justifyContent: 'center' }}>{bulk.data ? 'Done' : 'Cancel'}</button>
+          <Button variant="outline" size="sm" onClick={onClose} fullWidth>{bulk.data ? 'Done' : 'Cancel'}</Button>
           {!bulk.data && (
-            <button onClick={() => file && bulk.mutate(file)} disabled={!file || bulk.isPending}
-              style={{ ...DS.btnPrimary, flex: 1, justifyContent: 'center', opacity: !file ? 0.5 : 1 }}>
+            <Button variant="primary" size="sm" onClick={() => file && bulk.mutate(file)}
+              disabled={!file || bulk.isPending} loading={bulk.isPending} fullWidth>
               {bulk.isPending ? 'Importing…' : 'Import'}
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -104,15 +105,17 @@ function JobRow({
   const spin: React.CSSProperties = { animation: 'spin 0.7s linear infinite', borderRadius: '50%', width: 10, height: 10, border: `2px solid ${C.ink3}`, borderTopColor: 'transparent', display: 'inline-block' }
 
   const primaryBtn = (label: string, fn: () => void, color = C.accent) => (
-    <button onClick={fn} disabled={isMutating} style={{ padding: '4px 10px', borderRadius: 5, border: `1px solid ${color}30`, background: `${color}0f`, color, fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+    <button onClick={fn} disabled={isMutating} aria-label={label}
+      style={{ padding: '4px 10px', borderRadius: 5, border: `1px solid ${color}30`, background: `${color}0f`, color, fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
       {isMutating ? <span style={spin} /> : label}
     </button>
   )
 
   const iconBtn = (icon: React.ReactNode, fn: () => void, title: string, danger = false) => (
-    <button title={title} onClick={fn} style={{ width: 26, height: 26, borderRadius: 5, border: `1px solid ${C.border}`, background: 'transparent', color: danger ? C.red : C.ink3, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+    <Button variant="ghost" size="icon" onClick={fn} aria-label={title}
+      style={{ color: danger ? C.red : C.ink3, border: `1px solid ${C.border}`, width: 26, height: 26 }}>
       {icon}
-    </button>
+    </Button>
   )
 
   return (
@@ -229,7 +232,7 @@ export default function EmployerJobsPage() {
     <div style={DS.pageWrap}>
       <header style={DS.topbar}>
         <div><h1 style={DS.pageTitle}>New Job Posting</h1></div>
-        <button onClick={() => setView('list')} style={DS.btnSecondary}><X size={14} />Cancel</button>
+        <Button variant="outline" size="sm" onClick={() => setView('list')}><X size={14} />Cancel</Button>
       </header>
       <div style={{ ...DS.content, padding: '24px' }}>
         <JobForm onSubmit={handleCreate} isLoading={createJob.isPending} error={createJob.isError ? getApiError(createJob.error) : undefined} />
@@ -241,7 +244,7 @@ export default function EmployerJobsPage() {
     <div style={DS.pageWrap}>
       <header style={DS.topbar}>
         <div><h1 style={DS.pageTitle}>Edit: {view.edit.title}</h1></div>
-        <button onClick={() => setView('list')} style={DS.btnSecondary}><X size={14} />Cancel</button>
+        <Button variant="outline" size="sm" onClick={() => setView('list')}><X size={14} />Cancel</Button>
       </header>
       <div style={{ ...DS.content, padding: '24px' }}>
         <JobForm job={view.edit} onSubmit={p => handleUpdate(view.edit.id, p)} isLoading={updateJob.isPending} error={updateJob.isError ? getApiError(updateJob.error) : undefined} />
@@ -260,18 +263,18 @@ export default function EmployerJobsPage() {
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <CommandBar onPostJob={() => setView('new')} />
-          <button onClick={() => setShowApprovalQueue(true)} style={DS.btnSecondary}>
+          <Button variant="outline" size="sm" onClick={() => setShowApprovalQueue(true)}>
             <FileSignature size={13} />Approvals
-          </button>
+          </Button>
           <NotificationBell />
           {data?.is_approved && canCreateJob && (
             <>
-              <button onClick={() => setShowBulkImport(true)} style={DS.btnSecondary}>
+              <Button variant="outline" size="sm" onClick={() => setShowBulkImport(true)}>
                 <Upload size={13} />Import
-              </button>
-              <button onClick={() => setView('new')} style={DS.btnPrimary}>
+              </Button>
+              <Button variant="primary" size="sm" onClick={() => setView('new')}>
                 <Plus size={13} strokeWidth={2.5} />Post a Job
-              </button>
+              </Button>
             </>
           )}
         </div>
@@ -336,7 +339,6 @@ export default function EmployerJobsPage() {
             <div style={{ padding: '48px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: C.ink3 }}>
               <div style={{ width: 16, height: 16, border: `2px solid ${C.border}`, borderTopColor: C.accent, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
               Loading…
-              <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
             </div>
           ) : filtered.length === 0 ? (
             <div style={{ padding: '56px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
@@ -346,7 +348,7 @@ export default function EmployerJobsPage() {
                 {data?.is_approved ? 'Post your first job to start receiving applications.' : 'Complete verification to start posting jobs.'}
               </p>
               {data?.is_approved && canCreateJob && (
-                <button onClick={() => setView('new')} style={{ ...DS.btnPrimary, marginTop: 8 }}><Plus size={13} />Post a Job</button>
+                <Button variant="primary" size="sm" onClick={() => setView('new')} style={{ marginTop: 8 }}><Plus size={13} />Post a Job</Button>
               )}
             </div>
           ) : (
@@ -380,11 +382,11 @@ export default function EmployerJobsPage() {
             <h3 style={{ fontSize: 15, fontWeight: 600, color: C.ink1, margin: '0 0 8px' }}>Delete job posting?</h3>
             <p style={{ fontSize: 13, color: C.ink2, margin: '0 0 20px' }}>This cannot be undone. All applicants for this job will lose access.</p>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setConfirmDelete(null)} style={{ ...DS.btnSecondary, flex: 1, justifyContent: 'center' }}>Cancel</button>
-              <button onClick={() => handleDelete(confirmDelete)} disabled={deleteJob.isPending}
-                style={{ flex: 1, padding: '7px 14px', borderRadius: 7, border: 'none', background: C.red, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', justifyContent: 'center', display: 'flex', alignItems: 'center' }}>
+              <Button variant="outline" size="sm" onClick={() => setConfirmDelete(null)} fullWidth>Cancel</Button>
+              <Button variant="danger" size="sm" onClick={() => handleDelete(confirmDelete)}
+                disabled={deleteJob.isPending} loading={deleteJob.isPending} fullWidth>
                 {deleteJob.isPending ? 'Deleting…' : 'Delete'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

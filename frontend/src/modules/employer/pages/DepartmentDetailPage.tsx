@@ -13,6 +13,8 @@ import {
 import NotificationBell from '@/components/NotificationBell'
 import { getApiError } from '@/api/client'
 import type { DepartmentJobEntry } from '@/api/company'
+import Button from '@/shared/components/primitives/Button'
+import Tabs, { type TabItem } from '@/shared/components/navigation/Tabs'
 
 type Tab = 'overview' | 'jobs' | 'team'
 
@@ -197,7 +199,7 @@ function InviteModal({ departmentId, departmentName, onClose }: {
             </div>
             <p style={{ fontSize: 15, fontWeight: 700, color: '#0F172A', margin: '0 0 6px' }}>Account created!</p>
             <p style={{ fontSize: 13, color: '#64748B', margin: '0 0 20px' }}><strong>{email}</strong> can now log in.</p>
-            <button onClick={onClose} style={{ padding: '10px 28px', borderRadius: 10, background: '#1E3A5F', color: 'white', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Done</button>
+            <Button onClick={onClose}>Done</Button>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -241,10 +243,8 @@ function InviteModal({ departmentId, departmentName, onClose }: {
             {err && <p style={{ fontSize: 12, color: '#EF4444', margin: 0 }}>{err}</p>}
 
             <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-              <button onClick={onClose} disabled={busy} style={{ flex: 1, height: 40, borderRadius: 10, border: '1.5px solid #E5E7EB', background: 'white', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#374151' }}>Cancel</button>
-              <button onClick={handleSubmit} disabled={busy} style={{ flex: 2, height: 40, borderRadius: 10, border: 'none', background: '#1E3A5F', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 700, color: 'white', opacity: busy ? 0.7 : 1 }}>
-                {busy ? 'Creating…' : 'Create & invite'}
-              </button>
+              <Button variant="outline" className="flex-1" onClick={onClose} disabled={busy}>Cancel</Button>
+              <Button className="flex-1" style={{ flex: 2 }} onClick={handleSubmit} loading={busy}>Create & invite</Button>
             </div>
           </div>
         )}
@@ -421,10 +421,10 @@ export default function DepartmentDetailPage() {
 
   const filteredJobs = (jobs ?? []).filter(j => jobStatusFilter === 'all' || j.status === jobStatusFilter)
 
-  const tabs: { key: Tab; label: string; icon: React.ElementType; count?: number }[] = [
-    { key: 'overview', label: 'Overview', icon: BarChart3 },
-    { key: 'jobs',     label: 'Jobs',     icon: Briefcase, count: (jobs ?? []).length },
-    { key: 'team',     label: 'Team',     icon: Users,     count: deptTeam.length },
+  const tabs: TabItem[] = [
+    { key: 'overview', label: 'Overview', icon: <BarChart3 size={13} /> },
+    { key: 'jobs',     label: 'Jobs',     icon: <Briefcase size={13} />, count: (jobs ?? []).length },
+    { key: 'team',     label: 'Team',     icon: <Users size={13} />,     count: deptTeam.length },
   ]
 
   return (
@@ -453,14 +453,10 @@ export default function DepartmentDetailPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <NotificationBell />
             {canManage && (
-              <button onClick={() => setShowInvite(true)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px', borderRadius: 9, background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#374151', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                <Users size={13} />Invite
-              </button>
+              <Button size="sm" variant="outline" onClick={() => setShowInvite(true)}><Users size={13} />Invite</Button>
             )}
             {canCreateJob && (
-              <button onClick={() => navigate('/app/employer/jobs')} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 15px', borderRadius: 9, background: '#1E3A5F', color: 'white', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                <Plus size={14} />New Job
-              </button>
+              <Button size="sm" onClick={() => navigate('/app/employer/jobs')}><Plus size={14} />New Job</Button>
             )}
           </div>
         </header>
@@ -476,19 +472,13 @@ export default function DepartmentDetailPage() {
           </div>
 
           {/* Tabs */}
-          <div style={{ display: 'flex', gap: 2, marginBottom: 20, background: '#F1F5F9', borderRadius: 12, padding: 4, width: 'fit-content' }}>
-            {tabs.map(tab => (
-              <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 9, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: activeTab === tab.key ? 700 : 500, background: activeTab === tab.key ? '#fff' : 'transparent', color: activeTab === tab.key ? '#0F172A' : '#64748B', transition: 'all 0.15s', boxShadow: activeTab === tab.key ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }}>
-                <tab.icon size={13} />
-                {tab.label}
-                {tab.count !== undefined && (
-                  <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 20, background: activeTab === tab.key ? '#F1F5F9' : 'rgba(30,58,95,0.06)', color: activeTab === tab.key ? '#374151' : '#94A3B8', fontWeight: 700 }}>
-                    {tab.count}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+          <Tabs
+            tabs={tabs}
+            active={activeTab}
+            onChange={k => setActiveTab(k as Tab)}
+            variant="pill"
+            style={{ marginBottom: 20 }}
+          />
 
           {/* Tab content */}
           {activeTab === 'overview' && (
@@ -538,9 +528,7 @@ export default function DepartmentDetailPage() {
                   </p>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     {canManage && (
-                      <button onClick={() => setShowInvite(true)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 9, background: '#1E3A5F', color: 'white', border: 'none', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                        <Plus size={11} />Invite Member
-                      </button>
+                      <Button size="sm" onClick={() => setShowInvite(true)}><Plus size={11} />Invite Member</Button>
                     )}
                     <Link to="/app/employer/company" style={{ fontSize: 12, fontWeight: 600, color: '#3B82F6', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3 }}>
                       Manage org team <ChevronRight size={12} />

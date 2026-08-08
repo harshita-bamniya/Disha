@@ -16,6 +16,8 @@ import {
 import { getApiError } from '@/api/client'
 import type { TeamInvitePayload } from '@/api/company'
 import { DS, C, initials } from '../ds'
+import Button from '@/components/ui/Button'
+import Tabs, { type TabItem } from '@/shared/components/navigation/Tabs'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -92,9 +94,9 @@ function Modal({ title, onClose, children, width = 480 }: {
           padding: '16px 20px', borderBottom: `1px solid ${C.border}`, flexShrink: 0,
         }}>
           <span style={{ fontSize: 15, fontWeight: 700, color: C.ink1 }}>{title}</span>
-          <button onClick={onClose} style={{ ...DS.btnIcon, border: 'none' }}>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close">
             <X size={15} />
-          </button>
+          </Button>
         </div>
         {/* body */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
@@ -157,7 +159,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
         <p style={{ fontSize: 11, color: C.ink3, margin: '0 0 20px' }}>
           They can change their password after login from Security Settings.
         </p>
-        <button onClick={onClose} style={{ ...DS.btnPrimary, width: '100%', justifyContent: 'center' }}>Done</button>
+        <Button variant="primary" size="sm" fullWidth onClick={onClose}>Done</Button>
       </div>
     </Modal>
   )
@@ -224,11 +226,10 @@ function InviteModal({ onClose }: { onClose: () => void }) {
         )}
         {err && <p style={{ fontSize: 12, color: C.red, margin: 0 }}>{err}</p>}
         <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
-          <button onClick={onClose} style={{ ...DS.btnSecondary, flex: 1, justifyContent: 'center' }}>Cancel</button>
-          <button onClick={handleSubmit} disabled={invite.isPending}
-            style={{ ...DS.btnPrimary, flex: 1, justifyContent: 'center', opacity: invite.isPending ? 0.6 : 1 }}>
-            {invite.isPending ? 'Creating…' : 'Create account'}
-          </button>
+          <Button variant="outline" size="sm" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>Cancel</Button>
+          <Button variant="primary" size="sm" style={{ flex: 1, justifyContent: 'center' }} onClick={handleSubmit} loading={invite.isPending}>
+            Create account
+          </Button>
         </div>
       </div>
     </Modal>
@@ -283,9 +284,9 @@ function OfficesModal({ onClose }: { onClose: () => void }) {
                   </div>
                   <span style={{ fontSize: 12, color: C.ink2 }}>{[o.city, o.state].filter(Boolean).join(', ')}</span>
                 </div>
-                <button onClick={() => deleteOffice.mutate(o.id)} style={{ ...DS.btnIcon, color: C.red, border: 'none' }}>
+                <Button variant="ghost" size="icon" onClick={() => deleteOffice.mutate(o.id)} aria-label="Delete office" style={{ color: C.red }}>
                   <Trash2 size={14} />
-                </button>
+                </Button>
               </div>
             ))}
           </div>
@@ -310,14 +311,9 @@ function OfficesModal({ onClose }: { onClose: () => void }) {
           />
         </div>
         {err && <p style={{ fontSize: 12, color: C.red, margin: '0 0 8px' }}>{err}</p>}
-        <button
-          onClick={handleAdd}
-          disabled={createOffice.isPending}
-          style={{ ...DS.btnPrimary, width: '100%', justifyContent: 'center' }}
-        >
-          <Plus size={14} />
-          {createOffice.isPending ? 'Adding…' : 'Add Office'}
-        </button>
+        <Button variant="primary" size="sm" fullWidth onClick={handleAdd} loading={createOffice.isPending}>
+          <Plus size={14} />Add Office
+        </Button>
       </div>
     </Modal>
   )
@@ -364,9 +360,9 @@ function DepartmentsModal({ onClose }: { onClose: () => void }) {
                   </div>
                   <span style={{ fontSize: 13, fontWeight: 600, color: C.ink1 }}>{d.name}</span>
                 </div>
-                <button onClick={() => deleteDepartment.mutate(d.id)} style={{ ...DS.btnIcon, color: C.red, border: 'none' }}>
+                <Button variant="ghost" size="icon" onClick={() => deleteDepartment.mutate(d.id)} aria-label="Delete department" style={{ color: C.red }}>
                   <Trash2 size={13} />
-                </button>
+                </Button>
               </div>
             ))}
           </div>
@@ -386,14 +382,9 @@ function DepartmentsModal({ onClose }: { onClose: () => void }) {
           />
         </div>
         {err && <p style={{ fontSize: 12, color: C.red, margin: '0 0 8px' }}>{err}</p>}
-        <button
-          onClick={handleAdd}
-          disabled={createDepartment.isPending}
-          style={{ ...DS.btnPrimary, width: '100%', justifyContent: 'center' }}
-        >
-          <Plus size={14} />
-          {createDepartment.isPending ? 'Adding…' : 'Add Department'}
-        </button>
+        <Button variant="primary" size="sm" fullWidth onClick={handleAdd} loading={createDepartment.isPending}>
+          <Plus size={14} />Add Department
+        </Button>
       </div>
     </Modal>
   )
@@ -426,11 +417,10 @@ function EditDescriptionModal({ current, onClose }: { current: string; onClose: 
       </Field>
       {err && <p style={{ fontSize: 12, color: C.red, margin: '10px 0 0' }}>{err}</p>}
       <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-        <button onClick={onClose} style={{ ...DS.btnSecondary, flex: 1, justifyContent: 'center' }}>Cancel</button>
-        <button onClick={save} disabled={updateCompany.isPending}
-          style={{ ...DS.btnPrimary, flex: 1, justifyContent: 'center' }}>
-          {updateCompany.isPending ? 'Saving…' : 'Save'}
-        </button>
+        <Button variant="outline" size="sm" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>Cancel</Button>
+        <Button variant="primary" size="sm" style={{ flex: 1, justifyContent: 'center' }} onClick={save} loading={updateCompany.isPending}>
+          Save
+        </Button>
       </div>
     </Modal>
   )
@@ -528,41 +518,13 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   )
 }
 
-// ── Tab bar ────────────────────────────────────────────────────────────────────
-
 type Tab = 'overview' | 'team' | 'activity'
 
-function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) => void }) {
-  const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: 'overview', label: 'Overview', icon: <LayoutGrid size={13} /> },
-    { id: 'team',     label: 'Team',     icon: <UserSquare2 size={13} /> },
-    { id: 'activity', label: 'Activity', icon: <Activity size={13} /> },
-  ]
-  return (
-    <div style={{
-      display: 'flex', gap: 4,
-      borderBottom: `1px solid ${C.border}`,
-      padding: '0 0 0 0', marginBottom: 20,
-    }}>
-      {tabs.map(t => (
-        <button
-          key={t.id}
-          onClick={() => onChange(t.id)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '8px 14px', border: 'none', cursor: 'pointer',
-            background: 'none', fontSize: 13, fontWeight: active === t.id ? 700 : 500,
-            color: active === t.id ? C.accent : C.ink2,
-            borderBottom: `2px solid ${active === t.id ? C.accent : 'transparent'}`,
-            marginBottom: -1,
-          }}
-        >
-          {t.icon}{t.label}
-        </button>
-      ))}
-    </div>
-  )
-}
+const COMPANY_TABS: TabItem[] = [
+  { key: 'overview',  label: 'Overview',  icon: <LayoutGrid size={13} /> },
+  { key: 'team',      label: 'Team',      icon: <UserSquare2 size={13} /> },
+  { key: 'activity',  label: 'Activity',  icon: <Activity size={13} /> },
+]
 
 // ── Main page ──────────────────────────────────────────────────────────────────
 
@@ -613,14 +575,14 @@ export default function CompanyTeamPage() {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           {showMyPerms && (
-            <button onClick={() => setShowPerms(true)} style={DS.btnSecondary}>
+            <Button variant="outline" size="sm" onClick={() => setShowPerms(true)}>
               <ShieldCheck size={13} />My Access
-            </button>
+            </Button>
           )}
           {canEditCompany && (
-            <button onClick={() => setShowEditDesc(true)} style={DS.btnSecondary}>
+            <Button variant="outline" size="sm" onClick={() => setShowEditDesc(true)}>
               <Pencil size={13} />Edit Company
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -639,7 +601,7 @@ export default function CompanyTeamPage() {
             </div>
           )}
 
-          <TabBar active={tab} onChange={setTab} />
+          <Tabs tabs={COMPANY_TABS} active={tab} onChange={k => setTab(k as Tab)} style={{ marginBottom: 20 }} />
 
           {/* ── OVERVIEW TAB ── */}
           {tab === 'overview' && (
@@ -689,9 +651,9 @@ export default function CompanyTeamPage() {
                       )}
                     </div>
                     {canEditCompany && (
-                      <button onClick={() => setShowOffices(true)} style={{ ...DS.btnSecondary, fontSize: 12, padding: '4px 10px' }}>
+                      <Button variant="outline" size="sm" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => setShowOffices(true)}>
                         <Settings size={12} />Manage
-                      </button>
+                      </Button>
                     )}
                   </div>
                   <div style={{ padding: '12px 16px' }}>
@@ -699,9 +661,9 @@ export default function CompanyTeamPage() {
                       <div style={{ textAlign: 'center', padding: '16px 0' }}>
                         <p style={{ fontSize: 12, color: C.ink3, margin: '0 0 10px' }}>No office locations added yet.</p>
                         {canEditCompany && (
-                          <button onClick={() => setShowOffices(true)} style={{ ...DS.btnPrimary, fontSize: 12, padding: '6px 14px' }}>
+                          <Button variant="primary" size="sm" style={{ fontSize: 12 }} onClick={() => setShowOffices(true)}>
                             <Plus size={12} />Add Office
-                          </button>
+                          </Button>
                         )}
                       </div>
                     ) : (
@@ -715,9 +677,9 @@ export default function CompanyTeamPage() {
                           </div>
                         ))}
                         {offices.length > 3 && (
-                          <button onClick={() => setShowOffices(true)} style={{ ...DS.btnGhost, fontSize: 11, paddingLeft: 0 }}>
+                          <Button variant="ghost" size="sm" style={{ fontSize: 11, paddingLeft: 0 }} onClick={() => setShowOffices(true)}>
                             +{offices.length - 3} more locations
-                          </button>
+                          </Button>
                         )}
                       </div>
                     )}
@@ -741,9 +703,9 @@ export default function CompanyTeamPage() {
                         Full view <ChevronRight size={11} />
                       </Link>
                       {canManageDepts && (
-                        <button onClick={() => setShowDepts(true)} style={{ ...DS.btnSecondary, fontSize: 12, padding: '4px 10px' }}>
+                        <Button variant="outline" size="sm" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => setShowDepts(true)}>
                           <Settings size={12} />Manage
-                        </button>
+                        </Button>
                       )}
                     </div>
                   </div>
@@ -752,9 +714,9 @@ export default function CompanyTeamPage() {
                       <div style={{ textAlign: 'center', padding: '16px 0' }}>
                         <p style={{ fontSize: 12, color: C.ink3, margin: '0 0 10px' }}>No departments set up yet.</p>
                         {canManageDepts && (
-                          <button onClick={() => setShowDepts(true)} style={{ ...DS.btnPrimary, fontSize: 12, padding: '6px 14px' }}>
+                          <Button variant="primary" size="sm" style={{ fontSize: 12 }} onClick={() => setShowDepts(true)}>
                             <Plus size={12} />Add Department
-                          </button>
+                          </Button>
                         )}
                       </div>
                     ) : (
@@ -783,9 +745,9 @@ export default function CompanyTeamPage() {
                       <ShieldCheck size={14} color={C.accent} />
                       <span style={{ fontSize: 13, fontWeight: 700, color: C.ink1 }}>Your Access</span>
                     </div>
-                    <button onClick={() => setShowPerms(true)} style={{ ...DS.btnSecondary, fontSize: 12, padding: '4px 10px' }}>
+                    <Button variant="outline" size="sm" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => setShowPerms(true)}>
                       View details
-                    </button>
+                    </Button>
                   </div>
                   <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{
@@ -817,9 +779,9 @@ export default function CompanyTeamPage() {
                   )}
                 </div>
                 {canInvite && (
-                  <button onClick={() => setShowInvite(true)} style={DS.btnPrimary}>
+                  <Button variant="primary" size="sm" onClick={() => setShowInvite(true)}>
                     <Plus size={13} />Invite Member
-                  </button>
+                  </Button>
                 )}
               </div>
 
@@ -831,9 +793,9 @@ export default function CompanyTeamPage() {
                   <p style={{ fontSize: 14, fontWeight: 600, color: C.ink1, margin: '0 0 6px' }}>No team members yet</p>
                   <p style={{ fontSize: 13, color: C.ink2, margin: '0 0 16px' }}>Invite your team to start collaborating on hiring.</p>
                   {canInvite && (
-                    <button onClick={() => setShowInvite(true)} style={DS.btnPrimary}>
+                    <Button variant="primary" size="sm" onClick={() => setShowInvite(true)}>
                       <Plus size={13} />Invite First Member
-                    </button>
+                    </Button>
                   )}
                 </div>
               ) : (
@@ -883,22 +845,25 @@ export default function CompanyTeamPage() {
 
                         {/* Actions */}
                         {!m.is_owner && canTransfer && (
-                          <button
+                          <Button
+                            variant="ghost" size="sm"
+                            style={{ fontSize: 11, color: C.amber, fontWeight: 600 }}
                             onClick={() => transferOwnership.mutate(m.employer_profile_id)}
                             disabled={transferOwnership.isPending}
-                            style={{ ...DS.btnGhost, fontSize: 11, color: C.amber, fontWeight: 600 }}
                           >
                             Make owner
-                          </button>
+                          </Button>
                         )}
                         {!m.is_owner && canRemove && (
-                          <button
+                          <Button
+                            variant="ghost" size="icon"
+                            style={{ color: C.red }}
                             onClick={() => removeMember.mutate(m.employer_profile_id)}
                             disabled={removeMember.isPending}
-                            style={{ ...DS.btnIcon, color: C.red, border: 'none' }}
+                            aria-label="Remove member"
                           >
                             <Trash2 size={13} />
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </div>

@@ -187,7 +187,6 @@ export default function KeywordGapList({ resumeId, jobDescription, onAddKeyword 
         Re-analyze with different JD
       </button>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }

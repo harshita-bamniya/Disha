@@ -71,7 +71,6 @@ export default function VerifyEmailPage() {
             >Back to Dashboard</button>
           </>
         )}
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     </div>
   )

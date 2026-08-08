@@ -258,7 +258,6 @@ export default function InterviewReportPage() {
         <div style={{ width: 36, height: 36, border: '3px solid rgba(45,106,79,0.2)', borderTopColor: '#2D6A4F', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 14px' }} />
         <p style={{ fontSize: 14, color: '#64748B' }}>Loading your report...</p>
       </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 
@@ -514,7 +513,6 @@ export default function InterviewReportPage() {
         )}
       </div>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }

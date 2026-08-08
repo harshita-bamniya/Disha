@@ -2,7 +2,10 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { counsellorApi, type ConversationSummary, type MessageOut, type CounsellorMemory } from '@/api/counsellor'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
+import PageHeader from '@/shared/layouts/PageHeader'
+import ChatBubble, { type ChatBubbleTheme } from '@/shared/components/ai/ChatBubble'
+import TypingIndicator from '@/shared/components/ai/TypingIndicator'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 import { Send, Plus, Archive, MessageCircle, AlertTriangle, Briefcase, BrainCircuit, Zap, Brain, ChevronDown, ChevronUp, X, Mic, MicOff, Trash2 } from 'lucide-react'
 
@@ -19,76 +22,13 @@ const SUGGESTED_PROMPTS = [
   "I feel like I've wasted my best years. Is it too late?",
 ]
 
-// ── Message bubble ────────────────────────────────────────────────────────────
-function MessageBubble({ msg }: { msg: MessageOut | { role: string; content: string; id: string; streaming?: boolean } }) {
-  const isUser = msg.role === 'user'
-  return (
-    <div style={{
-      display: 'flex',
-      justifyContent: isUser ? 'flex-end' : 'flex-start',
-      marginBottom: 16,
-      animation: 'fadeInMsg 0.3s ease both',
-    }}>
-      {!isUser && (
-        <div style={{
-          width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-          background: 'linear-gradient(135deg, #818CF8, #6366F1)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 14, color: 'white', fontWeight: 800, marginRight: 10, marginTop: 2,
-        }}>D</div>
-      )}
-      <div style={{
-        maxWidth: '72%',
-        background: isUser ? '#2563EB' : 'white',
-        color: isUser ? 'white' : '#1e293b',
-        padding: '12px 16px',
-        borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-        fontSize: 14,
-        lineHeight: 1.7,
-        boxShadow: isUser
-          ? '0 4px 14px rgba(59,130,246,0.3)'
-          : '0 2px 8px rgba(0,0,0,0.06)',
-        border: isUser ? 'none' : '1px solid rgba(226,232,240,0.8)',
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
-      }}>
-        {msg.content}
-        {'streaming' in msg && msg.streaming && (
-          <span style={{
-            display: 'inline-block', width: 10, height: 10,
-            background: '#94A3B8', borderRadius: '50%', marginLeft: 4,
-            animation: 'blink 1s infinite',
-          }} />
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ── Typing indicator ──────────────────────────────────────────────────────────
-function TypingIndicator() {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-      <div style={{
-        width: 32, height: 32, borderRadius: '50%',
-        background: 'linear-gradient(135deg, #818CF8, #6366F1)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 14, color: 'white', fontWeight: 800, marginRight: 10,
-      }}>D</div>
-      <div style={{
-        background: 'white', padding: '12px 16px', borderRadius: '18px 18px 18px 4px',
-        border: '1px solid rgba(226,232,240,0.8)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-        display: 'flex', gap: 5,
-      }}>
-        {[0, 1, 2].map(i => (
-          <div key={i} style={{
-            width: 7, height: 7, borderRadius: '50%', background: '#94A3B8',
-            animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`,
-          }} />
-        ))}
-      </div>
-    </div>
-  )
+// ── Counsellor chat theme ─────────────────────────────────────────────────────
+const COUNSELLOR_THEME: ChatBubbleTheme = {
+  avatarBg: 'linear-gradient(135deg, #818CF8, #6366F1)',
+  avatarContent: 'D',
+  userBg: '#2563EB',
+  userColor: 'white',
+  aiBorderColor: 'rgba(226,232,240,0.8)',
 }
 
 const MEMORY_TYPE_COLORS: Record<string, string> = {
@@ -213,7 +153,7 @@ function NudgeBanner() {
           }}
         >{nudge.cta}</button>
       )}
-      <button onClick={() => setDismissed(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, opacity: 0.4, flexShrink: 0 }}>
+      <button onClick={() => setDismissed(true)} aria-label="Dismiss nudge" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, opacity: 0.4, flexShrink: 0 }}>
         <X size={12} color="#374151" />
       </button>
     </div>
@@ -374,35 +314,18 @@ export default function CounsellorPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/counsellor" />
-
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        {/* Top bar */}
-        <header style={{
-          background: 'white',
-          borderBottom: '1px solid #F1F5F9',
-          padding: '0 24px', height: 64,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          position: 'sticky', top: 0, zIndex: 20,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 30, height: 30, borderRadius: '50%',
-              background: 'linear-gradient(135deg, #818CF8, #6366F1)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 14, color: 'white', fontWeight: 700,
-            }}>D</div>
-            <div>
-              <p style={{ fontSize: 14.5, fontWeight: 700, color: '#0F172A' }}>BeginablAI Counsellor</p>
-              <p style={{ fontSize: 11.5, color: '#9CA3AF' }}>Your career guide — here whenever you need to talk</p>
-            </div>
-          </div>
+    <AspLayout activePath="/app/counsellor">
+      <PageHeader
+        title="BeginablAI Counsellor"
+        subtitle="Your career guide — here whenever you need to talk"
+        icon={<span style={{ fontSize: 12, fontWeight: 800, color: '#6366F1' }}>D</span>}
+        actions={
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#16A34A' }} />
             <span style={{ fontSize: 11, color: '#16A34A', fontWeight: 600 }}>Online</span>
           </div>
-        </header>
+        }
+      />
 
         <NudgeBanner />
         <div style={{ flex: 1, display: 'flex', minHeight: 0, background: '#FAFBFD' }}>
@@ -500,6 +423,7 @@ export default function CounsellorPage() {
                         deleteConvMutation.mutate(conv.id)
                       }
                     }}
+                    aria-label="Delete conversation"
                     title="Delete conversation"
                     style={{
                       position: 'absolute', top: '50%', right: 8, transform: 'translateY(-50%)',
@@ -607,10 +531,20 @@ export default function CounsellorPage() {
                     </div>
                   )}
                   {messages.map(m => (
-                    <MessageBubble key={m.id} msg={m} />
+                    <ChatBubble
+                      key={m.id}
+                      role={m.role as 'user' | 'assistant'}
+                      content={m.content}
+                      streaming={(m as any).streaming === true}
+                      theme={COUNSELLOR_THEME}
+                    />
                   ))}
                   {isStreaming && messages[messages.length - 1]?.role !== 'assistant' && (
-                    <TypingIndicator />
+                    <TypingIndicator
+                      avatarBg="linear-gradient(135deg, #818CF8, #6366F1)"
+                      avatarContent="D"
+                      dotColor="#94A3B8"
+                    />
                   )}
                   {error && (
                     <div style={{
@@ -679,6 +613,7 @@ export default function CounsellorPage() {
                     <button
                       onClick={handleSend}
                       disabled={!input.trim() || isStreaming}
+                      aria-label="Send message"
                       style={{
                         width: 36, height: 36, borderRadius: 10, flexShrink: 0,
                         background: input.trim() && !isStreaming
@@ -702,14 +637,7 @@ export default function CounsellorPage() {
             )}
           </div>
         </div>
-      </div>
 
-      <style>{`
-        @keyframes fadeInMsg { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }
-        @keyframes blink { 0%, 100% { opacity: 1 } 50% { opacity: 0 } }
-        @keyframes bounce { 0%, 60%, 100% { transform: translateY(0) } 30% { transform: translateY(-5px) } }
-        @keyframes spin { to { transform: rotate(360deg) } }
-      `}</style>
-    </div>
+    </AspLayout>
   )
 }

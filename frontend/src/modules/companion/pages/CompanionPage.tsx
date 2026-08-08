@@ -3,7 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   companionApi, type MessageOut, type Mood, type TimelineEntry,
 } from '@/api/companion'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
+import PageHeader from '@/shared/layouts/PageHeader'
+import ChatBubble, { type ChatBubbleTheme } from '@/shared/components/ai/ChatBubble'
+import TypingIndicator from '@/shared/components/ai/TypingIndicator'
 import {
   Send, Heart, Sparkles, BookHeart, AlertTriangle, X, Plus, Trash2, Flame,
 } from 'lucide-react'
@@ -28,58 +31,13 @@ const OPENERS = [
   "How was your day, Companion?",
 ]
 
-// ── Message bubble ────────────────────────────────────────────────────────────
-function MessageBubble({ msg }: { msg: MessageOut | { role: string; content: string; id: string; streaming?: boolean } }) {
-  const isUser = msg.role === 'user'
-  return (
-    <div style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start', marginBottom: 16, animation: 'fadeInMsg 0.3s ease both' }}>
-      {!isUser && (
-        <div style={{
-          width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-          background: 'linear-gradient(135deg, #F4A896, #E08E79)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          marginRight: 10, marginTop: 2, boxShadow: '0 2px 8px rgba(224,142,121,0.35)',
-        }}>
-          <Heart size={14} color="white" fill="white" />
-        </div>
-      )}
-      <div style={{
-        maxWidth: '72%',
-        background: isUser ? 'linear-gradient(135deg, #B98AC2, #9B6EB0)' : 'white',
-        color: isUser ? 'white' : '#3D2B2B',
-        padding: '12px 16px',
-        borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-        fontSize: 14, lineHeight: 1.7,
-        boxShadow: isUser ? '0 4px 14px rgba(155,110,176,0.3)' : '0 2px 8px rgba(120,80,60,0.07)',
-        border: isUser ? 'none' : '1px solid rgba(244,168,150,0.25)',
-        whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-      }}>
-        {msg.content}
-        {'streaming' in msg && msg.streaming && (
-          <span style={{ display: 'inline-block', width: 10, height: 10, background: '#D6A8A0', borderRadius: '50%', marginLeft: 4, animation: 'blink 1s infinite' }} />
-        )}
-      </div>
-    </div>
-  )
-}
-
-function TypingIndicator() {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
-      <div style={{
-        width: 32, height: 32, borderRadius: '50%',
-        background: 'linear-gradient(135deg, #F4A896, #E08E79)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: 10,
-      }}>
-        <Heart size={14} color="white" fill="white" />
-      </div>
-      <div style={{ background: 'white', padding: '12px 16px', borderRadius: '18px 18px 18px 4px', border: '1px solid rgba(244,168,150,0.25)', boxShadow: '0 2px 8px rgba(120,80,60,0.07)', display: 'flex', gap: 5 }}>
-        {[0, 1, 2].map(i => (
-          <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: '#E0B8AE', animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite` }} />
-        ))}
-      </div>
-    </div>
-  )
+// ── Companion chat theme ───────────────────────────────────────────────────────
+const COMPANION_THEME: ChatBubbleTheme = {
+  avatarBg: 'linear-gradient(135deg, #F4A896, #E08E79)',
+  avatarContent: <Heart size={14} color="white" fill="white" />,
+  userBg: 'linear-gradient(135deg, #B98AC2, #9B6EB0)',
+  userColor: 'white',
+  aiBorderColor: 'rgba(244,168,150,0.25)',
 }
 
 // ── Mood check-in widget ───────────────────────────────────────────────────────
@@ -200,7 +158,7 @@ function MilestonesPanel() {
     <div style={{ background: 'white', borderRadius: 14, padding: 14, border: '1px solid rgba(244,168,150,0.25)', boxShadow: '0 2px 10px rgba(120,80,60,0.06)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <p style={{ fontSize: 12, fontWeight: 700, color: '#8A5A4F' }}>Personal milestones</p>
-        <button onClick={() => setAdding(a => !a)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#E08E79' }}>
+        <button onClick={() => setAdding(a => !a)} aria-label="Add milestone" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#E08E79' }}>
           <Plus size={15} />
         </button>
       </div>
@@ -224,7 +182,7 @@ function MilestonesPanel() {
           <div key={m.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, padding: '6px 0', borderBottom: '1px solid rgba(224,142,121,0.1)' }}>
             <span style={{ fontSize: 13, marginTop: 1 }}>🌟</span>
             <p style={{ flex: 1, fontSize: 11.5, color: '#3D2B2B', margin: 0, lineHeight: 1.4 }}>{m.title}</p>
-            <button onClick={() => deleteMutation.mutate(m.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.35 }}>
+            <button onClick={() => deleteMutation.mutate(m.id)} aria-label="Delete milestone" style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.35 }}>
               <Trash2 size={11} color="#C2645A" />
             </button>
           </div>
@@ -356,33 +314,12 @@ export default function CompanionPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/companion" />
-
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        {/* Top bar */}
-        <header style={{
-          background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(20px)',
-          borderBottom: '1px solid rgba(244,168,150,0.2)',
-          padding: '0 24px', height: 64,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          position: 'sticky', top: 0, zIndex: 20,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 38, height: 38, borderRadius: '50%',
-              background: 'linear-gradient(135deg, #F4A896, #E08E79)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 12px rgba(224,142,121,0.35)',
-            }}>
-              <Heart size={18} color="white" fill="white" />
-            </div>
-            <div>
-              <p style={{ fontSize: 16, fontWeight: 800, color: '#5C3D38', fontFamily: 'Hind, sans-serif' }}>Your Companion</p>
-              <p style={{ fontSize: 11, color: '#A88B84' }}>Here to listen, remember, and walk with you</p>
-            </div>
-          </div>
-        </header>
+    <AspLayout activePath="/app/companion">
+      <PageHeader
+        title="Your Companion"
+        subtitle="Here to listen, remember, and walk with you"
+        icon={<Heart size={14} color="#E08E79" />}
+      />
 
         <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
           {/* Chat area */}
@@ -425,8 +362,22 @@ export default function CompanionPage() {
                   </div>
                 </div>
               )}
-              {messages.map(m => <MessageBubble key={m.id} msg={m} />)}
-              {isStreaming && messages[messages.length - 1]?.role !== 'assistant' && <TypingIndicator />}
+              {messages.map(m => (
+                <ChatBubble
+                  key={m.id}
+                  role={m.role as 'user' | 'assistant'}
+                  content={m.content}
+                  streaming={(m as any).streaming === true}
+                  theme={COMPANION_THEME}
+                />
+              ))}
+              {isStreaming && messages[messages.length - 1]?.role !== 'assistant' && (
+                <TypingIndicator
+                  avatarBg="linear-gradient(135deg, #F4A896, #E08E79)"
+                  avatarContent={<Heart size={14} color="white" fill="white" />}
+                  dotColor="#E0B8AE"
+                />
+              )}
               {error && (
                 <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: '#DC2626', marginBottom: 12 }}>
                   {error}
@@ -464,6 +415,7 @@ export default function CompanionPage() {
                 <button
                   onClick={() => sendMessage()}
                   disabled={!input.trim() || isStreaming}
+                  aria-label="Send message"
                   style={{
                     width: 36, height: 36, borderRadius: 10, flexShrink: 0,
                     background: input.trim() && !isStreaming ? '#E08E79' : '#F1E4DF',
@@ -502,14 +454,7 @@ export default function CompanionPage() {
             </div>
           </div>
         </div>
-      </div>
 
-      <style>{`
-        @keyframes fadeInMsg { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: translateY(0) } }
-        @keyframes blink { 0%, 100% { opacity: 1 } 50% { opacity: 0 } }
-        @keyframes bounce { 0%, 60%, 100% { transform: translateY(0) } 30% { transform: translateY(-5px) } }
-        @keyframes spin { to { transform: rotate(360deg) } }
-      `}</style>
-    </div>
+    </AspLayout>
   )
 }

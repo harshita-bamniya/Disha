@@ -13,23 +13,18 @@ import {
   AlertCircle, ArrowLeft, ArrowRight, Check,
   CheckCircle2, FileText, Loader2, Send, Upload, X,
 } from 'lucide-react'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
+import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors } from '@/design-system/tokens'
 import { applicationsApi, type AnswerIn, type FormSectionOut, type QuestionOut } from '@/api/applications'
 import { resumeLibraryApi, type ResumeFile } from '@/api/resumeLibrary'
 import { useAuthStore } from '@/stores/authStore'
 import { apiClient } from '@/api/client'
 
-// ── palette ─────────────────────────────────────────────────────────────────
-const NAVY     = '#1A2744'
-const INK      = '#1E3A5F'
-const INK_S    = '#475569'
-const MUTED    = '#94A3B8'
-const CREAM    = '#F4F5F7'
-const CREAM_DK = '#EAECF0'
-const BORDER   = 'rgba(0,0,0,0.08)'
+const INK_S    = INK_SFT
+const CREAM_DK = colors.surface.elevated
 const WHITE    = '#FFFFFF'
-const RED      = '#DC2626'
-const GREEN    = '#16A34A'
+const RED      = colors.state.danger
+const GREEN    = colors.state.success
 
 // ── types ────────────────────────────────────────────────────────────────────
 type AnswerMap = Record<string, { text?: string; number?: number; date?: string; options?: string[] }>
@@ -792,9 +787,7 @@ export default function ApplyPage() {
   const isLoading = eligLoading || (!!elig?.eligible && formLoading)
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: CREAM, fontFamily: 'Hind, sans-serif' }}>
-      <AppSidebar />
-
+    <AspLayout activePath="/app/jobs">
       <main style={{ flex: 1, padding: '32px 24px', maxWidth: 680, margin: '0 auto', width: '100%' }}>
 
         {/* loading */}
@@ -966,7 +959,6 @@ export default function ApplyPage() {
         )}
       </main>
 
-      <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
-    </div>
+    </AspLayout>
   )
 }

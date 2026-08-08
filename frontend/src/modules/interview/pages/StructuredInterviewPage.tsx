@@ -10,7 +10,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { interviewApi, type SessionDetail, type SessionFeedback, type NextQuestionResult } from '@/api/interview'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
+import PageHeader from '@/shared/layouts/PageHeader'
 import {
   Brain, ChevronRight, CheckCircle2, Loader2, Send, RotateCcw,
   ArrowLeft, Zap, AlertCircle, TrendingUp, MessageSquare, Star,
@@ -175,8 +176,7 @@ export default function StructuredInterviewPage() {
   // ── SETUP ─────────────────────────────────────────────────────────────────────
   if (phase === 'setup') {
     return (
-      <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-        <AppSidebar activePath="/app/mock-interview" />
+      <AspLayout activePath="/app/interview/setup">
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
           <div style={{ width: '100%', maxWidth: 520 }}>
             <button onClick={() => navigate(-1)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', fontSize: 13, marginBottom: 24 }}>
@@ -258,8 +258,7 @@ export default function StructuredInterviewPage() {
             </button>
           </div>
         </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-      </div>
+      </AspLayout>
     )
   }
 
@@ -271,32 +270,20 @@ export default function StructuredInterviewPage() {
       : null
 
     return (
-      <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-        <AppSidebar activePath="/app/mock-interview" />
-
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-          {/* Header */}
-          <header style={{
-            background: 'white',
-            borderBottom: '1px solid rgba(226,232,240,0.8)',
-            padding: '0 28px', height: 56,
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            position: 'sticky', top: 0, zIndex: 20,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Brain size={16} color="#3B82F6" />
-              <span style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>
-                AI-Adaptive Interview
-              </span>
-              <span style={{ fontSize: 12, color: '#94A3B8' }}>· {totalResponded} / {session?.total_questions ?? totalQ} answered</span>
-            </div>
-            {runningAvg && (
+      <AspLayout activePath="/app/interview/setup">
+        <PageHeader
+          title="AI-Adaptive Interview"
+          icon={<Brain size={16} color="#3B82F6" />}
+          subtitle={`${totalResponded} / ${session?.total_questions ?? totalQ} answered`}
+          actions={
+            runningAvg ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(59,130,246,0.08)', borderRadius: 20, padding: '5px 12px' }}>
                 <TrendingUp size={12} color="#3B82F6" />
                 <span style={{ fontSize: 12, fontWeight: 700, color: '#3B82F6' }}>Running avg: {runningAvg}/10</span>
               </div>
-            )}
-          </header>
+            ) : undefined
+          }
+        />
 
           <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 320px', gap: 24, padding: '24px 28px', alignItems: 'start' }}>
             {/* Left: Current question */}
@@ -499,31 +486,17 @@ export default function StructuredInterviewPage() {
               </div>
             </div>
           </div>
-        </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-      </div>
+      </AspLayout>
     )
   }
 
   // ── FEEDBACK ──────────────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/mock-interview" />
-
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <header style={{
-          background: 'white',
-          borderBottom: '1px solid rgba(226,232,240,0.8)',
-          padding: '0 28px', height: 56,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          position: 'sticky', top: 0, zIndex: 20,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <CheckCircle2 size={16} color="#22C55E" />
-            <span style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>
-              Interview Complete — AI Feedback
-            </span>
-          </div>
+    <AspLayout activePath="/app/interview/setup">
+      <PageHeader
+        title="Interview Complete — AI Feedback"
+        icon={<CheckCircle2 size={16} color="#22C55E" />}
+        actions={
           <button
             onClick={() => navigate('/app/mock-interview')}
             style={{
@@ -536,7 +509,8 @@ export default function StructuredInterviewPage() {
           >
             <RotateCcw size={13} /> Practice Again
           </button>
-        </header>
+        }
+      />
 
         <main style={{ padding: '28px', maxWidth: 860, margin: '0 auto' }}>
           {/* Overall score card */}
@@ -673,8 +647,6 @@ export default function StructuredInterviewPage() {
             </div>
           ))}
         </main>
-      </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-    </div>
+    </AspLayout>
   )
 }

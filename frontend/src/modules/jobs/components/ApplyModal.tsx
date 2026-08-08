@@ -15,16 +15,11 @@ import { resumeLibraryApi, type ResumeFile } from '@/api/resumeLibrary'
 import { useAuthStore } from '@/stores/authStore'
 import { apiClient } from '@/api/client'
 
-// ── palette ───────────────────────────────────────────────────────────────────
-const NAVY     = '#1A2744'
-const INK      = '#1E3A5F'
-const INK_S    = '#475569'
-const MUTED    = '#94A3B8'
-const CREAM_DK = '#EAECF0'
-const BORDER   = 'rgba(0,0,0,0.08)'
-const WHITE    = '#FFFFFF'
-const RED      = '#DC2626'
-const GREEN    = '#16A34A'
+import { NAVY, INK, INK_SFT as INK_S, MUTED, BORDER, colors } from '@/design-system/tokens'
+const CREAM_DK = colors.surface.elevated
+const WHITE    = colors.surface.card
+const RED      = colors.state.danger
+const GREEN    = colors.state.success
 
 // ── types ─────────────────────────────────────────────────────────────────────
 type AnswerMap = Record<string, { text?: string; number?: number; date?: string; options?: string[] }>
@@ -913,7 +908,6 @@ export default function ApplyModal({ jobId, jobTitle, onClose }: ApplyModalProps
         )}
       </div>
 
-      <style>{`@keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }`}</style>
     </>
   )
 }

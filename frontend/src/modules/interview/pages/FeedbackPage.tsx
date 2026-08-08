@@ -1,7 +1,8 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { interviewApi } from '@/api/interview'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
+import PageHeader from '@/shared/layouts/PageHeader'
 import { ArrowLeft, CheckCircle, TrendingUp, MessageSquare, RotateCcw, ChevronDown, ChevronUp } from 'lucide-react'
 import { useState } from 'react'
 
@@ -154,13 +155,11 @@ export default function FeedbackPage() {
   })
 
   if (isLoading) return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/interview" />
+    <AspLayout activePath="/app/interview/setup">
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: 28, height: 28, border: '3px solid rgba(45,106,79,0.2)', borderTopColor: '#2D6A4F', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
-    </div>
+    </AspLayout>
   )
 
   if (!feedback) return null
@@ -168,36 +167,28 @@ export default function FeedbackPage() {
   const overallColor = feedback.overall_avg >= 8 ? '#16A34A' : feedback.overall_avg >= 6 ? '#D97706' : '#DC2626'
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/interview" />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <header style={{
-          background: 'white',
-          borderBottom: '1px solid rgba(226,232,240,0.8)',
-          padding: '0 28px', height: 60,
-          display: 'flex', alignItems: 'center', gap: 12,
-          position: 'sticky', top: 0, zIndex: 20,
-        }}>
+    <AspLayout activePath="/app/interview/setup">
+      <PageHeader
+        title="Interview Feedback"
+        back={
           <button onClick={() => navigate('/app/interview')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 8, color: '#64748B' }}>
             <ArrowLeft size={16} />
           </button>
-          <span style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>
-            Interview Feedback
-          </span>
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 10 }}>
-            <button
-              onClick={() => navigate('/app/interview')}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '7px 14px', borderRadius: 9,
-                border: '1.5px solid rgba(45,106,79,0.3)', background: 'white',
-                color: '#2D6A4F', cursor: 'pointer', fontSize: 12, fontWeight: 700,
-              }}
-            >
-              <RotateCcw size={12} /> New Session
-            </button>
-          </div>
-        </header>
+        }
+        actions={
+          <button
+            onClick={() => navigate('/app/interview')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '7px 14px', borderRadius: 9,
+              border: '1.5px solid rgba(45,106,79,0.3)', background: 'white',
+              color: '#2D6A4F', cursor: 'pointer', fontSize: 12, fontWeight: 700,
+            }}
+          >
+            <RotateCcw size={12} /> New Session
+          </button>
+        }
+      />
 
         <main style={{ padding: '24px 28px', maxWidth: 800 }}>
           {/* Score summary */}
@@ -227,8 +218,6 @@ export default function FeedbackPage() {
             <FeedbackCard key={item.id} item={item} index={idx} />
           ))}
         </main>
-      </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-    </div>
+    </AspLayout>
   )
 }

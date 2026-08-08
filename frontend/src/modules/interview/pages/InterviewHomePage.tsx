@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { interviewApi } from '@/api/interview'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
+import PageHeader from '@/shared/layouts/PageHeader'
 import { ActivePrepBanner } from '@/components/ActivePrepBanner'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 import { MessageSquare, Play, BarChart2, ChevronRight, CheckCircle, Clock } from 'lucide-react'
@@ -50,21 +51,11 @@ export default function InterviewHomePage() {
   const recentSessions = sessions?.slice(0, 5) ?? []
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/interview" />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <header style={{
-          background: 'white',
-          borderBottom: '1px solid rgba(226,232,240,0.8)',
-          padding: '0 28px', height: 60,
-          display: 'flex', alignItems: 'center', gap: 8,
-          position: 'sticky', top: 0, zIndex: 20,
-        }}>
-          <MessageSquare size={18} color="#2D6A4F" />
-          <span style={{ fontSize: 16, fontWeight: 800, color: '#0F172A' }}>
-            Mock Interview
-          </span>
-        </header>
+    <AspLayout activePath="/app/interview/setup">
+      <PageHeader
+        title="Mock Interview"
+        icon={<MessageSquare size={16} color="#2D6A4F" />}
+      />
 
         <main style={{ padding: '24px 28px' }}>
           <ActivePrepBanner showSwitch />
@@ -253,8 +244,6 @@ export default function InterviewHomePage() {
             </div>
           </div>
         </main>
-      </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-    </div>
+    </AspLayout>
   )
 }

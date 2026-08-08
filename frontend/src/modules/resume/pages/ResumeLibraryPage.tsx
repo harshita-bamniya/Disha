@@ -4,21 +4,16 @@ import {
   Upload, FileText, Trash2, Download, Eye, Pencil, Check, X,
   AlertCircle, Loader2, FolderOpen, Sparkles,
 } from 'lucide-react'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
+import PageHeader from '@/shared/layouts/PageHeader'
+import { NAVY, INK, INK_SFT as INK_S, MUTED, CREAM, BORDER, colors } from '@/design-system/tokens'
 import { resumeLibraryApi, type ResumeFile } from '@/api/resumeLibrary'
 
-// ── palette (matches dashboard navy/cream) ────────────────────────────────────
-const NAVY     = '#1A2744'
-const INK      = '#1E3A5F'
-const INK_S    = '#475569'
-const MUTED    = '#94A3B8'
-const CREAM    = '#F4F5F7'
-const CREAM_DK = '#EAECF0'
-const BORDER   = 'rgba(0,0,0,0.08)'
+const CREAM_DK = colors.surface.elevated
 const WHITE    = '#fff'
-const GREEN    = '#16A34A'
-const RED      = '#DC2626'
-const AMBER    = '#D97706'
+const GREEN    = colors.state.success
+const RED      = colors.state.danger
+const AMBER    = colors.state.warning
 
 const MAX_BYTES = 5 * 1024 * 1024  // 5 MB
 const ALLOWED_EXT = ['pdf', 'docx', 'doc', 'rtf']
@@ -288,21 +283,12 @@ export default function ResumeLibraryPage() {
   const items = data?.resumes ?? []
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: CREAM, fontFamily: 'Hind, sans-serif' }}>
-      <AppSidebar />
-
-      <main style={{ flex: 1, padding: '32px 28px', maxWidth: 900, margin: '0 auto', width: '100%' }}>
-
-        {/* header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, gap: 16 }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: NAVY }}>
-              Resume Library
-            </h1>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: INK_S }}>
-              Upload and manage the resume files you attach to job applications.
-            </p>
-          </div>
+    <AspLayout activePath="/app/resume-library">
+      <PageHeader
+        title="Resume Library"
+        subtitle="Upload and manage the resume files you attach to job applications."
+        icon={<Upload size={14} color={NAVY} />}
+        actions={
           <button
             onClick={() => setShowUpload(v => !v)}
             style={{
@@ -316,7 +302,10 @@ export default function ResumeLibraryPage() {
             <Upload size={15} />
             Upload resume
           </button>
-        </div>
+        }
+      />
+
+      <main style={{ flex: 1, padding: '32px 28px', maxWidth: 900, margin: '0 auto', width: '100%' }}>
 
         {/* upload zone */}
         {showUpload && (
@@ -408,9 +397,6 @@ export default function ResumeLibraryPage() {
         )}
       </main>
 
-      <style>{`
-        @keyframes spin { from { transform: rotate(0deg) } to { transform: rotate(360deg) } }
-      `}</style>
-    </div>
+    </AspLayout>
   )
 }

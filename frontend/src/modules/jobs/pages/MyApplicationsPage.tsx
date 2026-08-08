@@ -5,7 +5,11 @@ import {
   ArrowUpRight, Clock, AlertTriangle, FileText, ChevronDown, ChevronUp,
   ListChecks, Hourglass, Star, TrendingUp, Download, Gift, PenLine, Mic,
 } from 'lucide-react'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
+import PageHeader from '@/shared/layouts/PageHeader'
+import Button from '@/shared/components/primitives/Button'
+import EmptyState from '@/shared/components/feedback/EmptyState'
+import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors } from '@/design-system/tokens'
 import {
   getMyApplications, getApplicationDetail, withdrawApplication,
   getMyInterviews, requestInterviewReschedule,
@@ -13,14 +17,8 @@ import {
   type ApplicationOut, type ApplicationStatusHistoryItem,
 } from '@/api/matching'
 
-// ── palette ────────────────────────────────────────────────────────────────────
-const NAVY     = '#1A2744'
-const INK      = '#1E3A5F'
-const INK_S    = '#475569'
-const MUTED    = '#94A3B8'
-const CREAM    = '#F4F5F7'
-const CREAM_DK = '#EAECF0'
-const BORDER   = 'rgba(0,0,0,0.08)'
+const INK_S    = INK_SFT
+const CREAM_DK = colors.surface.elevated
 const WHITE    = '#fff'
 
 // ── status config ──────────────────────────────────────────────────────────────
@@ -187,14 +185,10 @@ function WithdrawPanel({ app, onDone, onCancel }: { app: ApplicationOut; onDone:
       <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Add a note (optional)" rows={2}
         style={{ width: '100%', fontSize: 12, padding: '7px 9px', borderRadius: 7, border: '1px solid #FED7AA', resize: 'vertical', outline: 'none', fontFamily: 'inherit', marginBottom: 10, boxSizing: 'border-box' }} />
       <div style={{ display: 'flex', gap: 7 }}>
-        <button disabled={!reason || mutation.isPending} onClick={() => mutation.mutate()}
-          style={{ fontSize: 12, fontWeight: 700, color: WHITE, background: reason ? '#DC2626' : '#FCA5A5', border: 'none', borderRadius: 8, padding: '7px 14px', cursor: reason ? 'pointer' : 'not-allowed' }}>
+        <Button variant="danger" size="sm" disabled={!reason} loading={mutation.isPending} onClick={() => mutation.mutate()}>
           {mutation.isPending ? 'Withdrawing…' : 'Confirm Withdrawal'}
-        </button>
-        <button onClick={onCancel}
-          style={{ fontSize: 12, fontWeight: 600, color: INK_S, background: WHITE, border: `1px solid ${BORDER}`, borderRadius: 8, padding: '7px 12px', cursor: 'pointer' }}>
-          Cancel
-        </button>
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onCancel}>Cancel</Button>
       </div>
     </div>
   )
@@ -235,13 +229,13 @@ function InterviewsSection({ applicationId }: { applicationId: string }) {
                   ? <div style={{ marginTop: 7, display: 'flex', flexDirection: 'column', gap: 5 }}>
                       <textarea value={note} onChange={e => setNote(e.target.value)} placeholder="Reason for reschedule…" rows={2} maxLength={500} style={{ border: `1px solid ${BORDER}`, borderRadius: 7, padding: '5px 7px', fontSize: 11.5, resize: 'none', fontFamily: 'inherit' }} />
                       <div style={{ display: 'flex', gap: 5 }}>
-                        <button onClick={() => { setRequestingId(null); setNote('') }} style={{ flex: 1, padding: 5, borderRadius: 7, border: `1px solid ${BORDER}`, background: WHITE, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
-                        <button onClick={() => requestMutation.mutate(iv.id)} disabled={!note.trim() || requestMutation.isPending} style={{ flex: 1, padding: 5, borderRadius: 7, border: 'none', background: NAVY, color: WHITE, fontSize: 11, fontWeight: 700, cursor: 'pointer', opacity: !note.trim() ? 0.5 : 1 }}>
+                        <Button variant="ghost" size="sm" style={{ flex: 1 }} onClick={() => { setRequestingId(null); setNote('') }}>Cancel</Button>
+                        <Button size="sm" style={{ flex: 1 }} disabled={!note.trim()} loading={requestMutation.isPending} onClick={() => requestMutation.mutate(iv.id)}>
                           {requestMutation.isPending ? 'Sending…' : 'Send request'}
-                        </button>
+                        </Button>
                       </div>
                     </div>
-                  : <button onClick={() => setRequestingId(iv.id)} style={{ fontSize: 11, fontWeight: 700, color: NAVY, background: 'none', border: 'none', cursor: 'pointer', marginTop: 5, padding: 0 }}>Request a different time</button>
+                  : <Button variant="ghost" size="sm" style={{ padding: 0, height: 'auto', marginTop: 5 }} onClick={() => setRequestingId(iv.id)}>Request a different time</Button>
               )
             }
           </div>
@@ -276,15 +270,21 @@ function OfferLetterSection({ applicationId }: { applicationId: string }) {
           </span>
         </div>
         <p style={{ fontSize: 11.5, color: INK_S, margin: '0 0 8px' }}>{offer.salary_ctc} · {offer.work_location} · Starts {offer.start_date}</p>
-        <button onClick={() => downloadMyOfferLetterPdf(applicationId)} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: NAVY, background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginBottom: offer.status === 'sent' ? 10 : 0 }}>
+        <Button variant="ghost" size="sm" style={{ padding: 0, height: 'auto', marginBottom: offer.status === 'sent' ? 10 : 0 }} onClick={() => downloadMyOfferLetterPdf(applicationId)}>
           <Download size={11} /> View / Download PDF
-        </button>
+        </Button>
         {offer.status === 'accepted' && <p style={{ fontSize: 11, color: '#059669', margin: '6px 0 0' }}>Signed by <strong>{offer.signature_name}</strong>{offer.responded_at ? ` on ${fmtDate(offer.responded_at)}` : ''}.</p>}
         {offer.status === 'declined' && <p style={{ fontSize: 11, color: '#DC2626', margin: '6px 0 0' }}>You declined this offer{offer.decline_reason ? `: "${offer.decline_reason}"` : '.'}.</p>}
         {offer.status === 'sent' && mode === 'idle' && (
           <div style={{ display: 'flex', gap: 7 }}>
-            <button onClick={() => setMode('accept')} style={{ flex: 1, height: 32, borderRadius: 7, border: 'none', background: '#059669', color: WHITE, fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>Accept &amp; Sign</button>
-            <button onClick={() => setMode('decline')} style={{ flex: 1, height: 32, borderRadius: 7, border: '1px solid #FCA5A5', background: WHITE, color: '#DC2626', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}>Decline</button>
+            <button
+              onClick={() => setMode('accept')}
+              style={{ flex: 1, height: 32, borderRadius: 7, border: 'none', background: '#059669', color: WHITE, fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
+            >Accept &amp; Sign</button>
+            <button
+              onClick={() => setMode('decline')}
+              style={{ flex: 1, height: 32, borderRadius: 7, border: '1px solid #FCA5A5', background: WHITE, color: '#DC2626', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
+            >Decline</button>
           </div>
         )}
         {offer.status === 'sent' && mode === 'accept' && (
@@ -296,10 +296,12 @@ function OfferLetterSection({ applicationId }: { applicationId: string }) {
               I have read and agree to the terms. This typed name is my digital signature.
             </label>
             <div style={{ display: 'flex', gap: 5 }}>
-              <button onClick={() => { setMode('idle'); setSignatureName(''); setConfirmChecked(false) }} style={{ flex: 1, padding: 6, borderRadius: 7, border: `1px solid ${BORDER}`, background: WHITE, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
-              <button onClick={() => acceptMutation.mutate()} disabled={!signatureName.trim() || !confirmChecked || acceptMutation.isPending} style={{ flex: 1, padding: 6, borderRadius: 7, border: 'none', background: '#059669', color: WHITE, fontSize: 11, fontWeight: 700, cursor: 'pointer', opacity: (!signatureName.trim() || !confirmChecked) ? 0.5 : 1 }}>
-                {acceptMutation.isPending ? 'Signing…' : 'Confirm & Sign'}
-              </button>
+              <Button variant="ghost" size="sm" style={{ flex: 1 }} onClick={() => { setMode('idle'); setSignatureName(''); setConfirmChecked(false) }}>Cancel</Button>
+              <button
+                onClick={() => acceptMutation.mutate()}
+                disabled={!signatureName.trim() || !confirmChecked || acceptMutation.isPending}
+                style={{ flex: 1, padding: 6, borderRadius: 7, border: 'none', background: '#059669', color: WHITE, fontSize: 11, fontWeight: 700, cursor: 'pointer', opacity: (!signatureName.trim() || !confirmChecked) ? 0.5 : 1 }}
+              >{acceptMutation.isPending ? 'Signing…' : 'Confirm & Sign'}</button>
             </div>
           </div>
         )}
@@ -307,10 +309,10 @@ function OfferLetterSection({ applicationId }: { applicationId: string }) {
           <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 7, background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 9, padding: 10 }}>
             <textarea value={declineReason} onChange={e => setDeclineReason(e.target.value)} placeholder="Reason (optional)" rows={2} maxLength={500} style={{ border: '1px solid #FECACA', borderRadius: 7, padding: '6px 9px', fontSize: 11.5, resize: 'none', fontFamily: 'inherit' }} />
             <div style={{ display: 'flex', gap: 5 }}>
-              <button onClick={() => { setMode('idle'); setDeclineReason('') }} style={{ flex: 1, padding: 6, borderRadius: 7, border: `1px solid ${BORDER}`, background: WHITE, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
-              <button onClick={() => declineMutation.mutate()} disabled={declineMutation.isPending} style={{ flex: 1, padding: 6, borderRadius: 7, border: 'none', background: '#DC2626', color: WHITE, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+              <Button variant="ghost" size="sm" style={{ flex: 1 }} onClick={() => { setMode('idle'); setDeclineReason('') }}>Cancel</Button>
+              <Button variant="danger" size="sm" style={{ flex: 1 }} loading={declineMutation.isPending} onClick={() => declineMutation.mutate()}>
                 {declineMutation.isPending ? 'Submitting…' : 'Confirm Decline'}
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -460,17 +462,18 @@ function TimelineCard({ app, isLast }: { app: ApplicationOut; isLast: boolean })
 
             {/* action buttons */}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button onClick={() => navigate(`/app/jobs/${app.job_id}`)}
-                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, fontSize: 12.5, fontWeight: 700, background: NAVY, color: WHITE, border: 'none', borderRadius: 9, padding: '9px 0', cursor: 'pointer' }}>
+              <Button size="sm" style={{ flex: 1 }} onClick={() => navigate(`/app/jobs/${app.job_id}`)}>
                 View Full Job Posting <ArrowUpRight size={13} />
-              </button>
+              </Button>
               {canWithdraw && !withdrawing && (
-                <button onClick={e => { e.stopPropagation(); setWithdrawing(true) }}
-                  style={{ fontSize: 12, fontWeight: 600, color: MUTED, background: WHITE, border: `1px solid ${BORDER}`, borderRadius: 9, padding: '9px 14px', cursor: 'pointer' }}
-                  onMouseOver={e => { e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.borderColor = '#FCA5A5' }}
-                  onMouseOut={e => { e.currentTarget.style.color = MUTED; e.currentTarget.style.borderColor = BORDER }}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={e => { e.stopPropagation(); setWithdrawing(true) }}
+                  className="text-gray-400 border border-gray-200 hover:text-red-600 hover:border-red-200"
+                >
                   Withdraw
-                </button>
+                </Button>
               )}
             </div>
 
@@ -558,33 +561,22 @@ export default function MyApplicationsPage() {
   ]
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: CREAM }}>
-      <AppSidebar activePath="/app/jobs/applications" />
-
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-
-        {/* top bar */}
-        <header style={{ background: WHITE, borderBottom: `1px solid ${BORDER}`, padding: '0 24px', height: 58, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 20 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-            <div style={{ width: 27, height: 27, borderRadius: '50%', background: NAVY, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <FileText size={13} color={WHITE} />
-            </div>
-            <div>
-              <p style={{ fontSize: 14, fontWeight: 700, color: INK, margin: 0 }}>Application Pipeline</p>
-              <p style={{ fontSize: 11, color: MUTED, margin: 0 }}>Track every application from submission to offer</p>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={exportToCSV} disabled={all.length === 0}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: INK_S, background: WHITE, border: `1px solid ${BORDER}`, borderRadius: 9, padding: '7px 13px', cursor: all.length === 0 ? 'not-allowed' : 'pointer', opacity: all.length === 0 ? 0.5 : 1 }}>
+    <AspLayout activePath="/app/jobs/applications">
+      <PageHeader
+        title="Application Pipeline"
+        subtitle="Track every application from submission to offer"
+        icon={<FileText size={13} color={NAVY} />}
+        actions={
+          <>
+            <Button variant="outline" size="sm" disabled={all.length === 0} onClick={exportToCSV}>
               <Download size={13} /> Export CSV
-            </button>
-            <button onClick={() => navigate('/app/jobs')}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: WHITE, background: NAVY, border: 'none', borderRadius: 9, padding: '7px 15px', cursor: 'pointer' }}>
+            </Button>
+            <Button size="sm" onClick={() => navigate('/app/jobs')}>
               Browse Jobs <ArrowUpRight size={13} />
-            </button>
-          </div>
-        </header>
+            </Button>
+          </>
+        }
+      />
 
         <div style={{ flex: 1, overflowY: 'auto' }}>
 
@@ -646,23 +638,15 @@ export default function MyApplicationsPage() {
               )}
 
               {!isLoading && !isError && filtered.length === 0 && (
-                <div style={{ background: WHITE, border: `1px solid ${BORDER}`, borderRadius: 14, padding: '48px 24px', textAlign: 'center', maxWidth: 560 }}>
-                  <div style={{ width: 48, height: 48, borderRadius: 13, background: CREAM_DK, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-                    <FileText size={20} color={NAVY} />
-                  </div>
-                  <h3 style={{ fontSize: 15, fontWeight: 700, color: INK, margin: '0 0 6px' }}>
-                    {filter === 'all' ? 'No applications yet' : `No ${filter} applications`}
-                  </h3>
-                  <p style={{ fontSize: 13, color: MUTED, margin: '0 0 18px' }}>
-                    {filter === 'all' ? "Once you apply to jobs, they'll appear here." : 'Try a different filter.'}
-                  </p>
-                  {filter === 'all' && (
-                    <button onClick={() => navigate('/app/jobs')}
-                      style={{ fontSize: 13, fontWeight: 700, color: WHITE, background: NAVY, border: 'none', borderRadius: 10, padding: '10px 22px', cursor: 'pointer' }}>
-                      Browse Jobs →
-                    </button>
-                  )}
-                </div>
+                <EmptyState
+                  icon={<FileText size={20} />}
+                  title={filter === 'all' ? 'No applications yet' : `No ${filter} applications`}
+                  description={filter === 'all' ? "Once you apply to jobs, they'll appear here." : 'Try a different filter.'}
+                  action={filter === 'all'
+                    ? <Button size="sm" onClick={() => navigate('/app/jobs')}>Browse Jobs →</Button>
+                    : undefined
+                  }
+                />
               )}
 
               {!isLoading && !isError && grouped.map(([month, apps]) => (
@@ -678,11 +662,7 @@ export default function MyApplicationsPage() {
             </div>
           </div>
         </div>
-      </div>
 
-      <style>{`
-        @keyframes spin    { to { transform: rotate(360deg); } }
-      `}</style>
-    </div>
+    </AspLayout>
   )
 }

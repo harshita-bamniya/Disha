@@ -1106,7 +1106,6 @@ export default function CandidatePipelinePage() {
   if(isLoading)return(
     <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center'}}>
       <div style={{width:36,height:36,border:'3px solid rgba(59,130,246,0.2)',borderTopColor:'#3B82F6',borderRadius:'50%',animation:'spin 0.8s linear infinite'}}/>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   )
 
@@ -1290,7 +1289,6 @@ export default function CandidatePipelinePage() {
           </div>
         )}
       </div>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
+import PageHeader from '@/shared/layouts/PageHeader'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 import JobLearningPlanPanel from '../components/JobLearningPlanPanel'
 import RoadmapCounsellorPanel from '../components/RoadmapCounsellorPanel'
@@ -40,19 +41,12 @@ export default function RoadmapPage() {
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null)
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/roadmap" />
-
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-
-        {/* Header */}
-        <header style={{
-          background: 'white',
-          borderBottom: '1px solid rgba(37,99,235,0.08)',
-          padding: '0 28px', height: 64,
-          display: 'flex', alignItems: 'center', gap: 12,
-          position: 'sticky', top: 0, zIndex: 20,
-        }}>
+    <AspLayout activePath="/app/roadmap">
+      <PageHeader
+        title="My Roadmap"
+        subtitle={activePrep ? 'Your AI job assistant' : undefined}
+        icon={<Map size={15} color="#6366F1" />}
+        back={
           <button
             onClick={() => navigate('/app/roadmap/history')}
             title="Back to all roadmaps"
@@ -60,25 +54,15 @@ export default function RoadmapPage() {
               width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
               background: 'none', border: 'none',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', color: '#6B7280', transition: 'background 0.15s',
+              cursor: 'pointer', color: '#6B7280',
             }}
             onMouseOver={e => { e.currentTarget.style.background = '#F3F4F6' }}
             onMouseOut={e => { e.currentTarget.style.background = 'none' }}
           >
             <ArrowLeft size={17} />
           </button>
-          <div style={{
-            width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
-            background: 'linear-gradient(135deg, #818CF8, #6366F1)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Map size={15} color="white" />
-          </div>
-          <div>
-            <p style={{ fontSize: 14.5, fontWeight: 700, color: '#111827', margin: 0 }}>My Roadmap</p>
-            {activePrep && <p style={{ fontSize: 11.5, color: '#9CA3AF', margin: 0 }}>Your AI job assistant</p>}
-          </div>
-        </header>
+        }
+      />
 
         <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
           <main style={{ padding: '32px 36px', flex: 1, minWidth: 0, overflowY: 'auto' }}>
@@ -114,9 +98,7 @@ export default function RoadmapPage() {
             />
           )}
         </div>
-      </div>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-    </div>
+    </AspLayout>
   )
 }

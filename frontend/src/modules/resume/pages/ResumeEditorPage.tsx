@@ -2,7 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { resumeApi, type ResumeSection, type ResumeDetail } from '@/api/resume'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
+import PageHeader from '@/shared/layouts/PageHeader'
 import { ActivePrepBanner } from '@/components/ActivePrepBanner'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 import ResumeCopilotPanel from '@/modules/resume/components/ResumeCopilotPanel'
@@ -721,13 +722,11 @@ export default function ResumeEditorPage() {
   }, [sections, resumeId, qc])
 
   if (isLoading) return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/resume" />
+    <AspLayout activePath="/app/resume">
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: 28, height: 28, border: '3px solid #1A2744', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
-    </div>
+    </AspLayout>
   )
   if (!resume) return null
 
@@ -735,41 +734,30 @@ export default function ResumeEditorPage() {
   const availableTypes = ALL_SECTION_TYPES.filter(t => !existingTypes.has(t))
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/resume" />
-
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        {/* top bar */}
-        <header style={{
-          background: 'white',
-          borderBottom: '1px solid rgba(0,0,0,0.08)',
-          padding: '0 24px', height: 64,
-          display: 'flex', alignItems: 'center', gap: 10,
-          position: 'sticky', top: 0, zIndex: 20,
-        }}>
+    <AspLayout activePath="/app/resume">
+      <PageHeader
+        title={resume.title}
+        back={
           <button onClick={() => navigate('/app/resume')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 8, color: '#9CA3AF' }}>
             <ArrowLeft size={16} />
           </button>
-          <span style={{ fontSize: 14, fontWeight: 700, color: '#111827', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {resume.title}
-          </span>
-
-          <div style={{ display: 'flex', background: '#F1F5F9', borderRadius: 10, padding: 3, marginLeft: 8, gap: 2 }}>
-            {(['preview', 'edit'] as const).map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} style={{
-                padding: '5px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none',
-                background: activeTab === tab ? 'white' : 'transparent',
-                color: activeTab === tab ? '#0F172A' : '#94A3B8',
-                boxShadow: activeTab === tab ? '0 1px 4px rgba(15,23,42,0.1)' : 'none',
-                display: 'flex', alignItems: 'center', gap: 5, transition: 'all 0.15s',
-              }}>
-                {tab === 'preview' ? <Eye size={12} /> : <Edit3 size={12} />}
-                {tab === 'preview' ? 'Preview' : 'Edit'}
-              </button>
-            ))}
-          </div>
-
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+        }
+        actions={
+          <>
+            <div style={{ display: 'flex', background: '#F1F5F9', borderRadius: 10, padding: 3, gap: 2 }}>
+              {(['preview', 'edit'] as const).map(tab => (
+                <button key={tab} onClick={() => setActiveTab(tab)} style={{
+                  padding: '5px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none',
+                  background: activeTab === tab ? 'white' : 'transparent',
+                  color: activeTab === tab ? '#0F172A' : '#94A3B8',
+                  boxShadow: activeTab === tab ? '0 1px 4px rgba(15,23,42,0.1)' : 'none',
+                  display: 'flex', alignItems: 'center', gap: 5, transition: 'all 0.15s',
+                }}>
+                  {tab === 'preview' ? <Eye size={12} /> : <Edit3 size={12} />}
+                  {tab === 'preview' ? 'Preview' : 'Edit'}
+                </button>
+              ))}
+            </div>
             {resume.ats_score !== null && (
               <button
                 onClick={() => setScoreExpanded(v => !v)}
@@ -801,11 +789,12 @@ export default function ResumeEditorPage() {
             }}>
               <Wand2 size={13} />AI Generate
             </button>
-          </div>
-        </header>
+          </>
+        }
+      />
 
-        {/* body */}
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+      {/* body */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
           {/* LEFT: sections editor */}
           <div style={{
@@ -909,15 +898,7 @@ export default function ResumeEditorPage() {
             </div>
           )}
         </div>
-      </div>
 
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg) } }
-        @media print {
-          body > * { display: none !important; }
-          .resume-paper { display: block !important; position: fixed; top: 0; left: 0; width: 100%; }
-        }
-      `}</style>
 
       {/* Score breakdown panel — slides down from header */}
       {scoreExpanded && resume.score_breakdown && (
@@ -963,7 +944,7 @@ export default function ResumeEditorPage() {
           }}
         />
       )}
-    </div>
+    </AspLayout>
   )
 }
 
