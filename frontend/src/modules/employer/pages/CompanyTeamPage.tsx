@@ -25,6 +25,7 @@ import Button from '@/shared/components/primitives/Button'
 import Tabs, { type TabItem } from '@/shared/components/navigation/Tabs'
 import Modal from '@/shared/components/overlays/Modal'
 import Avatar from '@/shared/components/data-display/Avatar'
+import StatCard from '@/shared/components/data-display/StatCard'
 import ErrorState from '@/shared/components/feedback/ErrorState'
 import Spinner from '@/shared/components/feedback/Spinner'
 
@@ -428,42 +429,6 @@ function PermissionsModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-// ── Stat Card ──────────────────────────────────────────────────────────────────
-
-function StatCard({
-  icon, label, count, sub, onClick, color = C.accent,
-}: {
-  icon: React.ReactNode; label: string; count: number | string
-  sub?: string; onClick?: () => void; color?: string
-}) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        background: C.surface, border: `1px solid ${C.border}`, borderRadius: radius.xl,
-        padding: '16px 18px', textAlign: 'left', cursor: onClick ? 'pointer' : 'default',
-        flex: 1, minWidth: 0, transition: 'box-shadow 0.15s',
-      }}
-      onMouseEnter={e => onClick && ((e.currentTarget as HTMLElement).style.boxShadow = '0 4px 16px rgba(0,0,0,0.07)')}
-      onMouseLeave={e => ((e.currentTarget as HTMLElement).style.boxShadow = 'none')}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div style={{
-          width: 36, height: 36, borderRadius: 8,
-          background: color + '18',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          {icon}
-        </div>
-        {onClick && <ChevronRight size={15} color={C.ink3} />}
-      </div>
-      <p style={{ fontSize: 22, fontWeight: 800, color: C.ink1, margin: '0 0 2px' }}>{count}</p>
-      <p style={{ fontSize: 12, fontWeight: 600, color: C.ink2, margin: 0 }}>{label}</p>
-      {sub && <p style={{ fontSize: 11, color: C.ink3, margin: '2px 0 0' }}>{sub}</p>}
-    </button>
-  )
-}
-
 // ── Field helper ───────────────────────────────────────────────────────────────
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
@@ -567,30 +532,36 @@ export default function CompanyTeamPage() {
 
               {/* Stat row */}
               <div style={{ display: 'flex', gap: 12 }}>
-                <StatCard
-                  icon={<Users size={16} color={C.accent} />}
-                  label="Team Members"
-                  count={team?.length ?? '—'}
-                  sub="Active members"
-                  onClick={() => setTab('team')}
-                  color={C.accent}
-                />
-                <StatCard
-                  icon={<MapPin size={16} color={C.blue} />}
-                  label="Offices"
-                  count={offices?.length ?? 0}
-                  sub={offices && offices.length > 0 ? offices.map(o => o.city).join(', ') : 'No offices added'}
-                  onClick={() => setShowOffices(true)}
-                  color={C.blue}
-                />
-                <StatCard
-                  icon={<BriefcaseIcon size={16} color="#7C3AED" />}
-                  label="Departments"
-                  count={departments?.length ?? 0}
-                  sub={departments && departments.length > 0 ? departments.slice(0, 2).map(d => d.name).join(', ') + (departments.length > 2 ? '…' : '') : 'No departments added'}
-                  onClick={() => setShowDepts(true)}
-                  color="#7C3AED"
-                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <StatCard
+                    icon={Users}
+                    label="Team Members"
+                    value={team?.length ?? '—'}
+                    sub="Active members"
+                    onClick={() => setTab('team')}
+                    accent={C.accent}
+                  />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <StatCard
+                    icon={MapPin}
+                    label="Offices"
+                    value={offices?.length ?? 0}
+                    sub={offices && offices.length > 0 ? offices.map(o => o.city).join(', ') : 'No offices added'}
+                    onClick={() => setShowOffices(true)}
+                    accent={C.blue}
+                  />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <StatCard
+                    icon={BriefcaseIcon}
+                    label="Departments"
+                    value={departments?.length ?? 0}
+                    sub={departments && departments.length > 0 ? departments.slice(0, 2).map(d => d.name).join(', ') + (departments.length > 2 ? '…' : '') : 'No departments added'}
+                    onClick={() => setShowDepts(true)}
+                    accent="#7C3AED"
+                  />
+                </div>
               </div>
 
               {/* Manage cards */}

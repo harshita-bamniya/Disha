@@ -3,6 +3,7 @@ import { Activity, Database, Cpu, Server, RefreshCw, CheckCircle2, AlertCircle, 
 import { adminApi } from '@/api/admin'
 import type { DbPoolStats, QueueDepth, RedisInfo, ProcessInfo } from '@/api/admin'
 import { Spinner } from '@/modules/admin/shared/adminUI'
+import ProgressBar from '@/shared/components/data-display/ProgressBar'
 import { cn } from '@/lib/utils'
 import { colors } from '@/design-system/tokens'
 
@@ -20,11 +21,10 @@ function fmt_uptime(s: number): string {
 // ── Mini progress bar ──────────────────────────────────────────────────────────
 
 function PoolBar({ value, max, color }: { value: number; max: number; color: string }) {
-  const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0
   return (
     <div className="flex items-center gap-2">
-      <div style={{ flex: 1, height: 8, background: colors.surface.bg, borderRadius: 9999, overflow: 'hidden' }}>
-        <div style={{ height: 8, borderRadius: 9999, background: color, width: `${pct}%`, transition: 'all 0.3s' }} />
+      <div style={{ flex: 1 }}>
+        <ProgressBar value={value} max={max} color={color} height={8} />
       </div>
       <span style={{ fontSize: 12, fontWeight: 700, color: colors.text.ink, width: 48, textAlign: 'right' }}>{value}/{max}</span>
     </div>
