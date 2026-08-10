@@ -3,7 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, MessageSquare, X, Send, Clock, CheckCircle2, AlertCircle } from 'lucide-react'
 import { candidateSupportApi, type CreateTicketPayload, type TicketDetail } from '@/api/support'
 import { getApiError } from '@/api/client'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
+import PageHeader from '@/shared/layouts/PageHeader'
+import Button from '@/shared/components/primitives/Button'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -46,7 +48,7 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
       <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 520, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
           <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#0F172A' }}>New Support Ticket</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} color="#64748B" /></button>
+          <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} color="#64748B" /></button>
         </div>
 
         {error && <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#DC2626' }}>{error}</div>}
@@ -100,14 +102,15 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ padding: '9px 18px', border: '1px solid #E2E8F0', borderRadius: 8, background: '#fff', cursor: 'pointer', fontSize: 14, color: '#374151' }}>Cancel</button>
-          <button
+          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+          <Button
+            size="sm"
             onClick={() => create.mutate()}
-            disabled={!form.subject.trim() || create.isPending}
-            style={{ padding: '9px 18px', border: 'none', borderRadius: 8, background: form.subject.trim() ? '#4F7FE8' : '#CBD5E1', color: '#fff', cursor: form.subject.trim() ? 'pointer' : 'not-allowed', fontSize: 14, fontWeight: 600 }}
+            disabled={!form.subject.trim()}
+            loading={create.isPending}
           >
-            {create.isPending ? 'Submitting…' : 'Submit Ticket'}
-          </button>
+            Submit Ticket
+          </Button>
         </div>
       </div>
     </div>
@@ -149,7 +152,7 @@ function TicketThread({ ticketId, reporterId, onClose }: { ticketId: string; rep
               </div>
             )}
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} color="#64748B" /></button>
+          <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} color="#64748B" /></button>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -208,23 +211,16 @@ export default function CandidateSupportPage() {
   const tickets = data?.items ?? []
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/support" />
-
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        {/* Top bar */}
-        <header style={{ background: 'white', borderBottom: '1px solid rgba(26,39,68,0.08)', padding: '0 32px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 20 }}>
-          <div>
-            <h1 style={{ fontSize: 15, fontWeight: 700, color: '#111827', margin: 0 }}>Support</h1>
-            <p style={{ fontSize: 11.5, color: '#9CA3AF', margin: 0 }}>Get help from the Disha team</p>
-          </div>
-          <button
-            onClick={() => setShowNew(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 18px', border: 'none', borderRadius: 10, background: '#1A2744', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-          >
-            <Plus size={15} /> New Ticket
-          </button>
-        </header>
+    <AspLayout activePath="/app/support">
+      <PageHeader
+        title="Support"
+        subtitle="Get help from the Disha team"
+        actions={
+          <Button size="sm" onClick={() => setShowNew(true)}>
+            <Plus size={14} /> New Ticket
+          </Button>
+        }
+      />
 
         <main style={{ padding: '28px 32px', flex: 1, maxWidth: 900 }}>
       {showNew && <NewTicketModal onClose={() => setShowNew(false)} />}
@@ -238,9 +234,7 @@ export default function CandidateSupportPage() {
           <MessageSquare size={36} color="#CBD5E1" style={{ marginBottom: 12 }} />
           <p style={{ margin: 0, fontSize: 15, fontWeight: 600, color: '#64748B' }}>No tickets yet</p>
           <p style={{ margin: '6px 0 16px', fontSize: 13, color: '#94A3B8' }}>Submit a ticket and our support team will respond shortly.</p>
-          <button onClick={() => setShowNew(true)} style={{ padding: '9px 20px', border: 'none', borderRadius: 8, background: '#4F7FE8', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-            Submit your first ticket
-          </button>
+          <Button size="sm" onClick={() => setShowNew(true)}>Submit your first ticket</Button>
         </div>
       )}
 
@@ -279,7 +273,6 @@ export default function CandidateSupportPage() {
         </div>
       )}
         </main>
-      </div>
-    </div>
+    </AspLayout>
   )
 }

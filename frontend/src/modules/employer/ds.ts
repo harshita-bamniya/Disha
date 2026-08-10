@@ -1,29 +1,42 @@
 /**
  * Employer portal design system tokens.
  * Import `DS` and spread or reference values for consistent styling.
+ *
+ * Color constants below are aliased to design-system/tokens.ts values so
+ * existing usages throughout the employer module automatically produce the
+ * correct aspirant-aligned output. Migrate call-sites to import directly
+ * from design-system/tokens.ts over time.
  */
 import type React from 'react'
+import { colors, radius, spacing } from '@/design-system/tokens'
 
 // ── Color palette ──────────────────────────────────────────────────────────────
 export const C = {
-  bg:          '#F6F7F9',
-  surface:     '#FFFFFF',
-  border:      '#E5E7EB',
-  borderLight: '#F3F4F6',
-  ink1:        '#111827',
-  ink2:        '#6B7280',
-  ink3:        '#9CA3AF',
-  brand:       '#0F1729',
-  accent:      '#4338CA',
-  accentBg:    '#EEF2FF',
-  green:       '#16A34A',
-  greenBg:     '#F0FDF4',
-  amber:       '#D97706',
-  amberBg:     '#FFFBEB',
-  red:         '#DC2626',
-  redBg:       '#FEF2F2',
-  blue:        '#2563EB',
-  blueBg:      '#EFF6FF',
+  // Page / surface — aligned to aspirant system
+  bg:          colors.surface.bg,       // was #F6F7F9 → now #F4F5F7
+  surface:     colors.surface.card,     // #FFFFFF (unchanged)
+  border:      colors.border.default,   // was #E5E7EB → now rgba(0,0,0,0.08)
+  borderLight: colors.border.default,   // was #F3F4F6 → now rgba(0,0,0,0.08)
+
+  // Text — aligned to aspirant ink scale
+  ink1:        colors.text.ink,         // was #111827 → now #1E3A5F
+  ink2:        colors.text.inkSoft,     // was #6B7280 → now #475569
+  ink3:        colors.text.muted,       // was #9CA3AF → now #94A3B8
+
+  // Brand — aligned to aspirant brand navy
+  brand:       colors.brand.navy,       // was #0F1729 → now #1A2744
+  accent:      colors.state.info,       // was #4338CA indigo → now #2563EB info-blue
+  accentBg:    colors.state.infoBg,     // was #EEF2FF → now #EFF6FF
+
+  // Status colors — kept as-is (match design-system/tokens state values)
+  green:       colors.state.success,
+  greenBg:     colors.state.successBg,
+  amber:       colors.state.warning,
+  amberBg:     colors.state.warningBg,
+  red:         colors.state.danger,
+  redBg:       colors.state.dangerBg,
+  blue:        colors.state.info,
+  blueBg:      colors.state.infoBg,
 } as const
 
 // ── Status system ──────────────────────────────────────────────────────────────
@@ -60,45 +73,20 @@ export const STATUS: Record<string, { color: string; label: string }> = {
 }
 
 // ── Shared style objects ───────────────────────────────────────────────────────
+// Page shell (pageWrap/topbar/pageTitle/pageSub/content) removed — EmployerLayout
+// + shared PageHeader now own the layout shell and typography for every page.
 export const DS = {
-  // Page shell
-  pageWrap: {
-    flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column',
-    height: '100vh', overflow: 'hidden',
-  } as React.CSSProperties,
-
-  // Top bar
-  topbar: {
-    height: 52, background: C.surface,
-    borderBottom: `1px solid ${C.border}`,
-    padding: '0 24px', flexShrink: 0,
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    position: 'sticky', top: 0, zIndex: 20,
-  } as React.CSSProperties,
-
-  pageTitle: { fontSize: 14, fontWeight: 600, color: C.ink1, margin: 0, letterSpacing: '-0.1px' } as React.CSSProperties,
-  pageSub:   { fontSize: 12, color: C.ink3, margin: '1px 0 0' } as React.CSSProperties,
-
-  // Content area
-  content: {
-    flex: 1, overflow: 'auto', background: C.bg,
-  } as React.CSSProperties,
-
-  // Filter / toolbar bar below topbar
+  // Filter / toolbar bar below the page header
   toolbar: {
-    background: C.surface, borderBottom: `1px solid ${C.border}`,
-    padding: '8px 24px', display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0,
+    background: C.surface, borderBottom: `1px solid ${colors.border.default}`,
+    padding: `8px ${spacing.layout}px`, display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0,
   } as React.CSSProperties,
-
-  inner: { padding: '16px 24px' } as React.CSSProperties,
 
   // Card
   card: {
-    background: C.surface, border: `1px solid ${C.border}`, borderRadius: 8,
+    background: C.surface, border: `1px solid ${C.border}`, borderRadius: radius.xl,  // 16px — matches aspirant cards
     overflow: 'hidden',
   } as React.CSSProperties,
-
-  cardPad: { padding: 20 } as React.CSSProperties,
 
   // Card header row
   cardHeader: {
@@ -109,64 +97,9 @@ export const DS = {
   // Table
   tHead: {
     display: 'grid', padding: '8px 16px',
-    background: '#FAFAFA', borderBottom: `1px solid ${C.border}`,
+    background: colors.surface.elevated, borderBottom: `1px solid ${C.border}`,
     fontSize: 11, fontWeight: 600, color: C.ink2,
     textTransform: 'uppercase', letterSpacing: '0.5px',
-  } as React.CSSProperties,
-
-  tRow: {
-    display: 'grid', alignItems: 'center',
-    padding: '10px 16px', borderBottom: `1px solid ${C.borderLight}`,
-    fontSize: 13, color: C.ink1, transition: 'background 0.1s',
-    cursor: 'pointer',
-  } as React.CSSProperties,
-
-  // Buttons
-  btnPrimary: {
-    display: 'inline-flex', alignItems: 'center', gap: 6,
-    padding: '7px 14px', borderRadius: 7,
-    background: C.brand, color: '#F9FAFB',
-    border: 'none', fontSize: 13, fontWeight: 600,
-    cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
-  } as React.CSSProperties,
-
-  btnSecondary: {
-    display: 'inline-flex', alignItems: 'center', gap: 6,
-    padding: '6px 12px', borderRadius: 7,
-    background: C.surface, color: C.ink1,
-    border: `1px solid ${C.border}`, fontSize: 13, fontWeight: 500,
-    cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
-  } as React.CSSProperties,
-
-  btnGhost: {
-    display: 'inline-flex', alignItems: 'center', gap: 5,
-    padding: '5px 10px', borderRadius: 6,
-    background: 'transparent', color: C.ink2,
-    border: 'none', fontSize: 12, fontWeight: 500,
-    cursor: 'pointer', whiteSpace: 'nowrap',
-  } as React.CSSProperties,
-
-  btnIcon: {
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-    width: 30, height: 30, borderRadius: 6,
-    background: 'transparent', border: `1px solid ${C.border}`,
-    color: C.ink2, cursor: 'pointer', flexShrink: 0,
-  } as React.CSSProperties,
-
-  // Inputs
-  input: {
-    width: '100%', padding: '7px 10px',
-    border: `1px solid ${C.border}`, borderRadius: 7,
-    fontSize: 13, color: C.ink1,
-    background: C.surface, outline: 'none',
-    boxSizing: 'border-box',
-  } as React.CSSProperties,
-
-  select: {
-    padding: '6px 10px',
-    border: `1px solid ${C.border}`, borderRadius: 7,
-    fontSize: 13, color: C.ink1,
-    background: C.surface, outline: 'none', cursor: 'pointer',
   } as React.CSSProperties,
 }
 

@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback, useEffect, memo } from 'react'
+import { useIsMobile } from '@/shared/hooks/useIsMobile'
 import { useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, LogOut, FileText, Briefcase, Map,
@@ -8,6 +9,7 @@ import {
 import { useKrsDashboard } from '@/modules/dashboard/hooks/useKrs'
 import { useLogout } from '@/modules/auth/hooks/useAuth'
 import NotificationBell from '@/components/NotificationBell'
+import { colors } from '@/design-system/tokens'
 
 type NavPath =
   | '/app/dashboard'
@@ -42,30 +44,22 @@ const TOOLS_NAV: { icon: React.ReactNode; label: string; path: NavPath }[] = [
 ]
 
 // White sidebar palette — navy is the brand accent on a white/light surface
-const NAVY = '#1A2744'
+const NAVY = colors.brand.navy
+const INK  = colors.text.ink
 const N06  = 'rgba(26,39,68,0.06)'   // hover bg
-const N08  = 'rgba(26,39,68,0.08)'   // active bg / borders
-const N12  = 'rgba(26,39,68,0.12)'   // stronger border
+const N08  = colors.border.default   // active bg / borders
+const N12  = colors.border.medium    // stronger border
 const N40  = 'rgba(26,39,68,0.40)'   // section labels
 const N60  = 'rgba(26,39,68,0.60)'   // inactive nav text
-const INK  = '#1E3A5F'               // primary text
 
-function useIsMobile() {
-  const [mobile, setMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768)
-  useEffect(() => {
-    const handler = () => setMobile(window.innerWidth < 768)
-    window.addEventListener('resize', handler)
-    return () => window.removeEventListener('resize', handler)
-  }, [])
-  return mobile
-}
 
-function NavBtn({ icon, label, isActive, onClick }: {
+const NavBtn = memo(function NavBtn({ icon, label, isActive, onClick }: {
   icon: React.ReactNode; label: string; isActive: boolean; onClick: () => void
 }) {
   return (
     <button
       onClick={onClick}
+      aria-current={isActive ? 'page' : undefined}
       style={{
         width: '100%', display: 'flex', alignItems: 'center',
         gap: 10, justifyContent: 'flex-start',
@@ -78,7 +72,9 @@ function NavBtn({ icon, label, isActive, onClick }: {
         borderLeft: isActive ? `2px solid ${NAVY}` : '2px solid transparent',
         cursor: 'pointer', textAlign: 'left' as const,
         fontSize: 13, fontWeight: isActive ? 700 : 500, transition: 'all 0.18s',
+        outlineOffset: 2,
       }}
+      className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#1A2744]"
       onMouseOver={e => { if (!isActive) { e.currentTarget.style.background = N06; e.currentTarget.style.color = INK } }}
       onMouseOut={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = N60 } }}
     >
@@ -86,7 +82,7 @@ function NavBtn({ icon, label, isActive, onClick }: {
       <span style={{ marginLeft: 2 }}>{label}</span>
     </button>
   )
-}
+})
 
 export default function AppSidebar({ activePath }: { activePath?: NavPath }) {
   const navigate = useNavigate()
@@ -122,6 +118,7 @@ export default function AppSidebar({ activePath }: { activePath?: NavPath }) {
         <span style={{ fontSize: 18, fontWeight: 800, color: NAVY, letterSpacing: '-0.4px' }}>BeginableAI</span>
         <button
           onClick={() => isMobile ? setMobileOpen(false) : setHidden(true)}
+          aria-label={isMobile ? 'Close menu' : 'Hide sidebar'}
           title={isMobile ? 'Close menu' : 'Hide sidebar'}
           style={{ width: 28, height: 28, borderRadius: 8, background: N06, border: `1px solid ${N08}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: N60, flexShrink: 0, transition: 'background 0.18s, color 0.18s' }}
           onMouseOver={e => { e.currentTarget.style.background = N12; e.currentTarget.style.color = NAVY }}

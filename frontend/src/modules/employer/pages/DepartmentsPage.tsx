@@ -8,23 +8,13 @@ import {
   useDepartments, useCreateDepartment, useUpdateDepartment, useDeleteDepartment,
   useTeamMembers, useHasPermission,
 } from '../hooks/useJobs'
-import NotificationBell from '@/components/NotificationBell'
 import { getApiError } from '@/api/client'
 import type { DepartmentEntry } from '@/api/company'
-
-// ── Stat pill ─────────────────────────────────────────────────────────────────
-
-function StatPill({ icon: Icon, value, label, color }: {
-  icon: React.ElementType; value: number; label: string; color: string
-}) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 9px', borderRadius: 20, background: `${color}12` }}>
-      <Icon size={12} color={color} />
-      <span style={{ fontSize: 11, fontWeight: 700, color }}>{value}</span>
-      <span style={{ fontSize: 11, color: '#94A3B8', fontWeight: 500 }}>{label}</span>
-    </div>
-  )
-}
+import Button from '@/shared/components/primitives/Button'
+import Badge from '@/shared/components/data-display/Badge'
+import ErrorState from '@/shared/components/feedback/ErrorState'
+import { colors } from '@/design-system/tokens'
+import PageHeader from '@/shared/layouts/PageHeader'
 
 // ── Department card ───────────────────────────────────────────────────────────
 
@@ -41,13 +31,13 @@ function DepartmentCard({
     <div
       onClick={() => navigate(`/app/employer/departments/${dept.id}`)}
       style={{
-        background: '#fff', border: '1px solid rgba(37,99,235,0.08)', borderRadius: 16,
+        background: '#fff', border: `1px solid ${colors.border.default}`, borderRadius: 16,
         padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
         display: 'flex', flexDirection: 'column', gap: 12,
         cursor: 'pointer', transition: 'box-shadow 0.2s, border-color 0.2s',
       }}
-      onMouseOver={e => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.08)'; e.currentTarget.style.borderColor = '#E2E8F0' }}
-      onMouseOut={e => { e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'; e.currentTarget.style.borderColor = '#F1F5F9' }}
+      onMouseOver={e => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.08)'; e.currentTarget.style.borderColor = colors.border.medium }}
+      onMouseOut={e => { e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'; e.currentTarget.style.borderColor = colors.border.default }}
     >
       {/* Header row */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
@@ -58,7 +48,7 @@ function DepartmentCard({
           <div style={{ minWidth: 0 }}>
             <p style={{ fontSize: 14, fontWeight: 800, color: '#1E3A5F', margin: 0 }}>{dept.name}</p>
             {dept.head_name && (
-              <p style={{ fontSize: 11, color: '#64748B', margin: '2px 0 0', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <p style={{ fontSize: 11, color: colors.text.inkSoft, margin: '2px 0 0', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <UserCheck size={10} /> {dept.head_name}
               </p>
             )}
@@ -66,8 +56,8 @@ function DepartmentCard({
         </div>
         {canManage && (
           <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-            <button onClick={e => { e.stopPropagation(); onEdit(dept) }} style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid rgba(37,99,235,0.09)', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Pencil size={12} color="#64748B" />
+            <button onClick={e => { e.stopPropagation(); onEdit(dept) }} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${colors.border.default}`, background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Pencil size={12} color={colors.text.inkSoft} />
             </button>
             <button onClick={e => { e.stopPropagation(); onDelete(dept) }} style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #FEE2E2', background: '#FFF5F5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Trash2 size={12} color="#EF4444" />
@@ -77,18 +67,18 @@ function DepartmentCard({
       </div>
 
       {dept.description && (
-        <p style={{ fontSize: 12, color: '#64748B', margin: 0, lineHeight: 1.5 }}>{dept.description}</p>
+        <p style={{ fontSize: 12, color: colors.text.inkSoft, margin: 0, lineHeight: 1.5 }}>{dept.description}</p>
       )}
 
       {/* Stats */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        <StatPill icon={Users}     value={dept.member_count}          label="members"    color="#3B82F6" />
-        <StatPill icon={Briefcase} value={dept.active_job_count}      label="active jobs" color="#059669" />
-        <StatPill icon={FileText}  value={dept.total_job_count}       label="total jobs"  color="#1E3A5F" />
-        <StatPill icon={Users}     value={dept.total_applicant_count} label="applicants"  color="#7C3AED" />
+        <Badge color="blue"><Users size={11} style={{ marginRight: 3 }} />{dept.member_count} members</Badge>
+        <Badge color="green"><Briefcase size={11} style={{ marginRight: 3 }} />{dept.active_job_count} active jobs</Badge>
+        <Badge color="navy"><FileText size={11} style={{ marginRight: 3 }} />{dept.total_job_count} total jobs</Badge>
+        <Badge color="purple"><Users size={11} style={{ marginRight: 3 }} />{dept.total_applicant_count} applicants</Badge>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#3B82F6', fontWeight: 700 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: colors.state.info, fontWeight: 700 }}>
         Open workspace <ChevronRight size={11} />
       </div>
     </div>
@@ -134,44 +124,44 @@ function DeptModal({
           <h3 style={{ fontSize: 16, fontWeight: 800, color: '#1E3A5F', margin: 0 }}>
             {editing ? 'Edit department' : 'New department'}
           </h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: 4 }}>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.text.muted, padding: 4 }}>
             <X size={18} />
           </button>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: '#374151', display: 'block', marginBottom: 4 }}>
+            <label style={{ fontSize: 12, fontWeight: 700, color: colors.text.inkSoft, display: 'block', marginBottom: 4 }}>
               Name <span style={{ color: '#EF4444' }}>*</span>
             </label>
             <input
               value={name}
               onChange={e => { setName(e.target.value); setErr('') }}
               placeholder="e.g. Engineering, Policy Research, HR"
-              style={{ width: '100%', height: 40, borderRadius: 10, border: '1.5px solid #E5E7EB', padding: '0 12px', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+              style={{ width: '100%', height: 40, borderRadius: 10, border: `1.5px solid ${colors.border.default}`, padding: '0 12px', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
               autoFocus
             />
           </div>
 
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: '#374151', display: 'block', marginBottom: 4 }}>
-              Description <span style={{ color: '#9CA3AF', fontWeight: 500 }}>(optional)</span>
+            <label style={{ fontSize: 12, fontWeight: 700, color: colors.text.inkSoft, display: 'block', marginBottom: 4 }}>
+              Description <span style={{ color: colors.text.muted, fontWeight: 500 }}>(optional)</span>
             </label>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
               placeholder="What does this department focus on?"
               rows={3}
-              style={{ width: '100%', borderRadius: 10, border: '1.5px solid #E5E7EB', padding: '10px 12px', fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
+              style={{ width: '100%', borderRadius: 10, border: `1.5px solid ${colors.border.default}`, padding: '10px 12px', fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
             />
           </div>
 
           {teamMembers.length > 0 && (
             <div>
-              <label style={{ fontSize: 12, fontWeight: 700, color: '#374151', display: 'block', marginBottom: 4 }}>
-                Department Head <span style={{ color: '#9CA3AF', fontWeight: 500 }}>(optional)</span>
+              <label style={{ fontSize: 12, fontWeight: 700, color: colors.text.inkSoft, display: 'block', marginBottom: 4 }}>
+                Department Head <span style={{ color: colors.text.muted, fontWeight: 500 }}>(optional)</span>
               </label>
-              <select value={headId} onChange={e => setHeadId(e.target.value)} style={{ width: '100%', height: 40, borderRadius: 10, border: '1.5px solid #E5E7EB', padding: '0 12px', fontSize: 13, background: 'white', outline: 'none', boxSizing: 'border-box' }}>
+              <select value={headId} onChange={e => setHeadId(e.target.value)} style={{ width: '100%', height: 40, borderRadius: 10, border: `1.5px solid ${colors.border.default}`, padding: '0 12px', fontSize: 13, background: 'white', outline: 'none', boxSizing: 'border-box' }}>
                 <option value="">— No head assigned —</option>
                 {teamMembers.map(m => (
                   <option key={m.employer_profile_id} value={m.employer_profile_id}>{m.contact_person}</option>
@@ -183,12 +173,10 @@ function DeptModal({
           {err && <p style={{ fontSize: 12, color: '#EF4444', margin: 0 }}>{err}</p>}
 
           <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-            <button onClick={onClose} disabled={busy} style={{ flex: 1, height: 40, borderRadius: 10, border: '1.5px solid #E5E7EB', background: 'white', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#374151' }}>
-              Cancel
-            </button>
-            <button onClick={handleSave} disabled={busy} style={{ flex: 2, height: 40, borderRadius: 10, border: 'none', background: '#1E3A5F', cursor: busy ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 700, color: 'white', opacity: busy ? 0.7 : 1 }}>
+            <Button variant="outline" className="flex-1" onClick={onClose} disabled={busy}>Cancel</Button>
+            <Button className="flex-1" style={{ flex: 2 }} onClick={handleSave} loading={busy}>
               {busy ? 'Saving…' : editing ? 'Save changes' : 'Create department'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -199,7 +187,7 @@ function DeptModal({
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function DepartmentsPage() {
-  const { data: departments, isLoading } = useDepartments()
+  const { data: departments, isLoading, isError, refetch } = useDepartments()
   const { data: team } = useTeamMembers()
   const deleteDept = useDeleteDepartment()
   const canManage  = useHasPermission('departments:write')
@@ -230,25 +218,12 @@ export default function DepartmentsPage() {
   const totalApplicants = (departments ?? []).reduce((s, d) => s + d.total_applicant_count, 0)
 
   return (
-    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-
-        {/* Top bar */}
-        <header style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(37,99,235,0.08)', padding: '0 32px', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 20 }}>
-          <div>
-            <h1 style={{ fontSize: 15, fontWeight: 700, color: '#0F172A', margin: 0 }}>Departments</h1>
-            <p style={{ fontSize: 12, color: '#9CA3AF' }}>
-              {(departments ?? []).length} department{(departments ?? []).length !== 1 ? 's' : ''} · {totalMembers} members · {totalActiveJobs} active jobs
-            </p>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <NotificationBell />
-            {canManage && (
-              <button onClick={openCreate} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 9, background: '#1E3A5F', color: 'white', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                <Plus size={14} />New Department
-              </button>
-            )}
-          </div>
-        </header>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+      <PageHeader
+        title="Departments"
+        subtitle="Manage your organization structure"
+        actions={canManage ? <Button size="sm" onClick={openCreate}><Plus size={14} />New Department</Button> : undefined}
+      />
 
         <main style={{ padding: '28px 32px', flex: 1 }}>
 
@@ -257,7 +232,7 @@ export default function DepartmentsPage() {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
               {[
                 { icon: Building2, label: 'Departments',   value: departments!.length, color: '#1E3A5F' },
-                { icon: Users,     label: 'Team members',  value: totalMembers,        color: '#3B82F6' },
+                { icon: Users,     label: 'Team members',  value: totalMembers,        color: colors.brand.navy },
                 { icon: Briefcase, label: 'Active jobs',   value: totalActiveJobs,     color: '#059669' },
                 { icon: Users,     label: 'Applicants',    value: totalApplicants,     color: '#7C3AED' },
               ].map(({ icon: Icon, label, value, color }) => (
@@ -287,6 +262,8 @@ export default function DepartmentsPage() {
                 </div>
               ))}
             </div>
+          ) : isError ? (
+            <ErrorState title="Failed to load departments" onRetry={refetch} />
           ) : !departments?.length ? (
             <div style={{ textAlign: 'center', padding: '80px 20px' }}>
               <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(30,58,95,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
@@ -298,9 +275,7 @@ export default function DepartmentsPage() {
                 Each department gets its own workspace with jobs, applicants, and analytics.
               </p>
               {canManage && (
-                <button onClick={openCreate} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, height: 40, padding: '0 20px', borderRadius: 11, border: 'none', background: '#1E3A5F', color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                  <Plus size={14} /> Create first department
-                </button>
+                <Button size="sm" onClick={openCreate}><Plus size={14} /> Create first department</Button>
               )}
             </div>
           ) : (
@@ -318,20 +293,20 @@ export default function DepartmentsPage() {
                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
                     minHeight: 140, transition: 'border-color 0.2s, background 0.2s',
                   }}
-                    onMouseOver={e => { e.currentTarget.style.borderColor = 'rgba(59,130,246,0.4)'; e.currentTarget.style.background = 'rgba(59,130,246,0.03)' }}
+                    onMouseOver={e => { e.currentTarget.style.borderColor = 'rgba(26,39,68,0.3)'; e.currentTarget.style.background = 'rgba(26,39,68,0.03)' }}
                     onMouseOut={e => { e.currentTarget.style.borderColor = 'rgba(30,58,95,0.18)'; e.currentTarget.style.background = 'transparent' }}
                   >
-                    <div style={{ width: 40, height: 40, borderRadius: 11, background: 'rgba(59,130,246,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Plus size={18} color="#3B82F6" />
+                    <div style={{ width: 40, height: 40, borderRadius: 11, background: 'rgba(26,39,68,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Plus size={18} color={colors.brand.navy} />
                     </div>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: '#3B82F6', margin: 0 }}>New Department</p>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: colors.brand.navy, margin: 0 }}>New Department</p>
                     <p style={{ fontSize: 11, color: '#94A3B8', margin: 0 }}>Add another department</p>
                   </button>
                 )}
               </div>
 
               <div style={{ marginTop: 20, textAlign: 'center' }}>
-                <Link to="/app/employer/company" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#3B82F6', fontWeight: 600, textDecoration: 'none' }}>
+                <Link to="/app/employer/company" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: colors.state.info, fontWeight: 600, textDecoration: 'none' }}>
                   Manage team members & assign departments <ChevronRight size={12} />
                 </Link>
               </div>
@@ -348,15 +323,13 @@ export default function DepartmentsPage() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}>
           <div style={{ background: '#fff', borderRadius: 20, padding: 28, maxWidth: 380, width: '100%' }}>
             <h3 style={{ fontSize: 15, fontWeight: 800, color: '#1E3A5F', margin: '0 0 8px' }}>Delete "{deleteConfirm.name}"?</h3>
-            <p style={{ fontSize: 13, color: '#64748B', margin: '0 0 16px', lineHeight: 1.5 }}>
+            <p style={{ fontSize: 13, color: colors.text.inkSoft, margin: '0 0 16px', lineHeight: 1.5 }}>
               This cannot be undone. Departments with active jobs cannot be deleted.
             </p>
             {deleteErr && <p style={{ fontSize: 12, color: '#EF4444', margin: '0 0 12px' }}>{deleteErr}</p>}
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => { setDeleteConfirm(null); setDeleteErr('') }} style={{ flex: 1, height: 40, borderRadius: 10, border: '1.5px solid #E5E7EB', background: 'white', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: '#374151' }}>Cancel</button>
-              <button onClick={handleDelete} disabled={deleteDept.isPending} style={{ flex: 1, height: 40, borderRadius: 10, border: 'none', background: '#EF4444', cursor: deleteDept.isPending ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 700, color: 'white', opacity: deleteDept.isPending ? 0.7 : 1 }}>
-                {deleteDept.isPending ? 'Deleting…' : 'Delete'}
-              </button>
+              <Button variant="outline" className="flex-1" onClick={() => { setDeleteConfirm(null); setDeleteErr('') }}>Cancel</Button>
+              <Button variant="danger" className="flex-1" onClick={handleDelete} loading={deleteDept.isPending}>Delete</Button>
             </div>
           </div>
         </div>

@@ -1,6 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
+import { Briefcase, Users, Send, UserCheck, Clock, TrendingUp } from 'lucide-react'
 import { analyticsApi } from '@/api/analytics'
 import { DS, C, fmtNum } from '../ds'
+import { colors } from '@/design-system/tokens'
+import PageHeader from '@/shared/layouts/PageHeader'
+import StatCard from '@/shared/components/data-display/StatCard'
+import ErrorState from '@/shared/components/feedback/ErrorState'
 
 const STAGE_LABELS: Record<string, string> = {
   applied: 'Applied', screening: 'Screening', shortlisted: 'Shortlisted',
@@ -8,18 +13,7 @@ const STAGE_LABELS: Record<string, string> = {
   offer_sent: 'Offer', hired: 'Hired',
 }
 
-const STAGE_COLORS = ['#4338CA', '#0891B2', '#7C3AED', '#16A34A', '#D97706', '#2563EB', '#DC2626']
-
-// ── KPI tile ──────────────────────────────────────────────────────────────────
-function KpiTile({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
-  return (
-    <div style={{ padding: '16px 20px', borderRight: `1px solid ${C.border}` }}>
-      <p style={{ fontSize: 22, fontWeight: 700, color: C.ink1, margin: 0, letterSpacing: '-0.5px', fontVariantNumeric: 'tabular-nums' }}>{value}</p>
-      <p style={{ fontSize: 11, color: C.ink2, margin: '4px 0 0', fontWeight: 500 }}>{label}</p>
-      {sub && <p style={{ fontSize: 11, color: C.ink3, margin: '2px 0 0' }}>{sub}</p>}
-    </div>
-  )
-}
+const STAGE_COLORS = [colors.state.info, '#0891B2', '#7C3AED', colors.state.success, colors.state.warning, '#2563EB', colors.state.danger]
 
 // ── Funnel bar chart ──────────────────────────────────────────────────────────
 function FunnelChart({ stages, total }: { stages: { stage: string; count: number; pct_of_total: number }[]; total: number }) {
@@ -93,12 +87,12 @@ function JobPerfTable({ jobs }: { jobs: { title: string; hired: number; total_ap
   const COLS = '1fr 90px 90px 100px'
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: COLS, padding: '8px 20px', background: '#FAFAFA', borderBottom: `1px solid ${C.border}`, fontSize: 11, fontWeight: 600, color: C.ink2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: COLS, padding: '8px 20px', background: colors.surface.bg, borderBottom: `1px solid ${C.border}`, fontSize: 11, fontWeight: 600, color: C.ink2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
         {['Job Title', 'Applications', 'Hired', 'Conversion'].map(h => <span key={h}>{h}</span>)}
       </div>
       {jobs.map((j, i) => (
         <div key={i} style={{ display: 'grid', gridTemplateColumns: COLS, padding: '10px 20px', borderBottom: `1px solid ${C.borderLight}`, fontSize: 13, alignItems: 'center' }}
-          onMouseOver={e => { e.currentTarget.style.background = '#FAFAFA' }}
+          onMouseOver={e => { e.currentTarget.style.background = colors.surface.elevated }}
           onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
         >
           <span style={{ fontWeight: 500, color: C.ink1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{j.title}</span>
@@ -122,12 +116,12 @@ function RecruiterTable({ recruiters }: { recruiters: { name: string; jobs_poste
   const COLS = '1fr 90px 90px 70px'
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: COLS, padding: '8px 20px', background: '#FAFAFA', borderBottom: `1px solid ${C.border}`, fontSize: 11, fontWeight: 600, color: C.ink2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: COLS, padding: '8px 20px', background: colors.surface.bg, borderBottom: `1px solid ${C.border}`, fontSize: 11, fontWeight: 600, color: C.ink2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
         {['Recruiter', 'Jobs Posted', 'Applications', 'Hired'].map(h => <span key={h}>{h}</span>)}
       </div>
       {recruiters.map((r, i) => (
         <div key={i} style={{ display: 'grid', gridTemplateColumns: COLS, padding: '10px 20px', borderBottom: `1px solid ${C.borderLight}`, fontSize: 13, alignItems: 'center' }}
-          onMouseOver={e => { e.currentTarget.style.background = '#FAFAFA' }}
+          onMouseOver={e => { e.currentTarget.style.background = colors.surface.elevated }}
           onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
         >
           <span style={{ fontWeight: 500, color: C.ink1 }}>{r.name}</span>
@@ -142,32 +136,35 @@ function RecruiterTable({ recruiters }: { recruiters: { name: string; jobs_poste
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function EmployerAnalyticsPage() {
-  const { data: funnel,    isLoading: fL } = useQuery({ queryKey: ['employer','analytics','funnel'],     queryFn: analyticsApi.getEmployerFunnel })
+  const { data: funnel,    isLoading: fL, isError: fE, refetch: refetchFunnel } = useQuery({ queryKey: ['employer','analytics','funnel'],     queryFn: analyticsApi.getEmployerFunnel })
   const { data: perf,      isLoading: pL } = useQuery({ queryKey: ['employer','analytics','jobs'],       queryFn: analyticsApi.getJobPerformance })
   const { data: recruiter, isLoading: rL } = useQuery({ queryKey: ['employer','analytics','recruiters'], queryFn: analyticsApi.getRecruiterPerformance })
   const { data: kpis }                     = useQuery({ queryKey: ['employer','dashboard','kpis'],       queryFn: analyticsApi.getDashboardKpis })
 
-  return (
-    <div style={DS.pageWrap}>
-      <header style={DS.topbar}>
-        <div>
-          <h1 style={DS.pageTitle}>Analytics</h1>
-          <p style={DS.pageSub}>Company-wide hiring performance</p>
-        </div>
-      </header>
+  if (fE) return (
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+      <PageHeader title="Analytics" subtitle="Hiring performance overview" />
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <ErrorState title="Analytics unavailable" description="Could not load analytics data. Please try again." onRetry={() => refetchFunnel()} />
+      </div>
+    </div>
+  )
 
-      <div style={{ ...DS.content, padding: '16px 24px' }}>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+      <PageHeader title="Analytics" subtitle="Hiring performance overview" />
+      <div style={{ padding: '20px 28px', background: colors.surface.bg, flex: 1 }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 1100 }}>
 
           {/* KPI strip */}
           {kpis && (
-            <div style={{ ...DS.card, display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)' }}>
-              <KpiTile label="Active Jobs"       value={fmtNum(kpis.active_jobs)} />
-              <KpiTile label="Total Applications" value={fmtNum(kpis.total_applications)} />
-              <KpiTile label="Offers Sent"        value={fmtNum(kpis.offers_sent)} />
-              <KpiTile label="Hires"              value={fmtNum(kpis.hires)} />
-              <KpiTile label="Avg. Days to Hire"  value={kpis.avg_time_to_hire_days != null ? `${kpis.avg_time_to_hire_days}d` : '—'} />
-              <KpiTile label="Response Rate"      value={`${kpis.response_rate_pct}%`} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 14 }}>
+              <StatCard icon={Briefcase}   label="Active Jobs"        value={fmtNum(kpis.active_jobs)} />
+              <StatCard icon={Users}       label="Total Applications" value={fmtNum(kpis.total_applications)} />
+              <StatCard icon={Send}        label="Offers Sent"        value={fmtNum(kpis.offers_sent)} />
+              <StatCard icon={UserCheck}   label="Hires"              value={fmtNum(kpis.hires)} />
+              <StatCard icon={Clock}       label="Avg. Days to Hire"  value={kpis.avg_time_to_hire_days != null ? `${kpis.avg_time_to_hire_days}d` : '—'} />
+              <StatCard icon={TrendingUp}  label="Response Rate"      value={`${kpis.response_rate_pct}%`} />
             </div>
           )}
 

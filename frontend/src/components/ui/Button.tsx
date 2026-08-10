@@ -3,7 +3,7 @@ import { Loader2 } from 'lucide-react'
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger'
-  size?: 'sm' | 'md' | 'lg'
+  size?: 'sm' | 'md' | 'lg' | 'icon'
   loading?: boolean
   fullWidth?: boolean
 }
@@ -42,6 +42,7 @@ const sizes = {
   sm: 'h-8 px-3 text-sm rounded-lg',
   md: 'h-10 px-4 text-sm rounded-xl',
   lg: 'h-12 px-6 text-base rounded-xl',
+  icon: 'h-[30px] w-[30px] rounded-md p-0',
 }
 
 export default function Button({
@@ -59,6 +60,7 @@ export default function Button({
       disabled={disabled || loading}
       className={cn(
         'inline-flex items-center justify-center gap-2 font-medium',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1A2744] focus-visible:ring-offset-2',
         'disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 disabled:hover:translate-y-0',
         variants[variant],
         sizes[size],

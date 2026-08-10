@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+﻿import { useState, useMemo } from 'react'
 import { KeyRound, Plus, Trash2, X, Copy } from 'lucide-react'
 import {
   useAdminRoles, useUpdateRolePermissions, useAdminPermissions,
@@ -7,8 +7,9 @@ import {
 import { Spinner, Empty, Badge } from '../shared/adminUI'
 import { getApiError } from '@/api/client'
 import type { RoleEntry, PermissionEntry } from '@/api/admin'
+import { colors } from '@/design-system/tokens'
+import Button from '@/shared/components/primitives/Button'
 
-const N = { navy: '#1A2744', ink: '#1E3A5F', muted: '#94A3B8', cream: '#F4F5F7', creamDk: '#EAECF0' }
 
 // ── Permission checkbox group ──────────────────────────────────────────────────
 
@@ -59,12 +60,12 @@ function PermissionMatrix({
                   className="rounded"
                 />
               )}
-              <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: N.muted }}>{resource}</p>
+              <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted }}>{resource}</p>
               <span style={{ fontSize: 10, color: '#CBD5E1', fontWeight: 500 }}>{perms.filter(p => selectedIds.includes(p.id)).length}/{perms.length}</span>
             </div>
             <div className="grid grid-cols-2 gap-1.5 pl-1">
               {perms.map(perm => (
-                <label key={perm.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: N.ink, cursor: readonly ? 'default' : 'pointer' }}>
+                <label key={perm.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: colors.text.ink, cursor: readonly ? 'default' : 'pointer' }}>
                   <input
                     type="checkbox"
                     checked={selectedIds.includes(perm.id)}
@@ -110,24 +111,22 @@ function EditModal({
       <div style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 512, width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
         <div className="flex items-start justify-between mb-4 shrink-0">
           <div>
-            <h3 style={{ fontSize: 16, fontWeight: 900, color: N.ink, textTransform: 'capitalize' }}>{role.name.replace(/_/g, ' ')}</h3>
-            <p style={{ fontSize: 12, color: N.muted, marginTop: 2 }}>{selectedIds.length} permission{selectedIds.length !== 1 ? 's' : ''} selected</p>
+            <h3 style={{ fontSize: 16, fontWeight: 900, color: colors.text.ink, textTransform: 'capitalize' }}>{role.name.replace(/_/g, ' ')}</h3>
+            <p style={{ fontSize: 12, color: colors.text.muted, marginTop: 2 }}>{selectedIds.length} permission{selectedIds.length !== 1 ? 's' : ''} selected</p>
           </div>
-          <button onClick={onClose} style={{ color: N.muted }}><X className="w-4 h-4" /></button>
+          <button onClick={onClose} aria-label="Close" style={{ color: colors.text.muted }}><X className="w-4 h-4" /></button>
         </div>
         <div className="flex-1 overflow-y-auto">
           <PermissionMatrix permissions={permissions} selectedIds={selectedIds} onChange={setSelectedIds} />
         </div>
         {update.isError && <p style={{ fontSize: 12, color: '#EF4444', marginTop: 12, flexShrink: 0 }}>{getApiError(update.error)}</p>}
         <div className="flex gap-3 mt-5 shrink-0">
-          <button onClick={onClose} style={{ flex: 1, height: 40, borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', fontSize: 14, fontWeight: 500, color: N.muted, background: '#fff' }}>Cancel</button>
-          <button
+          <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+          <Button
+            className="flex-1"
+            loading={update.isPending}
             onClick={() => update.mutate({ roleId: role.id, permissionIds: selectedIds }, { onSuccess: onClose })}
-            disabled={update.isPending}
-            style={{ flex: 1, height: 40, borderRadius: 10, background: N.navy, color: '#fff', fontSize: 14, fontWeight: 600, border: 'none', opacity: update.isPending ? 0.4 : 1 }}
-          >
-            {update.isPending ? 'Saving…' : 'Save permissions'}
-          </button>
+          >Save permissions</Button>
         </div>
       </div>
     </div>
@@ -188,16 +187,16 @@ function CreateModal({
       <div style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 512, width: '100%', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
         <div className="flex items-start justify-between mb-5 shrink-0">
           <div>
-            <h3 style={{ fontSize: 16, fontWeight: 900, color: N.ink }}>Create custom role</h3>
-            <p style={{ fontSize: 12, color: N.muted, marginTop: 2 }}>Custom roles can be assigned to sub-admins and deleted when no longer needed.</p>
+            <h3 style={{ fontSize: 16, fontWeight: 900, color: colors.text.ink }}>Create custom role</h3>
+            <p style={{ fontSize: 12, color: colors.text.muted, marginTop: 2 }}>Custom roles can be assigned to sub-admins and deleted when no longer needed.</p>
           </div>
-          <button onClick={onClose} style={{ color: N.muted }}><X className="w-4 h-4" /></button>
+          <button onClick={onClose} aria-label="Close" style={{ color: colors.text.muted }}><X className="w-4 h-4" /></button>
         </div>
 
         <div className="flex flex-col gap-4 shrink-0">
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: N.ink, marginBottom: 4, display: 'block' }}>
-              Role name <span style={{ fontWeight: 400, color: N.muted }}>(lowercase, underscores only)</span>
+            <label style={{ fontSize: 12, fontWeight: 700, color: colors.text.ink, marginBottom: 4, display: 'block' }}>
+              Role name <span style={{ fontWeight: 400, color: colors.text.muted }}>(lowercase, underscores only)</span>
             </label>
             <input
               value={name}
@@ -211,14 +210,14 @@ function CreateModal({
           </div>
 
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: N.ink, marginBottom: 4, display: 'block' }}>Description <span style={{ fontWeight: 400, color: N.muted }}>(optional)</span></label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: colors.text.ink, marginBottom: 4, display: 'block' }}>Description <span style={{ fontWeight: 400, color: colors.text.muted }}>(optional)</span></label>
             <input value={description} onChange={e => setDescription(e.target.value)} placeholder="What does this role do?" style={inputStyle} />
           </div>
 
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: N.ink, marginBottom: 4, display: 'block' }}>
+            <label style={{ fontSize: 12, fontWeight: 700, color: colors.text.ink, marginBottom: 4, display: 'block' }}>
               <Copy className="w-3 h-3 inline mr-1" />
-              Clone permissions from <span style={{ fontWeight: 400, color: N.muted }}>(optional)</span>
+              Clone permissions from <span style={{ fontWeight: 400, color: colors.text.muted }}>(optional)</span>
             </label>
             <select
               value={cloneFrom}
@@ -234,7 +233,7 @@ function CreateModal({
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', marginTop: 16, borderTop: '1px solid rgba(0,0,0,0.08)', paddingTop: 16 }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: N.muted, marginBottom: 12 }}>{selectedIds.length} permission{selectedIds.length !== 1 ? 's' : ''} selected</p>
+          <p style={{ fontSize: 12, fontWeight: 700, color: colors.text.muted, marginBottom: 12 }}>{selectedIds.length} permission{selectedIds.length !== 1 ? 's' : ''} selected</p>
           <PermissionMatrix permissions={permissions} selectedIds={selectedIds} onChange={setSelectedIds} />
         </div>
 
@@ -243,14 +242,10 @@ function CreateModal({
         )}
 
         <div className="flex gap-3 mt-5 shrink-0">
-          <button onClick={onClose} style={{ flex: 1, height: 40, borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', fontSize: 14, fontWeight: 500, color: N.muted, background: '#fff' }}>Cancel</button>
-          <button
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-            style={{ flex: 1, height: 40, borderRadius: 10, background: N.navy, color: '#fff', fontSize: 14, fontWeight: 600, border: 'none', opacity: !canSubmit ? 0.4 : 1 }}
-          >
-            {create.isPending ? 'Creating…' : 'Create role'}
-          </button>
+          <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+          <Button className="flex-1" disabled={!canSubmit} loading={create.isPending} onClick={handleSubmit}>
+            Create role
+          </Button>
         </div>
       </div>
     </div>
@@ -264,23 +259,19 @@ function DeleteConfirm({ role, onClose }: { role: RoleEntry; onClose: () => void
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
       <div style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 384, width: '100%' }}>
-        <h3 style={{ fontSize: 16, fontWeight: 900, color: N.ink, marginBottom: 8 }}>Delete role?</h3>
-        <p style={{ fontSize: 14, color: N.muted, marginBottom: 4 }}>
-          This will permanently delete <span style={{ fontWeight: 600, color: N.ink }}>"{role.name}"</span> and remove all its permission assignments.
+        <h3 style={{ fontSize: 16, fontWeight: 900, color: colors.text.ink, marginBottom: 8 }}>Delete role?</h3>
+        <p style={{ fontSize: 14, color: colors.text.muted, marginBottom: 4 }}>
+          This will permanently delete <span style={{ fontWeight: 600, color: colors.text.ink }}>"{role.name}"</span> and remove all its permission assignments.
         </p>
         <p style={{ fontSize: 12, color: '#D97706', background: '#FFFBEB', borderRadius: 10, padding: '8px 12px', marginBottom: 20 }}>
           The role must have no assigned users before it can be deleted.
         </p>
         {del.isError && <p style={{ fontSize: 12, color: '#EF4444', marginBottom: 12 }}>{getApiError(del.error)}</p>}
         <div className="flex gap-3">
-          <button onClick={onClose} style={{ flex: 1, height: 40, borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', fontSize: 14, fontWeight: 500, color: N.muted, background: '#fff' }}>Cancel</button>
-          <button
-            onClick={() => del.mutate(role.id, { onSuccess: onClose })}
-            disabled={del.isPending}
-            style={{ flex: 1, height: 40, borderRadius: 10, background: '#EF4444', color: '#fff', fontSize: 14, fontWeight: 600, border: 'none', opacity: del.isPending ? 0.4 : 1 }}
-          >
-            {del.isPending ? 'Deleting…' : 'Delete'}
-          </button>
+          <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+          <Button variant="danger" className="flex-1" loading={del.isPending} onClick={() => del.mutate(role.id, { onSuccess: onClose })}>
+            Delete
+          </Button>
         </div>
       </div>
     </div>
@@ -307,17 +298,12 @@ export default function RolesPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 style={{ fontSize: 20, fontWeight: 800, color: N.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>Roles & Permissions</h1>
-          <p style={{ fontSize: 14, color: N.muted, marginTop: 4 }}>Click a role to edit its permission set. Create custom roles for fine-grained delegation.</p>
+          <h1 style={{ fontSize: 20, fontWeight: 800, color: colors.text.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>Roles & Permissions</h1>
+          <p style={{ fontSize: 14, color: colors.text.muted, marginTop: 4 }}>Click a role to edit its permission set. Create custom roles for fine-grained delegation.</p>
         </div>
-        <button
-          onClick={() => setModal({ type: 'create' })}
-          className="flex items-center gap-1.5 shrink-0"
-          style={{ height: 36, padding: '0 16px', borderRadius: 10, background: N.navy, color: '#fff', fontSize: 12, fontWeight: 600, border: 'none' }}
-        >
-          <Plus className="w-3.5 h-3.5" />
-          New role
-        </button>
+        <Button size="sm" className="shrink-0" onClick={() => setModal({ type: 'create' })}>
+          <Plus className="w-3.5 h-3.5" /> New role
+        </Button>
       </div>
 
       {isLoading ? <Spinner /> : !roles || roles.length === 0 ? (
@@ -342,9 +328,9 @@ export default function RolesPage() {
           )}
 
           {customRoles.length === 0 && (
-            <div style={{ background: N.cream, borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '40px 24px', textAlign: 'center' }}>
-              <KeyRound className="w-8 h-8 mx-auto mb-3" style={{ color: N.creamDk }} />
-              <p style={{ fontSize: 14, fontWeight: 600, color: N.muted }}>No custom roles yet</p>
+            <div style={{ background: colors.surface.bg, borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '40px 24px', textAlign: 'center' }}>
+              <KeyRound className="w-8 h-8 mx-auto mb-3" style={{ color: colors.surface.elevated }} />
+              <p style={{ fontSize: 14, fontWeight: 600, color: colors.text.muted }}>No custom roles yet</p>
               <p style={{ fontSize: 12, color: '#CBD5E1', marginTop: 4 }}>Click "New role" to create one from scratch or clone an existing role.</p>
             </div>
           )}
@@ -377,18 +363,18 @@ function RoleTable({
 }) {
   return (
     <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-      <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(0,0,0,0.08)', background: N.cream }}>
-        <p style={{ fontSize: 14, fontWeight: 900, color: N.ink }}>{title}</p>
-        <p style={{ fontSize: 12, color: N.muted, marginTop: 2 }}>{subtitle}</p>
+      <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(0,0,0,0.08)', background: colors.surface.bg }}>
+        <p style={{ fontSize: 14, fontWeight: 900, color: colors.text.ink }}>{title}</p>
+        <p style={{ fontSize: 12, color: colors.text.muted, marginTop: 2 }}>{subtitle}</p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
-            <tr style={{ background: N.cream, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
-              <th style={{ textAlign: 'left', padding: '10px 20px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: N.muted }}>Role</th>
-              <th style={{ textAlign: 'left', padding: '10px 16px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: N.muted }}>Description</th>
-              <th style={{ textAlign: 'right', padding: '10px 16px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: N.muted }}>Users</th>
-              <th style={{ textAlign: 'right', padding: '10px 16px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: N.muted }}>Permissions</th>
+            <tr style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+              <th style={{ textAlign: 'left', padding: '10px 20px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>Role</th>
+              <th style={{ textAlign: 'left', padding: '10px 16px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>Description</th>
+              <th style={{ textAlign: 'right', padding: '10px 16px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>Users</th>
+              <th style={{ textAlign: 'right', padding: '10px 16px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>Permissions</th>
               <th style={{ padding: '10px 16px' }}></th>
             </tr>
           </thead>
@@ -396,19 +382,19 @@ function RoleTable({
             {roles.map((role, idx) => (
               <tr
                 key={role.id}
-                style={{ background: idx % 2 === 0 ? '#fff' : N.cream, borderBottom: '1px solid rgba(0,0,0,0.06)' }}
-                onMouseOver={e => (e.currentTarget.style.background = N.creamDk)}
-                onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : N.cream)}
+                style={{ background: idx % 2 === 0 ? '#fff' : colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.06)' }}
+                onMouseOver={e => (e.currentTarget.style.background = colors.surface.elevated)}
+                onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : colors.surface.bg)}
               >
                 <td style={{ padding: '12px 20px' }}>
                   <div className="flex items-center gap-2">
-                    <span style={{ fontWeight: 700, color: N.ink, textTransform: 'capitalize' }}>{role.name.replace(/_/g, ' ')}</span>
+                    <span style={{ fontWeight: 700, color: colors.text.ink, textTransform: 'capitalize' }}>{role.name.replace(/_/g, ' ')}</span>
                     {role.is_system && <Badge color="gray">system</Badge>}
                   </div>
                 </td>
-                <td style={{ padding: '12px 16px', color: N.muted, maxWidth: 280 }} className="truncate">{role.description ?? '—'}</td>
-                <td style={{ padding: '12px 16px', textAlign: 'right', color: N.ink }}>{role.user_count}</td>
-                <td style={{ padding: '12px 16px', textAlign: 'right', color: N.ink }}>
+                <td style={{ padding: '12px 16px', color: colors.text.muted, maxWidth: 280 }} className="truncate">{role.description ?? '—'}</td>
+                <td style={{ padding: '12px 16px', textAlign: 'right', color: colors.text.ink }}>{role.user_count}</td>
+                <td style={{ padding: '12px 16px', textAlign: 'right', color: colors.text.ink }}>
                   {role.name === 'super_admin' ? 'All' : role.permissions.length}
                 </td>
                 <td style={{ padding: '12px 16px', textAlign: 'right' }}>
@@ -417,7 +403,7 @@ function RoleTable({
                       onClick={() => onEdit(role)}
                       disabled={role.name === 'super_admin'}
                       title={role.name === 'super_admin' ? 'Super admin always has all permissions' : 'Edit permissions'}
-                      style={{ fontSize: 12, fontWeight: 600, color: N.navy, background: 'transparent', border: 'none', opacity: role.name === 'super_admin' ? 0.3 : 1 }}
+                      style={{ fontSize: 12, fontWeight: 600, color: colors.brand.navy, background: 'transparent', border: 'none', opacity: role.name === 'super_admin' ? 0.3 : 1 }}
                     >
                       Edit
                     </button>
@@ -425,7 +411,7 @@ function RoleTable({
                       <button
                         onClick={() => onDelete(role)}
                         title="Delete role"
-                        style={{ padding: 4, borderRadius: 8, color: N.muted, background: 'transparent', border: 'none' }}
+                        style={{ padding: 4, borderRadius: 8, color: colors.text.muted, background: 'transparent', border: 'none' }}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

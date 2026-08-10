@@ -7,13 +7,14 @@ import {
 } from 'lucide-react'
 import { applicationFormsApi, type ApplicationFormOut, type FormSectionOut } from '@/api/applicationForms'
 import Input from '@/components/ui/Input'
-import Button from '@/components/ui/Button'
+import Button from '@/shared/components/primitives/Button'
 import { cn } from '@/lib/utils'
 import { useSuggestSkills, useGenerateDescription, useJobTemplates, useCreateJobTemplate, useDepartments, useHiringTeam, useAddHiringTeamMember, useRemoveHiringTeamMember } from '../hooks/useJobs'
 import { useTeamMembers } from '../hooks/useJobs'
 import { getApiError } from '@/api/client'
 import type { JobPostingPayload, GrowthOutlook, JobPosting, JobType, EmploymentType } from '@/api/jobs'
 import type { HiringTeamMember } from '@/api/company'
+import { colors } from '@/design-system/tokens'
 
 const SECTORS = [
   'Government & Civil Services', 'Public Sector Undertakings (PSU)',
@@ -229,7 +230,7 @@ function ScreeningQuestionsSection({ jobId }: { jobId: string }) {
 
   const inp: React.CSSProperties = {
     height: 36, padding: '0 12px', borderRadius: 9,
-    border: '1.5px solid #E5E7EB', fontSize: 13, color: '#1E3A5F',
+    border: `1.5px solid ${colors.border.default}`, fontSize: 13, color: '#1E3A5F',
     outline: 'none', background: '#FFF', boxSizing: 'border-box' as const,
   }
 
@@ -302,7 +303,7 @@ function ScreeningQuestionsSection({ jobId }: { jobId: string }) {
               style={{
                 display: 'flex', alignItems: 'center', gap: 5,
                 padding: '5px 11px', borderRadius: 20,
-                border: '1.5px solid #E5E7EB', background: '#FFF',
+                border: `1.5px solid ${colors.border.default}`, background: '#FFF',
                 fontSize: 11, fontWeight: 600, color: '#1A2744',
                 cursor: savingQ ? 'default' : 'pointer', opacity: savingQ ? 0.6 : 1,
               }}>
@@ -321,7 +322,7 @@ function ScreeningQuestionsSection({ jobId }: { jobId: string }) {
         </button>
 
         {showCustom && (
-          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8, padding: 14, borderRadius: 11, border: '1.5px dashed #E5E7EB', background: '#FAFAFA' }}>
+          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8, padding: 14, borderRadius: 11, border: `1.5px dashed ${colors.border.default}`, background: colors.surface.elevated }}>
             <input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="Question text…"
               style={{ ...inp, width: '100%' }} />
             <div style={{ display: 'flex', gap: 8 }}>

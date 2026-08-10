@@ -3,10 +3,17 @@ import { useQuery } from '@tanstack/react-query'
 import { interviewApi, type JobReadinessReport, type FeedbackItem } from '@/api/interview'
 import { useState } from 'react'
 import {
-  ArrowLeft, CheckCircle, TrendingUp, RotateCcw, AlertTriangle,
+  CheckCircle, TrendingUp, RotateCcw, AlertTriangle,
   Target, Star, BookOpen, Calendar, ChevronDown, ChevronUp,
   Award, Briefcase, User, BarChart2, MapPin
 } from 'lucide-react'
+import AspLayout from '@/shared/layouts/AspLayout'
+import PageHeader from '@/shared/layouts/PageHeader'
+import Breadcrumb from '@/shared/components/navigation/Breadcrumb'
+import Tabs from '@/shared/components/navigation/Tabs'
+import Spinner from '@/shared/components/feedback/Spinner'
+import Button from '@/shared/components/primitives/Button'
+import { colors } from '@/design-system/tokens'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -253,12 +260,9 @@ export default function InterviewReportPage() {
   })
 
   if (isLoading) return (
-    <div style={{ minHeight: '100vh', background: '#F0F4F8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ width: 36, height: 36, border: '3px solid rgba(45,106,79,0.2)', borderTopColor: '#2D6A4F', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 14px' }} />
-        <p style={{ fontSize: 14, color: '#64748B' }}>Loading your report...</p>
-      </div>
-    </div>
+    <AspLayout activePath="/app/interview">
+      <Spinner centered />
+    </AspLayout>
   )
 
   if (!feedback) return null
@@ -268,36 +272,35 @@ export default function InterviewReportPage() {
   const overallAvg = feedback.overall_avg
   const overallColor = overallAvg >= 8 ? '#10B981' : overallAvg >= 6 ? '#F59E0B' : '#EF4444'
 
-  const TABS = [
-    { key: 'report', label: 'Job Readiness Report', icon: <BarChart2 size={13} /> },
-    { key: 'answers', label: 'Answer Feedback', icon: <User size={13} /> },
-    { key: 'roadmap', label: 'Learning Roadmap', icon: <MapPin size={13} /> },
-  ] as const
+  const REPORT_TABS = [
+    { key: 'report',  label: 'Job Readiness Report', icon: <BarChart2 size={13} /> },
+    { key: 'answers', label: 'Answer Feedback',       icon: <User size={13} /> },
+    { key: 'roadmap', label: 'Learning Roadmap',      icon: <MapPin size={13} /> },
+  ]
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F0F4F8' }}>
-      {/* Header */}
-      <header style={{
-        background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(226,232,240,0.8)', padding: '0 28px', height: 58,
-        display: 'flex', alignItems: 'center', gap: 12, position: 'sticky', top: 0, zIndex: 20,
-      }}>
-        <button onClick={() => navigate('/app/interview')} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, borderRadius: 8, color: '#64748B' }}>
-          <ArrowLeft size={16} />
-        </button>
-        <div style={{ flex: 1 }}>
-          <span style={{ fontSize: 14, fontWeight: 800, color: '#0F172A', fontFamily: 'Hind, sans-serif' }}>
-            Interview Report
-            {report?.job_role && <span style={{ fontSize: 12, fontWeight: 600, color: '#6366F1', marginLeft: 8 }}>— {report.job_role}</span>}
-          </span>
-        </div>
-        <button
-          onClick={() => navigate('/app/interview/setup')}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 9, border: '1.5px solid rgba(45,106,79,0.3)', background: 'white', color: '#2D6A4F', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
-        >
-          <RotateCcw size={12} /> New Interview
-        </button>
-      </header>
+    <AspLayout activePath="/app/interview">
+      <PageHeader
+        title={report?.job_role ? `Interview Report — ${report.job_role}` : 'Interview Report'}
+        back={
+          <button
+            onClick={() => navigate('/app/interview')}
+            aria-label="Back to AI Interview"
+            style={{ width: 30, height: 30, borderRadius: '50%', background: colors.surface.elevated, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.text.inkSoft, fontSize: 16, flexShrink: 0 }}
+          >←</button>
+        }
+        below={
+          <Breadcrumb items={[
+            { label: 'AI Interview', href: '/app/interview' },
+            { label: 'Report' },
+          ]} />
+        }
+        actions={
+          <Button variant="outline" size="sm" onClick={() => navigate('/app/interview/setup')}>
+            <RotateCcw size={12} style={{ marginRight: 4 }} /> New Interview
+          </Button>
+        }
+      />
 
       {/* Hero summary */}
       <div style={{ background: 'linear-gradient(135deg, #0F172A, #1E293B)', padding: '32px 28px' }}>
@@ -353,24 +356,13 @@ export default function InterviewReportPage() {
       </div>
 
       {/* Tab nav */}
-      <div style={{ background: 'white', borderBottom: '1px solid rgba(226,232,240,0.8)' }}>
-        <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', gap: 0, padding: '0 28px' }}>
-          {TABS.map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              style={{
-                padding: '14px 18px', border: 'none', cursor: 'pointer', background: 'none',
-                display: 'flex', alignItems: 'center', gap: 6,
-                fontSize: 13, fontWeight: activeTab === tab.key ? 700 : 500,
-                color: activeTab === tab.key ? '#2D6A4F' : '#64748B',
-                borderBottom: `2px solid ${activeTab === tab.key ? '#2D6A4F' : 'transparent'}`,
-                transition: 'all 0.15s',
-              }}
-            >
-              {tab.icon} {tab.label}
-            </button>
-          ))}
+      <div style={{ background: colors.surface.card }}>
+        <div style={{ maxWidth: 900, margin: '0 auto', padding: '0 28px' }}>
+          <Tabs
+            tabs={REPORT_TABS}
+            active={activeTab}
+            onChange={k => setActiveTab(k as 'report' | 'answers' | 'roadmap')}
+          />
         </div>
       </div>
 
@@ -513,6 +505,6 @@ export default function InterviewReportPage() {
         )}
       </div>
 
-    </div>
+    </AspLayout>
   )
 }

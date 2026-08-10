@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { Compass, Plus, Pencil, Trash2, ChevronDown, ChevronUp, AlertCircle, X } from 'lucide-react'
 import {
   useAdminCareerTracks, useCreateCareerTrack, useUpdateCareerTrack, useDeleteCareerTrack,
@@ -7,8 +7,9 @@ import { Spinner, Empty, Badge } from '../shared/adminUI'
 import { getApiError } from '@/api/client'
 import { cn } from '@/lib/utils'
 import type { CareerTrackAdminEntry } from '@/api/admin'
+import { colors } from '@/design-system/tokens'
+import Button from '@/shared/components/primitives/Button'
 
-const N = { navy: '#1A2744', ink: '#1E3A5F', muted: '#94A3B8', cream: '#F4F5F7', creamDk: '#EAECF0' }
 
 const EMPTY_FORM = {
   slug: '', title: '', description: '', sector: '',
@@ -17,7 +18,7 @@ const EMPTY_FORM = {
 type TrackFormState = typeof EMPTY_FORM
 
 const inputCls = 'w-full px-3 text-sm outline-none'
-const inputStyle = { border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, background: '#fff', color: N.ink }
+const inputStyle = { border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, background: '#fff', color: colors.text.ink }
 
 function TrackFormModal({ initial, onSave, onCancel, saving, error }: {
   initial?: CareerTrackAdminEntry | null
@@ -41,57 +42,57 @@ function TrackFormModal({ initial, onSave, onCancel, saving, error }: {
     <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 px-4 py-8 overflow-y-auto">
       <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: 24, width: '100%', maxWidth: 512 }}>
         <div className="flex items-start justify-between mb-5">
-          <h3 className="text-base font-bold" style={{ color: N.ink }}>{isEdit ? 'Edit career track' : 'New career track'}</h3>
-          <button onClick={onCancel} style={{ color: N.muted }}><X className="w-4 h-4" /></button>
+          <h3 className="text-base font-bold" style={{ color: colors.text.ink }}>{isEdit ? 'Edit career track' : 'New career track'}</h3>
+          <button onClick={onCancel} aria-label="Cancel" style={{ color: colors.text.muted }}><X className="w-4 h-4" /></button>
         </div>
         <div className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: N.ink }}>Slug *</label>
+              <label className="block text-xs font-semibold mb-1" style={{ color: colors.text.ink }}>Slug *</label>
               <input value={form.slug} onChange={e => set('slug', e.target.value)} disabled={isEdit} placeholder="policy-research"
                 className={inputCls + ' h-9 disabled:opacity-50'} style={inputStyle} />
             </div>
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: N.ink }}>Title *</label>
+              <label className="block text-xs font-semibold mb-1" style={{ color: colors.text.ink }}>Title *</label>
               <input value={form.title} onChange={e => set('title', e.target.value)} placeholder="Policy Research"
                 className={inputCls + ' h-9'} style={inputStyle} />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: N.ink }}>Description *</label>
+            <label className="block text-xs font-semibold mb-1" style={{ color: colors.text.ink }}>Description *</label>
             <textarea value={form.description} onChange={e => set('description', e.target.value)} rows={3}
               className={inputCls + ' py-2 resize-none'} style={inputStyle} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: N.ink }}>Sector *</label>
+              <label className="block text-xs font-semibold mb-1" style={{ color: colors.text.ink }}>Sector *</label>
               <input value={form.sector} onChange={e => set('sector', e.target.value)} placeholder="Consulting"
                 className={inputCls + ' h-9'} style={inputStyle} />
             </div>
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: N.ink }}>Min K-score</label>
+              <label className="block text-xs font-semibold mb-1" style={{ color: colors.text.ink }}>Min K-score</label>
               <input type="number" min={0} max={100} value={form.min_k_score} onChange={e => set('min_k_score', Number(e.target.value))}
                 className={inputCls + ' h-9'} style={inputStyle} />
             </div>
           </div>
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: N.ink }}>Required skills * <span className="font-normal" style={{ color: N.muted }}>(comma-separated)</span></label>
+            <label className="block text-xs font-semibold mb-1" style={{ color: colors.text.ink }}>Required skills * <span className="font-normal" style={{ color: colors.text.muted }}>(comma-separated)</span></label>
             <input value={form.required_skills} onChange={e => set('required_skills', e.target.value)} placeholder="Analytical Thinking, Research"
               className={inputCls + ' h-9'} style={inputStyle} />
           </div>
           <div>
-            <label className="block text-xs font-semibold mb-1" style={{ color: N.ink }}>Example roles <span className="font-normal" style={{ color: N.muted }}>(comma-separated)</span></label>
+            <label className="block text-xs font-semibold mb-1" style={{ color: colors.text.ink }}>Example roles <span className="font-normal" style={{ color: colors.text.muted }}>(comma-separated)</span></label>
             <input value={form.example_roles} onChange={e => set('example_roles', e.target.value)} placeholder="Policy Analyst, Research Associate"
               className={inputCls + ' h-9'} style={inputStyle} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: N.ink }}>Salary range</label>
+              <label className="block text-xs font-semibold mb-1" style={{ color: colors.text.ink }}>Salary range</label>
               <input value={form.salary_range} onChange={e => set('salary_range', e.target.value)} placeholder="8–20 LPA"
                 className={inputCls + ' h-9'} style={inputStyle} />
             </div>
             <div>
-              <label className="block text-xs font-semibold mb-1" style={{ color: N.ink }}>Growth outlook</label>
+              <label className="block text-xs font-semibold mb-1" style={{ color: colors.text.ink }}>Growth outlook</label>
               <select value={form.growth_outlook} onChange={e => set('growth_outlook', e.target.value)}
                 className={inputCls + ' h-9'} style={inputStyle}>
                 <option value="">— none —</option>
@@ -109,13 +110,13 @@ function TrackFormModal({ initial, onSave, onCancel, saving, error }: {
           )}
         </div>
         <div className="flex gap-3 mt-6">
-          <button onClick={onCancel} className="flex-1 h-10 text-sm font-medium" style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, background: '#fff', color: N.ink }}>Cancel</button>
-          <button
+          <Button variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
+          <Button
+            className="flex-1"
             onClick={() => onSave(form)}
-            disabled={saving || !form.slug.trim() || !form.title.trim() || !form.description.trim() || !form.sector.trim()}
-            className="flex-1 h-10 text-sm font-semibold disabled:opacity-40"
-            style={{ background: N.navy, color: '#fff', borderRadius: 10, border: 'none' }}
-          >{saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create track'}</button>
+            disabled={!form.slug.trim() || !form.title.trim() || !form.description.trim() || !form.sector.trim()}
+            loading={saving}
+          >{isEdit ? 'Save changes' : 'Create track'}</Button>
         </div>
       </div>
     </div>
@@ -160,16 +161,14 @@ export default function CareerTracksPage() {
 
   return (
     <section className="flex flex-col gap-6">
-      <h1 style={{ fontSize: 20, fontWeight: 800, color: N.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>Career Tracks</h1>
+      <h1 style={{ fontSize: 20, fontWeight: 800, color: colors.text.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>Career Tracks</h1>
 
       <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-        <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid rgba(0,0,0,0.08)', background: N.cream }}>
-          <h2 className="text-sm font-bold" style={{ color: N.ink }}>All Tracks</h2>
-          <button onClick={() => { setEditTarget(null); setFormError(null); setShowForm(true) }}
-            className="flex items-center gap-1.5 h-8 px-3 text-xs font-semibold"
-            style={{ background: N.navy, color: '#fff', borderRadius: 10, border: 'none' }}>
+        <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid rgba(0,0,0,0.08)', background: colors.surface.bg }}>
+          <h2 className="text-sm font-bold" style={{ color: colors.text.ink }}>All Tracks</h2>
+          <Button size="sm" onClick={() => { setEditTarget(null); setFormError(null); setShowForm(true) }}>
             <Plus className="w-3.5 h-3.5" /> New track
-          </button>
+          </Button>
         </div>
 
         {isLoading ? <Spinner /> : !tracks || tracks.length === 0 ? (
@@ -179,28 +178,30 @@ export default function CareerTracksPage() {
             {tracks.map((track, idx) => {
               const expanded = expandedId === track.id
               return (
-                <div key={track.id} className="px-4 py-3" style={{ borderBottom: idx < tracks.length - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined, background: idx % 2 === 0 ? '#fff' : N.cream }}>
+                <div key={track.id} className="px-4 py-3" style={{ borderBottom: idx < tracks.length - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined, background: idx % 2 === 0 ? '#fff' : colors.surface.bg }}>
                   <div className="flex items-center gap-3">
                     <button onClick={() => setExpandedId(expanded ? null : track.id)}
                       className="flex-1 flex items-center gap-2 text-left min-w-0">
-                      {expanded ? <ChevronUp className="w-4 h-4 shrink-0" style={{ color: N.muted }} /> : <ChevronDown className="w-4 h-4 shrink-0" style={{ color: N.muted }} />}
+                      {expanded ? <ChevronUp className="w-4 h-4 shrink-0" style={{ color: colors.text.muted }} /> : <ChevronDown className="w-4 h-4 shrink-0" style={{ color: colors.text.muted }} />}
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold truncate" style={{ color: N.ink }}>{track.title}</p>
+                          <p className="text-sm font-semibold truncate" style={{ color: colors.text.ink }}>{track.title}</p>
                           <Badge color={growthColor(track.growth_outlook)}>{track.growth_outlook ?? 'n/a'}</Badge>
                         </div>
-                        <p className="text-xs" style={{ color: N.muted }}>{track.sector} · min K {track.min_k_score} · {track.aspirant_count} aspirants</p>
+                        <p className="text-xs" style={{ color: colors.text.muted }}>{track.sector} · min K {track.min_k_score} · {track.aspirant_count} aspirants</p>
                       </div>
                     </button>
-                    {track.salary_range && <span className="text-xs shrink-0 hidden sm:block" style={{ color: N.muted }}>{track.salary_range}</span>}
+                    {track.salary_range && <span className="text-xs shrink-0 hidden sm:block" style={{ color: colors.text.muted }}>{track.salary_range}</span>}
                     <div className="flex items-center gap-1 shrink-0">
                       <button onClick={() => { setEditTarget(track); setFormError(null); setShowForm(true) }}
+                        aria-label={`Edit ${track.title}`}
                         className="p-1.5 transition-colors" style={{ borderRadius: 8 }}
-                        onMouseOver={e => (e.currentTarget.style.background = N.creamDk)}
+                        onMouseOver={e => (e.currentTarget.style.background = colors.surface.elevated)}
                         onMouseOut={e => (e.currentTarget.style.background = 'transparent')}>
-                        <Pencil className="w-3.5 h-3.5" style={{ color: N.muted }} />
+                        <Pencil className="w-3.5 h-3.5" style={{ color: colors.text.muted }} />
                       </button>
                       <button onClick={() => setDeleteTarget(track)}
+                        aria-label={`Delete ${track.title}`}
                         className="p-1.5 transition-colors" style={{ borderRadius: 8 }}
                         onMouseOver={e => (e.currentTarget.style.background = '#FEF2F2')}
                         onMouseOut={e => (e.currentTarget.style.background = 'transparent')}>
@@ -213,20 +214,20 @@ export default function CareerTracksPage() {
                       <p className="text-xs leading-relaxed" style={{ color: '#475569' }}>{track.description}</p>
                       <div className="flex flex-wrap gap-1.5">
                         {track.required_skills.map(s => (
-                          <span key={s} className="px-2 py-0.5 text-xs rounded-full font-medium" style={{ background: N.creamDk, color: N.ink }}>{s}</span>
+                          <span key={s} className="px-2 py-0.5 text-xs rounded-full font-medium" style={{ background: colors.surface.elevated, color: colors.text.ink }}>{s}</span>
                         ))}
                       </div>
                       {track.example_roles.length > 0 && (
-                        <p className="text-xs" style={{ color: N.muted }}>Roles: {track.example_roles.join(' · ')}</p>
+                        <p className="text-xs" style={{ color: colors.text.muted }}>Roles: {track.example_roles.join(' · ')}</p>
                       )}
-                      <p className="text-xs font-mono" style={{ color: N.muted }}>slug: {track.slug}</p>
+                      <p className="text-xs font-mono" style={{ color: colors.text.muted }}>slug: {track.slug}</p>
                     </div>
                   )}
                 </div>
               )
             })}
-            <div className="px-4 py-2.5" style={{ background: N.cream, borderTop: '1px solid rgba(0,0,0,0.08)' }}>
-              <p className="text-xs" style={{ color: N.muted }}>{tracks.length} track{tracks.length !== 1 ? 's' : ''}</p>
+            <div className="px-4 py-2.5" style={{ background: colors.surface.bg, borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+              <p className="text-xs" style={{ color: colors.text.muted }}>{tracks.length} track{tracks.length !== 1 ? 's' : ''}</p>
             </div>
           </>
         )}
@@ -245,17 +246,18 @@ export default function CareerTracksPage() {
       {deleteTarget && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
           <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: 24, maxWidth: 384, width: '100%' }}>
-            <h3 className="text-base font-bold mb-2" style={{ color: N.ink }}>Delete career track?</h3>
-            <p className="text-sm mb-5" style={{ color: N.muted }}>
-              <span className="font-semibold" style={{ color: N.ink }}>"{deleteTarget.title}"</span> will be permanently deleted.
+            <h3 className="text-base font-bold mb-2" style={{ color: colors.text.ink }}>Delete career track?</h3>
+            <p className="text-sm mb-5" style={{ color: colors.text.muted }}>
+              <span className="font-semibold" style={{ color: colors.text.ink }}>"{deleteTarget.title}"</span> will be permanently deleted.
             </p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteTarget(null)} className="flex-1 h-10 text-sm font-medium" style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, background: '#fff', color: N.ink }}>Cancel</button>
-              <button onClick={() => deleteMutation.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) })} disabled={deleteMutation.isPending}
-                className="flex-1 h-10 text-sm font-semibold disabled:opacity-40"
-                style={{ background: '#EF4444', color: '#fff', borderRadius: 10, border: 'none' }}>
-                {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
-              </button>
+              <Button variant="outline" className="flex-1" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+              <Button
+                variant="danger"
+                className="flex-1"
+                loading={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate(deleteTarget.id, { onSuccess: () => setDeleteTarget(null) })}
+              >Delete</Button>
             </div>
           </div>
         </div>

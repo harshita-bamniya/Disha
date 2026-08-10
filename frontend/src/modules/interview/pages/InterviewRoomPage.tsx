@@ -7,6 +7,7 @@ import {
   Wifi, WifiOff, ChevronRight, Square,
   Volume2, VolumeX, User, Loader, SkipForward, PhoneOff, AlertTriangle
 } from 'lucide-react'
+import TypingIndicator from '@/shared/components/ai/TypingIndicator'
 
 interface TranscriptEntry {
   role: 'ai' | 'candidate'
@@ -783,15 +784,13 @@ export default function InterviewRoomPage() {
             ))}
 
             {waitingForNext && (
-              <div role="status" aria-label="Alex is thinking" style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-                <div aria-hidden="true" style={{ width: 24, height: 24, borderRadius: '50%', background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>🤖</div>
-                <div style={{ padding: '10px 14px', borderRadius: '4px 12px 12px 12px', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.12)' }}>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    {[0, 0.2, 0.4].map((d, i) => (
-                      <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: '#818CF8', animation: `dot-bounce 0.8s ease-in-out ${d}s infinite` }} />
-                    ))}
-                  </div>
-                </div>
+              <div role="status" aria-label="Alex is thinking">
+                <TypingIndicator
+                  avatarContent="🤖"
+                  avatarBg="linear-gradient(135deg,#6366F1,#8B5CF6)"
+                  dotColor="#818CF8"
+                  bubbleBg="rgba(99,102,241,0.08)"
+                />
               </div>
             )}
           </div>

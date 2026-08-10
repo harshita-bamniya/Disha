@@ -1,18 +1,22 @@
 import { CreditCard, CheckCircle2 } from 'lucide-react'
 import { useSubscription, useSubscriptionUsage, useSubscriptionPlans, useUpgradeSubscription, useHasPermission } from '../hooks/useJobs'
 import { getApiError } from '@/api/client'
+import { colors, radius } from '@/design-system/tokens'
+import PageHeader from '@/shared/layouts/PageHeader'
+import ErrorState from '@/shared/components/feedback/ErrorState'
+import Spinner from '@/shared/components/feedback/Spinner'
 
 function UsageBar({ label, used, limit }: { label: string; used: number; limit: number | null }) {
   const pct = limit ? Math.min(100, Math.round((used / limit) * 100)) : 0
   return (
     <div style={{ marginBottom: 14 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{label}</span>
-        <span style={{ fontSize: 12, fontWeight: 700, color: '#0F172A' }}>{used} / {limit ?? '∞'}</span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: colors.text.inkSoft }}>{label}</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: colors.text.ink }}>{used} / {limit ?? '∞'}</span>
       </div>
       {limit !== null && (
-        <div style={{ height: 8, background: '#F1F5F9', borderRadius: 20, overflow: 'hidden' }}>
-          <div style={{ width: `${pct}%`, height: '100%', background: pct >= 90 ? '#DC2626' : '#3B82F6', borderRadius: 20 }} />
+        <div style={{ height: 8, background: colors.surface.elevated, borderRadius: 20, overflow: 'hidden' }}>
+          <div style={{ width: `${pct}%`, height: '100%', background: pct >= 90 ? colors.state.danger : colors.brand.navy, borderRadius: 20 }} />
         </div>
       )}
     </div>
@@ -25,33 +29,39 @@ function formatPrice(paise: number): string {
 }
 
 export default function SubscriptionPage() {
-  const { data: sub, isLoading: subLoading } = useSubscription()
+  const { data: sub, isLoading: subLoading, isError: subError, refetch: refetchSub } = useSubscription()
   const { data: usage } = useSubscriptionUsage()
   const { data: plans } = useSubscriptionPlans()
   const upgrade = useUpgradeSubscription()
   const canManageSubscription = useHasPermission('subscriptions:manage')
 
   return (
-    <div style={{ padding: '32px 24px' }}>
-      <div style={{ maxWidth: 760, margin: '0 auto' }}>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-          <CreditCard size={20} color="#3B82F6" />
-          <h1 style={{ fontFamily: 'Hind, sans-serif', fontSize: 20, fontWeight: 800, color: '#1E3A5F', margin: 0 }}>Subscription</h1>
-        </div>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+      <PageHeader
+        title="Billing & Subscription"
+        subtitle="Manage your plan and usage"
+        icon={<CreditCard size={16} color={colors.text.ink} />}
+      />
+      <div style={{ padding: '20px 28px', background: colors.surface.bg, flex: 1 }}>
+      <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
         {/* Current plan + usage */}
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(37,99,235,0.09)', padding: 24, marginBottom: 24 }}>
+        <div style={{ background: colors.surface.card, borderRadius: radius.xl, border: `1px solid ${colors.border.default}`, padding: 24 }}>
           {subLoading ? (
-            <p style={{ fontSize: 13, color: '#9CA3AF' }}>Loading…</p>
+            <Spinner />
+          ) : subError ? (
+            <ErrorState compact title="Subscription unavailable" description="Could not load subscription data." onRetry={() => refetchSub()} />
           ) : sub && (
             <>
               <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 16 }}>
                 <div>
-                  <p style={{ fontSize: 11, color: '#94A3B8', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px', margin: 0 }}>Current plan</p>
-                  <p style={{ fontSize: 18, fontWeight: 800, color: '#1E3A5F', margin: '2px 0 0', textTransform: 'capitalize' }}>{sub.plan.name}</p>
+                  <p style={{ fontSize: 11, color: colors.text.muted, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px', margin: 0 }}>Current plan</p>
+                  <p style={{ fontSize: 18, fontWeight: 800, color: colors.text.ink, margin: '2px 0 0', textTransform: 'capitalize' }}>{sub.plan.name}</p>
                 </div>
-                <span style={{ fontSize: 16, fontWeight: 700, color: '#3B82F6' }}>{formatPrice(sub.plan.price_monthly)}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <CreditCard size={15} color={colors.text.muted} />
+                  <span style={{ fontSize: 16, fontWeight: 700, color: colors.text.ink }}>{formatPrice(sub.plan.price_monthly)}</span>
+                </div>
               </div>
 
               {usage && (
@@ -72,19 +82,20 @@ export default function SubscriptionPage() {
               <div
                 key={plan.id}
                 style={{
-                  background: '#fff', borderRadius: 14, padding: 18,
-                  border: isCurrent ? '2px solid #3B82F6' : '1px solid #E5E7EB',
+                  background: colors.surface.card, borderRadius: radius.xl, padding: 18,
+                  border: isCurrent ? `2px solid ${colors.brand.navy}` : `1px solid ${colors.border.default}`,
+                  transition: 'box-shadow 0.2s',
                 }}
               >
-                <p style={{ fontSize: 13, fontWeight: 800, color: '#1E3A5F', textTransform: 'capitalize', margin: 0 }}>{plan.name}</p>
-                <p style={{ fontSize: 16, fontWeight: 700, color: '#3B82F6', margin: '4px 0 12px' }}>{formatPrice(plan.price_monthly)}</p>
-                <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 14px', fontSize: 11, color: '#6B7280', display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <p style={{ fontSize: 13, fontWeight: 800, color: colors.text.ink, textTransform: 'capitalize', margin: 0 }}>{plan.name}</p>
+                <p style={{ fontSize: 16, fontWeight: 700, color: colors.brand.navy, margin: '4px 0 12px' }}>{formatPrice(plan.price_monthly)}</p>
+                <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 14px', fontSize: 11, color: colors.text.inkSoft, display: 'flex', flexDirection: 'column', gap: 5 }}>
                   <li>{plan.max_active_jobs ?? 'Unlimited'} active jobs</li>
                   <li>{plan.max_recruiter_seats ?? 'Unlimited'} recruiter seats</li>
                   <li>{plan.resume_access ? 'Full resume access' : 'No resume access'}</li>
                 </ul>
                 {isCurrent ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: '#059669' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: colors.state.success }}>
                     <CheckCircle2 size={13} />Current plan
                   </div>
                 ) : canManageSubscription ? (
@@ -93,18 +104,22 @@ export default function SubscriptionPage() {
                     disabled={upgrade.isPending}
                     style={{
                       width: '100%', height: 32, borderRadius: 8, border: 'none',
-                      background: '#3B82F6', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                      background: colors.brand.navy, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
                       opacity: upgrade.isPending ? 0.6 : 1,
+                      transition: 'background 0.2s',
                     }}
+                    onMouseOver={e => { if (!upgrade.isPending) e.currentTarget.style.background = colors.brand.navySoft }}
+                    onMouseOut={e => { e.currentTarget.style.background = colors.brand.navy }}
                   >Switch plan</button>
                 ) : (
-                  <p style={{ fontSize: 11, color: '#9CA3AF', margin: 0 }}>Only the company owner can change plans</p>
+                  <p style={{ fontSize: 11, color: colors.text.muted, margin: 0 }}>Only the company owner can change plans</p>
                 )}
               </div>
             )
           })}
         </div>
-        {upgrade.isError && <p style={{ fontSize: 12, color: '#DC2626', marginTop: 12 }}>{getApiError(upgrade.error)}</p>}
+        {upgrade.isError && <p style={{ fontSize: 12, color: colors.state.danger, marginTop: 4 }}>{getApiError(upgrade.error)}</p>}
+      </div>
       </div>
     </div>
   )

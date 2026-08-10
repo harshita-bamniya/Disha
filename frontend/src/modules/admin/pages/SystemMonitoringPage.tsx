@@ -1,11 +1,11 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+﻿import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Activity, Database, Cpu, Server, RefreshCw, CheckCircle2, AlertCircle, Clock } from 'lucide-react'
 import { adminApi } from '@/api/admin'
 import type { DbPoolStats, QueueDepth, RedisInfo, ProcessInfo } from '@/api/admin'
 import { Spinner } from '@/modules/admin/shared/adminUI'
 import { cn } from '@/lib/utils'
+import { colors } from '@/design-system/tokens'
 
-const N = { navy: '#1A2744', ink: '#1E3A5F', muted: '#94A3B8', cream: '#F4F5F7', creamDk: '#EAECF0' }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -23,10 +23,10 @@ function PoolBar({ value, max, color }: { value: number; max: number; color: str
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0
   return (
     <div className="flex items-center gap-2">
-      <div style={{ flex: 1, height: 8, background: N.cream, borderRadius: 9999, overflow: 'hidden' }}>
+      <div style={{ flex: 1, height: 8, background: colors.surface.bg, borderRadius: 9999, overflow: 'hidden' }}>
         <div style={{ height: 8, borderRadius: 9999, background: color, width: `${pct}%`, transition: 'all 0.3s' }} />
       </div>
-      <span style={{ fontSize: 12, fontWeight: 700, color: N.ink, width: 48, textAlign: 'right' }}>{value}/{max}</span>
+      <span style={{ fontSize: 12, fontWeight: 700, color: colors.text.ink, width: 48, textAlign: 'right' }}>{value}/{max}</span>
     </div>
   )
 }
@@ -46,11 +46,11 @@ function MonitorCard({
       <div className="flex items-center gap-3 mb-4">
         <div style={{
           width: 32, height: 32, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          background: status === 'error' ? '#FEF2F2' : status === 'warn' ? '#FFFBEB' : N.creamDk,
+          background: status === 'error' ? '#FEF2F2' : status === 'warn' ? '#FFFBEB' : colors.surface.elevated,
         }}>
-          <Icon className="w-4 h-4" style={{ color: status === 'error' ? '#EF4444' : status === 'warn' ? '#F59E0B' : N.ink }} />
+          <Icon className="w-4 h-4" style={{ color: status === 'error' ? '#EF4444' : status === 'warn' ? '#F59E0B' : colors.text.ink }} />
         </div>
-        <p style={{ fontSize: 14, fontWeight: 900, color: N.ink }}>{title}</p>
+        <p style={{ fontSize: 14, fontWeight: 900, color: colors.text.ink }}>{title}</p>
         {status === 'error' && <AlertCircle className="w-4 h-4 ml-auto" style={{ color: '#EF4444' }} />}
         {status === 'ok' && <CheckCircle2 className="w-4 h-4 ml-auto" style={{ color: '#22C55E' }} />}
       </div>
@@ -62,8 +62,8 @@ function MonitorCard({
 function Row({ label, value, mono = false }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <span style={{ fontSize: 12, color: N.muted }}>{label}</span>
-      <span style={{ fontSize: 12, fontWeight: 600, color: N.ink, fontFamily: mono ? 'monospace' : undefined }}>{value}</span>
+      <span style={{ fontSize: 12, color: colors.text.muted }}>{label}</span>
+      <span style={{ fontSize: 12, fontWeight: 600, color: colors.text.ink, fontFamily: mono ? 'monospace' : undefined }}>{value}</span>
     </div>
   )
 }
@@ -98,14 +98,14 @@ function CeleryCard({ queues, beat_tasks, broker }: { queues: QueueDepth[]; beat
     <MonitorCard icon={Cpu} title="Celery Workers" status={hasBacklog ? 'warn' : 'ok'}>
       <Row label="Broker" value={broker} mono />
       <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 8 }}>
-        <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: N.muted, marginBottom: 8 }}>Queue depths</p>
+        <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, marginBottom: 8 }}>Queue depths</p>
         {queues.map(q => (
           <div key={q.queue} className="flex items-center justify-between py-1">
-            <span style={{ fontSize: 12, fontFamily: 'monospace', color: N.muted }}>{q.queue}</span>
+            <span style={{ fontSize: 12, fontFamily: 'monospace', color: colors.text.muted }}>{q.queue}</span>
             <span style={{
               fontSize: 12, fontWeight: 700, padding: '2px 8px', borderRadius: 9999,
-              background: q.pending === null ? N.cream : q.pending > 50 ? '#FFFBEB' : q.pending > 0 ? '#EFF6FF' : '#F0FDF4',
-              color: q.pending === null ? N.muted : q.pending > 50 ? '#D97706' : q.pending > 0 ? '#2563EB' : '#16A34A',
+              background: q.pending === null ? colors.surface.bg : q.pending > 50 ? '#FFFBEB' : q.pending > 0 ? '#EFF6FF' : '#F0FDF4',
+              color: q.pending === null ? colors.text.muted : q.pending > 50 ? '#D97706' : q.pending > 0 ? '#2563EB' : '#16A34A',
             }}>
               {q.pending === null ? '—' : q.pending}
             </span>
@@ -118,10 +118,10 @@ function CeleryCard({ queues, beat_tasks, broker }: { queues: QueueDepth[]; beat
         </p>
       )}
       <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 8 }}>
-        <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: N.muted, marginBottom: 8 }}>Beat schedule ({beat_tasks.length})</p>
+        <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, marginBottom: 8 }}>Beat schedule ({beat_tasks.length})</p>
         <div className="flex flex-col gap-1">
           {beat_tasks.map(t => (
-            <span key={t} style={{ fontSize: 11, fontFamily: 'monospace', color: N.muted }} className="truncate">{t}</span>
+            <span key={t} style={{ fontSize: 11, fontFamily: 'monospace', color: colors.text.muted }} className="truncate">{t}</span>
           ))}
         </div>
       </div>
@@ -160,8 +160,8 @@ function ProcessCard({ proc, sentry }: { proc: ProcessInfo; sentry: { configured
       <Row label="Environment" value={
         <span style={{
           padding: '2px 8px', borderRadius: 9999, fontSize: 11, fontWeight: 700,
-          background: proc.environment === 'production' ? '#DCFCE7' : proc.environment === 'staging' ? '#FFFBEB' : N.cream,
-          color: proc.environment === 'production' ? '#15803D' : proc.environment === 'staging' ? '#D97706' : N.muted,
+          background: proc.environment === 'production' ? '#DCFCE7' : proc.environment === 'staging' ? '#FFFBEB' : colors.surface.bg,
+          color: proc.environment === 'production' ? '#15803D' : proc.environment === 'staging' ? '#D97706' : colors.text.muted,
         }}>
           {proc.environment}
         </span>
@@ -175,10 +175,10 @@ function ProcessCard({ proc, sentry }: { proc: ProcessInfo; sentry: { configured
         <Row label="Sentry" value={
           sentry.configured
             ? <span style={{ color: '#16A34A', fontWeight: 600 }}>Configured</span>
-            : <span style={{ color: N.muted }}>Not configured</span>
+            : <span style={{ color: colors.text.muted }}>Not configured</span>
         } />
         {sentry.dsn_hint && (
-          <p style={{ fontSize: 11, fontFamily: 'monospace', color: N.muted, marginTop: 4 }} className="truncate">{sentry.dsn_hint}</p>
+          <p style={{ fontSize: 11, fontFamily: 'monospace', color: colors.text.muted, marginTop: 4 }} className="truncate">{sentry.dsn_hint}</p>
         )}
       </div>
     </MonitorCard>
@@ -201,12 +201,12 @@ export default function SystemMonitoringPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-8">
         <div className="flex items-center gap-3">
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: N.creamDk, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Activity className="w-5 h-5" style={{ color: N.ink }} />
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: colors.surface.elevated, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Activity className="w-5 h-5" style={{ color: colors.text.ink }} />
           </div>
           <div>
-            <h1 style={{ fontSize: 20, fontWeight: 800, color: N.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>System Monitoring</h1>
-            <p style={{ fontSize: 14, color: N.muted }}>
+            <h1 style={{ fontSize: 20, fontWeight: 800, color: colors.text.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>System Monitoring</h1>
+            <p style={{ fontSize: 14, color: colors.text.muted }}>
               Live infrastructure health. Auto-refreshes every 30 s.
               {data && (
                 <span style={{ marginLeft: 8, color: '#CBD5E1', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -221,7 +221,7 @@ export default function SystemMonitoringPage() {
           onClick={() => qc.invalidateQueries({ queryKey: ['admin', 'system'] })}
           disabled={isFetching}
           className="flex items-center gap-1.5 shrink-0"
-          style={{ height: 36, padding: '0 16px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', background: '#fff', color: N.ink, fontSize: 12, fontWeight: 600, opacity: isFetching ? 0.5 : 1 }}
+          style={{ height: 36, padding: '0 16px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', background: '#fff', color: colors.text.ink, fontSize: 12, fontWeight: 600, opacity: isFetching ? 0.5 : 1 }}
         >
           <RefreshCw className={cn('w-3.5 h-3.5', isFetching && 'animate-spin')} />
           Refresh

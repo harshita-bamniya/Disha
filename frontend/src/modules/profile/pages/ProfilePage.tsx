@@ -1,936 +1,110 @@
-import { useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Pencil, Check, ChevronUp, MapPin, RefreshCw, Plus, User, GraduationCap, ClipboardList, Briefcase, Zap, Target, Brain, FileText, type LucideIcon } from 'lucide-react'
-import { onboardingApi, type ProfileData } from '@/api/onboarding'
-import { cn } from '@/lib/utils'
-import { getApiError } from '@/api/client'
-import Button from '@/components/ui/Button'
-import Input from '@/components/ui/Input'
-import AppSidebar from '@/components/layout/AppSidebar'
-import { useKrsDashboard, useRecompute } from '@/modules/dashboard/hooks/useKrs'
-import { useOnboardingOptions } from '@/modules/onboarding/hooks/useOnboarding'
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-// Skills, sectors, and states are fetched from /onboarding/options (single source of truth).
-// Only salary brackets are defined here as they are UI-only, not business data.
-
-const SALARY_OPTIONS = [
-  { label: 'Up to ₹5 LPA', min: 0, max: 5 },
-  { label: '₹5–10 LPA', min: 5, max: 10 },
-  { label: '₹10–20 LPA', min: 10, max: 20 },
-  { label: '₹20–40 LPA', min: 20, max: 40 },
-  { label: '₹40 LPA+', min: 40, max: 500 },
-]
-
-const PROFILE_KEY = ['onboarding', 'profile']
-
-// ── Section icons map ─────────────────────────────────────────────────────────
-const SECTION_META: Record<string, { Icon: LucideIcon; color: string; bg: string }> = {
-  'Personal Info':       { Icon: User,           color: '#1A2744', bg: 'rgba(26,39,68,0.07)' },
-  'Education':           { Icon: GraduationCap,  color: '#1A2744', bg: 'rgba(26,39,68,0.07)' },
-  'UPSC Journey':        { Icon: ClipboardList,  color: '#1A2744', bg: 'rgba(26,39,68,0.07)' },
-  'Work Experience':     { Icon: Briefcase,      color: '#1A2744', bg: 'rgba(26,39,68,0.07)' },
-  'Skills':              { Icon: Zap,            color: '#1A2744', bg: 'rgba(26,39,68,0.07)' },
-  'Preferences':         { Icon: Target,         color: '#1A2744', bg: 'rgba(26,39,68,0.07)' },
-  'Mindset Assessment':  { Icon: Brain,          color: '#1A2744', bg: 'rgba(26,39,68,0.07)' },
-}
-
-// ── Premium chip selector ─────────────────────────────────────────────────────
-export function ChipSelector({
-  options, selected, onChange, multi = false,
-}: {
-  options: string[]
-  selected: string | string[]
-  onChange: (val: any) => void
-  multi?: boolean
-}) {
-  const isSelected = (opt: string) =>
-    multi ? (selected as string[]).includes(opt) : selected === opt
-
-  const toggle = (opt: string) => {
-    if (!multi) { onChange(opt); return }
-    const arr = selected as string[]
-    onChange(arr.includes(opt) ? arr.filter(s => s !== opt) : [...arr, opt])
-  }
-
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-      {options.map(opt => (
-        <button
-          key={opt}
-          type="button"
-          onClick={() => toggle(opt)}
-          style={{
-            padding: '7px 14px', borderRadius: 20, fontSize: 13, fontWeight: 600,
-            cursor: 'pointer', transition: 'all 0.2s',
-            background: isSelected(opt) ? '#2563EB' : 'white',
-            color: isSelected(opt) ? '#fff' : '#374151',
-            border: isSelected(opt)
-              ? 'none'
-              : '1.5px solid rgba(59,130,246,0.15)',
-            boxShadow: isSelected(opt)
-              ? '0 3px 10px rgba(59,130,246,0.3)'
-              : '0 1px 3px rgba(0,0,0,0.04)',
-            transform: isSelected(opt) ? 'scale(1.02)' : 'scale(1)',
-          }}
-        >
-          {isSelected(opt) ? '✓ ' : ''}{opt}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-// ── Section wrapper ───────────────────────────────────────────────────────────
-function Section({
-  title, summary, isOpen, onToggle, children, saving, saved,
-}: {
-  title: string
-  summary: string
-  isOpen: boolean
-  onToggle: () => void
-  children: React.ReactNode
-  saving?: boolean
-  saved?: boolean
-}) {
-  const meta = SECTION_META[title] ?? { Icon: FileText, color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' }
-
-  return (
-    <div style={{
-      background: 'white',
-      borderRadius: 20,
-      border: isOpen ? '1.5px solid rgba(26,39,68,0.18)' : '1px solid #E2E8F0',
-      boxShadow: isOpen
-        ? '0 12px 36px rgba(15,23,42,0.10)'
-        : '0 2px 10px rgba(15,23,42,0.04)',
-      overflow: 'hidden',
-      transition: 'all 0.3s ease',
-    }}>
-      {/* Top accent strip when open */}
-      {isOpen && (
-        <div style={{
-          height: 3,
-          background: '#1A2744',
-        }} />
-      )}
-
-      <button
-        type="button"
-        onClick={onToggle}
-        style={{
-          width: '100%', padding: '18px 22px',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-          background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left',
-          transition: 'background 0.2s',
-        }}
-        onMouseOver={e => { if (!isOpen) e.currentTarget.style.background = 'rgba(26,39,68,0.02)' }}
-        onMouseOut={e => { e.currentTarget.style.background = 'none' }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0 }}>
-          {/* Icon */}
-          <div style={{
-            width: 40, height: 40, borderRadius: 12, flexShrink: 0,
-            background: meta.bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <meta.Icon size={18} color={meta.color} strokeWidth={1.8} />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>
-                {title}
-              </span>
-              {saved && (
-                <span style={{
-                  display: 'flex', alignItems: 'center', gap: 4,
-                  fontSize: 11, fontWeight: 700, color: '#059669',
-                  background: 'rgba(5,150,105,0.08)', padding: '2px 8px', borderRadius: 20,
-                  border: '1px solid rgba(5,150,105,0.2)',
-                }}>
-                  <Check size={10} /> Saved
-                </span>
-              )}
-              {saving && (
-                <span style={{ fontSize: 11, color: '#9CA3AF', fontStyle: 'italic' }}>Saving…</span>
-              )}
-            </div>
-            {!isOpen && (
-              <p style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {summary}
-              </p>
-            )}
-          </div>
-        </div>
-        <div style={{
-          width: 30, height: 30, borderRadius: 8, flexShrink: 0,
-          background: isOpen ? 'rgba(26,39,68,0.08)' : 'rgba(0,0,0,0.04)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: isOpen ? '#1A2744' : '#9CA3AF',
-          transition: 'all 0.2s',
-        }}>
-          {isOpen ? <ChevronUp size={14} /> : <Pencil size={14} />}
-        </div>
-      </button>
-
-      {isOpen && (
-        <div style={{
-          padding: '0 22px 24px',
-          borderTop: '1px solid rgba(59,130,246,0.06)',
-        }}>
-          <div style={{ paddingTop: 20 }}>{children}</div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Personal section ──────────────────────────────────────────────────────────
-
-function PersonalSection({ profile, open, onToggle }: { profile: ProfileData; open: boolean; onToggle: () => void }) {
-  const qc = useQueryClient()
-  const { data: options } = useOnboardingOptions()
-  const [form, setForm] = useState({
-    full_name: profile.full_name ?? '',
-    date_of_birth: profile.date_of_birth ?? '',
-    gender: profile.gender ?? '',
-    city: profile.city ?? '',
-    state: profile.state ?? '',
-  })
-  const [saved, setSaved] = useState(false)
-
-  const mut = useMutation({
-    mutationFn: () => onboardingApi.savePersonal({ ...form, gender: form.gender as any, state: form.state }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: PROFILE_KEY })
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
-      onToggle()
-    },
-  })
-
-  const summary = profile.full_name
-    ? `${profile.full_name} · ${profile.city ?? '—'}, ${profile.state ?? '—'}`
-    : 'Not filled yet'
-
-  return (
-    <Section title="Personal Info" summary={summary} isOpen={open} onToggle={onToggle} saving={mut.isPending} saved={saved}>
-      <div className="flex flex-col gap-4">
-        <Input label="Full name" value={form.full_name} onChange={e => setForm(p => ({ ...p, full_name: e.target.value }))} />
-        <Input label="Date of birth" type="date" value={form.date_of_birth} onChange={e => setForm(p => ({ ...p, date_of_birth: e.target.value }))} />
-        <div className="flex flex-col gap-2">
-          <label style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>Gender</label>
-          <ChipSelector
-            options={['Male', 'Female', 'Other', 'Prefer not to say']}
-            selected={form.gender === 'prefer_not_to_say' ? 'Prefer not to say' : form.gender ? form.gender.charAt(0).toUpperCase() + form.gender.slice(1) : ''}
-            onChange={(val: string) => {
-              const map: Record<string,string> = { 'Male':'male','Female':'female','Other':'other','Prefer not to say':'prefer_not_to_say' }
-              setForm(p => ({ ...p, gender: map[val] ?? val }))
-            }}
-          />
-        </div>
-        <Input label="City" value={form.city} onChange={e => setForm(p => ({ ...p, city: e.target.value }))} />
-        <div className="flex flex-col gap-1.5">
-          <label style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>State</label>
-          <select value={form.state} onChange={e => setForm(p => ({ ...p, state: e.target.value }))}
-            style={{ height: 48, borderRadius: 12, border: '1.5px solid #E5E7EB', padding: '0 14px', fontSize: 14, color: '#111827', outline: 'none', background: 'white', transition: 'border 0.2s' }}
-            onFocus={e => e.currentTarget.style.borderColor = '#3B82F6'}
-            onBlur={e => e.currentTarget.style.borderColor = '#E5E7EB'}
-          >
-            <option value="">Select state</option>
-            {(options?.states ?? []).map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-        {mut.error && <p style={{ fontSize: 12, color: '#DC2626' }}>{getApiError(mut.error, 'Save failed')}</p>}
-        <Button fullWidth loading={mut.isPending} onClick={() => mut.mutate()}>Save changes</Button>
-      </div>
-    </Section>
-  )
-}
-
-// ── Education section ─────────────────────────────────────────────────────────
-
-function EducationSection({ profile, open, onToggle }: { profile: ProfileData; open: boolean; onToggle: () => void }) {
-  const qc = useQueryClient()
-  const [form, setForm] = useState({
-    highest_qualification: profile.highest_qualification ?? '',
-    degree: profile.degree ?? '',
-    field_of_study: profile.field_of_study ?? '',
-    institution: profile.institution ?? '',
-    graduation_year: profile.graduation_year ?? new Date().getFullYear(),
-  })
-  const [saved, setSaved] = useState(false)
-
-  const mut = useMutation({
-    mutationFn: () => onboardingApi.saveEducation({ ...form, highest_qualification: form.highest_qualification as any }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: PROFILE_KEY }); setSaved(true); setTimeout(() => setSaved(false), 3000); onToggle() },
-  })
-
-  const summary = profile.highest_qualification
-    ? `${profile.highest_qualification.replace('_', ' ')} in ${profile.field_of_study ?? '—'}, ${profile.institution ?? '—'}`
-    : 'Not filled yet'
-
-  return (
-    <Section title="Education" summary={summary} isOpen={open} onToggle={onToggle} saving={mut.isPending} saved={saved}>
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">Highest qualification</label>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {[
-              { val: 'graduate', label: 'Graduate' },
-              { val: 'post_graduate', label: 'Post Graduate' },
-              { val: 'doctorate', label: 'Doctorate' },
-              { val: 'diploma', label: 'Diploma' },
-              { val: 'other', label: 'Other' },
-            ].map(({ val, label }) => (
-              <button key={val} type="button" onClick={() => setForm(p => ({ ...p, highest_qualification: val }))}
-                className={cn('h-10 rounded-xl border text-xs font-medium transition-all',
-                  form.highest_qualification === val ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary/50')}>
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <Input label="Degree name" placeholder="B.A., M.A., B.Tech…" value={form.degree} onChange={e => setForm(p => ({ ...p, degree: e.target.value }))} />
-        <Input label="Field of study" placeholder="Political Science, History…" value={form.field_of_study} onChange={e => setForm(p => ({ ...p, field_of_study: e.target.value }))} />
-        <Input label="Institution" value={form.institution} onChange={e => setForm(p => ({ ...p, institution: e.target.value }))} />
-        <Input label="Graduation year" type="number" value={String(form.graduation_year)} onChange={e => setForm(p => ({ ...p, graduation_year: parseInt(e.target.value) || p.graduation_year }))} />
-        {mut.error && <p className="text-xs text-danger">{getApiError(mut.error, 'Save failed')}</p>}
-        <Button fullWidth loading={mut.isPending} onClick={() => mut.mutate()}>Save changes</Button>
-      </div>
-    </Section>
-  )
-}
-
-// ── UPSC Journey section ──────────────────────────────────────────────────────
-
-function UpscSection({ profile, open, onToggle }: { profile: ProfileData; open: boolean; onToggle: () => void }) {
-  const qc = useQueryClient()
-  const [form, setForm] = useState({
-    upsc_exam: profile.upsc_exam ?? '',
-    years_preparing: profile.years_preparing ?? 1,
-    upsc_attempts: profile.upsc_attempts ?? 0,
-    highest_stage_cleared: profile.highest_stage_cleared ?? '',
-    optional_subject: profile.optional_subject ?? '',
-  })
-  const [saved, setSaved] = useState(false)
-
-  const mut = useMutation({
-    mutationFn: () => onboardingApi.saveUpscJourney({ ...form, upsc_exam: form.upsc_exam as any, highest_stage_cleared: form.highest_stage_cleared as any, optional_subject: form.optional_subject || undefined }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: PROFILE_KEY }); setSaved(true); setTimeout(() => setSaved(false), 3000); onToggle() },
-  })
-
-  const EXAM_LABELS: Record<string, string> = { cse: 'UPSC CSE', capf: 'CAPF', cds: 'CDS', ies: 'IES', cms: 'CMS', state_pcs: 'State PCS', other: 'Other' }
-  const STAGE_LABELS: Record<string, string> = { none: 'None', prelims: 'Prelims', mains: 'Mains', interview: 'Interview' }
-
-  const summary = profile.upsc_exam
-    ? `${EXAM_LABELS[profile.upsc_exam] ?? profile.upsc_exam} · ${STAGE_LABELS[profile.highest_stage_cleared ?? 'none']} · ${profile.upsc_attempts ?? 0} attempt(s)`
-    : 'Not filled yet'
-
-  return (
-    <Section title="UPSC Journey" summary={summary} isOpen={open} onToggle={onToggle} saving={mut.isPending} saved={saved}>
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">Exam you prepared for</label>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(EXAM_LABELS).map(([val, label]) => (
-              <button key={val} type="button" onClick={() => setForm(p => ({ ...p, upsc_exam: val }))}
-                className={cn('px-4 py-2 rounded-full border text-xs font-medium transition-all',
-                  form.upsc_exam === val ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary/50')}>
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">Highest stage cleared</label>
-          <div className="grid grid-cols-4 gap-2">
-            {Object.entries(STAGE_LABELS).map(([val, label]) => (
-              <button key={val} type="button" onClick={() => setForm(p => ({ ...p, highest_stage_cleared: val }))}
-                className={cn('h-10 rounded-xl border text-xs font-medium transition-all',
-                  form.highest_stage_cleared === val ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary/50')}>
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Input label="Years preparing" type="number" value={String(form.years_preparing)} onChange={e => setForm(p => ({ ...p, years_preparing: parseInt(e.target.value) || 0 }))} />
-          <Input label="Total attempts" type="number" value={String(form.upsc_attempts)} onChange={e => setForm(p => ({ ...p, upsc_attempts: parseInt(e.target.value) || 0 }))} />
-        </div>
-        <Input label="Optional subject" placeholder="Public Administration, Geography…" value={form.optional_subject} onChange={e => setForm(p => ({ ...p, optional_subject: e.target.value }))} />
-        {mut.error && <p className="text-xs text-danger">{getApiError(mut.error, 'Save failed')}</p>}
-        <Button fullWidth loading={mut.isPending} onClick={() => mut.mutate()}>Save changes</Button>
-      </div>
-    </Section>
-  )
-}
-
-// ── Work Experience section ───────────────────────────────────────────────────
-
-function WorkSection({ profile, open, onToggle }: { profile: ProfileData; open: boolean; onToggle: () => void }) {
-  const qc = useQueryClient()
-  const [hasExp, setHasExp] = useState<boolean>(profile.has_work_experience ?? false)
-  const [form, setForm] = useState({
-    work_experience_years: profile.work_experience_years ?? 1,
-    work_experience_domain: profile.work_experience_domain ?? '',
-    last_designation: profile.last_designation ?? '',
-  })
-  const [saved, setSaved] = useState(false)
-
-  const mut = useMutation({
-    mutationFn: () => onboardingApi.saveWorkExperience(hasExp ? { has_work_experience: true, ...form } : { has_work_experience: false }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: PROFILE_KEY }); setSaved(true); setTimeout(() => setSaved(false), 3000); onToggle() },
-  })
-
-  const summary = profile.has_work_experience
-    ? `${profile.work_experience_years ?? 0} yr(s) in ${profile.work_experience_domain ?? '—'} as ${profile.last_designation ?? '—'}`
-    : 'No prior work experience'
-
-  return (
-    <Section title="Work Experience" summary={summary} isOpen={open} onToggle={onToggle} saving={mut.isPending} saved={saved}>
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">Do you have work experience?</label>
-          <div className="grid grid-cols-2 gap-3">
-            {[{ val: true, label: 'Yes' }, { val: false, label: 'No' }].map(({ val, label }) => (
-              <button key={String(val)} type="button" onClick={() => setHasExp(val)}
-                className={cn('h-10 rounded-xl border text-sm font-medium transition-all',
-                  hasExp === val ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary/50')}>
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-        {hasExp && (
-          <>
-            <Input label="Years of experience" type="number" value={String(form.work_experience_years)} onChange={e => setForm(p => ({ ...p, work_experience_years: parseInt(e.target.value) || 1 }))} />
-            <Input label="Domain / sector" placeholder="Education & Training, Banking…" value={form.work_experience_domain} onChange={e => setForm(p => ({ ...p, work_experience_domain: e.target.value }))} />
-            <Input label="Last designation" placeholder="Content Writer, Policy Analyst…" value={form.last_designation} onChange={e => setForm(p => ({ ...p, last_designation: e.target.value }))} />
-          </>
-        )}
-        {mut.error && <p className="text-xs text-danger">{getApiError(mut.error, 'Save failed')}</p>}
-        <Button fullWidth loading={mut.isPending} onClick={() => mut.mutate()}>Save changes</Button>
-      </div>
-    </Section>
-  )
-}
-
-// ── Skills section ────────────────────────────────────────────────────────────
-
-function SkillsSection({ profile, open, onToggle }: { profile: ProfileData; open: boolean; onToggle: () => void }) {
-  const qc = useQueryClient()
-  const { data: options } = useOnboardingOptions()
-  const [selected, setSelected] = useState<Set<string>>(new Set(profile.skills))
-  const [customInput, setCustomInput] = useState('')
-  const [saved, setSaved] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const MAX = 10
-
-  const mut = useMutation({
-    mutationFn: () => onboardingApi.saveSkills({ skills: Array.from(selected) }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: PROFILE_KEY }); setSaved(true); setTimeout(() => setSaved(false), 3000); onToggle() },
-  })
-
-  const toggle = (skill: string) => {
-    setSelected(prev => {
-      const next = new Set(prev)
-      if (next.has(skill)) { next.delete(skill) } else if (next.size < MAX) { next.add(skill) }
-      return next
-    })
-  }
-
-  const addCustomSkill = () => {
-    const skill = customInput.trim()
-    if (!skill) return
-    const existingLower = new Set([...selected].map(s => s.toLowerCase()))
-    if (existingLower.has(skill.toLowerCase())) { setCustomInput(''); return }
-    if (selected.size >= MAX) return
-    setSelected(prev => new Set([...prev, skill]))
-    setCustomInput('')
-    inputRef.current?.focus()
-  }
-
-  const allSkills = options?.skills ?? []
-  const isPredefined = (skill: string) => allSkills.includes(skill)
-  const customSkills = [...selected].filter(s => !isPredefined(s))
-
-  const summary = profile.skills.length > 0
-    ? profile.skills.slice(0, 4).join(', ') + (profile.skills.length > 4 ? ` +${profile.skills.length - 4} more` : '')
-    : 'No skills selected'
-
-  return (
-    <Section title="Skills" summary={summary} isOpen={open} onToggle={onToggle} saving={mut.isPending} saved={saved}>
-      <div className="flex flex-col gap-4">
-        <p className="text-xs text-gray-400">{selected.size}/{MAX} selected</p>
-
-        {/* Predefined skill chips */}
-        <div className="flex flex-wrap gap-2">
-          {allSkills.map(skill => {
-            const isSelected = selected.has(skill)
-            const isDisabled = !isSelected && selected.size >= MAX
-            return (
-              <button key={skill} type="button" onClick={() => toggle(skill)} disabled={isDisabled}
-                className={cn('px-3 py-1.5 rounded-full border text-xs font-medium transition-all',
-                  isSelected && 'bg-primary text-white border-primary',
-                  !isSelected && !isDisabled && 'bg-white text-gray-600 border-gray-200 hover:border-primary/50',
-                  isDisabled && 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed')}>
-                {skill}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Custom skills already saved — show as removable chips */}
-        {customSkills.length > 0 && (
-          <div className="flex flex-col gap-1.5">
-            <p className="text-xs text-gray-400">Your custom skills:</p>
-            <div className="flex flex-wrap gap-2">
-              {customSkills.map(skill => (
-                <span key={skill} className="flex items-center gap-1.5 px-3 py-1.5 bg-accent/10 border border-accent/30 text-accent text-xs font-medium rounded-full">
-                  {skill}
-                  <button type="button" onClick={() => toggle(skill)} className="text-accent/60 hover:text-danger leading-none">×</button>
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Add custom skill input */}
-        <div className="flex flex-col gap-1.5">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Add a skill not listed above</p>
-          <div className="flex gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={customInput}
-              onChange={e => setCustomInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustomSkill() } }}
-              placeholder="e.g. Machine Learning, Negotiation, SQL…"
-              disabled={selected.size >= MAX}
-              className={cn(
-                'flex-1 h-10 rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400',
-                'outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/10',
-                'disabled:bg-gray-50 disabled:text-gray-300',
-              )}
-            />
-            <button
-              type="button"
-              onClick={addCustomSkill}
-              disabled={!customInput.trim() || selected.size >= MAX}
-              className="shrink-0 h-10 px-3 rounded-xl bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1"
-            >
-              <Plus className="w-3.5 h-3.5" /> Add
-            </button>
-          </div>
-        </div>
-
-        {mut.error && <p className="text-xs text-danger">{getApiError(mut.error, 'Save failed')}</p>}
-        <Button fullWidth loading={mut.isPending} disabled={selected.size === 0} onClick={() => mut.mutate()}>Save changes</Button>
-      </div>
-    </Section>
-  )
-}
-
-// ── Preferences section ───────────────────────────────────────────────────────
-
-function PreferencesSection({ profile, open, onToggle }: { profile: ProfileData; open: boolean; onToggle: () => void }) {
-  const qc = useQueryClient()
-  const { data: options } = useOnboardingOptions()
-  const [sectors, setSectors] = useState<Set<string>>(new Set(profile.preferred_sectors))
-  // null means not yet answered (for existing profiles that already have a value, pre-fill it)
-  const [openToReloc, setOpenToReloc] = useState<boolean | null>(
-    profile.open_to_relocation != null ? profile.open_to_relocation : null
-  )
-  const [locations, setLocations] = useState<string[]>(profile.preferred_locations)
-  const [locInput, setLocInput] = useState('')
-  const [salary, setSalary] = useState<{ min: number; max: number } | null>(
-    profile.expected_salary_min != null ? { min: profile.expected_salary_min, max: profile.expected_salary_max ?? 500 } : null
-  )
-  const [saved, setSaved] = useState(false)
-
-  const mut = useMutation({
-    mutationFn: () => onboardingApi.savePreferences({
-      preferred_sectors: Array.from(sectors),
-      preferred_locations: openToReloc ? [] : locations,
-      open_to_relocation: openToReloc ?? false,
-      expected_salary_min: salary?.min ?? 0,
-      expected_salary_max: salary?.max ?? 500,
-    }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: PROFILE_KEY }); setSaved(true); setTimeout(() => setSaved(false), 3000); onToggle() },
-  })
-
-  const addLoc = () => {
-    const loc = locInput.trim()
-    if (loc && !locations.includes(loc)) setLocations(p => [...p, loc])
-    setLocInput('')
-  }
-
-  const currentSalaryLabel = SALARY_OPTIONS.find(o => o.min === salary?.min)?.label ?? 'Not set'
-  const summary = profile.preferred_sectors.length > 0
-    ? `${profile.preferred_sectors.slice(0, 2).join(', ')} · ${currentSalaryLabel}`
-    : 'Not filled yet'
-
-  return (
-    <Section title="Career Preferences" summary={summary} isOpen={open} onToggle={onToggle} saving={mut.isPending} saved={saved}>
-      <div className="flex flex-col gap-5">
-
-        {/* Sectors */}
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-gray-700">Preferred sectors</label>
-          <div className="flex flex-wrap gap-2">
-            {(options?.sectors ?? []).map(s => (
-              <button key={s} type="button"
-                onClick={() => setSectors(prev => { const n = new Set(prev); n.has(s) ? n.delete(s) : n.add(s); return n })}
-                className={cn('px-3 py-1.5 rounded-full border text-xs font-medium transition-all',
-                  sectors.has(s) ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary/50')}>
-                {s}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Relocation — asked FIRST */}
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-gray-700">Are you open to relocation?</label>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { val: true,  label: 'Yes, I can relocate'  },
-              { val: false, label: 'No, I prefer my city' },
-            ].map(({ val, label }) => (
-              <button key={String(val)} type="button"
-                onClick={() => {
-                  setOpenToReloc(val)
-                  if (val) setLocations([]) // clear locations when switching to "yes"
-                }}
-                className={cn('h-10 rounded-xl border text-xs font-medium transition-all',
-                  openToReloc === val ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary/50')}>
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Preferred locations — only shown when NOT open to relocation */}
-        {openToReloc === false && (
-          <div className="flex flex-col gap-2">
-            <label className="text-sm font-medium text-gray-700">Preferred locations</label>
-            <p className="text-xs text-gray-400 -mt-1">Add the cities you'd like to work in.</p>
-            <div className="flex gap-2">
-              <Input placeholder="Delhi, Mumbai…" value={locInput}
-                onChange={e => setLocInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addLoc() } }}
-                prefix={<MapPin className="w-4 h-4" />} />
-              <button type="button" onClick={addLoc}
-                className="shrink-0 px-4 h-11 rounded-xl bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition-colors">
-                Add
-              </button>
-            </div>
-            {locations.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {locations.map(loc => (
-                  <span key={loc} className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
-                    {loc}
-                    <button type="button" onClick={() => setLocations(p => p.filter(l => l !== loc))} className="text-primary/60 hover:text-danger">×</button>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Salary */}
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-gray-700">Expected salary range</label>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {SALARY_OPTIONS.map(opt => (
-              <button key={opt.label} type="button" onClick={() => setSalary({ min: opt.min, max: opt.max })}
-                className={cn('h-10 rounded-xl border text-xs font-medium transition-all',
-                  salary?.min === opt.min ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary/50')}>
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {mut.error && <p className="text-xs text-danger">{getApiError(mut.error, 'Save failed')}</p>}
-        <Button fullWidth loading={mut.isPending} onClick={() => mut.mutate()}>Save changes</Button>
-      </div>
-    </Section>
-  )
-}
-
-// ── Mindset section (read-only) ───────────────────────────────────────────────
-
-function MindsetSection({ profile, open, onToggle }: { profile: ProfileData; open: boolean; onToggle: () => void }) {
-  const navigate = useNavigate()
-
-  const MOTIVATION_LABELS: Record<string, string> = {
-    intrinsic: 'Driven by meaningful work',
-    extrinsic: 'Motivated by recognition & salary',
-    mixed: 'Motivated by both purpose and recognition',
-  }
-  const RISK_LABELS: Record<string, string> = {
-    low: 'Prefers stability',
-    medium: 'Open to calculated risks',
-    high: 'Willing to take bold moves',
-  }
-
-  const summary = profile.motivation_type
-    ? `${MOTIVATION_LABELS[profile.motivation_type] ?? profile.motivation_type} · ${RISK_LABELS[profile.risk_tolerance ?? 'medium'] ?? ''}`
-    : 'Not completed'
-
-  return (
-    <Section title="Mindset Assessment" summary={summary} isOpen={open} onToggle={onToggle}>
-      <div className="flex flex-col gap-4">
-        {profile.disha_insight && (
-          <div className="bg-primary/5 border border-primary/10 rounded-xl px-4 py-3">
-            <p className="text-xs font-medium text-primary mb-1">Your BeginablAI insight</p>
-            <p className="text-sm text-gray-700 leading-relaxed italic">"{profile.disha_insight}"</p>
-          </div>
-        )}
-
-        {profile.motivation_type && (
-          <div className="grid grid-cols-3 gap-3 text-center">
-            <div className="bg-gray-50 rounded-xl p-3">
-              <p className="text-xs text-gray-400 mb-1">Motivation</p>
-              <p className="text-xs font-semibold text-gray-700">{MOTIVATION_LABELS[profile.motivation_type] ?? profile.motivation_type}</p>
-            </div>
-            <div className="bg-gray-50 rounded-xl p-3">
-              <p className="text-xs text-gray-400 mb-1">Risk appetite</p>
-              <p className="text-xs font-semibold text-gray-700">{RISK_LABELS[profile.risk_tolerance ?? 'medium'] ?? ''}</p>
-            </div>
-            <div className="bg-gray-50 rounded-xl p-3">
-              <p className="text-xs text-gray-400 mb-1">Support system</p>
-              <p className="text-xs font-semibold text-gray-700 capitalize">{profile.support_system ?? '—'}</p>
-            </div>
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={() => navigate('/app/onboarding/step/7')}
-          className="flex items-center justify-center gap-2 h-10 rounded-xl border border-gray-200 text-sm text-gray-600 hover:border-primary hover:text-primary transition-colors"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          Retake assessment
-        </button>
-      </div>
-    </Section>
-  )
-}
-
-// ── KRS Score Panel ───────────────────────────────────────────────────────────
-
-const KRS_TILES = [
-  {
-    key: 'k',
-    label: 'Knowledge',
-    color: '#2563EB',
-    bg: '#EFF6FF',
-    border: 'rgba(37,99,235,0.12)',
-    what: "How broadly and deeply you've mastered UPSC subjects.",
-    improve: 'Fill in your Education and UPSC Journey sections.',
-    score: (d: any) => d?.krs?.k_score ?? 0,
-  },
-  {
-    key: 'r',
-    label: 'Readiness',
-    color: '#7C3AED',
-    bg: '#F5F3FF',
-    border: 'rgba(124,58,237,0.12)',
-    what: 'Your psychological preparedness for private sector work culture.',
-    improve: 'Complete the Mindset Assessment section.',
-    score: (d: any) => d?.krs?.r_score ?? 0,
-  },
-  {
-    key: 's',
-    label: 'Skills',
-    color: '#059669',
-    bg: '#ECFDF5',
-    border: 'rgba(5,150,105,0.12)',
-    what: 'How well your UPSC skills map to real corporate roles.',
-    improve: 'Add more skills in the Skills section below.',
-    score: (d: any) => d?.krs?.s_score ?? 0,
-  },
-]
-
-function KrsPanel() {
-  const { data, isLoading } = useKrsDashboard()
-  const recompute = useRecompute()
-
-  return (
-    <div style={{
-      background: 'white',
-      borderRadius: 20,
-      border: '1px solid rgba(26,39,68,0.08)',
-      boxShadow: '0 2px 10px rgba(15,23,42,0.04)',
-      padding: '18px 22px',
-      marginBottom: 20,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, marginBottom: 14 }}>
-        <div>
-          <p style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 3 }}>Your KRS Score</p>
-          <p style={{ fontSize: 12, color: '#6B7280', lineHeight: 1.6, maxWidth: 520 }}>
-            Knowledge · Readiness · Skills — Disha uses this score to match you to the right jobs and build
-            your personalised roadmap. Every profile section you complete raises it.
-          </p>
-        </div>
-        <button
-          onClick={() => recompute.mutate()}
-          disabled={recompute.isPending || isLoading}
-          style={{
-            flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5,
-            padding: '6px 12px', borderRadius: 8,
-            background: 'none', border: '1px solid rgba(26,39,68,0.10)',
-            color: '#6B7280', fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
-          }}
-        >
-          <RefreshCw size={11} className={recompute.isPending ? 'animate-spin' : ''} />
-          {recompute.isPending ? 'Updating…' : 'Refresh'}
-        </button>
-      </div>
-
-      {isLoading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-          {[1, 2, 3].map(i => (
-            <div key={i} style={{ height: 110, borderRadius: 14, background: '#F8FAFC', animation: 'pulse 2s infinite' }} />
-          ))}
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-          {KRS_TILES.map(t => (
-            <div key={t.key} style={{
-              borderRadius: 14,
-              background: t.bg,
-              border: `1px solid ${t.border}`,
-              padding: '14px 16px',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 3, marginBottom: 2 }}>
-                <span style={{ fontSize: 28, fontWeight: 800, color: t.color, lineHeight: 1 }}>{t.score(data)}</span>
-                <span style={{ fontSize: 11, color: t.color, fontWeight: 600, opacity: 0.6 }}>/100</span>
-              </div>
-              <p style={{ fontSize: 12, fontWeight: 700, color: '#111827', marginBottom: 6 }}>{t.label}</p>
-              <p style={{ fontSize: 11.5, color: '#6B7280', lineHeight: 1.55, marginBottom: 8 }}>{t.what}</p>
-              <p style={{ fontSize: 11, color: t.color, fontWeight: 600, borderTop: `1px solid ${t.border}`, paddingTop: 8 }}>
-                ↑ {t.improve}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Main page ─────────────────────────────────────────────────────────────────
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { User } from 'lucide-react'
+import { onboardingApi } from '@/api/onboarding'
+import AspLayout from '@/shared/layouts/AspLayout'
+import PageHeader from '@/shared/layouts/PageHeader'
+import { PROFILE_KEY } from '../components/profileConstants'
+import { KrsPanel } from '../components/KrsPanel'
+import { PersonalSection } from '../components/PersonalSection'
+import { EducationSection } from '../components/EducationSection'
+import { UpscSection } from '../components/UpscSection'
+import { WorkSection } from '../components/WorkSection'
+import { SkillsSection } from '../components/SkillsSection'
+import { PreferencesSection } from '../components/PreferencesSection'
+import { MindsetSection } from '../components/MindsetSection'
+
+type SectionKey = 'personal' | 'education' | 'upsc' | 'work' | 'skills' | 'preferences' | 'mindset'
 
 export default function ProfilePage() {
-  const navigate = useNavigate()
-  const [openSection, setOpenSection] = useState<string | null>(null)
+  const [openSection, setOpenSection] = useState<SectionKey | null>(null)
 
   const { data: profile, isLoading, error } = useQuery({
-    queryKey: PROFILE_KEY,
+    queryKey: [...PROFILE_KEY],
     queryFn: onboardingApi.getProfile,
   })
 
-  const toggle = (section: string) =>
+  const toggle = (section: SectionKey) =>
     setOpenSection(prev => (prev === section ? null : section))
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
+    <AspLayout activePath="/app/profile">
+      <PageHeader
+        title="My Profile"
+        subtitle="Every update improves your KRS score & job matches"
+      />
 
-      {/* ── Sidebar ── */}
-      <AppSidebar activePath="/app/profile" />
+      <main style={{ padding: '28px 32px', flex: 1 }}>
 
-      {/* ── Main content ── */}
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-
-        {/* Top bar */}
-        <header style={{
-          background: 'white',
-          borderBottom: '1px solid rgba(26,39,68,0.08)',
-          padding: '0 32px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          position: 'sticky', top: 0, zIndex: 20,
-        }}>
-          <div>
-            <h1 style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>Profile</h1>
-            <p style={{ fontSize: 11.5, color: '#9CA3AF' }}>Every update improves your KRS score & job matches</p>
+        <div style={{ borderBottom: '1px solid rgba(26,39,68,0.08)', paddingBottom: 20, marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{
+              width: 52, height: 52, borderRadius: '50%',
+              background: '#1A2744',
+              border: '1px solid rgba(26,39,68,0.18)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 22, flexShrink: 0, color: 'white', fontWeight: 700,
+            }}>
+              {profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : <User size={22} />}
+            </div>
+            <div>
+              <p style={{ fontSize: 11.5, color: '#9CA3AF', marginBottom: 2 }}>Your profile</p>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: '#111827' }}>
+                {profile?.full_name ?? 'Complete your profile'}
+              </h2>
+              <p style={{ fontSize: 12.5, color: '#6B7280', marginTop: 2 }}>
+                {profile?.city ? `${profile.city}, ${profile.state ?? ''}` : 'Add your location'}
+              </p>
+            </div>
           </div>
-        </header>
+          <p style={{ fontSize: 12, color: '#9CA3AF', lineHeight: 1.5, marginTop: 14 }}>
+            Each section you complete improves your KRS score and surfaces better job matches.
+          </p>
+        </div>
 
-        <main style={{ padding: '28px 32px', flex: 1 }}>
+        <KrsPanel />
 
-          {/* Hero card */}
-          <div style={{ borderBottom: '1px solid rgba(26,39,68,0.08)', paddingBottom: 20, marginBottom: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div style={{
-                width: 52, height: 52, borderRadius: '50%',
-                background: '#1A2744',
-                border: '1px solid rgba(26,39,68,0.18)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 22, flexShrink: 0, color: 'white', fontWeight: 700,
-              }}>
-                {profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : <User size={22} />}
-              </div>
-              <div>
-                <p style={{ fontSize: 11.5, color: '#9CA3AF', marginBottom: 2 }}>Your profile</p>
-                <h2 style={{ fontSize: 18, fontWeight: 700, color: '#111827' }}>
-                  {profile?.full_name ?? 'Complete your profile'}
-                </h2>
-                <p style={{ fontSize: 12.5, color: '#6B7280', marginTop: 2 }}>
-                  {profile?.city ? `${profile.city}, ${profile.state ?? ''}` : 'Add your location'}
-                </p>
-              </div>
-            </div>
-            <p style={{ fontSize: 12, color: '#9CA3AF', lineHeight: 1.5, marginTop: 14 }}>
-              Each section you complete improves your KRS score and surfaces better job matches.
-            </p>
+        {isLoading && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} style={{ height: 80, borderRadius: 14, background: '#F8FAFC', animation: 'pulse 2s infinite', border: '1px solid rgba(37,99,235,0.08)' }} />
+            ))}
           </div>
+        )}
 
-          <KrsPanel />
+        {error && (
+          <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, padding: '14px 18px', fontSize: 14, color: '#DC2626' }}>
+            Could not load profile. Please refresh.
+          </div>
+        )}
 
-          {isLoading && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {[1,2,3,4].map(i => (
-                <div key={i} style={{ height: 80, borderRadius: 14, background: '#F8FAFC', animation: 'pulse 2s infinite', border: '1px solid rgba(37,99,235,0.08)' }} />
-              ))}
+        {profile && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }} className="md:grid-cols-2 grid-cols-1">
+            <div style={{ gridColumn: openSection === 'personal'     ? '1 / -1' : undefined }}>
+              <PersonalSection    profile={profile} open={openSection === 'personal'}     onToggle={() => toggle('personal')} />
             </div>
-          )}
-
-          {error && (
-            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, padding: '14px 18px', fontSize: 14, color: '#DC2626' }}>
-              Could not load profile. Please refresh.
+            <div style={{ gridColumn: openSection === 'education'    ? '1 / -1' : undefined }}>
+              <EducationSection   profile={profile} open={openSection === 'education'}    onToggle={() => toggle('education')} />
             </div>
-          )}
-
-          {profile && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }} className="md:grid-cols-2 grid-cols-1">
-              <div style={{ gridColumn: openSection === 'personal' ? '1 / -1' : undefined }}>
-                <PersonalSection     profile={profile} open={openSection === 'personal'}     onToggle={() => toggle('personal')} />
-              </div>
-              <div style={{ gridColumn: openSection === 'education' ? '1 / -1' : undefined }}>
-                <EducationSection    profile={profile} open={openSection === 'education'}    onToggle={() => toggle('education')} />
-              </div>
-              <div style={{ gridColumn: openSection === 'upsc' ? '1 / -1' : undefined }}>
-                <UpscSection         profile={profile} open={openSection === 'upsc'}         onToggle={() => toggle('upsc')} />
-              </div>
-              <div style={{ gridColumn: openSection === 'work' ? '1 / -1' : undefined }}>
-                <WorkSection         profile={profile} open={openSection === 'work'}         onToggle={() => toggle('work')} />
-              </div>
-              <div style={{ gridColumn: openSection === 'skills' ? '1 / -1' : undefined }}>
-                <SkillsSection       profile={profile} open={openSection === 'skills'}       onToggle={() => toggle('skills')} />
-              </div>
-              <div style={{ gridColumn: openSection === 'preferences' ? '1 / -1' : undefined }}>
-                <PreferencesSection  profile={profile} open={openSection === 'preferences'}  onToggle={() => toggle('preferences')} />
-              </div>
-              <div style={{ gridColumn: openSection === 'mindset' ? '1 / -1' : undefined }}>
-                <MindsetSection      profile={profile} open={openSection === 'mindset'}      onToggle={() => toggle('mindset')} />
-              </div>
+            <div style={{ gridColumn: openSection === 'upsc'         ? '1 / -1' : undefined }}>
+              <UpscSection        profile={profile} open={openSection === 'upsc'}         onToggle={() => toggle('upsc')} />
             </div>
-          )}
-        </main>
-      </div>
+            <div style={{ gridColumn: openSection === 'work'         ? '1 / -1' : undefined }}>
+              <WorkSection        profile={profile} open={openSection === 'work'}         onToggle={() => toggle('work')} />
+            </div>
+            <div style={{ gridColumn: openSection === 'skills'       ? '1 / -1' : undefined }}>
+              <SkillsSection      profile={profile} open={openSection === 'skills'}       onToggle={() => toggle('skills')} />
+            </div>
+            <div style={{ gridColumn: openSection === 'preferences'  ? '1 / -1' : undefined }}>
+              <PreferencesSection profile={profile} open={openSection === 'preferences'}  onToggle={() => toggle('preferences')} />
+            </div>
+            <div style={{ gridColumn: openSection === 'mindset'      ? '1 / -1' : undefined }}>
+              <MindsetSection     profile={profile} open={openSection === 'mindset'}      onToggle={() => toggle('mindset')} />
+            </div>
+          </div>
+        )}
+      </main>
       <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
-    </div>
+    </AspLayout>
   )
 }

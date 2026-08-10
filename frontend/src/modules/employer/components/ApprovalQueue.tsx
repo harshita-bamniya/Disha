@@ -3,6 +3,7 @@
  * Employer managers can publish or discard directly from here.
  */
 import { useState } from 'react'
+import { colors } from '@/design-system/tokens'
 import { X, CheckCircle2, Trash2, Briefcase, Clock, Building2, MapPin, AlertCircle } from 'lucide-react'
 import { useEmployerDashboard, usePublishJob, useDeleteJob } from '../hooks/useJobs'
 import type { JobPosting } from '@/api/jobs'
@@ -13,8 +14,8 @@ interface Props {
 
 const STATUS_COLOR: Record<string, { bg: string; color: string; label: string }> = {
   draft:    { bg: 'rgba(245,158,11,0.08)', color: '#D97706', label: 'Draft' },
-  paused:   { bg: 'rgba(100,116,139,0.08)', color: '#64748B', label: 'Paused' },
-  pending:  { bg: 'rgba(59,130,246,0.08)', color: '#3B82F6', label: 'Pending' },
+  paused:   { bg: 'rgba(100,116,139,0.08)', color: colors.text.inkSoft, label: 'Paused' },
+  pending:  { bg: colors.state.infoBg, color: colors.state.info, label: 'Pending' },
 }
 
 function QueueCard({ job, onPublish, onDelete, publishing, deleting }: {
@@ -27,7 +28,7 @@ function QueueCard({ job, onPublish, onDelete, publishing, deleting }: {
   const chip = STATUS_COLOR[job.status] ?? STATUS_COLOR.draft
 
   return (
-    <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #E5E7EB', padding: '14px 16px' }}>
+    <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${colors.border.default}`, padding: '14px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 }}>
         <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(30,58,95,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <Briefcase size={15} color="#1E3A5F" />
@@ -58,7 +59,7 @@ function QueueCard({ job, onPublish, onDelete, publishing, deleting }: {
       </div>
 
       {job.description && (
-        <p style={{ fontSize: 11, color: '#64748B', margin: '0 0 10px', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+        <p style={{ fontSize: 11, color: colors.text.inkSoft, margin: '0 0 10px', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
           {job.description}
         </p>
       )}
@@ -120,7 +121,7 @@ export function ApprovalQueue({ onClose }: Props) {
                 {queue.length} job{queue.length !== 1 ? 's' : ''} awaiting publish
               </p>
             </div>
-            <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 9, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF' }}>
+            <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 9, border: `1px solid ${colors.border.default}`, background: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: colors.text.muted }}>
               <X size={14} />
             </button>
           </div>
@@ -152,9 +153,9 @@ export function ApprovalQueue({ onClose }: Props) {
 
         {/* Tip */}
         {queue.length > 0 && (
-          <div style={{ padding: '12px 16px', borderTop: '1px solid #E5E7EB', background: 'rgba(255,255,255,0.7)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          <div style={{ padding: '12px 16px', borderTop: `1px solid ${colors.border.default}`, background: 'rgba(255,255,255,0.7)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
             <AlertCircle size={13} color="#D97706" style={{ marginTop: 1, flexShrink: 0 }} />
-            <p style={{ fontSize: 11, color: '#64748B', margin: 0, lineHeight: 1.5 }}>
+            <p style={{ fontSize: 11, color: colors.text.inkSoft, margin: 0, lineHeight: 1.5 }}>
               Published jobs are immediately visible to UPSC candidates matching the job criteria.
             </p>
           </div>
@@ -166,9 +167,9 @@ export function ApprovalQueue({ onClose }: Props) {
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, padding: 16 }}>
           <div style={{ background: '#fff', borderRadius: 16, padding: 22, maxWidth: 320, width: '100%' }}>
             <h3 style={{ fontSize: 14, fontWeight: 800, color: '#1E3A5F', margin: '0 0 8px' }}>Delete this job?</h3>
-            <p style={{ fontSize: 12, color: '#64748B', margin: '0 0 16px' }}>This cannot be undone.</p>
+            <p style={{ fontSize: 12, color: colors.text.inkSoft, margin: '0 0 16px' }}>This cannot be undone.</p>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => setDeleteConfirm(null)} style={{ flex: 1, height: 36, borderRadius: 9, border: '1.5px solid #E5E7EB', background: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', color: '#374151' }}>Cancel</button>
+              <button onClick={() => setDeleteConfirm(null)} style={{ flex: 1, height: 36, borderRadius: 9, border: `1.5px solid ${colors.border.default}`, background: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', color: colors.text.inkSoft }}>Cancel</button>
               <button onClick={() => handleDelete(deleteConfirm)} disabled={!!deletingId} style={{ flex: 1, height: 36, borderRadius: 9, border: 'none', background: '#EF4444', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', opacity: deletingId ? 0.7 : 1 }}>
                 {deletingId ? 'Deleting…' : 'Delete'}
               </button>

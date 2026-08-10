@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { Bell, Plus, Send, Trash2, X, Edit2, Calendar, Users, Radio, Activity, CheckCircle, AlertCircle, Mail } from 'lucide-react'
 import {
   useAnnouncements, useCreateAnnouncement, useUpdateAnnouncement,
@@ -11,8 +11,9 @@ import type {
   AnnouncementEntry, AnnouncementType, AnnouncementTarget,
   AnnouncementChannel, AnnouncementCreatePayload, AdminNotificationEntry,
 } from '@/api/admin'
+import { colors } from '@/design-system/tokens'
+import Button from '@/shared/components/primitives/Button'
 
-const N = { navy: '#1A2744', ink: '#1E3A5F', muted: '#94A3B8', cream: '#F4F5F7', creamDk: '#EAECF0' }
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
@@ -93,20 +94,20 @@ function ComposeModal({
       <div style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 512, width: '100%', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
         <div className="flex items-start justify-between mb-5 shrink-0">
           <div>
-            <h3 style={{ fontSize: 16, fontWeight: 900, color: N.ink }}>{isEdit ? 'Edit announcement' : 'New announcement'}</h3>
-            <p style={{ fontSize: 12, color: N.muted, marginTop: 2 }}>Broadcast a message to a segment of your users.</p>
+            <h3 style={{ fontSize: 16, fontWeight: 900, color: colors.text.ink }}>{isEdit ? 'Edit announcement' : 'New announcement'}</h3>
+            <p style={{ fontSize: 12, color: colors.text.muted, marginTop: 2 }}>Broadcast a message to a segment of your users.</p>
           </div>
-          <button onClick={onClose} style={{ color: N.muted }}><X className="w-4 h-4" /></button>
+          <button onClick={onClose} aria-label="Close" style={{ color: colors.text.muted }}><X className="w-4 h-4" /></button>
         </div>
 
         <div className="flex flex-col gap-4 overflow-y-auto flex-1">
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: N.ink, marginBottom: 4, display: 'block' }}>Title</label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: colors.text.ink, marginBottom: 4, display: 'block' }}>Title</label>
             <input value={form.title} onChange={e => set('title', e.target.value)} placeholder="e.g. Platform maintenance on Sunday" style={inputStyle} />
           </div>
 
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: N.ink, marginBottom: 4, display: 'block' }}>Message</label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: colors.text.ink, marginBottom: 4, display: 'block' }}>Message</label>
             <textarea
               value={form.body}
               onChange={e => set('body', e.target.value)}
@@ -118,7 +119,7 @@ function ComposeModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label style={{ fontSize: 12, fontWeight: 700, color: N.ink, marginBottom: 4, display: 'block' }}>Type</label>
+              <label style={{ fontSize: 12, fontWeight: 700, color: colors.text.ink, marginBottom: 4, display: 'block' }}>Type</label>
               <select value={form.type} onChange={e => set('type', e.target.value as AnnouncementType)} style={selectStyle}>
                 <option value="info">Info</option>
                 <option value="warning">Warning</option>
@@ -127,7 +128,7 @@ function ComposeModal({
               </select>
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 700, color: N.ink, marginBottom: 4, display: 'block' }}>Audience</label>
+              <label style={{ fontSize: 12, fontWeight: 700, color: colors.text.ink, marginBottom: 4, display: 'block' }}>Audience</label>
               <select value={form.target} onChange={e => set('target', e.target.value as AnnouncementTarget)} style={selectStyle}>
                 <option value="all">Everyone</option>
                 <option value="aspirants">Aspirants only</option>
@@ -137,7 +138,7 @@ function ComposeModal({
           </div>
 
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: N.ink, marginBottom: 4, display: 'block' }}>Channel</label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: colors.text.ink, marginBottom: 4, display: 'block' }}>Channel</label>
             <select value={form.channel} onChange={e => set('channel', e.target.value as AnnouncementChannel)} style={selectStyle}>
               <option value="in_app">In-app only</option>
               <option value="email">Email only</option>
@@ -146,8 +147,8 @@ function ComposeModal({
           </div>
 
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: N.ink, marginBottom: 4, display: 'block' }}>
-              Schedule for <span style={{ fontWeight: 400, color: N.muted }}>(optional — leave blank to save as draft)</span>
+            <label style={{ fontSize: 12, fontWeight: 700, color: colors.text.ink, marginBottom: 4, display: 'block' }}>
+              Schedule for <span style={{ fontWeight: 400, color: colors.text.muted }}>(optional — leave blank to save as draft)</span>
             </label>
             <input
               type="datetime-local"
@@ -161,14 +162,10 @@ function ComposeModal({
         {err && <p style={{ fontSize: 12, color: '#EF4444', marginTop: 12, flexShrink: 0 }}>{getApiError(err)}</p>}
 
         <div className="flex gap-3 mt-5 shrink-0">
-          <button onClick={onClose} style={{ flex: 1, height: 40, borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', fontSize: 14, fontWeight: 500, color: N.muted, background: '#fff' }}>Cancel</button>
-          <button
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-            style={{ flex: 1, height: 40, borderRadius: 10, background: N.navy, color: '#fff', fontSize: 14, fontWeight: 600, border: 'none', opacity: !canSubmit ? 0.4 : 1 }}
-          >
-            {isPending ? 'Saving…' : isEdit ? 'Save changes' : 'Save draft'}
-          </button>
+          <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+          <Button className="flex-1" disabled={!canSubmit} loading={isPending} onClick={handleSubmit}>
+            {isEdit ? 'Save changes' : 'Save draft'}
+          </Button>
         </div>
       </div>
     </div>
@@ -182,20 +179,14 @@ function DeleteConfirm({ ann, onClose }: { ann: AnnouncementEntry; onClose: () =
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
       <div style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 384, width: '100%' }}>
-        <h3 style={{ fontSize: 16, fontWeight: 900, color: N.ink, marginBottom: 8 }}>Delete announcement?</h3>
-        <p style={{ fontSize: 14, color: N.muted, marginBottom: 20 }}>
-          "<span style={{ fontWeight: 600, color: N.ink }}>{ann.title}</span>" will be permanently removed.
+        <h3 style={{ fontSize: 16, fontWeight: 900, color: colors.text.ink, marginBottom: 8 }}>Delete announcement?</h3>
+        <p style={{ fontSize: 14, color: colors.text.muted, marginBottom: 20 }}>
+          "<span style={{ fontWeight: 600, color: colors.text.ink }}>{ann.title}</span>" will be permanently removed.
         </p>
         {del.isError && <p style={{ fontSize: 12, color: '#EF4444', marginBottom: 12 }}>{getApiError(del.error)}</p>}
         <div className="flex gap-3">
-          <button onClick={onClose} style={{ flex: 1, height: 40, borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', fontSize: 14, fontWeight: 500, color: N.muted, background: '#fff' }}>Cancel</button>
-          <button
-            onClick={() => del.mutate(ann.id, { onSuccess: onClose })}
-            disabled={del.isPending}
-            style={{ flex: 1, height: 40, borderRadius: 10, background: '#EF4444', color: '#fff', fontSize: 14, fontWeight: 600, border: 'none', opacity: del.isPending ? 0.4 : 1 }}
-          >
-            {del.isPending ? 'Deleting…' : 'Delete'}
-          </button>
+          <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+          <Button variant="danger" className="flex-1" loading={del.isPending} onClick={() => del.mutate(ann.id, { onSuccess: onClose })}>Delete</Button>
         </div>
       </div>
     </div>
@@ -209,9 +200,9 @@ function PublishConfirm({ ann, onClose }: { ann: AnnouncementEntry; onClose: () 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
       <div style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 384, width: '100%' }}>
-        <h3 style={{ fontSize: 16, fontWeight: 900, color: N.ink, marginBottom: 8 }}>Publish now?</h3>
-        <p style={{ fontSize: 14, color: N.muted, marginBottom: 4 }}>
-          "<span style={{ fontWeight: 600, color: N.ink }}>{ann.title}</span>" will be sent to{' '}
+        <h3 style={{ fontSize: 16, fontWeight: 900, color: colors.text.ink, marginBottom: 8 }}>Publish now?</h3>
+        <p style={{ fontSize: 14, color: colors.text.muted, marginBottom: 4 }}>
+          "<span style={{ fontWeight: 600, color: colors.text.ink }}>{ann.title}</span>" will be sent to{' '}
           <span style={{ fontWeight: 600 }}>{TARGET_LABELS[ann.target]}</span> via{' '}
           <span style={{ fontWeight: 600 }}>{CHANNEL_LABELS[ann.channel]}</span>.
         </p>
@@ -220,14 +211,8 @@ function PublishConfirm({ ann, onClose }: { ann: AnnouncementEntry; onClose: () 
         </p>
         {pub.isError && <p style={{ fontSize: 12, color: '#EF4444', marginBottom: 12 }}>{getApiError(pub.error)}</p>}
         <div className="flex gap-3">
-          <button onClick={onClose} style={{ flex: 1, height: 40, borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', fontSize: 14, fontWeight: 500, color: N.muted, background: '#fff' }}>Cancel</button>
-          <button
-            onClick={() => pub.mutate(ann.id, { onSuccess: onClose })}
-            disabled={pub.isPending}
-            style={{ flex: 1, height: 40, borderRadius: 10, background: N.navy, color: '#fff', fontSize: 14, fontWeight: 600, border: 'none', opacity: pub.isPending ? 0.4 : 1 }}
-          >
-            {pub.isPending ? 'Publishing…' : 'Publish'}
-          </button>
+          <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+          <Button className="flex-1" loading={pub.isPending} onClick={() => pub.mutate(ann.id, { onSuccess: onClose })}>Publish</Button>
         </div>
       </div>
     </div>
@@ -256,10 +241,10 @@ function AnnCard({
         <div className="flex items-center gap-2 flex-wrap">
           <Badge color={tc.color}>{tc.label}</Badge>
           <Badge color={STATUS_COLORS[ann.status] ?? 'gray'} className="capitalize">{ann.status}</Badge>
-          <span style={{ fontSize: 10, color: N.muted, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ fontSize: 10, color: colors.text.muted, display: 'flex', alignItems: 'center', gap: 4 }}>
             <Users className="w-3 h-3" />{TARGET_LABELS[ann.target]}
           </span>
-          <span style={{ fontSize: 10, color: N.muted, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ fontSize: 10, color: colors.text.muted, display: 'flex', alignItems: 'center', gap: 4 }}>
             <Radio className="w-3 h-3" />{CHANNEL_LABELS[ann.channel]}
           </span>
         </div>
@@ -268,7 +253,7 @@ function AnnCard({
             <>
               <button
                 onClick={onEdit}
-                style={{ padding: 6, borderRadius: 8, color: N.muted, background: 'transparent', border: 'none' }}
+                style={{ padding: 6, borderRadius: 8, color: colors.text.muted, background: 'transparent', border: 'none' }}
                 title="Edit"
               >
                 <Edit2 className="w-3.5 h-3.5" />
@@ -276,7 +261,7 @@ function AnnCard({
               <button
                 onClick={onPublish}
                 className="flex items-center gap-1"
-                style={{ padding: '4px 10px', height: 28, borderRadius: 8, background: N.creamDk, color: N.ink, fontSize: 12, fontWeight: 600, border: 'none' }}
+                style={{ padding: '4px 10px', height: 28, borderRadius: 8, background: colors.surface.elevated, color: colors.text.ink, fontSize: 12, fontWeight: 600, border: 'none' }}
               >
                 <Send className="w-3 h-3" />
                 Publish
@@ -285,7 +270,7 @@ function AnnCard({
           )}
           <button
             onClick={onDelete}
-            style={{ padding: 6, borderRadius: 8, color: N.muted, background: 'transparent', border: 'none' }}
+            style={{ padding: 6, borderRadius: 8, color: colors.text.muted, background: 'transparent', border: 'none' }}
             title="Delete"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -293,10 +278,10 @@ function AnnCard({
         </div>
       </div>
 
-      <h3 style={{ fontSize: 14, fontWeight: 700, color: N.ink, marginBottom: 4 }}>{ann.title}</h3>
-      <p style={{ fontSize: 12, color: N.muted, lineHeight: 1.6 }} className="line-clamp-3">{ann.body}</p>
+      <h3 style={{ fontSize: 14, fontWeight: 700, color: colors.text.ink, marginBottom: 4 }}>{ann.title}</h3>
+      <p style={{ fontSize: 12, color: colors.text.muted, lineHeight: 1.6 }} className="line-clamp-3">{ann.body}</p>
 
-      <div className="flex items-center gap-4 mt-3 pt-3" style={{ borderTop: '1px solid rgba(0,0,0,0.06)', fontSize: 10, color: N.muted }}>
+      <div className="flex items-center gap-4 mt-3 pt-3" style={{ borderTop: '1px solid rgba(0,0,0,0.06)', fontSize: 10, color: colors.text.muted }}>
         {isPublished && (
           <span className="flex items-center gap-1">
             <Send className="w-3 h-3" />
@@ -360,12 +345,12 @@ function DeliveryLogTab() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {statCards.map(({ label, value, icon: Icon }) => (
             <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 12, background: N.creamDk, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Icon className="w-5 h-5" style={{ color: N.ink }} />
+              <div style={{ width: 40, height: 40, borderRadius: 12, background: colors.surface.elevated, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icon className="w-5 h-5" style={{ color: colors.text.ink }} />
               </div>
               <div>
-                <p style={{ fontSize: 28, fontWeight: 800, color: N.ink }}>{value.toLocaleString()}</p>
-                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: N.muted }}>{label}</p>
+                <p style={{ fontSize: 28, fontWeight: 800, color: colors.text.ink }}>{value.toLocaleString()}</p>
+                <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted }}>{label}</p>
               </div>
             </div>
           ))}
@@ -373,7 +358,7 @@ function DeliveryLogTab() {
       )}
 
       {/* Delivery status filter */}
-      <div style={{ display: 'flex', gap: 2, background: N.cream, borderRadius: 10, padding: 3, border: '1px solid rgba(0,0,0,0.08)', width: 'fit-content' }}>
+      <div style={{ display: 'flex', gap: 2, background: colors.surface.bg, borderRadius: 10, padding: 3, border: '1px solid rgba(0,0,0,0.08)', width: 'fit-content' }}>
         {FILTERS.map(f => (
           <button
             key={f.key}
@@ -385,8 +370,8 @@ function DeliveryLogTab() {
               fontSize: 12,
               fontWeight: 600,
               border: 'none',
-              background: deliveryStatus === f.key ? N.navy : 'transparent',
-              color: deliveryStatus === f.key ? '#fff' : N.muted,
+              background: deliveryStatus === f.key ? colors.brand.navy : 'transparent',
+              color: deliveryStatus === f.key ? '#fff' : colors.text.muted,
             }}
           >
             {f.label}
@@ -399,15 +384,15 @@ function DeliveryLogTab() {
         <Empty icon={Activity} text="No notifications found" />
       ) : (
         <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-          <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(0,0,0,0.08)', background: N.cream, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: N.muted }}>{data.total.toLocaleString()} total</p>
+          <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(0,0,0,0.08)', background: colors.surface.bg, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted }}>{data.total.toLocaleString()} total</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ background: N.cream, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+                <tr style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
                   {['Recipient', 'Title', 'Type', 'Delivery', 'Read', 'Sent at', ''].map(h => (
-                    <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: N.muted, whiteSpace: 'nowrap' }}>{h}</th>
+                    <th key={h} style={{ textAlign: 'left', padding: '10px 16px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted, whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -415,18 +400,18 @@ function DeliveryLogTab() {
                 {data.items.map((n: AdminNotificationEntry, idx) => (
                   <tr
                     key={n.id}
-                    style={{ background: idx % 2 === 0 ? '#fff' : N.cream, borderBottom: '1px solid rgba(0,0,0,0.06)' }}
-                    onMouseOver={e => (e.currentTarget.style.background = N.creamDk)}
-                    onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : N.cream)}
+                    style={{ background: idx % 2 === 0 ? '#fff' : colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.06)' }}
+                    onMouseOver={e => (e.currentTarget.style.background = colors.surface.elevated)}
+                    onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : colors.surface.bg)}
                   >
                     <td style={{ padding: '12px 16px', maxWidth: 160 }} className="truncate">
-                      <p style={{ fontSize: 12, fontWeight: 500, color: N.ink }} className="truncate">{n.user_email ?? n.user_phone ?? n.user_id.slice(0, 8)}</p>
+                      <p style={{ fontSize: 12, fontWeight: 500, color: colors.text.ink }} className="truncate">{n.user_email ?? n.user_phone ?? n.user_id.slice(0, 8)}</p>
                     </td>
                     <td style={{ padding: '12px 16px', maxWidth: 220 }} className="truncate">
-                      <p style={{ fontSize: 12, color: N.ink }} className="truncate">{n.title}</p>
+                      <p style={{ fontSize: 12, color: colors.text.ink }} className="truncate">{n.title}</p>
                     </td>
                     <td style={{ padding: '12px 16px' }}>
-                      <span style={{ fontSize: 10, fontWeight: 600, background: N.cream, color: N.muted, padding: '2px 8px', borderRadius: 9999, textTransform: 'capitalize' }}>
+                      <span style={{ fontSize: 10, fontWeight: 600, background: colors.surface.bg, color: colors.text.muted, padding: '2px 8px', borderRadius: 9999, textTransform: 'capitalize' }}>
                         {n.type.replace(/_/g, ' ')}
                       </span>
                     </td>
@@ -441,18 +426,18 @@ function DeliveryLogTab() {
                       )}
                     </td>
                     <td style={{ padding: '12px 16px' }}>
-                      <span style={{ fontSize: 10, fontWeight: 600, color: n.is_read ? '#16A34A' : N.muted }}>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: n.is_read ? '#16A34A' : colors.text.muted }}>
                         {n.is_read ? 'Read' : 'Unread'}
                       </span>
                     </td>
-                    <td style={{ padding: '12px 16px', fontSize: 11, color: N.muted, whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '12px 16px', fontSize: 11, color: colors.text.muted, whiteSpace: 'nowrap' }}>
                       {new Date(n.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <button
                         onClick={() => del.mutate(n.id)}
                         disabled={del.isPending}
-                        style={{ padding: 4, borderRadius: 6, color: N.muted, background: 'transparent', border: 'none' }}
+                        style={{ padding: 4, borderRadius: 6, color: colors.text.muted, background: 'transparent', border: 'none' }}
                         title="Delete"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -503,8 +488,8 @@ export default function NotificationsPage() {
 
   const tabBtnStyle = (active: boolean) => ({
     display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px', height: 28, borderRadius: 7, fontSize: 12, fontWeight: 600, border: 'none',
-    background: active ? N.navy : 'transparent',
-    color: active ? '#fff' : N.muted,
+    background: active ? colors.brand.navy : 'transparent',
+    color: active ? '#fff' : colors.text.muted,
   })
 
   return (
@@ -512,28 +497,23 @@ export default function NotificationsPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div style={{ width: 36, height: 36, borderRadius: 12, background: N.creamDk, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Bell className="w-4 h-4" style={{ color: N.ink }} />
+          <div style={{ width: 36, height: 36, borderRadius: 12, background: colors.surface.elevated, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Bell className="w-4 h-4" style={{ color: colors.text.ink }} />
           </div>
           <div>
-            <h1 style={{ fontSize: 20, fontWeight: 800, color: N.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>Notifications</h1>
-            <p style={{ fontSize: 14, color: N.muted, marginTop: 2 }}>Manage announcements and view notification delivery status.</p>
+            <h1 style={{ fontSize: 20, fontWeight: 800, color: colors.text.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>Notifications</h1>
+            <p style={{ fontSize: 14, color: colors.text.muted, marginTop: 2 }}>Manage announcements and view notification delivery status.</p>
           </div>
         </div>
         {pageTab === 'announcements' && (
-          <button
-            onClick={() => setModal({ type: 'compose' })}
-            className="flex items-center gap-1.5 shrink-0"
-            style={{ height: 36, padding: '0 16px', borderRadius: 10, background: N.navy, color: '#fff', fontSize: 12, fontWeight: 600, border: 'none' }}
-          >
-            <Plus className="w-3.5 h-3.5" />
-            New announcement
-          </button>
+          <Button size="sm" className="shrink-0" onClick={() => setModal({ type: 'compose' })}>
+            <Plus className="w-3.5 h-3.5" /> New announcement
+          </Button>
         )}
       </div>
 
       {/* Page tabs */}
-      <div style={{ display: 'flex', gap: 2, background: N.cream, borderRadius: 10, padding: 3, border: '1px solid rgba(0,0,0,0.08)', width: 'fit-content' }}>
+      <div style={{ display: 'flex', gap: 2, background: colors.surface.bg, borderRadius: 10, padding: 3, border: '1px solid rgba(0,0,0,0.08)', width: 'fit-content' }}>
         <button onClick={() => setPageTab('announcements')} style={tabBtnStyle(pageTab === 'announcements')} className="flex items-center gap-1.5">
           <Radio className="w-3 h-3" />
           Announcements
@@ -548,7 +528,7 @@ export default function NotificationsPage() {
       {pageTab === 'announcements' && (
         <>
           {/* Filter tabs */}
-          <div style={{ display: 'flex', gap: 2, background: N.cream, borderRadius: 10, padding: 3, border: '1px solid rgba(0,0,0,0.08)', width: 'fit-content' }}>
+          <div style={{ display: 'flex', gap: 2, background: colors.surface.bg, borderRadius: 10, padding: 3, border: '1px solid rgba(0,0,0,0.08)', width: 'fit-content' }}>
             {FILTERS.map(f => (
               <button
                 key={f.key}
@@ -559,8 +539,8 @@ export default function NotificationsPage() {
                 {f.count !== undefined && f.count > 0 && (
                   <span style={{
                     padding: '0 6px', borderRadius: 9999, fontSize: 9, fontWeight: 700,
-                    background: filter === f.key ? 'rgba(255,255,255,0.2)' : N.creamDk,
-                    color: filter === f.key ? '#fff' : N.muted,
+                    background: filter === f.key ? 'rgba(255,255,255,0.2)' : colors.surface.elevated,
+                    color: filter === f.key ? '#fff' : colors.text.muted,
                   }}>
                     {f.count}
                   </span>

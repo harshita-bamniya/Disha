@@ -3,24 +3,85 @@
 @source "../index.html";
 
 @theme {
-  /* ── Blue palette (single consistent accent throughout the app) ── */
-  --color-primary:       #1E3A6B;   /* navy — dark headings, sidebar active */
-  --color-primary-light: #3B5A8F;   /* lighter navy */
-  --color-primary-dark:  #0B1424;   /* near-black */
+  /* ── Design token palette — single source of truth (mirrors design-system/tokens.ts) ── */
+  --color-brand-navy:      #1A2744;
+  --color-brand-navy-soft: #243359;
+  --color-brand-navy-dark: #111C35;
 
-  --color-secondary:       #007FFF;  /* royal blue — buttons, links, active states */
-  --color-secondary-light: #93C5FD;  /* light blue */
-  --color-secondary-dark:  #1D4ED8;  /* dark blue */
+  --color-text-ink:        #1E3A5F;
+  --color-text-ink-soft:   #475569;
+  --color-text-muted:      #94A3B8;
 
-  --color-accent:       #007FFF;    /* royal blue — same single shade */
-  --color-accent-light: rgba(0,127,255,0.12);
+  --color-surface-bg:      #F4F5F7;   /* unified page background — ALL modules */
+  --color-surface-card:    #FFFFFF;
+  --color-surface-elevated:#EAECF0;
 
-  --color-surface:  #F0F7FF;        /* page background */
-  --color-danger:   #EF4444;
+  --color-state-success:   #16A34A;
+  --color-state-warning:   #D97706;
+  --color-state-danger:    #DC2626;
+  --color-state-info:      #2563EB;
+
+  /* Legacy aliases kept for backward-compat with Tailwind utilities */
+  --color-primary:         #1A2744;
+  --color-primary-light:   #243359;
+  --color-primary-dark:    #111C35;
+  --color-danger:          #DC2626;
 
   --font-sans:    "Inter", sans-serif;
   --font-display: "Hind", sans-serif;
   --font-mono:    "JetBrains Mono", monospace;
+}
+
+/* ── AC-6: CSS custom properties for design tokens ──────────────────────────
+   Mirrors design-system/tokens.ts so inline styles can use var(--disha-*)
+   and future dark-mode theming can override them at :root[data-theme="dark"].  */
+:root {
+  /* Brand */
+  --disha-navy:         #1A2744;
+  --disha-navy-soft:    #243359;
+  --disha-navy-dark:    #111C35;
+
+  /* Text */
+  --disha-ink:          #1E3A5F;
+  --disha-ink-soft:     #475569;
+  --disha-muted:        #94A3B8;
+
+  /* Surfaces */
+  --disha-bg:           #F4F5F7;
+  --disha-card:         #FFFFFF;
+  --disha-elevated:     #EAECF0;
+
+  /* Borders */
+  --disha-border:       rgba(0,0,0,0.08);
+  --disha-border-md:    rgba(0,0,0,0.12);
+
+  /* State */
+  --disha-success:      #16A34A;
+  --disha-success-bg:   #F0FDF4;
+  --disha-warning:      #D97706;
+  --disha-warning-bg:   #FFFBEB;
+  --disha-danger:       #DC2626;
+  --disha-danger-bg:    #FEF2F2;
+  --disha-info:         #2563EB;
+  --disha-info-bg:      #EFF6FF;
+
+  /* Shadows */
+  --disha-shadow-card:     0 2px 8px rgba(15,23,42,0.05);
+  --disha-shadow-elevated: 0 4px 16px rgba(15,23,42,0.08);
+  --disha-shadow-sidebar:  4px 0 24px rgba(10,18,40,0.22);
+  --disha-shadow-button:   0 4px 14px rgba(26,39,68,0.25);
+
+  /* Layout */
+  --disha-sidebar-width: 260px;
+  --disha-header-height: 64px;
+  --disha-content-pad:   28px;
+
+  /* Radius */
+  --disha-radius-sm:   6px;
+  --disha-radius-md:   10px;
+  --disha-radius-lg:   12px;
+  --disha-radius-xl:   16px;
+  --disha-radius-2xl:  20px;
 }
 
 @layer base {
@@ -29,8 +90,8 @@
   body {
     margin: 0;
     font-family: var(--font-sans);
-    background-color: #F0F7FF;
-    color: #1e3a5f;
+    background-color: #F4F5F7;
+    color: #1E3A5F;
     -webkit-font-smoothing: antialiased;
   }
 
@@ -48,7 +109,7 @@
   /* Page layout */
   .page-shell {
     min-height: 100vh;
-    background: #F0F7FF;
+    background: #F4F5F7;
     display: flex;
   }
   .page-content {
@@ -270,6 +331,57 @@
   /* Grid helpers: collapse 3- and 4-col grids to 1 col */
   .grid-cols-3, .grid-cols-4 {
     grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── L-02 / AC-5: Focus-visible accessibility ────────────────────────────────
+   Visible focus rings on all interactive elements for keyboard / AT users.
+   Uses the brand navy as the ring color on light backgrounds.
+   On dark backgrounds (sidebar, header) the ring is white.                   */
+@layer base {
+  /* Remove browser default outline; replace with consistent focus-visible ring */
+  :focus { outline: none; }
+
+  :focus-visible {
+    outline: 2px solid #1A2744;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Inputs get a slightly tighter ring that hugs the border */
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: 2px solid #1A2744;
+    outline-offset: 0;
+    box-shadow: 0 0 0 3px rgba(26, 39, 68, 0.15);
+  }
+
+  /* On dark surfaces (sidebar nav items, header) ring must be white */
+  .focus-ring-white:focus-visible {
+    outline-color: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25);
+  }
+
+  /* Skip-to-content link (screen reader / keyboard users) */
+  .skip-link {
+    position: absolute;
+    top: -999px;
+    left: 16px;
+    z-index: 9999;
+    padding: 8px 16px;
+    background: #1A2744;
+    color: white;
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 0 0 8px 8px;
+    text-decoration: none;
+    transition: top 0.1s;
+  }
+  .skip-link:focus-visible {
+    top: 0;
+    outline: 2px solid white;
+    outline-offset: 2px;
   }
 }
 

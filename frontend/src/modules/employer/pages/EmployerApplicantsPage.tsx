@@ -2,12 +2,18 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Search, ChevronRight, Star, Loader2 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import NotificationBell from '@/components/NotificationBell'
 import { getAllApplicants } from '@/api/matching'
 import type { ApplicantListItem } from '@/api/matching'
 import { useDepartments, useEmployerPermissions, useEmployerDashboard } from '../hooks/useJobs'
-import { DS, C, statusDot, fmtDate, initials } from '../ds'
+import { DS, C, fmtDate, initials } from '../ds'
+import { colors } from '@/design-system/tokens'
 import Pagination from '@/shared/components/navigation/Pagination'
+import StatusChip from '../components/StatusChip'
+import ErrorState from '@/shared/components/feedback/ErrorState'
+import PageHeader from '@/shared/layouts/PageHeader'
+
+const inputStyle: React.CSSProperties = { width: '100%', padding: '7px 10px', border: `1px solid ${colors.border.default}`, borderRadius: 7, fontSize: 13, color: colors.text.ink, background: colors.surface.card, outline: 'none', boxSizing: 'border-box' }
+const selectStyle: React.CSSProperties = { padding: '6px 10px', border: `1px solid ${colors.border.default}`, borderRadius: 7, fontSize: 13, color: colors.text.ink, background: colors.surface.card, cursor: 'pointer' }
 
 const TABS = [
   { value: '',                   label: 'All'         },
@@ -19,16 +25,6 @@ const TABS = [
   { value: 'hired',              label: 'Hired'       },
   { value: 'rejected',           label: 'Rejected'    },
 ]
-
-function StatusChip({ status }: { status: string }) {
-  const s = statusDot(status)
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: s.color, whiteSpace: 'nowrap' }}>
-      <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
-      {s.label}
-    </span>
-  )
-}
 
 function MatchScore({ score }: { score: number | null }) {
   if (score == null) return <span style={{ color: C.ink3, fontSize: 12 }}>—</span>
@@ -48,7 +44,7 @@ function ApplicantRow({ item }: { item: ApplicantListItem }) {
     <Link
       to={`/app/employer/pipeline/${item.job_id}`}
       style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: `1px solid ${C.borderLight}`, textDecoration: 'none', color: 'inherit', transition: 'background 0.1s' }}
-      onMouseOver={e => { e.currentTarget.style.background = '#FAFAFA' }}
+      onMouseOver={e => { e.currentTarget.style.background = colors.surface.elevated }}
       onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
     >
       {/* Avatar */}
@@ -100,7 +96,7 @@ export default function EmployerApplicantsPage() {
   const { data: perms }     = useEmployerPermissions()
   const { data: departments } = useDepartments()
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['employer', 'all-applicants', statusFilter, deptFilter, offset],
     queryFn:  () => getAllApplicants({ status: statusFilter || undefined, department_id: deptFilter || undefined, limit: LIMIT, offset }),
     enabled:  dashboard?.is_approved !== false,
@@ -114,23 +110,15 @@ export default function EmployerApplicantsPage() {
     : items
 
   return (
-    <div style={DS.pageWrap}>
-
-      {/* Top bar */}
-      <header style={DS.topbar}>
-        <div>
-          <h1 style={DS.pageTitle}>Applicants</h1>
-          <p style={DS.pageSub}>{total} total</p>
-        </div>
-        <NotificationBell />
-      </header>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+      <PageHeader title="Applicants" subtitle="All candidates across your job postings" />
 
       {/* Toolbar */}
       <div style={DS.toolbar}>
         {/* Search */}
         <div style={{ position: 'relative' }}>
           <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: C.ink3, pointerEvents: 'none' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name or job…" style={{ ...DS.input, width: 200, paddingLeft: 30 }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name or job…" style={{ ...inputStyle, width: 200, paddingLeft: 30 }} />
         </div>
 
         {/* Status tabs */}
@@ -148,7 +136,7 @@ export default function EmployerApplicantsPage() {
 
         {/* Dept filter */}
         {departments && departments.length > 0 && (
-          <select value={deptFilter} onChange={e => { setDeptFilter(e.target.value); setOffset(0) }} style={DS.select}>
+          <select value={deptFilter} onChange={e => { setDeptFilter(e.target.value); setOffset(0) }} style={selectStyle}>
             <option value="">All departments</option>
             {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
@@ -158,7 +146,7 @@ export default function EmployerApplicantsPage() {
       </div>
 
       {/* Table */}
-      <div style={{ ...DS.content, padding: '16px 24px' }}>
+      <div style={{ padding: '16px 28px', background: colors.surface.bg, flex: 1 }}>
         <div style={DS.card}>
           {/* Header */}
           <div style={{ ...DS.tHead, gridTemplateColumns: COLS }}>
@@ -174,6 +162,8 @@ export default function EmployerApplicantsPage() {
               <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
               Loading…
             </div>
+          ) : isError ? (
+            <ErrorState title="Failed to load applicants" onRetry={refetch} compact />
           ) : filtered.length === 0 ? (
             <div style={{ padding: '56px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
               <p style={{ fontSize: 13, color: C.ink2, margin: 0 }}>No applicants found</p>

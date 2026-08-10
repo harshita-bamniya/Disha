@@ -16,7 +16,15 @@ import {
   type QuestionIn, type KnockoutRuleIn, type FormSectionIn, type FormSettingsIn,
 } from '@/api/applicationForms'
 import { getApiError } from '@/api/client'
-import { DS, C } from '../ds'
+import { C } from '../ds'
+import { colors, radius } from '@/design-system/tokens'
+import Button from '@/shared/components/primitives/Button'
+import Spinner from '@/shared/components/feedback/Spinner'
+import ErrorState from '@/shared/components/feedback/ErrorState'
+import PageHeader from '@/shared/layouts/PageHeader'
+
+const inputStyle: React.CSSProperties = { width: '100%', padding: '7px 10px', border: `1px solid ${colors.border.default}`, borderRadius: 7, fontSize: 13, color: colors.text.ink, background: colors.surface.card, outline: 'none', boxSizing: 'border-box' }
+const selectStyle: React.CSSProperties = { padding: '6px 10px', border: `1px solid ${colors.border.default}`, borderRadius: 7, fontSize: 13, color: colors.text.ink, background: colors.surface.card, cursor: 'pointer' }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -157,13 +165,13 @@ function QuestionModal({
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: 16 }}>
-      <div style={{ background: C.surface, borderRadius: 10, padding: 24, width: '100%', maxWidth: 520, border: `1px solid ${C.border}`, maxHeight: '90vh', overflowY: 'auto' }}>
+      <div style={{ background: colors.surface.card, borderRadius: radius.xl, padding: 24, width: '100%', maxWidth: 520, border: `1px solid ${colors.border.default}`, maxHeight: '90vh', overflowY: 'auto' }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h3 style={{ fontSize: 14, fontWeight: 600, color: C.ink1, margin: 0 }}>
             {initial ? 'Edit Question' : 'Add Question'}
           </h3>
-          <button onClick={onClose} style={{ ...DS.btnIcon, border: 'none', color: C.ink3 }}><X size={14} /></button>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close"><X size={14} /></Button>
         </div>
 
         {/* Question type */}
@@ -171,7 +179,7 @@ function QuestionModal({
         <select
           value={form.question_type}
           onChange={e => update({ question_type: e.target.value, options_json: hasOptions(e.target.value) ? (form.options_json ?? []) : null })}
-          style={{ ...DS.select, width: '100%', marginBottom: 14 }}
+          style={{ ...selectStyle, width: '100%', marginBottom: 14 }}
         >
           {QUESTION_TYPES.map(qt => (
             <option key={qt.value} value={qt.value}>{qt.label}</option>
@@ -184,7 +192,7 @@ function QuestionModal({
           value={form.label}
           onChange={e => update({ label: e.target.value })}
           placeholder="e.g. How many years of experience do you have?"
-          style={{ ...DS.input, marginBottom: 14 }}
+          style={{ ...inputStyle, marginBottom: 14 }}
         />
 
         {/* Hint text */}
@@ -193,7 +201,7 @@ function QuestionModal({
           value={form.hint_text ?? ''}
           onChange={e => update({ hint_text: e.target.value || null })}
           placeholder="Optional explanation shown below the field"
-          style={{ ...DS.input, marginBottom: 14 }}
+          style={{ ...inputStyle, marginBottom: 14 }}
         />
 
         {/* Options for choice-based types */}
@@ -203,7 +211,7 @@ function QuestionModal({
             {(form.options_json ?? []).map((opt, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                 <span style={{ flex: 1, fontSize: 13, color: C.ink1 }}>{opt.label}</span>
-                <button onClick={() => removeOption(i)} style={{ ...DS.btnIcon, border: 'none', color: C.red }}><X size={12} /></button>
+                <Button variant="ghost" size="icon" onClick={() => removeOption(i)} aria-label="Remove option"><X size={12} /></Button>
               </div>
             ))}
             <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
@@ -212,9 +220,9 @@ function QuestionModal({
                 onChange={e => setOptionInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addOption() } }}
                 placeholder="Type option and press Enter or Add"
-                style={{ ...DS.input, flex: 1 }}
+                style={{ ...inputStyle, flex: 1 }}
               />
-              <button onClick={addOption} style={{ ...DS.btnSecondary, flexShrink: 0 }}>Add</button>
+              <Button variant="outline" size="sm" onClick={addOption} style={{ flexShrink: 0 }}>Add</Button>
             </div>
           </>
         )}
@@ -228,7 +236,7 @@ function QuestionModal({
               value={form.character_limit ?? ''}
               onChange={e => update({ character_limit: e.target.value ? Number(e.target.value) : null })}
               placeholder="Leave blank for no limit"
-              style={{ ...DS.input, marginBottom: 14 }}
+              style={{ ...inputStyle, marginBottom: 14 }}
             />
           </>
         )}
@@ -254,11 +262,10 @@ function QuestionModal({
         )}
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={DS.btnSecondary}>Cancel</button>
-          <button onClick={() => valid && onSave(form)} disabled={!valid}
-            style={{ ...DS.btnPrimary, opacity: valid ? 1 : 0.5 }}>
+          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" size="sm" onClick={() => valid && onSave(form)} disabled={!valid}>
             {initial ? 'Save Changes' : 'Add Question'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -284,10 +291,10 @@ function KnockoutModal({
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: 16 }}>
-      <div style={{ background: C.surface, borderRadius: 10, padding: 24, width: '100%', maxWidth: 460, border: `1px solid ${C.border}` }}>
+      <div style={{ background: colors.surface.card, borderRadius: radius.xl, padding: 24, width: '100%', maxWidth: 460, border: `1px solid ${colors.border.default}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
           <h3 style={{ fontSize: 14, fontWeight: 600, color: C.ink1, margin: 0 }}>Knockout Rule</h3>
-          <button onClick={onClose} style={{ ...DS.btnIcon, border: 'none', color: C.ink3 }}><X size={14} /></button>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close"><X size={14} /></Button>
         </div>
         <p style={{ fontSize: 12, color: C.ink2, marginBottom: 18 }}>
           For: <strong>{question.label}</strong>
@@ -295,19 +302,19 @@ function KnockoutModal({
 
         <label style={{ fontSize: 12, fontWeight: 600, color: C.ink2, display: 'block', marginBottom: 4 }}>When answer</label>
         <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-          <select value={form.operator} onChange={e => update({ operator: e.target.value })} style={{ ...DS.select, flex: 1 }}>
+          <select value={form.operator} onChange={e => update({ operator: e.target.value })} style={{ ...selectStyle, flex: 1 }}>
             {OPERATORS.map(op => <option key={op.value} value={op.value}>{op.label}</option>)}
           </select>
           <input
             value={form.threshold_value}
             onChange={e => update({ threshold_value: e.target.value })}
             placeholder="threshold value"
-            style={{ ...DS.input, flex: 1 }}
+            style={{ ...inputStyle, flex: 1 }}
           />
         </div>
 
         <label style={{ fontSize: 12, fontWeight: 600, color: C.ink2, display: 'block', marginBottom: 4 }}>Then action</label>
-        <select value={form.action} onChange={e => update({ action: e.target.value })} style={{ ...DS.select, width: '100%', marginBottom: 14 }}>
+        <select value={form.action} onChange={e => update({ action: e.target.value })} style={{ ...selectStyle, width: '100%', marginBottom: 14 }}>
           {KNOCKOUT_ACTIONS.map(a => <option key={a.value} value={a.value}>{a.label}</option>)}
         </select>
 
@@ -318,7 +325,7 @@ function KnockoutModal({
               value={form.tag_name ?? ''}
               onChange={e => update({ tag_name: e.target.value || null })}
               placeholder="e.g. strong-candidate"
-              style={{ ...DS.input, marginBottom: 14 }}
+              style={{ ...inputStyle, marginBottom: 14 }}
             />
           </>
         )}
@@ -329,21 +336,20 @@ function KnockoutModal({
           min={0}
           value={form.priority ?? 0}
           onChange={e => update({ priority: Number(e.target.value) })}
-          style={{ ...DS.input, marginBottom: 20 }}
+          style={{ ...inputStyle, marginBottom: 20 }}
         />
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between' }}>
           {initial && (
-            <button onClick={onDelete} style={{ ...DS.btnSecondary, color: C.red, borderColor: C.red }}>
+            <Button variant="outline" size="sm" onClick={onDelete} className="text-red-600 border-red-600">
               <Trash2 size={13} />Remove rule
-            </button>
+            </Button>
           )}
           <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-            <button onClick={onClose} style={DS.btnSecondary}>Cancel</button>
-            <button onClick={() => valid && onSave(form)} disabled={!valid}
-              style={{ ...DS.btnPrimary, opacity: valid ? 1 : 0.5 }}>
+            <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+            <Button variant="primary" size="sm" onClick={() => valid && onSave(form)} disabled={!valid}>
               Save Rule
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -361,12 +367,12 @@ function SectionTitleEdit({
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', flex: 1 }}>
       <div style={{ flex: 1 }}>
-        <input value={title} onChange={e => setTitle(e.target.value)} style={{ ...DS.input, marginBottom: 6 }} placeholder="Section title" />
-        <input value={desc} onChange={e => setDesc(e.target.value)} style={DS.input} placeholder="Optional description" />
+        <input value={title} onChange={e => setTitle(e.target.value)} style={{ ...inputStyle, marginBottom: 6 }} placeholder="Section title" />
+        <input value={desc} onChange={e => setDesc(e.target.value)} style={inputStyle} placeholder="Optional description" />
       </div>
-      <button onClick={() => onSave({ title, description: desc || null, section_type: section.section_type })}
-        style={{ ...DS.btnPrimary, padding: '6px 10px' }}><Check size={13} /></button>
-      <button onClick={onCancel} style={{ ...DS.btnSecondary, padding: '6px 10px' }}><X size={13} /></button>
+      <Button variant="primary" size="sm" onClick={() => onSave({ title, description: desc || null, section_type: section.section_type })}
+        aria-label="Save section title"><Check size={13} /></Button>
+      <Button variant="outline" size="sm" onClick={onCancel} aria-label="Cancel editing"><X size={13} /></Button>
     </div>
   )
 }
@@ -414,8 +420,8 @@ function SettingsPanel({
   )
 
   return (
-    <div style={{ ...DS.card, marginBottom: 16 }}>
-      <div style={{ ...DS.cardHeader }}>
+    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, overflow: 'hidden', marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: `1px solid ${colors.border.default}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Settings2 size={14} color={C.ink2} />
           <span style={{ fontSize: 13, fontWeight: 600, color: C.ink1 }}>Form Settings</span>
@@ -423,12 +429,12 @@ function SettingsPanel({
       </div>
       <div style={{ padding: '16px 20px' }}>
         {row('Resume Upload', (
-          <select value={form.resume_config} onChange={e => update({ resume_config: e.target.value })} style={{ ...DS.select, width: '100%' }}>
+          <select value={form.resume_config} onChange={e => update({ resume_config: e.target.value })} style={{ ...selectStyle, width: '100%' }}>
             {RESUME_CONFIG_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         ))}
         {row('Cover Letter', (
-          <select value={form.require_cover_letter} onChange={e => update({ require_cover_letter: e.target.value })} style={{ ...DS.select, width: '100%' }}>
+          <select value={form.require_cover_letter} onChange={e => update({ require_cover_letter: e.target.value })} style={{ ...selectStyle, width: '100%' }}>
             {COVER_LETTER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
         ))}
@@ -439,9 +445,9 @@ function SettingsPanel({
           </label>
         ))}
         {err && <p style={{ fontSize: 12, color: C.red, marginBottom: 10 }}>{err}</p>}
-        <button onClick={save} disabled={saving} style={{ ...DS.btnPrimary, width: '100%', justifyContent: 'center' }}>
+        <Button variant="primary" size="sm" onClick={save} disabled={saving} loading={saving} fullWidth>
           {saving ? 'Saving…' : 'Save Settings'}
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -469,7 +475,7 @@ function QuestionCard({
 
   return (
     <div style={{
-      background: C.surface, border: `1px solid ${C.border}`, borderRadius: 7,
+      background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: 8,
       padding: '10px 14px', marginBottom: 6,
       display: 'flex', alignItems: 'center', gap: 10,
     }}>
@@ -496,18 +502,20 @@ function QuestionCard({
         <span style={{ fontSize: 11, color: C.ink3 }}>{typeLabel}</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-        <button onClick={onMoveUp} disabled={isFirst} style={{ ...DS.btnIcon, opacity: isFirst ? 0.3 : 1 }}><ChevronUp size={12} /></button>
-        <button onClick={onMoveDown} disabled={isLast} style={{ ...DS.btnIcon, opacity: isLast ? 0.3 : 1 }}><ChevronDown size={12} /></button>
+        <Button variant="ghost" size="icon" onClick={onMoveUp} disabled={isFirst} aria-label="Move up"
+          style={{ opacity: isFirst ? 0.3 : 1, border: `1px solid ${C.border}` }}><ChevronUp size={12} /></Button>
+        <Button variant="ghost" size="icon" onClick={onMoveDown} disabled={isLast} aria-label="Move down"
+          style={{ opacity: isLast ? 0.3 : 1, border: `1px solid ${C.border}` }}><ChevronDown size={12} /></Button>
         {!isCompliance && (
-          <button
-            onClick={onKnockout}
-            title="Knockout rule"
-            style={{ ...DS.btnIcon, borderColor: hasKnockout ? C.accent : C.border, color: hasKnockout ? C.accent : C.ink2 }}>
+          <Button variant="ghost" size="icon" onClick={onKnockout} aria-label="Edit knockout rule"
+            style={{ borderColor: hasKnockout ? colors.state.info : colors.border.default, color: hasKnockout ? colors.state.info : colors.text.inkSoft, border: `1px solid ${hasKnockout ? colors.state.info : colors.border.default}` }}>
             <Zap size={12} />
-          </button>
+          </Button>
         )}
-        <button onClick={onEdit} style={DS.btnIcon}><Settings2 size={12} /></button>
-        <button onClick={onDelete} style={{ ...DS.btnIcon, color: C.red, borderColor: C.redBg }}><Trash2 size={12} /></button>
+        <Button variant="ghost" size="icon" onClick={onEdit} aria-label="Edit question"
+          style={{ border: `1px solid ${C.border}` }}><Settings2 size={12} /></Button>
+        <Button variant="ghost" size="icon" onClick={onDelete} aria-label="Delete question"
+          style={{ color: C.red, border: `1px solid ${C.redBg}` }}><Trash2 size={12} /></Button>
       </div>
     </div>
   )
@@ -600,9 +608,9 @@ function SectionBlock({
   const sorted = [...section.questions].sort((a, b) => a.order_index - b.order_index)
 
   return (
-    <div style={{ ...DS.card, marginBottom: 16 }}>
+    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, overflow: 'hidden', marginBottom: 16 }}>
       {/* Section header */}
-      <div style={{ ...DS.cardHeader }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: `1px solid ${colors.border.default}` }}>
         {editingTitle ? (
           <SectionTitleEdit
             section={section}
@@ -616,11 +624,15 @@ function SectionBlock({
               {section.description && <p style={{ fontSize: 12, color: C.ink2, margin: '2px 0 0' }}>{section.description}</p>}
             </div>
             <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-              <button onClick={() => moveSection.mutate('up')} disabled={isFirst} style={{ ...DS.btnIcon, opacity: isFirst ? 0.3 : 1 }}><ChevronUp size={12} /></button>
-              <button onClick={() => moveSection.mutate('down')} disabled={isLast} style={{ ...DS.btnIcon, opacity: isLast ? 0.3 : 1 }}><ChevronDown size={12} /></button>
-              <button onClick={() => setEditingTitle(true)} style={DS.btnIcon}><Settings2 size={12} /></button>
+              <Button variant="ghost" size="icon" onClick={() => moveSection.mutate('up')} disabled={isFirst} aria-label="Move section up"
+                style={{ opacity: isFirst ? 0.3 : 1, border: `1px solid ${C.border}` }}><ChevronUp size={12} /></Button>
+              <Button variant="ghost" size="icon" onClick={() => moveSection.mutate('down')} disabled={isLast} aria-label="Move section down"
+                style={{ opacity: isLast ? 0.3 : 1, border: `1px solid ${C.border}` }}><ChevronDown size={12} /></Button>
+              <Button variant="ghost" size="icon" onClick={() => setEditingTitle(true)} aria-label="Edit section title"
+                style={{ border: `1px solid ${C.border}` }}><Settings2 size={12} /></Button>
               {totalSections > 1 && !section.is_locked && (
-                <button onClick={() => setDeleteConfirm(true)} style={{ ...DS.btnIcon, color: C.red, borderColor: C.redBg }}><Trash2 size={12} /></button>
+                <Button variant="ghost" size="icon" onClick={() => setDeleteConfirm(true)} aria-label="Delete section"
+                  style={{ color: C.red, border: `1px solid ${C.redBg}` }}><Trash2 size={12} /></Button>
               )}
             </div>
           </>
@@ -632,8 +644,8 @@ function SectionBlock({
         <div style={{ padding: '12px 20px', background: C.redBg, borderBottom: `1px solid #FCA5A5`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <span style={{ fontSize: 13, color: C.red }}>Delete this section and all its questions?</span>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => setDeleteConfirm(false)} style={DS.btnSecondary}>Cancel</button>
-            <button onClick={() => deleteSection.mutate()} style={{ ...DS.btnPrimary, background: C.red }}>Delete</button>
+            <Button variant="outline" size="sm" onClick={() => setDeleteConfirm(false)}>Cancel</Button>
+            <Button variant="danger" size="sm" onClick={() => deleteSection.mutate()}>Delete</Button>
           </div>
         </div>
       )}
@@ -659,9 +671,9 @@ function SectionBlock({
         ))}
 
         {/* Add question button */}
-        <button onClick={() => setAddingQ(true)} style={{ ...DS.btnGhost, color: C.accent, marginTop: 4 }}>
+        <Button variant="ghost" size="sm" onClick={() => setAddingQ(true)} style={{ color: colors.state.info, marginTop: 4 }}>
           <Plus size={13} />Add Question
-        </button>
+        </Button>
       </div>
 
       {/* Modals */}
@@ -726,7 +738,7 @@ function SaveTemplateModal({ formId, onClose }: { formId: string; onClose: () =>
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: 16 }}>
-      <div style={{ background: C.surface, borderRadius: 10, padding: 24, width: '100%', maxWidth: 420, border: `1px solid ${C.border}` }}>
+      <div style={{ background: colors.surface.card, borderRadius: radius.xl, padding: 24, width: '100%', maxWidth: 420, border: `1px solid ${colors.border.default}` }}>
         {done ? (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -734,25 +746,24 @@ function SaveTemplateModal({ formId, onClose }: { formId: string; onClose: () =>
               <h3 style={{ fontSize: 14, fontWeight: 600, color: C.ink1, margin: 0 }}>Template Saved</h3>
             </div>
             <p style={{ fontSize: 13, color: C.ink2, marginBottom: 16 }}>You can now reuse this form configuration for other jobs.</p>
-            <button onClick={onClose} style={{ ...DS.btnPrimary, width: '100%', justifyContent: 'center' }}>Done</button>
+            <Button variant="primary" size="sm" onClick={onClose} fullWidth>Done</Button>
           </>
         ) : (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 style={{ fontSize: 14, fontWeight: 600, color: C.ink1, margin: 0 }}>Save as Template</h3>
-              <button onClick={onClose} style={{ ...DS.btnIcon, border: 'none', color: C.ink3 }}><X size={14} /></button>
+              <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close"><X size={14} /></Button>
             </div>
             <label style={{ fontSize: 12, fontWeight: 600, color: C.ink2, display: 'block', marginBottom: 4 }}>Template Name *</label>
-            <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Standard Engineering Application" style={{ ...DS.input, marginBottom: 12 }} />
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Standard Engineering Application" style={{ ...inputStyle, marginBottom: 12 }} />
             <label style={{ fontSize: 12, fontWeight: 600, color: C.ink2, display: 'block', marginBottom: 4 }}>Description</label>
-            <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="Optional" style={{ ...DS.input, marginBottom: 16 }} />
+            <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="Optional" style={{ ...inputStyle, marginBottom: 16 }} />
             {err && <p style={{ fontSize: 12, color: C.red, marginBottom: 10 }}>{err}</p>}
             <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={onClose} style={{ ...DS.btnSecondary, flex: 1, justifyContent: 'center' }}>Cancel</button>
-              <button onClick={save} disabled={!name.trim() || saving}
-                style={{ ...DS.btnPrimary, flex: 1, justifyContent: 'center', opacity: !name.trim() ? 0.5 : 1 }}>
+              <Button variant="outline" size="sm" onClick={onClose} fullWidth>Cancel</Button>
+              <Button variant="primary" size="sm" onClick={save} disabled={!name.trim() || saving} loading={saving} fullWidth>
                 {saving ? 'Saving…' : 'Save Template'}
-              </button>
+              </Button>
             </div>
           </>
         )}
@@ -817,21 +828,16 @@ export default function FormBuilderPage() {
 
   if (isLoading) {
     return (
-      <div style={DS.pageWrap}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-          <p style={{ fontSize: 13, color: C.ink2 }}>Loading form builder…</p>
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%', background: colors.surface.bg }}>
+        <Spinner />
       </div>
     )
   }
 
   if (error && !form) {
     return (
-      <div style={DS.pageWrap}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, flexDirection: 'column', gap: 12 }}>
-          <p style={{ fontSize: 13, color: C.red }}>{getApiError(error, 'Failed to load form.')}</p>
-          <button onClick={() => refetch()} style={DS.btnSecondary}>Retry</button>
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100%', background: colors.surface.bg }}>
+        <ErrorState title="Failed to load form" description={getApiError(error, 'Failed to load form.')} onRetry={refetch} />
       </div>
     )
   }
@@ -840,43 +846,41 @@ export default function FormBuilderPage() {
   const sortedSections = [...(form?.sections ?? [])].sort((a, b) => a.order_index - b.order_index)
 
   return (
-    <div style={DS.pageWrap}>
-      {/* Top bar */}
-      <div style={DS.topbar}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={() => navigate(-1)} style={{ ...DS.btnIcon, border: 'none', color: C.ink2 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+      {/* Header: back + status + actions */}
+      <PageHeader
+        title="Form Builder"
+        subtitle={form?.status === 'published' ? `v${form.version}` : undefined}
+        back={
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} aria-label="Go back">
             <ArrowLeft size={14} />
-          </button>
-          <div>
-            <p style={DS.pageTitle}>Application Form Builder</p>
-            <p style={DS.pageSub}>Job ID: {jobId}</p>
-          </div>
-          <span style={{ fontSize: 11, fontWeight: 600, borderRadius: 99, padding: '2px 8px', background: badge.bg, color: badge.color }}>
+          </Button>
+        }
+        below={
+          <span style={{ fontSize: 11, fontWeight: 600, borderRadius: 99, padding: '2px 8px', background: badge.bg, color: badge.color, display: 'inline-block', marginTop: 6 }}>
             {badge.label}
           </span>
-          {form?.status === 'published' && (
-            <span style={{ fontSize: 11, color: C.ink3 }}>v{form.version}</span>
-          )}
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button onClick={() => setShowSettings(v => !v)} style={{ ...DS.btnSecondary, background: showSettings ? C.accentBg : undefined, color: showSettings ? C.accent : undefined }}>
+        }
+        actions={<>
+          <Button variant="outline" size="sm" onClick={() => setShowSettings(v => !v)}
+            style={{ background: showSettings ? colors.state.infoBg : undefined, color: showSettings ? colors.state.info : undefined }}>
             <Settings2 size={13} />Settings
-          </button>
+          </Button>
           {form && (
-            <button onClick={() => setShowTemplateModal(true)} style={DS.btnSecondary}>
+            <Button variant="outline" size="sm" onClick={() => setShowTemplateModal(true)}>
               <Save size={13} />Save Template
-            </button>
+            </Button>
           )}
           {form && (
-            <button
+            <Button variant="primary" size="sm"
               onClick={() => { setPublishError(null); publish.mutate() }}
-              disabled={publish.isPending}
-              style={{ ...DS.btnPrimary, background: '#4338CA' }}>
+              disabled={publish.isPending} loading={publish.isPending}
+              style={{ background: colors.brand.navy }}>
               <Send size={13} />{publish.isPending ? 'Publishing…' : 'Publish Form'}
-            </button>
+            </Button>
           )}
-        </div>
-      </div>
+        </>}
+      />
 
       {/* Publish feedback */}
       {publishSuccess && (
@@ -893,7 +897,7 @@ export default function FormBuilderPage() {
       )}
 
       {/* Body */}
-      <div style={{ ...DS.content, padding: '20px 24px' }}>
+      <div style={{ flex: 1, padding: '20px 28px', background: colors.surface.bg }}>
         <div style={{ maxWidth: 780, margin: '0 auto' }}>
 
           {/* Settings panel (collapsible) */}
@@ -924,13 +928,13 @@ export default function FormBuilderPage() {
 
           {/* Sections */}
           {sortedSections.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '60px 24px', background: C.surface, border: `2px dashed ${C.border}`, borderRadius: 10 }}>
+            <div style={{ textAlign: 'center', padding: '60px 24px', background: colors.surface.card, border: `2px dashed ${colors.border.default}`, borderRadius: radius.xl }}>
               <BookOpen size={32} color={C.ink3} style={{ marginBottom: 12 }} />
               <p style={{ fontSize: 14, fontWeight: 600, color: C.ink1, marginBottom: 6 }}>No sections yet</p>
               <p style={{ fontSize: 13, color: C.ink2, marginBottom: 18 }}>Add a section to start building your application form.</p>
-              <button onClick={() => addSection.mutate()} disabled={addSection.isPending} style={DS.btnPrimary}>
+              <Button variant="primary" size="sm" onClick={() => addSection.mutate()} disabled={addSection.isPending} loading={addSection.isPending}>
                 <Plus size={14} />Add First Section
-              </button>
+              </Button>
             </div>
           ) : (
             <>
@@ -945,14 +949,14 @@ export default function FormBuilderPage() {
                   onRefresh={invalidate}
                 />
               ))}
-              <button onClick={() => addSection.mutate()} disabled={addSection.isPending} style={{ ...DS.btnSecondary, width: '100%', justifyContent: 'center', marginTop: 8 }}>
+              <Button variant="outline" size="sm" onClick={() => addSection.mutate()} disabled={addSection.isPending} fullWidth style={{ marginTop: 8 }}>
                 <Plus size={13} />Add Section
-              </button>
+              </Button>
             </>
           )}
 
           {/* Legend */}
-          <div style={{ marginTop: 24, padding: '12px 16px', background: '#FAFAFA', border: `1px solid ${C.border}`, borderRadius: 8 }}>
+          <div style={{ marginTop: 24, padding: '12px 16px', background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl }}>
             <p style={{ fontSize: 11, fontWeight: 600, color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Knockout Action Legend</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px' }}>
               {KNOCKOUT_ACTIONS.map(a => (

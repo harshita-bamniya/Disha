@@ -4,6 +4,7 @@ import { resumeApi, type ResumeDetail, type ScoreBreakdown } from '@/api/resume'
 import ScoreBreakdownCard from './ScoreBreakdownCard'
 import KeywordGapList from './KeywordGapList'
 import { BarChart2, Tag, Lightbulb, X, Target } from 'lucide-react'
+import Tabs from '@/shared/components/navigation/Tabs'
 
 type Tab = 'score' | 'keywords' | 'recommendations'
 
@@ -139,24 +140,13 @@ export default function ResumeInsightsPanel({ resume, onClose }: Props) {
       </div>
 
       {/* tabs */}
-      <div style={{ display: 'flex', background: 'white', borderBottom: '1px solid #E2E8F0' }}>
-        {TABS.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            style={{
-              flex: 1, padding: '9px 4px', border: 'none', cursor: 'pointer',
-              background: 'transparent',
-              borderBottom: activeTab === tab.id ? '2px solid #1A2744' : '2px solid transparent',
-              color: activeTab === tab.id ? '#1A2744' : '#94A3B8',
-              fontSize: 10.5, fontWeight: 700,
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-            }}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
+      <div style={{ background: 'white' }}>
+        <Tabs
+          tabs={TABS.map(t => ({ key: t.id, label: t.label, icon: t.icon }))}
+          active={activeTab}
+          onChange={k => setActiveTab(k as Tab)}
+          style={{ padding: '0 8px' }}
+        />
       </div>
 
       {/* tab content */}

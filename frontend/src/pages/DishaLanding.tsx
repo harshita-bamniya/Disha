@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useIsMobile } from '@/shared/hooks/useIsMobile'
 import { Link } from 'react-router-dom'
 import heroKeyImg from '../assets/DQ_1E8UXkqqBgOzrKSzeM_uWjJ992Z.png'
 
@@ -23,17 +24,6 @@ const C = {
 const KEYFRAMES = `
   @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
 `
-
-// ── Responsive hook ───────────────────────────────────────────────────────────
-function useIsMobile(breakpoint = 768) {
-  const [mobile, setMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < breakpoint)
-  useEffect(() => {
-    const fn = () => setMobile(window.innerWidth < breakpoint)
-    window.addEventListener('resize', fn)
-    return () => window.removeEventListener('resize', fn)
-  }, [breakpoint])
-  return mobile
-}
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 const Icon = {

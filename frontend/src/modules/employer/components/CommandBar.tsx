@@ -8,6 +8,7 @@ import {
   Search, LayoutDashboard, Building2, Users2, Star, CalendarDays,
   BarChart3, CreditCard, ShieldCheck, Briefcase, Plus, X,
 } from 'lucide-react'
+import { colors, radius } from '@/design-system/tokens'
 
 interface CommandItem {
   id: string
@@ -88,13 +89,13 @@ export function CommandBar({ onPostJob }: { onPostJob?: () => void }) {
         style={{
           display: 'flex', alignItems: 'center', gap: 8,
           height: 34, padding: '0 12px', borderRadius: 9,
-          border: '1px solid #E5E7EB', background: '#F8FAFC',
-          color: '#9CA3AF', fontSize: 13, cursor: 'pointer',
+          border: `1px solid ${colors.border.default}`, background: colors.surface.elevated,
+          color: colors.text.muted, fontSize: 13, cursor: 'pointer',
         }}
       >
         <Search size={13} />
         <span style={{ fontSize: 12 }}>Search…</span>
-        <kbd style={{ fontSize: 10, fontWeight: 700, color: '#CBD5E1', background: '#F1F5F9', border: '1px solid #E5E7EB', borderRadius: 4, padding: '1px 5px', marginLeft: 4 }}>⌘K</kbd>
+        <kbd style={{ fontSize: 10, fontWeight: 700, color: colors.text.muted, background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: 4, padding: '1px 5px', marginLeft: 4 }}>⌘K</kbd>
       </button>
     )
   }
@@ -105,32 +106,32 @@ export function CommandBar({ onPostJob }: { onPostJob?: () => void }) {
       onClick={() => setOpen(false)}
     >
       <div
-        style={{ width: '100%', maxWidth: 560, background: '#fff', borderRadius: 20, boxShadow: '0 24px 80px rgba(0,0,0,0.2)', overflow: 'hidden' }}
+        style={{ width: '100%', maxWidth: 560, background: colors.surface.card, borderRadius: radius.xl, boxShadow: '0 24px 80px rgba(0,0,0,0.2)', overflow: 'hidden' }}
         onClick={e => e.stopPropagation()}
       >
         {/* Search input */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderBottom: '1px solid #F1F5F9' }}>
-          <Search size={16} color="#9CA3AF" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px', borderBottom: `1px solid ${colors.border.default}` }}>
+          <Search size={16} color={colors.text.muted} />
           <input
             ref={inputRef}
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search pages, actions…"
-            style={{ flex: 1, border: 'none', outline: 'none', fontSize: 15, color: '#0F172A', background: 'transparent' }}
+            style={{ flex: 1, border: 'none', outline: 'none', fontSize: 15, color: colors.text.ink, background: 'transparent' }}
           />
           {query && (
-            <button onClick={() => setQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', display: 'flex' }}>
+            <button onClick={() => setQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.text.muted, display: 'flex' }}>
               <X size={14} />
             </button>
           )}
-          <kbd style={{ fontSize: 11, fontWeight: 700, color: '#CBD5E1', background: '#F1F5F9', border: '1px solid #E5E7EB', borderRadius: 5, padding: '2px 6px' }}>Esc</kbd>
+          <kbd style={{ fontSize: 11, fontWeight: 700, color: colors.text.muted, background: colors.surface.elevated, border: `1px solid ${colors.border.default}`, borderRadius: 5, padding: '2px 6px' }}>Esc</kbd>
         </div>
 
         {/* Results */}
         <div style={{ maxHeight: 360, overflowY: 'auto', padding: '8px 8px' }}>
           {filtered.length === 0 ? (
-            <p style={{ textAlign: 'center', padding: '24px 0', fontSize: 13, color: '#9CA3AF' }}>No results for "{query}"</p>
+            <p style={{ textAlign: 'center', padding: '24px 0', fontSize: 13, color: colors.text.muted }}>No results for "{query}"</p>
           ) : (
             filtered.map((item, i) => (
               <button
@@ -140,7 +141,7 @@ export function CommandBar({ onPostJob }: { onPostJob?: () => void }) {
                 style={{
                   display: 'flex', alignItems: 'center', gap: 12, width: '100%',
                   padding: '10px 12px', borderRadius: 12, border: 'none',
-                  background: i === selected ? 'rgba(59,130,246,0.07)' : 'transparent',
+                  background: i === selected ? colors.surface.elevated : 'transparent',
                   cursor: 'pointer', textAlign: 'left', transition: 'background 0.1s',
                 }}
               >
@@ -148,21 +149,21 @@ export function CommandBar({ onPostJob }: { onPostJob?: () => void }) {
                   <item.icon size={15} color={item.color} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: '#0F172A', margin: 0 }}>{item.label}</p>
-                  {item.description && <p style={{ fontSize: 11, color: '#94A3B8', margin: '1px 0 0' }}>{item.description}</p>}
+                  <p style={{ fontSize: 13, fontWeight: 600, color: colors.text.ink, margin: 0 }}>{item.label}</p>
+                  {item.description && <p style={{ fontSize: 11, color: colors.text.muted, margin: '1px 0 0' }}>{item.description}</p>}
                 </div>
                 {i === selected && (
-                  <kbd style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', background: '#F1F5F9', border: '1px solid #E5E7EB', borderRadius: 4, padding: '2px 6px', flexShrink: 0 }}>↵</kbd>
+                  <kbd style={{ fontSize: 10, fontWeight: 700, color: colors.text.muted, background: colors.surface.elevated, border: `1px solid ${colors.border.default}`, borderRadius: 4, padding: '2px 6px', flexShrink: 0 }}>↵</kbd>
                 )}
               </button>
             ))
           )}
         </div>
 
-        <div style={{ padding: '8px 16px', borderTop: '1px solid #F1F5F9', display: 'flex', gap: 16 }}>
+        <div style={{ padding: '8px 16px', borderTop: `1px solid ${colors.border.default}`, display: 'flex', gap: 16 }}>
           {[['↑↓', 'Navigate'], ['↵', 'Open'], ['Esc', 'Close']].map(([k, l]) => (
-            <span key={k} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: '#94A3B8' }}>
-              <kbd style={{ fontSize: 10, fontWeight: 700, background: '#F1F5F9', border: '1px solid #E5E7EB', borderRadius: 4, padding: '1px 5px', color: '#64748B' }}>{k}</kbd>{l}
+            <span key={k} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10, color: colors.text.muted }}>
+              <kbd style={{ fontSize: 10, fontWeight: 700, background: colors.surface.elevated, border: `1px solid ${colors.border.default}`, borderRadius: 4, padding: '1px 5px', color: colors.text.inkSoft }}>{k}</kbd>{l}
             </span>
           ))}
         </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   Building2, Briefcase, Users, CheckCircle2, XCircle,
@@ -18,13 +18,14 @@ import {
 } from '../shared/adminUI'
 import { cn } from '@/lib/utils'
 import { adminApi } from '@/api/admin'
+import { colors } from '@/design-system/tokens'
+import Button from '@/shared/components/primitives/Button'
 
-const N = { navy: '#1A2744', ink: '#1E3A5F', muted: '#94A3B8', cream: '#F4F5F7', creamDk: '#EAECF0' }
 
 const cardStyle = { background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '20px' }
 const tableCardStyle = { background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' as const }
-const tableHeaderStyle = { background: N.cream, borderBottom: '1px solid rgba(0,0,0,0.08)', padding: '12px 16px' }
-const inputStyle = { border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, background: '#fff', color: N.ink }
+const tableHeaderStyle = { background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)', padding: '12px 16px' }
+const inputStyle = { border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, background: '#fff', color: colors.text.ink }
 
 function days(iso: string) {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
@@ -61,7 +62,7 @@ function OverviewTab({ emp }: { emp: any }) {
           <DetailRow label="GST Number"     value={emp.gst_number} />
           {emp.website && (
             <DetailRow label="Website" value={
-              <a href={emp.website} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs hover:underline" style={{ color: N.navy }}>
+              <a href={emp.website} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs hover:underline" style={{ color: colors.brand.navy }}>
                 <Globe className="w-3 h-3" />{emp.website}
               </a>
             } />
@@ -72,7 +73,7 @@ function OverviewTab({ emp }: { emp: any }) {
           <DetailRow label="Phone"          value={emp.phone} />
           <DetailRow label="Registered"     value={new Date(emp.registered_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })} />
           {emp.description && (
-            <div className="mt-2 px-3 py-3" style={{ background: N.cream, borderRadius: 10 }}>
+            <div className="mt-2 px-3 py-3" style={{ background: colors.surface.bg, borderRadius: 10 }}>
               <p className="text-xs leading-relaxed" style={{ color: '#475569' }}>{emp.description}</p>
             </div>
           )}
@@ -98,20 +99,20 @@ function OverviewTab({ emp }: { emp: any }) {
                   )}
                 </div>
                 {emp.kyc_submitted_at && (
-                  <p className="text-xs" style={{ color: N.muted }}>
+                  <p className="text-xs" style={{ color: colors.text.muted }}>
                     Submitted {new Date(emp.kyc_submitted_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </p>
                 )}
               </div>
             ) : (
-              <p className="text-xs mt-2" style={{ color: N.muted }}>No KYC submission on file.</p>
+              <p className="text-xs mt-2" style={{ color: colors.text.muted }}>No KYC submission on file.</p>
             )}
           </div>
 
           {/* Subscription */}
           <div style={cardStyle}>
             <SectionHeading>Subscription</SectionHeading>
-            <p className="text-sm font-bold mt-2" style={{ color: N.ink }}>{emp.subscription_plan ?? 'Free'}</p>
+            <p className="text-sm font-bold mt-2" style={{ color: colors.text.ink }}>{emp.subscription_plan ?? 'Free'}</p>
           </div>
 
           {/* Actions */}
@@ -144,12 +145,12 @@ function OverviewTab({ emp }: { emp: any }) {
       {showRevoke && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
           <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: 24, maxWidth: 384, width: '100%' }}>
-            <h3 className="text-base font-bold mb-2" style={{ color: N.ink }}>Revoke approval?</h3>
-            <p className="text-sm mb-5" style={{ color: N.muted }}>
-              <span className="font-semibold" style={{ color: N.ink }}>{emp.company_name}</span> will lose access and their jobs will be unlisted.
+            <h3 className="text-base font-bold mb-2" style={{ color: colors.text.ink }}>Revoke approval?</h3>
+            <p className="text-sm mb-5" style={{ color: colors.text.muted }}>
+              <span className="font-semibold" style={{ color: colors.text.ink }}>{emp.company_name}</span> will lose access and their jobs will be unlisted.
             </p>
             <div className="flex gap-3">
-              <button onClick={() => setShowRevoke(false)} className="flex-1 h-10 text-sm font-medium" style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, background: '#fff', color: N.ink }}>
+              <button onClick={() => setShowRevoke(false)} className="flex-1 h-10 text-sm font-medium" style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, background: '#fff', color: colors.text.ink }}>
                 Cancel
               </button>
               <button
@@ -212,17 +213,17 @@ function DocumentsTab({ emp }: { emp: any }) {
         {/* Documents */}
         <div style={tableCardStyle}>
           <div style={tableHeaderStyle}>
-            <h3 className="text-sm font-bold" style={{ color: N.ink }}>Documents</h3>
+            <h3 className="text-sm font-bold" style={{ color: colors.text.ink }}>Documents</h3>
           </div>
           {!detail?.documents.length ? (
             <Empty icon={FileText} text="No documents" />
           ) : (
             detail.documents.map((doc, idx) => (
               <div key={doc.id} className="flex items-center justify-between px-4 py-3 gap-3"
-                style={{ borderBottom: idx < detail.documents.length - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined, background: idx % 2 === 0 ? '#fff' : N.cream }}>
+                style={{ borderBottom: idx < detail.documents.length - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined, background: idx % 2 === 0 ? '#fff' : colors.surface.bg }}>
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold capitalize" style={{ color: N.ink }}>{doc.doc_type.replace(/_/g, ' ')}</p>
-                  {doc.original_filename && <p className="text-[11px] truncate" style={{ color: N.muted }}>{doc.original_filename}</p>}
+                  <p className="text-xs font-semibold capitalize" style={{ color: colors.text.ink }}>{doc.doc_type.replace(/_/g, ' ')}</p>
+                  {doc.original_filename && <p className="text-[11px] truncate" style={{ color: colors.text.muted }}>{doc.original_filename}</p>}
                   <Badge color={doc.status === 'approved' ? 'green' : doc.status === 'rejected' ? 'red' : 'gray'}>
                     {doc.status}
                   </Badge>
@@ -230,7 +231,7 @@ function DocumentsTab({ emp }: { emp: any }) {
                 <button
                   onClick={() => adminApi.downloadVerificationDocument(verification.id, doc.id, doc.original_filename ?? doc.doc_type)}
                   className="flex items-center gap-1 h-7 px-2.5 text-xs font-semibold shrink-0"
-                  style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 8, background: '#fff', color: N.ink }}
+                  style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 8, background: '#fff', color: colors.text.ink }}
                 >
                   <Download size={11} /> Download
                 </button>
@@ -290,23 +291,20 @@ function DocumentsTab({ emp }: { emp: any }) {
                   rows={2}
                   placeholder="Rejection reason (shown to employer)…"
                   className="w-full px-3 py-2 text-xs outline-none resize-none"
-                  style={{ border: '1px solid #FECACA', borderRadius: 8, background: '#fff', color: N.ink }}
+                  style={{ border: '1px solid #FECACA', borderRadius: 8, background: '#fff', color: colors.text.ink }}
                 />
                 <div className="flex gap-2">
-                  <button onClick={() => { setShowReject(false); setRejectReason('') }}
-                    className="flex-1 h-8 text-xs font-medium"
-                    style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 8, background: '#fff', color: N.ink }}>Cancel</button>
-                  <button
+                  <Button variant="outline" size="sm" className="flex-1" onClick={() => { setShowReject(false); setRejectReason('') }}>Cancel</Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    className="flex-1"
+                    loading={review.isPending}
                     onClick={() => {
                       review.mutate({ id: verification.id, action: 'reject', notes: notes.trim() || undefined, rejection_reason: rejectReason.trim() || undefined })
                       setShowReject(false); setRejectReason('')
                     }}
-                    disabled={review.isPending}
-                    className="flex-1 h-8 text-xs font-semibold disabled:opacity-40"
-                    style={{ background: '#EF4444', color: '#fff', borderRadius: 8, border: 'none' }}
-                  >
-                    Confirm Reject
-                  </button>
+                  >Confirm Reject</Button>
                 </div>
               </div>
             )}
@@ -319,13 +317,13 @@ function DocumentsTab({ emp }: { emp: any }) {
               <div className="flex flex-col gap-3 mt-2">
                 {detail.events.map(ev => (
                   <div key={ev.id} className="flex gap-3 text-xs">
-                    <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ background: N.navy }} />
+                    <div className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0" style={{ background: colors.brand.navy }} />
                     <div className="min-w-0">
-                      <p className="font-semibold capitalize" style={{ color: N.ink }}>
+                      <p className="font-semibold capitalize" style={{ color: colors.text.ink }}>
                         {ev.from_status ? `${ev.from_status.replace(/_/g, ' ')} → ` : ''}{ev.to_status.replace(/_/g, ' ')}
                       </p>
                       {ev.note && <p className="truncate" style={{ color: '#475569' }}>{ev.note}</p>}
-                      <p style={{ color: N.muted }}>{ev.actor_name ?? 'System'} · {new Date(ev.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+                      <p style={{ color: colors.text.muted }}>{ev.actor_name ?? 'System'} · {new Date(ev.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
                     </div>
                   </div>
                 ))}
@@ -354,19 +352,19 @@ function JobsTab({ emp }: { emp: any }) {
           placeholder="Search jobs…"
           className="h-9 px-3 text-xs outline-none w-64"
           style={inputStyle}
-          onFocus={e => (e.currentTarget.style.border = `1px solid ${N.navy}`)}
+          onFocus={e => (e.currentTarget.style.border = `1px solid ${colors.brand.navy}`)}
           onBlur={e => (e.currentTarget.style.border = '1px solid rgba(0,0,0,0.08)')}
         />
-        <span className="text-xs" style={{ color: N.muted }}>{data?.total ?? 0} total</span>
+        <span className="text-xs" style={{ color: colors.text.muted }}>{data?.total ?? 0} total</span>
       </div>
       <div style={tableCardStyle}>
         {isLoading ? <Spinner /> : !data?.items.length ? (
           <Empty icon={Briefcase} text="No jobs posted yet" />
         ) : (
           <>
-            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-2" style={{ background: N.cream, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-2" style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
               {['Job', 'Apps', 'Status', 'Posted'].map((h, i) => (
-                <span key={h} className={i > 0 ? 'text-right' : ''} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: N.muted }}>{h}</span>
+                <span key={h} className={i > 0 ? 'text-right' : ''} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>{h}</span>
               ))}
             </div>
             {data.items.map((j, idx) => (
@@ -375,21 +373,21 @@ function JobsTab({ emp }: { emp: any }) {
                 onClick={() => navigate(`/admin/jobs/${j.id}`)}
                 className="w-full grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-3 items-center text-left"
                 style={{
-                  background: idx % 2 === 0 ? '#fff' : N.cream,
+                  background: idx % 2 === 0 ? '#fff' : colors.surface.bg,
                   borderBottom: idx < data.items.length - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined,
                 }}
-                onMouseOver={e => (e.currentTarget.style.background = N.creamDk)}
-                onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : N.cream)}
+                onMouseOver={e => (e.currentTarget.style.background = colors.surface.elevated)}
+                onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : colors.surface.bg)}
               >
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate" style={{ color: N.ink }}>{j.title}</p>
-                  <p className="text-xs" style={{ color: N.muted }}>{j.sector}{j.location ? ` · ${j.location}` : ''}</p>
+                  <p className="text-sm font-semibold truncate" style={{ color: colors.text.ink }}>{j.title}</p>
+                  <p className="text-xs" style={{ color: colors.text.muted }}>{j.sector}{j.location ? ` · ${j.location}` : ''}</p>
                 </div>
-                <span className="text-xs font-bold text-right" style={{ color: N.ink }}>{j.applicant_count}</span>
+                <span className="text-xs font-bold text-right" style={{ color: colors.text.ink }}>{j.applicant_count}</span>
                 <span className="text-right">
                   {j.is_active ? <Badge color="green">Active</Badge> : <Badge color="gray">Inactive</Badge>}
                 </span>
-                <span className="text-xs text-right whitespace-nowrap" style={{ color: N.muted }}>
+                <span className="text-xs text-right whitespace-nowrap" style={{ color: colors.text.muted }}>
                   {new Date(j.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
                 </span>
               </button>
@@ -407,33 +405,33 @@ function TeamTab({ emp }: { emp: any }) {
   return (
     <div style={tableCardStyle}>
       <div style={{ ...tableHeaderStyle, display: 'flex', flexDirection: 'column' as const }}>
-        <h2 className="text-sm font-bold" style={{ color: N.ink }}>Team Members</h2>
-        <p className="text-[11px] mt-0.5" style={{ color: N.muted }}>{emp.team_members.length} seat{emp.team_members.length !== 1 ? 's' : ''} used</p>
+        <h2 className="text-sm font-bold" style={{ color: colors.text.ink }}>Team Members</h2>
+        <p className="text-[11px] mt-0.5" style={{ color: colors.text.muted }}>{emp.team_members.length} seat{emp.team_members.length !== 1 ? 's' : ''} used</p>
       </div>
       {emp.team_members.length === 0 ? (
         <Empty icon={Users} text="No team members" />
       ) : (
         <>
-          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-2" style={{ background: N.cream, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+          <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-2" style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
             {['Member', 'Role', 'Status', 'Joined'].map((h, i) => (
-              <span key={h} className={i > 0 ? 'text-right' : ''} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: N.muted }}>{h}</span>
+              <span key={h} className={i > 0 ? 'text-right' : ''} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>{h}</span>
             ))}
           </div>
           {emp.team_members.map((m: any, idx: number) => (
             <div key={m.user_id} className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-3 items-center"
-              style={{ borderBottom: idx < emp.team_members.length - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined, background: idx % 2 === 0 ? '#fff' : N.cream }}>
+              style={{ borderBottom: idx < emp.team_members.length - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined, background: idx % 2 === 0 ? '#fff' : colors.surface.bg }}>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold truncate" style={{ color: N.ink }}>{m.full_name ?? m.email ?? m.phone}</p>
+                  <p className="text-sm font-semibold truncate" style={{ color: colors.text.ink }}>{m.full_name ?? m.email ?? m.phone}</p>
                   {m.is_owner && <Badge color="blue">Owner</Badge>}
                 </div>
-                <p className="text-xs truncate" style={{ color: N.muted }}>{m.email ?? m.phone}</p>
+                <p className="text-xs truncate" style={{ color: colors.text.muted }}>{m.email ?? m.phone}</p>
               </div>
               <span className="text-xs font-medium text-right capitalize" style={{ color: '#475569' }}>{m.role_name.replace(/_/g, ' ')}</span>
               <span className="text-right">
                 {m.is_active ? <CheckCircle2 className="w-4 h-4 ml-auto text-green-500" /> : <XCircle className="w-4 h-4 ml-auto text-red-400" />}
               </span>
-              <span className="text-xs text-right whitespace-nowrap" style={{ color: N.muted }}>
+              <span className="text-xs text-right whitespace-nowrap" style={{ color: colors.text.muted }}>
                 {new Date(m.joined_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
               </span>
             </div>
@@ -452,8 +450,8 @@ function ApplicantsTab({ emp }: { emp: any }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="text-xs" style={{ color: N.muted }}>
-        Showing applicant counts per job for <span className="font-semibold" style={{ color: N.ink }}>{emp.company_name}</span>.
+      <p className="text-xs" style={{ color: colors.text.muted }}>
+        Showing applicant counts per job for <span className="font-semibold" style={{ color: colors.text.ink }}>{emp.company_name}</span>.
         Click a job to see all applicants for that role.
       </p>
       <div style={tableCardStyle}>
@@ -461,25 +459,25 @@ function ApplicantsTab({ emp }: { emp: any }) {
           <Empty icon={Users} text="No jobs — no applicants" />
         ) : (
           <>
-            <div className="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-2" style={{ background: N.cream, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+            <div className="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-2" style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
               {['Job', 'Applicants', ''].map((h, i) => (
-                <span key={i} className={i > 0 ? 'text-right' : ''} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: N.muted }}>{h}</span>
+                <span key={i} className={i > 0 ? 'text-right' : ''} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>{h}</span>
               ))}
             </div>
             {data.items.map((j, idx) => (
               <div key={j.id} className="grid grid-cols-[1fr_auto_auto] gap-3 px-4 py-3 items-center"
-                style={{ borderBottom: idx < data.items.length - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined, background: idx % 2 === 0 ? '#fff' : N.cream }}>
+                style={{ borderBottom: idx < data.items.length - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined, background: idx % 2 === 0 ? '#fff' : colors.surface.bg }}>
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate" style={{ color: N.ink }}>{j.title}</p>
-                  <p className="text-xs" style={{ color: N.muted }}>{j.sector}</p>
+                  <p className="text-sm font-semibold truncate" style={{ color: colors.text.ink }}>{j.title}</p>
+                  <p className="text-xs" style={{ color: colors.text.muted }}>{j.sector}</p>
                 </div>
-                <span className="text-sm font-bold text-right" style={{ color: N.ink }}>{j.applicant_count}</span>
+                <span className="text-sm font-bold text-right" style={{ color: colors.text.ink }}>{j.applicant_count}</span>
                 <button
                   onClick={() => navigate(`/admin/jobs/${j.id}?tab=applicants`)}
                   className="h-7 px-3 text-xs font-semibold whitespace-nowrap transition-colors"
-                  style={{ background: N.creamDk, color: N.ink, borderRadius: 8, border: 'none' }}
+                  style={{ background: colors.surface.elevated, color: colors.text.ink, borderRadius: 8, border: 'none' }}
                   onMouseOver={e => (e.currentTarget.style.background = '#D1D5DB')}
-                  onMouseOut={e => (e.currentTarget.style.background = N.creamDk)}
+                  onMouseOut={e => (e.currentTarget.style.background = colors.surface.elevated)}
                 >
                   View →
                 </button>
@@ -527,21 +525,21 @@ function DepartmentsTab({ emp }: { emp: any }) {
             const totalApps   = sectorJobs.reduce((s, j) => s + j.applicant_count, 0)
             return (
               <div key={sector} style={tableCardStyle}>
-                <div className="px-4 py-3 flex items-center justify-between" style={{ background: N.cream, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+                <div className="px-4 py-3 flex items-center justify-between" style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
                   <div>
-                    <h3 className="text-sm font-bold" style={{ color: N.ink }}>{sector}</h3>
-                    <p className="text-[11px] mt-0.5" style={{ color: N.muted }}>
+                    <h3 className="text-sm font-bold" style={{ color: colors.text.ink }}>{sector}</h3>
+                    <p className="text-[11px] mt-0.5" style={{ color: colors.text.muted }}>
                       {sectorJobs.length} job{sectorJobs.length !== 1 ? 's' : ''} · {activeCount} active · {totalApps} total applications
                     </p>
                   </div>
                   <div className="flex gap-2 text-right">
                     <div className="text-center px-3">
-                      <p className="text-lg font-black" style={{ color: N.ink }}>{sectorJobs.length}</p>
-                      <p className="text-[10px]" style={{ color: N.muted }}>Jobs</p>
+                      <p className="text-lg font-black" style={{ color: colors.text.ink }}>{sectorJobs.length}</p>
+                      <p className="text-[10px]" style={{ color: colors.text.muted }}>Jobs</p>
                     </div>
                     <div className="text-center px-3">
-                      <p className="text-lg font-black" style={{ color: N.ink }}>{totalApps}</p>
-                      <p className="text-[10px]" style={{ color: N.muted }}>Apps</p>
+                      <p className="text-lg font-black" style={{ color: colors.text.ink }}>{totalApps}</p>
+                      <p className="text-[10px]" style={{ color: colors.text.muted }}>Apps</p>
                     </div>
                   </div>
                 </div>
@@ -551,26 +549,26 @@ function DepartmentsTab({ emp }: { emp: any }) {
                     onClick={() => navigate(`/admin/jobs/${j.id}`)}
                     className="w-full flex items-center justify-between px-4 py-2.5 text-left transition-colors"
                     style={{
-                      background: idx % 2 === 0 ? '#fff' : N.cream,
+                      background: idx % 2 === 0 ? '#fff' : colors.surface.bg,
                       borderBottom: idx < Math.min(sectorJobs.length, 5) - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined,
                     }}
-                    onMouseOver={e => (e.currentTarget.style.background = N.creamDk)}
-                    onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : N.cream)}
+                    onMouseOver={e => (e.currentTarget.style.background = colors.surface.elevated)}
+                    onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : colors.surface.bg)}
                   >
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold truncate" style={{ color: N.ink }}>{j.title}</p>
-                      {j.location && <p className="text-[11px]" style={{ color: N.muted }}>{j.location}</p>}
+                      <p className="text-xs font-semibold truncate" style={{ color: colors.text.ink }}>{j.title}</p>
+                      {j.location && <p className="text-[11px]" style={{ color: colors.text.muted }}>{j.location}</p>}
                     </div>
                     <div className="flex items-center gap-3 shrink-0 ml-3">
-                      <span className="text-xs tabular-nums" style={{ color: N.muted }}>{j.applicant_count} apps</span>
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: j.is_active ? '#F0FDF4' : N.cream, color: j.is_active ? '#15803D' : N.muted }}>
+                      <span className="text-xs tabular-nums" style={{ color: colors.text.muted }}>{j.applicant_count} apps</span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: j.is_active ? '#F0FDF4' : colors.surface.bg, color: j.is_active ? '#15803D' : colors.text.muted }}>
                         {j.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </div>
                   </button>
                 ))}
                 {sectorJobs.length > 5 && (
-                  <p className="px-4 py-2 text-[11px]" style={{ color: N.muted }}>+{sectorJobs.length - 5} more jobs in this sector</p>
+                  <p className="px-4 py-2 text-[11px]" style={{ color: colors.text.muted }}>+{sectorJobs.length - 5} more jobs in this sector</p>
                 )}
               </div>
             )
@@ -586,9 +584,9 @@ function DepartmentsTab({ emp }: { emp: any }) {
 function ActivityTab({ emp }: { emp: any }) {
   return (
     <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, textAlign: 'center', padding: 32 }}>
-      <Activity className="w-12 h-12" style={{ color: N.creamDk }} />
-      <p className="text-sm font-semibold" style={{ color: N.muted }}>Activity timeline</p>
-      <p className="text-xs max-w-xs" style={{ color: N.muted }}>
+      <Activity className="w-12 h-12" style={{ color: colors.surface.elevated }} />
+      <p className="text-sm font-semibold" style={{ color: colors.text.muted }}>Activity timeline</p>
+      <p className="text-xs max-w-xs" style={{ color: colors.text.muted }}>
         Login history, job posting history, KYC events, and subscription changes will appear here.
         This requires a per-employer audit log filter — coming in the next iteration.
       </p>
@@ -616,9 +614,9 @@ function SupportTab({ emp }: { emp: any }) {
           <Empty icon={MessageSquare} text="No support tickets for this employer" />
         ) : (
           <>
-            <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-2" style={{ background: N.cream, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+            <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-2" style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
               {['Subject', 'Category', 'Priority', 'Status', 'Created'].map((h, i) => (
-                <span key={h} className={i > 0 ? 'text-right' : ''} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: N.muted }}>{h}</span>
+                <span key={h} className={i > 0 ? 'text-right' : ''} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>{h}</span>
               ))}
             </div>
             {data.items.map((t, idx) => (
@@ -627,15 +625,15 @@ function SupportTab({ emp }: { emp: any }) {
                 onClick={() => navigate(`/admin/support/${t.id}`)}
                 className="w-full grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-3 items-center text-left"
                 style={{
-                  background: idx % 2 === 0 ? '#fff' : N.cream,
+                  background: idx % 2 === 0 ? '#fff' : colors.surface.bg,
                   borderBottom: idx < data.items.length - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined,
                 }}
-                onMouseOver={e => (e.currentTarget.style.background = N.creamDk)}
-                onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : N.cream)}
+                onMouseOver={e => (e.currentTarget.style.background = colors.surface.elevated)}
+                onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : colors.surface.bg)}
               >
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate" style={{ color: N.ink }}>{t.subject}</p>
-                  {t.reporter_name && <p className="text-xs truncate" style={{ color: N.muted }}>by {t.reporter_name}</p>}
+                  <p className="text-sm font-semibold truncate" style={{ color: colors.text.ink }}>{t.subject}</p>
+                  {t.reporter_name && <p className="text-xs truncate" style={{ color: colors.text.muted }}>by {t.reporter_name}</p>}
                 </div>
                 <span className="text-xs text-right capitalize" style={{ color: '#475569' }}>{t.category}</span>
                 <span className="text-right">
@@ -644,7 +642,7 @@ function SupportTab({ emp }: { emp: any }) {
                 <span className="text-right">
                   <Badge color={TICKET_STATUS_COLOR[t.status] ?? 'gray'}>{t.status}</Badge>
                 </span>
-                <span className="text-xs text-right whitespace-nowrap" style={{ color: N.muted }}>
+                <span className="text-xs text-right whitespace-nowrap" style={{ color: colors.text.muted }}>
                   {new Date(t.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
                 </span>
               </button>
@@ -683,12 +681,12 @@ export default function EmployerDetailPage() {
 
       {/* Header */}
       <div className="flex items-center gap-3 mb-5">
-        <div style={{ width: 44, height: 44, borderRadius: 12, background: N.creamDk, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Building2 className="w-5 h-5" style={{ color: N.ink }} />
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: colors.surface.elevated, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Building2 className="w-5 h-5" style={{ color: colors.text.ink }} />
         </div>
         <div className="min-w-0">
-          <h1 style={{ fontSize: 20, fontWeight: 800, color: N.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>{emp.company_name}</h1>
-          <p className="text-xs" style={{ color: N.muted }}>{emp.industry ?? 'Industry not set'} · {emp.city ?? 'Location not set'}</p>
+          <h1 style={{ fontSize: 20, fontWeight: 800, color: colors.text.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>{emp.company_name}</h1>
+          <p className="text-xs" style={{ color: colors.text.muted }}>{emp.industry ?? 'Industry not set'} · {emp.city ?? 'Location not set'}</p>
         </div>
         <div className="ml-auto flex items-center gap-2">
           {emp.is_approved
@@ -708,8 +706,8 @@ export default function EmployerDetailPage() {
           { label: 'Plan',          value: emp.subscription_plan ?? 'Free' },
         ].map(({ label, value }) => (
           <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 16px' }}>
-            <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: N.muted, marginBottom: 6 }}>{label}</p>
-            <p style={{ fontSize: 22, fontWeight: 800, color: N.ink }}>{value}</p>
+            <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, marginBottom: 6 }}>{label}</p>
+            <p style={{ fontSize: 22, fontWeight: 800, color: colors.text.ink }}>{value}</p>
           </div>
         ))}
       </div>

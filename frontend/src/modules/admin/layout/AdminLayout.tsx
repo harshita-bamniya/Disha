@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+﻿import { useState } from 'react'
+import { useIsMobile } from '@/shared/hooks/useIsMobile'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -12,20 +13,16 @@ import { useAuthStore } from '@/stores/authStore'
 import { useLogout } from '@/modules/auth/hooks/useAuth'
 import { adminApi } from '@/api/admin'
 import { cn } from '@/lib/utils'
+import { colors } from '@/design-system/tokens'
 
-const N = {
-  navy:     '#1A2744',
-  navySoft: '#243359',
-  navyHover:'rgba(255,255,255,0.08)',
-  navyActive:'rgba(255,255,255,0.12)',
-  white:    '#FFFFFF',
-  muted:    'rgba(255,255,255,0.45)',
-  dim:      'rgba(255,255,255,0.25)',
-  border:   'rgba(255,255,255,0.08)',
-  bg:       '#F4F5F7',
-  ink:      '#1E3A5F',
-  inkSoft:  '#475569',
-}
+// Sidebar-specific overlay tokens (white-on-dark values used only inside the navy sidebar)
+const SIDEBAR = {
+  hover:  colors.overlay.navy08,
+  active: colors.overlay.navy12,
+  muted:  'rgba(255,255,255,0.45)',
+  dim:    'rgba(255,255,255,0.25)',
+  border: colors.overlay.navy08,
+} as const
 
 type NavLeaf  = { label: string; path: string; icon: React.ElementType; roles?: string[] }
 type NavGroup = { groupLabel: string; icon: React.ElementType; basePath: string; children: NavLeaf[]; roles?: string[] }
@@ -121,7 +118,7 @@ function GlobalSearchBar() {
 
   return (
     <div className="relative w-72">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color: focused ? N.ink : '#94A3B8' }} />
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color: focused ? colors.text.ink : '#94A3B8' }} />
       <input
         value={query}
         onChange={e => handleChange(e.target.value)}
@@ -129,7 +126,7 @@ function GlobalSearchBar() {
         onBlur={() => { setTimeout(() => setOpen(false), 150); setFocused(false) }}
         placeholder="Search employers, jobs, candidates…"
         style={{
-          borderColor: focused ? N.navy : '#E2E8F0',
+          borderColor: focused ? colors.brand.navy : '#E2E8F0',
           boxShadow: focused ? `0 0 0 3px rgba(26,39,68,0.07)` : 'none',
           transition: 'border-color 0.15s, box-shadow 0.15s',
         }}
@@ -151,7 +148,7 @@ function GlobalSearchBar() {
                 <p className="text-xs font-semibold text-gray-900 truncate">{r.title}</p>
                 {r.subtitle && <p className="text-[11px] text-gray-400 truncate">{r.subtitle}</p>}
               </div>
-              <span className="text-[10px] font-bold uppercase tracking-wide shrink-0" style={{ color: N.muted }}>
+              <span className="text-[10px] font-bold uppercase tracking-wide shrink-0" style={{ color: SIDEBAR.muted }}>
                 {TYPE_LABELS[r.type] ?? r.type}
               </span>
             </button>
@@ -172,11 +169,11 @@ function NavLeafItem({ item, sidebarOpen }: { item: NavLeaf; sidebarOpen: boolea
       end
       className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors"
       style={({ isActive }) => isActive
-        ? { background: N.navyActive, color: N.white, fontWeight: 600 }
+        ? { background: SIDEBAR.active, color: '#FFFFFF', fontWeight: 600 }
         : { color: 'rgba(255,255,255,0.65)' }
       }
-      onMouseOver={e => { const el = e.currentTarget; if (!el.style.background || el.style.background === '') el.style.background = N.navyHover }}
-      onMouseOut={e => { const el = e.currentTarget; if (el.style.background === N.navyHover) el.style.background = '' }}
+      onMouseOver={e => { const el = e.currentTarget; if (!el.style.background || el.style.background === '') el.style.background = SIDEBAR.hover }}
+      onMouseOut={e => { const el = e.currentTarget; if (el.style.background === SIDEBAR.hover) el.style.background = '' }}
     >
       <item.icon size={15} className="shrink-0" />
       {sidebarOpen && <span className="flex-1 truncate">{item.label}</span>}
@@ -201,7 +198,7 @@ function NavGroupItem({ group, sidebarOpen, role }: { group: NavGroup; sidebarOp
         to={group.basePath}
         title={group.groupLabel}
         className="flex items-center justify-center px-3 py-2.5 rounded-xl transition-colors"
-        style={isActive ? { background: N.navyActive, color: N.white } : { color: 'rgba(255,255,255,0.65)' }}
+        style={isActive ? { background: SIDEBAR.active, color: '#FFFFFF' } : { color: 'rgba(255,255,255,0.65)' }}
       >
         <group.icon size={15} className="shrink-0" />
       </NavLink>
@@ -214,10 +211,10 @@ function NavGroupItem({ group, sidebarOpen, role }: { group: NavGroup; sidebarOp
         onClick={() => setExpanded(o => !o)}
         className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors"
         style={isActive && !expanded
-          ? { background: N.navyActive, color: N.white, fontWeight: 600 }
+          ? { background: SIDEBAR.active, color: '#FFFFFF', fontWeight: 600 }
           : { color: 'rgba(255,255,255,0.65)' }
         }
-        onMouseOver={e => { if (!(isActive && !expanded)) e.currentTarget.style.background = N.navyHover }}
+        onMouseOver={e => { if (!(isActive && !expanded)) e.currentTarget.style.background = SIDEBAR.hover }}
         onMouseOut={e => { if (!(isActive && !expanded)) e.currentTarget.style.background = '' }}
       >
         <group.icon size={15} className="shrink-0" />
@@ -228,7 +225,7 @@ function NavGroupItem({ group, sidebarOpen, role }: { group: NavGroup; sidebarOp
         }
       </button>
       {expanded && (
-        <div className="ml-4 mt-0.5 flex flex-col gap-0.5 pl-3" style={{ borderLeft: `1px solid ${N.border}` }}>
+        <div className="ml-4 mt-0.5 flex flex-col gap-0.5 pl-3" style={{ borderLeft: `1px solid ${SIDEBAR.border}` }}>
           {visibleChildren.map(child => {
             const [childPath, childSearch] = child.path.split('?')
             const isChildActive = childSearch
@@ -241,7 +238,7 @@ function NavGroupItem({ group, sidebarOpen, role }: { group: NavGroup; sidebarOp
                 end
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
                 style={isChildActive
-                  ? { background: N.navyActive, color: N.white, fontWeight: 600 }
+                  ? { background: SIDEBAR.active, color: '#FFFFFF', fontWeight: 600 }
                   : { color: 'rgba(255,255,255,0.55)' }
                 }
                 onMouseOver={e => { if (!isChildActive) e.currentTarget.style.color = 'rgba(255,255,255,0.9)' }}
@@ -260,16 +257,6 @@ function NavGroupItem({ group, sidebarOpen, role }: { group: NavGroup; sidebarOp
 
 // ── Layout ──────────────────────────────────────────────────────────────────────
 
-function useIsMobile() {
-  const [mobile, setMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768)
-  useEffect(() => {
-    const handler = () => setMobile(window.innerWidth < 768)
-    window.addEventListener('resize', handler)
-    return () => window.removeEventListener('resize', handler)
-  }, [])
-  return mobile
-}
-
 export default function AdminLayout() {
   const user        = useAuthStore(s => s.user)
   const logout      = useLogout()
@@ -281,7 +268,7 @@ export default function AdminLayout() {
   const visibleConfig = CONFIG_NAV.filter(item => !item.roles || item.roles.includes(role))
 
   return (
-    <div className="min-h-screen flex" style={{ background: N.bg }}>
+    <div className="min-h-screen flex" style={{ background: colors.surface.bg }}>
 
       {/* Mobile hamburger */}
       {isMobile && (
@@ -292,7 +279,7 @@ export default function AdminLayout() {
             style={{
               position: 'fixed', top: 14, left: 14, zIndex: 1100,
               width: 40, height: 40, borderRadius: 10,
-              background: N.navy, border: 'none', cursor: 'pointer',
+              background: colors.brand.navy, border: 'none', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: '0 4px 16px rgba(26,39,68,0.30)',
               opacity: mobileOpen ? 0 : 1, pointerEvents: mobileOpen ? 'none' : 'auto',
@@ -317,7 +304,7 @@ export default function AdminLayout() {
           isMobile ? 'fixed top-0 left-0 h-full w-56' : (sidebarOpen ? 'fixed top-0 left-0 h-full w-56' : 'fixed top-0 left-0 h-full w-16'),
         )}
         style={{
-          background: N.navy,
+          background: colors.brand.navy,
           boxShadow: '4px 0 24px rgba(26,39,68,0.18)',
           transform: isMobile ? (mobileOpen ? 'translateX(0)' : 'translateX(-100%)') : 'none',
           transition: isMobile ? 'transform 0.28s cubic-bezier(0.4,0,0.2,1)' : 'width 0.2s',
@@ -326,7 +313,7 @@ export default function AdminLayout() {
         {/* Logo */}
         <div
           className="flex items-center gap-3 px-4 py-4 shrink-0"
-          style={{ borderBottom: `1px solid ${N.border}` }}
+          style={{ borderBottom: `1px solid ${SIDEBAR.border}` }}
         >
           {sidebarOpen || isMobile ? (
             <>
@@ -339,14 +326,14 @@ export default function AdminLayout() {
               {isMobile && (
                 <button
                   onClick={() => setMobileOpen(false)}
-                  style={{ width: 26, height: 26, borderRadius: 7, background: 'rgba(255,255,255,0.08)', border: `1px solid ${N.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+                  style={{ width: 26, height: 26, borderRadius: 7, background: 'rgba(255,255,255,0.08)', border: `1px solid ${SIDEBAR.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
                 >
                   <X size={13} color="rgba(255,255,255,0.6)" />
                 </button>
               )}
             </>
           ) : (
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${N.border}` }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${SIDEBAR.border}` }}>
               <span style={{ color: '#fff', fontWeight: 800, fontSize: 14 }}>B</span>
             </div>
           )}
@@ -372,7 +359,7 @@ export default function AdminLayout() {
                 ? <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', padding: '16px 12px 6px' }}>
                     Configuration
                   </p>
-                : <div style={{ margin: '8px 12px', borderTop: `1px solid ${N.border}` }} />
+                : <div style={{ margin: '8px 12px', borderTop: `1px solid ${SIDEBAR.border}` }} />
               }
               {visibleConfig.map(item => (
                 <NavLeafItem key={item.path} item={item} sidebarOpen={sidebarOpen || isMobile} />
@@ -382,13 +369,13 @@ export default function AdminLayout() {
         </nav>
 
         {/* Footer */}
-        <div className="px-2 py-3 flex flex-col gap-1 shrink-0" style={{ borderTop: `1px solid ${N.border}` }}>
+        <div className="px-2 py-3 flex flex-col gap-1 shrink-0" style={{ borderTop: `1px solid ${SIDEBAR.border}` }}>
           {!isMobile && (
             <button
               onClick={() => setSidebarOpen(o => !o)}
               className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs transition-colors w-full"
               style={{ color: 'rgba(255,255,255,0.4)' }}
-              onMouseOver={e => { e.currentTarget.style.background = N.navyHover; e.currentTarget.style.color = '#fff' }}
+              onMouseOver={e => { e.currentTarget.style.background = SIDEBAR.hover; e.currentTarget.style.color = '#fff' }}
               onMouseOut={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'rgba(255,255,255,0.4)' }}
             >
               {sidebarOpen ? <PanelLeftClose size={14} /> : <PanelLeftOpen size={14} />}
@@ -433,7 +420,7 @@ export default function AdminLayout() {
               border: '0.5px solid rgba(26,39,68,0.1)', borderRadius: 20,
             }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E' }} />
-              <span style={{ fontSize: 12, fontWeight: 600, color: N.ink, textTransform: 'capitalize' }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: colors.text.ink, textTransform: 'capitalize' }}>
                 {role.replace(/_/g, ' ')}
               </span>
             </div>

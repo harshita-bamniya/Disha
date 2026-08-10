@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   Briefcase, Users, AlertTriangle, ToggleLeft, ToggleRight, Trash2, ChevronRight,
@@ -8,8 +8,8 @@ import {
   Spinner, Empty, Badge, SectionHeading, DetailRow, Breadcrumb, TabBar, type TabDef, STATUS_COLOR_MAP,
 } from '../shared/adminUI'
 import { cn } from '@/lib/utils'
+import { colors } from '@/design-system/tokens'
 
-const N = { navy: '#1A2744', ink: '#1E3A5F', muted: '#94A3B8', cream: '#F4F5F7', creamDk: '#EAECF0' }
 
 const TABS: TabDef[] = [
   { key: 'info',        label: 'Information' },
@@ -52,7 +52,7 @@ function InfoTab({ job }: { job: any }) {
             <SectionHeading>Required Skills</SectionHeading>
             <div className="flex flex-wrap gap-1.5 mt-1">
               {job.required_skills.map((s: string) => (
-                <span key={s} className="px-2 py-0.5 text-xs font-semibold rounded-full" style={{ background: N.creamDk, color: N.ink }}>{s}</span>
+                <span key={s} className="px-2 py-0.5 text-xs font-semibold rounded-full" style={{ background: colors.surface.elevated, color: colors.text.ink }}>{s}</span>
               ))}
             </div>
           </>
@@ -65,7 +65,7 @@ function InfoTab({ job }: { job: any }) {
           <button
             onClick={() => navigate(`/admin/employers/${job.employer_id}`)}
             className="flex items-center gap-2 mt-2 text-sm font-semibold hover:underline"
-            style={{ color: N.navy }}
+            style={{ color: colors.brand.navy }}
           >
             {job.company_name} <ChevronRight size={14} />
           </button>
@@ -107,8 +107,8 @@ function ApplicantsTab({ jobId }: { jobId: string }) {
             className="h-8 px-3 text-xs font-semibold transition-all"
             style={{
               borderRadius: 10,
-              background: statusFilter === s ? N.navy : '#fff',
-              color: statusFilter === s ? '#fff' : N.ink,
+              background: statusFilter === s ? colors.brand.navy : '#fff',
+              color: statusFilter === s ? '#fff' : colors.text.ink,
               border: statusFilter === s ? 'none' : '1px solid rgba(0,0,0,0.08)',
             }}
           >
@@ -122,9 +122,9 @@ function ApplicantsTab({ jobId }: { jobId: string }) {
           <Empty icon={Users} text="No applicants yet" />
         ) : (
           <>
-            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-2" style={{ background: N.cream, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-2" style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
               {['Candidate', 'Score', 'Status', 'Applied'].map((h, i) => (
-                <span key={h} className={i > 0 ? 'text-right' : ''} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: N.muted }}>{h}</span>
+                <span key={h} className={i > 0 ? 'text-right' : ''} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>{h}</span>
               ))}
             </div>
             {data.map((app, idx) => (
@@ -133,21 +133,21 @@ function ApplicantsTab({ jobId }: { jobId: string }) {
                 onClick={() => navigate(`/admin/candidates/${app.aspirant_id}`)}
                 className="w-full grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-3 items-center text-left"
                 style={{
-                  background: idx % 2 === 0 ? '#fff' : N.cream,
+                  background: idx % 2 === 0 ? '#fff' : colors.surface.bg,
                   borderBottom: idx < data.length - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined,
                 }}
-                onMouseOver={e => (e.currentTarget.style.background = N.creamDk)}
-                onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : N.cream)}
+                onMouseOver={e => (e.currentTarget.style.background = colors.surface.elevated)}
+                onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : colors.surface.bg)}
               >
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate" style={{ color: N.ink }}>{app.aspirant_name ?? app.aspirant_phone}</p>
-                  <p className="text-xs" style={{ color: N.muted }}>{app.aspirant_phone}</p>
+                  <p className="text-sm font-semibold truncate" style={{ color: colors.text.ink }}>{app.aspirant_name ?? app.aspirant_phone}</p>
+                  <p className="text-xs" style={{ color: colors.text.muted }}>{app.aspirant_phone}</p>
                 </div>
-                <span className="text-xs font-bold text-right" style={{ color: N.ink }}>{app.match_score ?? '—'}</span>
+                <span className="text-xs font-bold text-right" style={{ color: colors.text.ink }}>{app.match_score ?? '—'}</span>
                 <span className="text-right">
                   <Badge color={STATUS_COLOR_MAP[app.status] ?? 'gray'}>{app.status.replace(/_/g, ' ')}</Badge>
                 </span>
-                <span className="text-xs text-right whitespace-nowrap" style={{ color: N.muted }}>
+                <span className="text-xs text-right whitespace-nowrap" style={{ color: colors.text.muted }}>
                   {new Date(app.applied_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                 </span>
               </button>
@@ -206,8 +206,8 @@ function ReportsTab({ jobId, job }: { jobId: string; job: any }) {
           { label: 'Hire Rate',        value: `${hireRate}%` },
         ].map(({ label, value }) => (
           <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '16px 20px' }}>
-            <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: N.muted, marginBottom: 8 }}>{label}</p>
-            <p style={{ fontSize: 28, fontWeight: 800, color: N.ink }}>{value}</p>
+            <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, marginBottom: 8 }}>{label}</p>
+            <p style={{ fontSize: 28, fontWeight: 800, color: colors.text.ink }}>{value}</p>
           </div>
         ))}
       </div>
@@ -215,20 +215,20 @@ function ReportsTab({ jobId, job }: { jobId: string; job: any }) {
       {/* Application funnel */}
       <div style={cardStyle}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: N.muted, whiteSpace: 'nowrap' }}>Application Funnel</span>
+          <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, whiteSpace: 'nowrap' }}>Application Funnel</span>
           <div style={{ flex: 1, height: '0.5px', background: '#E2E8F0' }} />
         </div>
         <div className="flex flex-col gap-3">
           {funnel.map(stage => (
             <div key={stage.status} className="flex items-center gap-3">
               <p className="text-xs w-28 shrink-0 capitalize" style={{ color: '#475569' }}>{stage.status.replace(/_/g, ' ')}</p>
-              <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: N.creamDk }}>
+              <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: colors.surface.elevated }}>
                 <div
                   className="h-full rounded-full transition-all"
                   style={{ width: `${(stage.count / maxCount) * 100}%`, background: STATUS_COLORS[stage.status] ?? '#6b7280' }}
                 />
               </div>
-              <p className="text-xs font-bold w-8 text-right tabular-nums" style={{ color: N.ink }}>{stage.count}</p>
+              <p className="text-xs font-bold w-8 text-right tabular-nums" style={{ color: colors.text.ink }}>{stage.count}</p>
             </div>
           ))}
         </div>
@@ -238,7 +238,7 @@ function ReportsTab({ jobId, job }: { jobId: string; job: any }) {
       {weeks.length > 0 && (
         <div style={cardStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-            <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: N.muted, whiteSpace: 'nowrap' }}>Applications by Week</span>
+            <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, whiteSpace: 'nowrap' }}>Applications by Week</span>
             <div style={{ flex: 1, height: '0.5px', background: '#E2E8F0' }} />
           </div>
           <div className="flex items-end gap-2 h-20">
@@ -246,15 +246,15 @@ function ReportsTab({ jobId, job }: { jobId: string; job: any }) {
               <div key={wk} className="flex-1 flex flex-col items-center gap-1.5">
                 <div
                   title={`${wk}: ${weekMap[wk]}`}
-                  style={{ height: `${(weekMap[wk] / maxWeek) * 100}%`, minHeight: 3, width: '100%', background: N.navy, borderRadius: 2, opacity: 0.75, transition: 'opacity 0.15s' }}
+                  style={{ height: `${(weekMap[wk] / maxWeek) * 100}%`, minHeight: 3, width: '100%', background: colors.brand.navy, borderRadius: 2, opacity: 0.75, transition: 'opacity 0.15s' }}
                   onMouseOver={e => (e.currentTarget.style.opacity = '1')}
                   onMouseOut={e => (e.currentTarget.style.opacity = '0.75')}
                 />
-                <span className="text-[9px]" style={{ color: N.muted }}>{wk.slice(-2)}</span>
+                <span className="text-[9px]" style={{ color: colors.text.muted }}>{wk.slice(-2)}</span>
               </div>
             ))}
           </div>
-          <p className="text-[10px] mt-2" style={{ color: N.muted }}>Week number within month</p>
+          <p className="text-[10px] mt-2" style={{ color: colors.text.muted }}>Week number within month</p>
         </div>
       )}
 
@@ -262,13 +262,13 @@ function ReportsTab({ jobId, job }: { jobId: string; job: any }) {
       {avgScore && (
         <div style={cardStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-            <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: N.muted, whiteSpace: 'nowrap' }}>Average KRS Match Score</span>
+            <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, whiteSpace: 'nowrap' }}>Average KRS Match Score</span>
             <div style={{ flex: 1, height: '0.5px', background: '#E2E8F0' }} />
           </div>
-          <p style={{ fontSize: 36, fontWeight: 800, color: N.ink }}>{avgScore}</p>
-          <p className="text-xs mt-1" style={{ color: N.muted }}>across {scores.length} scored applicant{scores.length !== 1 ? 's' : ''}</p>
-          <div className="mt-3 h-2 rounded-full overflow-hidden" style={{ background: N.creamDk }}>
-            <div className="h-full rounded-full" style={{ width: `${Math.min(100, parseFloat(avgScore))}%`, background: N.navy }} />
+          <p style={{ fontSize: 36, fontWeight: 800, color: colors.text.ink }}>{avgScore}</p>
+          <p className="text-xs mt-1" style={{ color: colors.text.muted }}>across {scores.length} scored applicant{scores.length !== 1 ? 's' : ''}</p>
+          <div className="mt-3 h-2 rounded-full overflow-hidden" style={{ background: colors.surface.elevated }}>
+            <div className="h-full rounded-full" style={{ width: `${Math.min(100, parseFloat(avgScore))}%`, background: colors.brand.navy }} />
           </div>
         </div>
       )}
@@ -288,8 +288,8 @@ function ModerationTab({ job }: { job: any }) {
     <div className="flex flex-col gap-6 max-w-xl">
       <div style={{ ...cardStyle, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div>
-          <h3 className="text-sm font-bold mb-1" style={{ color: N.ink }}>Job Visibility</h3>
-          <p className="text-xs mb-3" style={{ color: N.muted }}>
+          <h3 className="text-sm font-bold mb-1" style={{ color: colors.text.ink }}>Job Visibility</h3>
+          <p className="text-xs mb-3" style={{ color: colors.text.muted }}>
             Inactive jobs are hidden from candidates and not counted toward the employer's active job limit.
           </p>
           <button
@@ -310,7 +310,7 @@ function ModerationTab({ job }: { job: any }) {
 
         <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 16 }}>
           <h3 className="text-sm font-bold mb-1 text-red-600">Danger Zone</h3>
-          <p className="text-xs mb-3" style={{ color: N.muted }}>
+          <p className="text-xs mb-3" style={{ color: colors.text.muted }}>
             Deleting a job is permanent and will also remove all associated applications.
           </p>
           <button
@@ -336,12 +336,12 @@ function ModerationTab({ job }: { job: any }) {
       {showDelete && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
           <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: 24, maxWidth: 384, width: '100%' }}>
-            <h3 className="text-base font-bold mb-2" style={{ color: N.ink }}>Delete "{job.title}"?</h3>
-            <p className="text-sm mb-5" style={{ color: N.muted }}>
+            <h3 className="text-base font-bold mb-2" style={{ color: colors.text.ink }}>Delete "{job.title}"?</h3>
+            <p className="text-sm mb-5" style={{ color: colors.text.muted }}>
               This will permanently delete the job and all {job.applicant_count} application{job.applicant_count !== 1 ? 's' : ''}. This cannot be undone.
             </p>
             <div className="flex gap-3">
-              <button onClick={() => setShowDelete(false)} className="flex-1 h-10 text-sm font-medium" style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, background: '#fff', color: N.ink }}>
+              <button onClick={() => setShowDelete(false)} className="flex-1 h-10 text-sm font-medium" style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, background: '#fff', color: colors.text.ink }}>
                 Cancel
               </button>
               <button
@@ -384,12 +384,12 @@ export default function JobDetailPage() {
 
       {/* Header */}
       <div className="flex items-center gap-3 mb-5">
-        <div style={{ width: 44, height: 44, borderRadius: 12, background: N.creamDk, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Briefcase className="w-5 h-5" style={{ color: N.ink }} />
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: colors.surface.elevated, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Briefcase className="w-5 h-5" style={{ color: colors.text.ink }} />
         </div>
         <div className="min-w-0">
-          <h1 style={{ fontSize: 20, fontWeight: 800, color: N.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>{job.title}</h1>
-          <p className="text-xs" style={{ color: N.muted }}>{job.company_name} · {job.sector}</p>
+          <h1 style={{ fontSize: 20, fontWeight: 800, color: colors.text.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>{job.title}</h1>
+          <p className="text-xs" style={{ color: colors.text.muted }}>{job.company_name} · {job.sector}</p>
         </div>
         <div className="ml-auto">
           <Badge color={job.is_active ? 'green' : 'gray'}>{job.is_active ? 'Active' : 'Inactive'}</Badge>
@@ -404,8 +404,8 @@ export default function JobDetailPage() {
           { label: 'Status',      value: job.status },
         ].map(({ label, value }) => (
           <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 16px' }}>
-            <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: N.muted, marginBottom: 6 }}>{label}</p>
-            <p className="capitalize" style={{ fontSize: 22, fontWeight: 800, color: N.ink }}>{value}</p>
+            <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, marginBottom: 6 }}>{label}</p>
+            <p className="capitalize" style={{ fontSize: 22, fontWeight: 800, color: colors.text.ink }}>{value}</p>
           </div>
         ))}
       </div>

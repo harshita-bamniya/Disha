@@ -1,9 +1,18 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, X, Send, ChevronDown, ChevronRight } from 'lucide-react'
+import { Plus, X, Send, ChevronRight, HelpCircle } from 'lucide-react'
 import { employerSupportApi, type CreateTicketPayload, type TicketDetail } from '@/api/support'
 import { getApiError } from '@/api/client'
 import { DS, C, statusDot, fmtDate } from '../ds'
+import { colors, radius } from '@/design-system/tokens'
+import Button from '@/shared/components/primitives/Button'
+import Spinner from '@/shared/components/feedback/Spinner'
+import EmptyState from '@/shared/components/feedback/EmptyState'
+import ErrorState from '@/shared/components/feedback/ErrorState'
+import PageHeader from '@/shared/layouts/PageHeader'
+
+const inputStyle: React.CSSProperties = { width: '100%', padding: '7px 10px', border: `1px solid ${colors.border.default}`, borderRadius: 7, fontSize: 13, color: colors.text.ink, background: colors.surface.card, outline: 'none', boxSizing: 'border-box' }
+const selectStyle: React.CSSProperties = { padding: '6px 10px', border: `1px solid ${colors.border.default}`, borderRadius: 7, fontSize: 13, color: colors.text.ink, background: colors.surface.card, cursor: 'pointer' }
 
 function priorityColor(p: string) {
   if (p === 'urgent') return C.red
@@ -25,27 +34,31 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
 
   const field = (label: string, node: React.ReactNode) => (
     <div>
-      <label style={{ fontSize: 12, fontWeight: 500, color: C.ink2, display: 'block', marginBottom: 5 }}>{label}</label>
+      <label style={{ fontSize: 12, fontWeight: 500, color: colors.text.inkSoft, display: 'block', marginBottom: 5 }}>{label}</label>
       {node}
     </div>
   )
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 10, padding: 24, width: '100%', maxWidth: 520, border: `1px solid ${C.border}` }}>
+      <div style={{ background: colors.surface.card, borderRadius: radius.xl, padding: 24, width: '100%', maxWidth: 520, border: `1px solid ${colors.border.default}`, boxShadow: '0 24px 80px rgba(0,0,0,0.15)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: C.ink1 }}>New Support Ticket</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.ink3 }}><X size={16} /></button>
+          <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: colors.text.ink }}>New Support Ticket</h2>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close"><X size={16} /></Button>
         </div>
 
-        {error && <div style={{ background: C.redBg, border: `1px solid #FCA5A5`, borderRadius: 7, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: C.red }}>{error}</div>}
+        {error && (
+          <div style={{ background: colors.state.dangerBg, border: `1px solid rgba(220,38,38,0.2)`, borderRadius: radius.md, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: colors.state.danger }}>
+            {error}
+          </div>
+        )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {field('Subject', <input value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} placeholder="Briefly describe your issue" style={DS.input} />)}
+          {field('Subject', <input value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} placeholder="Briefly describe your issue" style={inputStyle} />)}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {field('Category',
-              <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} style={{ ...DS.select, width: '100%' }}>
+              <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} style={{ ...selectStyle, width: '100%' }}>
                 <option value="general">General</option>
                 <option value="billing">Billing</option>
                 <option value="jobs">Job Postings</option>
@@ -54,7 +67,7 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
               </select>
             )}
             {field('Priority',
-              <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value as any }))} style={{ ...DS.select, width: '100%' }}>
+              <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value as any }))} style={{ ...selectStyle, width: '100%' }}>
                 <option value="low">Low</option>
                 <option value="normal">Normal</option>
                 <option value="high">High</option>
@@ -69,17 +82,18 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
               onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
               placeholder="Describe your issue in detail…"
               rows={5}
-              style={{ ...DS.input, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }}
+              style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.5 }}
             />
           )}
         </div>
 
         <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
-          <button onClick={onClose} style={{ ...DS.btnSecondary, flex: 1, justifyContent: 'center' }}>Cancel</button>
-          <button onClick={() => create.mutate()} disabled={!form.subject.trim() || !form.body.trim() || create.isPending}
-            style={{ ...DS.btnPrimary, flex: 1, justifyContent: 'center', opacity: !form.subject.trim() ? 0.5 : 1 }}>
+          <Button variant="outline" size="sm" onClick={onClose} fullWidth>Cancel</Button>
+          <Button variant="primary" size="sm" onClick={() => create.mutate()}
+            disabled={!form.subject.trim() || !form.body.trim() || create.isPending}
+            loading={create.isPending} fullWidth>
             <Send size={13} />{create.isPending ? 'Submitting…' : 'Submit ticket'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -105,31 +119,31 @@ function TicketThread({ ticket, onClose }: { ticket: TicketDetail; onClose: () =
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 10, width: '100%', maxWidth: 580, maxHeight: '85vh', display: 'flex', flexDirection: 'column', border: `1px solid ${C.border}` }}>
+      <div style={{ background: colors.surface.card, borderRadius: radius.xl, width: '100%', maxWidth: 580, maxHeight: '85vh', display: 'flex', flexDirection: 'column', border: `1px solid ${colors.border.default}`, boxShadow: '0 24px 80px rgba(0,0,0,0.15)' }}>
         {/* Header */}
-        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ padding: '16px 20px', borderBottom: `1px solid ${colors.border.default}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div>
-            <p style={{ fontSize: 14, fontWeight: 600, color: C.ink1, margin: 0 }}>#{detail?.id.slice(-6).toUpperCase()} · {detail?.subject}</p>
+            <p style={{ fontSize: 14, fontWeight: 600, color: colors.text.ink, margin: 0 }}>#{detail?.id.slice(-6).toUpperCase()} · {detail?.subject}</p>
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
               <span style={{ fontSize: 11, color: statusDot(detail?.status ?? '').color }}>{statusDot(detail?.status ?? '').label}</span>
-              <span style={{ fontSize: 11, color: C.ink3 }}>{fmtDate(detail?.created_at)}</span>
+              <span style={{ fontSize: 11, color: colors.text.muted }}>{fmtDate(detail?.created_at)}</span>
             </div>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.ink3, flexShrink: 0 }}><X size={16} /></button>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close" style={{ flexShrink: 0 }}><X size={16} /></Button>
         </div>
 
         {/* Messages */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           {(detail?.messages ?? []).map((m, i) => (
             <div key={i} style={{ display: 'flex', gap: 10, flexDirection: m.sender_type === 'employer' ? 'row-reverse' : 'row' }}>
-              <div style={{ width: 28, height: 28, borderRadius: 6, background: m.sender_type === 'employer' ? C.brand : C.accentBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: m.sender_type === 'employer' ? '#fff' : C.accent, flexShrink: 0 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 6, background: m.sender_type === 'employer' ? colors.brand.navy : colors.state.infoBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: m.sender_type === 'employer' ? '#fff' : colors.state.info, flexShrink: 0 }}>
                 {m.sender_type === 'employer' ? 'ME' : 'CS'}
               </div>
               <div style={{ maxWidth: '75%' }}>
-                <div style={{ background: m.sender_type === 'employer' ? C.brand : C.borderLight, color: m.sender_type === 'employer' ? '#fff' : C.ink1, borderRadius: m.sender_type === 'employer' ? '10px 2px 10px 10px' : '2px 10px 10px 10px', padding: '10px 14px', fontSize: 13, lineHeight: 1.5 }}>
+                <div style={{ background: m.sender_type === 'employer' ? colors.brand.navy : colors.surface.elevated, color: m.sender_type === 'employer' ? '#fff' : colors.text.ink, borderRadius: m.sender_type === 'employer' ? '10px 2px 10px 10px' : '2px 10px 10px 10px', padding: '10px 14px', fontSize: 13, lineHeight: 1.5 }}>
                   {m.body}
                 </div>
-                <p style={{ fontSize: 10, color: C.ink3, margin: '4px 0 0', textAlign: m.sender_type === 'employer' ? 'right' : 'left' }}>{fmtDate(m.created_at)}</p>
+                <p style={{ fontSize: 10, color: colors.text.muted, margin: '4px 0 0', textAlign: m.sender_type === 'employer' ? 'right' : 'left' }}>{fmtDate(m.created_at)}</p>
               </div>
             </div>
           ))}
@@ -137,19 +151,20 @@ function TicketThread({ ticket, onClose }: { ticket: TicketDetail; onClose: () =
 
         {/* Reply box */}
         {detail?.status !== 'closed' && detail?.status !== 'resolved' && (
-          <div style={{ padding: '12px 20px', borderTop: `1px solid ${C.border}` }}>
+          <div style={{ padding: '12px 20px', borderTop: `1px solid ${colors.border.default}` }}>
             <div style={{ display: 'flex', gap: 8 }}>
               <textarea
                 value={reply}
                 onChange={e => setReply(e.target.value)}
                 placeholder="Type your reply…"
                 rows={2}
-                style={{ ...DS.input, flex: 1, resize: 'none', fontFamily: 'inherit', lineHeight: 1.5 }}
+                style={{ ...inputStyle, flex: 1, resize: 'none', fontFamily: 'inherit', lineHeight: 1.5 }}
               />
-              <button onClick={() => reply.trim() && postReply.mutate(reply)} disabled={!reply.trim() || postReply.isPending}
-                style={{ ...DS.btnPrimary, alignSelf: 'flex-end', opacity: !reply.trim() ? 0.5 : 1 }}>
+              <Button variant="primary" size="sm" onClick={() => reply.trim() && postReply.mutate(reply)}
+                disabled={!reply.trim() || postReply.isPending} loading={postReply.isPending}
+                style={{ alignSelf: 'flex-end' }}>
                 <Send size={13} />Send
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -163,7 +178,7 @@ export default function SupportPage() {
   const [showNew, setShowNew]     = useState(false)
   const [activeTicket, setActive] = useState<TicketDetail | null>(null)
 
-  const { data: tickets, isLoading } = useQuery({
+  const { data: tickets, isLoading, isError, refetch } = useQuery({
     queryKey: ['employer-tickets'],
     queryFn:  employerSupportApi.getTickets,
   })
@@ -171,51 +186,54 @@ export default function SupportPage() {
   const COLS = '1fr 90px 70px 100px 36px'
 
   return (
-    <div style={DS.pageWrap}>
-      <header style={DS.topbar}>
-        <div>
-          <h1 style={DS.pageTitle}>Support</h1>
-          <p style={DS.pageSub}>{tickets?.length ?? 0} ticket{(tickets?.length ?? 0) !== 1 ? 's' : ''}</p>
-        </div>
-        <button onClick={() => setShowNew(true)} style={DS.btnPrimary}>
-          <Plus size={13} />New Ticket
-        </button>
-      </header>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+      <PageHeader
+        title="Support"
+        subtitle="Get help from the BeginableAI team"
+        actions={<Button variant="primary" size="sm" onClick={() => setShowNew(true)}><Plus size={13} />New Ticket</Button>}
+      />
 
-      <div style={{ ...DS.content, padding: '16px 24px' }}>
+      <div style={{ padding: '16px 28px', background: colors.surface.bg, flex: 1 }}>
         <div style={DS.card}>
-          <div style={{ display: 'grid', gridTemplateColumns: COLS, padding: '8px 20px', background: '#FAFAFA', borderBottom: `1px solid ${C.border}`, fontSize: 11, fontWeight: 600, color: C.ink2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: COLS, padding: '8px 20px', background: colors.surface.elevated, borderBottom: `1px solid ${colors.border.default}`, fontSize: 11, fontWeight: 600, color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             {['Subject', 'Status', 'Priority', 'Created', ''].map(h => <span key={h}>{h}</span>)}
           </div>
 
           {isLoading ? (
-            <div style={{ padding: '56px 0', textAlign: 'center', color: C.ink3, fontSize: 13 }}>Loading…</div>
+            <Spinner />
+          ) : isError ? (
+            <ErrorState title="Tickets unavailable" description="Could not load support tickets. Please try again." onRetry={() => refetch()} />
           ) : !tickets?.length ? (
-            <div style={{ padding: '56px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-              <p style={{ fontSize: 13, color: C.ink2, margin: 0 }}>No support tickets</p>
-              <p style={{ fontSize: 12, color: C.ink3, margin: 0 }}>Create a ticket if you need help from our team.</p>
-              <button onClick={() => setShowNew(true)} style={{ ...DS.btnPrimary, marginTop: 8 }}><Plus size={13} />Open a ticket</button>
-            </div>
+            <EmptyState
+              icon={<HelpCircle size={24} />}
+              title="No support tickets"
+              description="Create a ticket if you need help from our team."
+              action={
+                <Button variant="primary" size="sm" onClick={() => setShowNew(true)}>
+                  <Plus size={13} />Open a ticket
+                </Button>
+              }
+            />
           ) : (
             tickets.map(t => {
               const s = statusDot(t.status)
               return (
                 <div key={t.id} onClick={() => setActive(t as unknown as TicketDetail)}
                   style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', padding: '11px 20px', borderBottom: `1px solid ${C.borderLight}`, cursor: 'pointer', transition: 'background 0.1s' }}
-                  onMouseOver={e => { e.currentTarget.style.background = '#FAFAFA' }}
+                  onMouseOver={e => { e.currentTarget.style.background = colors.surface.elevated }}
                   onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
                 >
                   <div>
-                    <p style={{ fontSize: 13, fontWeight: 500, color: C.ink1, margin: 0 }}>{t.subject}</p>
-                    <p style={{ fontSize: 11, color: C.ink3, margin: '1px 0 0' }}>#{t.id.slice(-6).toUpperCase()}</p>
+                    <p style={{ fontSize: 13, fontWeight: 500, color: colors.text.ink, margin: 0 }}>{t.subject}</p>
+                    <p style={{ fontSize: 11, color: colors.text.muted, margin: '1px 0 0' }}>#{t.id.slice(-6).toUpperCase()}</p>
                   </div>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: s.color }}>
                     <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.color }} />
                     {s.label}
                   </span>
                   <span style={{ fontSize: 12, color: priorityColor(t.priority), fontWeight: 500, textTransform: 'capitalize' }}>{t.priority}</span>
-                  <span style={{ fontSize: 12, color: C.ink3 }}>{fmtDate(t.created_at)}</span>
-                  <ChevronRight size={14} color={C.ink3} />
+                  <span style={{ fontSize: 12, color: colors.text.muted }}>{fmtDate(t.created_at)}</span>
+                  <ChevronRight size={14} color={colors.text.muted} />
                 </div>
               )
             })

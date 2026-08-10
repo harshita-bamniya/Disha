@@ -3,6 +3,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getTalentPool, unsaveCandidate, type SavedCandidateOut } from '@/api/matching'
 import { MapPin, GraduationCap, Briefcase, X, Search, Tag, Plus, Trash2 } from 'lucide-react'
 import { DS, C, initials } from '../ds'
+import { colors } from '@/design-system/tokens'
+import Button from '@/shared/components/primitives/Button'
+import PageHeader from '@/shared/layouts/PageHeader'
+import EmptyState from '@/shared/components/feedback/EmptyState'
+import ErrorState from '@/shared/components/feedback/ErrorState'
+import Spinner from '@/shared/components/feedback/Spinner'
+
+const inputStyle: React.CSSProperties = { width: '100%', padding: '7px 10px', border: `1px solid ${colors.border.default}`, borderRadius: 7, fontSize: 13, color: colors.text.ink, background: colors.surface.card, outline: 'none', boxSizing: 'border-box' }
+const selectStyle: React.CSSProperties = { padding: '6px 10px', border: `1px solid ${colors.border.default}`, borderRadius: 7, fontSize: 13, color: colors.text.ink, background: colors.surface.card, cursor: 'pointer' }
 
 const LS_KEY = 'talent_pool_labels'
 function loadLabels(): Record<string, string[]> {
@@ -29,7 +38,7 @@ function CandidateRow({ candidate, labels, allFolders, onToggleLabel }: {
 
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, padding: '14px 20px', borderBottom: `1px solid ${C.borderLight}`, transition: 'background 0.1s' }}
-      onMouseOver={e => { e.currentTarget.style.background = '#FAFAFA' }}
+      onMouseOver={e => { e.currentTarget.style.background = colors.surface.elevated }}
       onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
     >
       {/* Avatar */}
@@ -63,12 +72,14 @@ function CandidateRow({ candidate, labels, allFolders, onToggleLabel }: {
 
           {/* Actions */}
           <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-            <button onClick={() => setShowLabels(!showLabels)} style={{ ...DS.btnIcon, color: showLabels ? C.accent : C.ink3 }} title="Labels">
+            <Button variant="ghost" size="icon" onClick={() => setShowLabels(!showLabels)}
+              aria-label="Manage labels" style={{ color: showLabels ? C.accent : C.ink3, border: `1px solid ${C.border}` }}>
               <Tag size={12} />
-            </button>
-            <button onClick={() => unsave.mutate()} disabled={unsave.isPending} style={{ ...DS.btnIcon, color: C.red }} title="Remove">
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => unsave.mutate()} disabled={unsave.isPending}
+              aria-label="Remove from talent pool" style={{ color: C.red, border: `1px solid ${C.border}` }}>
               <Trash2 size={12} />
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -76,10 +87,10 @@ function CandidateRow({ candidate, labels, allFolders, onToggleLabel }: {
         {(candidate.top_skills ?? []).length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
             {(candidate.top_skills ?? []).slice(0, 6).map(skill => (
-              <span key={skill} style={{ padding: '2px 8px', background: C.accentBg, color: C.accent, fontSize: 11, fontWeight: 500, borderRadius: 4 }}>{skill}</span>
+              <span key={skill} style={{ padding: '2px 8px', background: colors.state.infoBg, color: colors.state.info, fontSize: 11, fontWeight: 500, borderRadius: 4 }}>{skill}</span>
             ))}
             {(candidate.top_skills ?? []).length > 6 && (
-              <span style={{ padding: '2px 8px', background: C.borderLight, color: C.ink3, fontSize: 11, borderRadius: 4 }}>+{candidate.top_skills.length - 6}</span>
+              <span style={{ padding: '2px 8px', background: colors.surface.elevated, color: C.ink3, fontSize: 11, borderRadius: 4 }}>+{candidate.top_skills.length - 6}</span>
             )}
           </div>
         )}
@@ -88,9 +99,10 @@ function CandidateRow({ candidate, labels, allFolders, onToggleLabel }: {
         {labels.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
             {labels.map(l => (
-              <span key={l} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', background: '#F5F3FF', color: '#7C3AED', fontSize: 11, fontWeight: 500, borderRadius: 4 }}>
+              <span key={l} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 8px', background: colors.state.infoBg, color: colors.state.info, fontSize: 11, fontWeight: 500, borderRadius: 4 }}>
                 {l}
-                <button onClick={() => onToggleLabel(l)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#7C3AED', padding: 0, display: 'flex' }}>
+                <button onClick={() => onToggleLabel(l)} aria-label={`Remove label ${l}`}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.state.info, padding: 0, display: 'flex' }}>
                   <X size={9} />
                 </button>
               </span>
@@ -100,13 +112,13 @@ function CandidateRow({ candidate, labels, allFolders, onToggleLabel }: {
 
         {/* Label picker */}
         {showLabels && (
-          <div style={{ marginTop: 10, padding: 12, background: '#FAFAFA', border: `1px solid ${C.border}`, borderRadius: 7 }}>
+          <div style={{ marginTop: 10, padding: 12, background: colors.surface.elevated, border: `1px solid ${C.border}`, borderRadius: 7 }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
               {allFolders.map(f => (
                 <button key={f} onClick={() => onToggleLabel(f)} style={{
                   padding: '3px 8px', borderRadius: 4, border: `1px solid ${C.border}`,
-                  background: labels.includes(f) ? C.accentBg : 'transparent',
-                  color: labels.includes(f) ? C.accent : C.ink2,
+                  background: labels.includes(f) ? colors.state.infoBg : 'transparent',
+                  color: labels.includes(f) ? colors.state.info : C.ink2,
                   fontSize: 11, fontWeight: 500, cursor: 'pointer',
                 }}>{f}</button>
               ))}
@@ -117,11 +129,11 @@ function CandidateRow({ candidate, labels, allFolders, onToggleLabel }: {
                 onChange={e => setCustomLabel(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter' && customLabel.trim()) { onToggleLabel(customLabel.trim()); setCustomLabel('') } }}
                 placeholder="Custom label…"
-                style={{ ...DS.input, flex: 1 }}
+                style={{ ...inputStyle, flex: 1 }}
               />
-              <button onClick={() => { if (customLabel.trim()) { onToggleLabel(customLabel.trim()); setCustomLabel('') } }} style={DS.btnSecondary}>
+              <Button variant="outline" size="sm" onClick={() => { if (customLabel.trim()) { onToggleLabel(customLabel.trim()); setCustomLabel('') } }}>
                 <Plus size={12} />Add
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -136,7 +148,7 @@ export default function TalentPoolPage() {
   const [folderFilter, setFolder] = useState('')
   const [labels, setLabels]     = useState(loadLabels)
 
-  const { data: pool, isLoading } = useQuery({ queryKey: ['talent-pool'], queryFn: getTalentPool })
+  const { data: pool, isLoading, isError, refetch } = useQuery({ queryKey: ['talent-pool'], queryFn: getTalentPool })
   const candidates = pool?.candidates ?? []
 
   const allFolders = useMemo(() => {
@@ -170,27 +182,22 @@ export default function TalentPoolPage() {
   }
 
   return (
-    <div style={DS.pageWrap}>
-      <header style={DS.topbar}>
-        <div>
-          <h1 style={DS.pageTitle}>Talent Pool</h1>
-          <p style={DS.pageSub}>{candidates.length} saved candidate{candidates.length !== 1 ? 's' : ''}</p>
-        </div>
-      </header>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+      <PageHeader title="Talent Pool" subtitle="Saved candidates for future roles" />
 
       {/* Toolbar */}
       <div style={DS.toolbar}>
         <div style={{ position: 'relative' }}>
           <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: C.ink3, pointerEvents: 'none' }} />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search candidates…" style={{ ...DS.input, width: 200, paddingLeft: 30 }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search candidates…" style={{ ...inputStyle, width: 200, paddingLeft: 30 }} />
         </div>
         {allSkills.length > 0 && (
-          <select value={skillFilter} onChange={e => setSkill(e.target.value)} style={DS.select}>
+          <select value={skillFilter} onChange={e => setSkill(e.target.value)} style={selectStyle}>
             <option value="">All skills</option>
             {allSkills.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         )}
-        <select value={folderFilter} onChange={e => setFolder(e.target.value)} style={DS.select}>
+        <select value={folderFilter} onChange={e => setFolder(e.target.value)} style={selectStyle}>
           <option value="">All labels</option>
           {allFolders.map(f => <option key={f} value={f}>{f}</option>)}
         </select>
@@ -198,15 +205,18 @@ export default function TalentPoolPage() {
       </div>
 
       {/* List */}
-      <div style={{ ...DS.content, padding: '16px 24px' }}>
+      <div style={{ padding: '16px 28px', background: colors.surface.bg, flex: 1 }}>
         <div style={DS.card}>
           {isLoading ? (
-            <div style={{ padding: '56px 0', textAlign: 'center', color: C.ink3, fontSize: 13 }}>Loading…</div>
+            <Spinner />
+          ) : isError ? (
+            <ErrorState title="Talent pool unavailable" description="Could not load saved candidates. Please try again." onRetry={() => refetch()} />
           ) : filtered.length === 0 ? (
-            <div style={{ padding: '56px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-              <p style={{ fontSize: 13, color: C.ink2, margin: 0 }}>No saved candidates</p>
-              <p style={{ fontSize: 12, color: C.ink3, margin: 0 }}>Save candidates from the pipeline to build your talent pool.</p>
-            </div>
+            <EmptyState
+              icon={<Briefcase size={28} />}
+              title={search || skillFilter || folderFilter ? 'No matching candidates' : 'No saved candidates'}
+              description={search || skillFilter || folderFilter ? 'Try adjusting your filters.' : 'Save candidates from the pipeline to build your talent pool.'}
+            />
           ) : (
             filtered.map(c => (
               <CandidateRow

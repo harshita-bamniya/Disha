@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+﻿import { useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   BarChart2, Users, Briefcase, TrendingUp, Target, Download, Calendar,
@@ -7,8 +7,8 @@ import { adminApi } from '@/api/admin'
 import type { AnalyticsResponse, TimeSeriesPoint, FunnelStage, ScoreBin, CohortRow } from '@/api/admin'
 import { Spinner, downloadCSV } from '@/modules/admin/shared/adminUI'
 import { cn } from '@/lib/utils'
+import { colors } from '@/design-system/tokens'
 
-const N = { navy: '#1A2744', ink: '#1E3A5F', muted: '#94A3B8', cream: '#F4F5F7', creamDk: '#EAECF0' }
 
 // ── Date range picker ──────────────────────────────────────────────────────────
 
@@ -40,8 +40,8 @@ function DateRangePicker({ value, onChange }: { value: DateRange; onChange: (v: 
           onClick={() => { setShowCustom(false); onChange({ type: 'preset', days: p.value }) }}
           style={
             value.type === 'preset' && value.days === p.value
-              ? { background: N.navy, color: '#fff', borderRadius: 10, border: 'none', padding: '6px 12px', fontSize: 12, fontWeight: 600 }
-              : { background: '#fff', color: N.ink, borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', padding: '6px 12px', fontSize: 12, fontWeight: 600 }
+              ? { background: colors.brand.navy, color: '#fff', borderRadius: 10, border: 'none', padding: '6px 12px', fontSize: 12, fontWeight: 600 }
+              : { background: '#fff', color: colors.text.ink, borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', padding: '6px 12px', fontSize: 12, fontWeight: 600 }
           }
         >
           {p.label}
@@ -52,8 +52,8 @@ function DateRangePicker({ value, onChange }: { value: DateRange; onChange: (v: 
         className="flex items-center gap-1.5"
         style={
           showCustom
-            ? { background: N.cream, color: N.ink, borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', padding: '6px 12px', fontSize: 12, fontWeight: 600 }
-            : { background: '#fff', color: N.ink, borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', padding: '6px 12px', fontSize: 12, fontWeight: 600 }
+            ? { background: colors.surface.bg, color: colors.text.ink, borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', padding: '6px 12px', fontSize: 12, fontWeight: 600 }
+            : { background: '#fff', color: colors.text.ink, borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', padding: '6px 12px', fontSize: 12, fontWeight: 600 }
         }
       >
         <Calendar className="w-3 h-3" />
@@ -63,13 +63,13 @@ function DateRangePicker({ value, onChange }: { value: DateRange; onChange: (v: 
         <div className="flex items-center gap-2">
           <input type="date" value={from} onChange={e => setFrom(e.target.value)}
             style={{ height: 32, padding: '0 8px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', fontSize: 12, outline: 'none' }} />
-          <span style={{ fontSize: 12, color: N.muted }}>–</span>
+          <span style={{ fontSize: 12, color: colors.text.muted }}>–</span>
           <input type="date" value={to} onChange={e => setTo(e.target.value)}
             style={{ height: 32, padding: '0 8px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', fontSize: 12, outline: 'none' }} />
           <button
             onClick={applyCustom}
             disabled={!from || !to || from > to}
-            style={{ height: 32, padding: '0 12px', borderRadius: 10, background: N.navy, color: '#fff', fontSize: 12, fontWeight: 600, border: 'none', opacity: (!from || !to || from > to) ? 0.4 : 1 }}
+            style={{ height: 32, padding: '0 12px', borderRadius: 10, background: colors.brand.navy, color: '#fff', fontSize: 12, fontWeight: 600, border: 'none', opacity: (!from || !to || from > to) ? 0.4 : 1 }}
           >
             Apply
           </button>
@@ -90,7 +90,7 @@ function BarChart({
   color?: string
   height?: number
 }) {
-  if (!data.length) return <p style={{ fontSize: 12, color: N.muted, textAlign: 'center', padding: '32px 0' }}>No data for this period</p>
+  if (!data.length) return <p style={{ fontSize: 12, color: colors.text.muted, textAlign: 'center', padding: '32px 0' }}>No data for this period</p>
 
   const maxVal = Math.max(...data.map(d => d[yKey] as number), 1)
   const W = 600
@@ -117,7 +117,7 @@ function BarChart({
         return (
           <g key={t}>
             <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="#F1F5F9" strokeWidth={1} />
-            <text x={padL - 4} y={y + 3.5} textAnchor="end" fontSize={9} fill={N.muted}>{t}</text>
+            <text x={padL - 4} y={y + 3.5} textAnchor="end" fontSize={9} fill={colors.text.muted}>{t}</text>
           </g>
         )
       })}
@@ -137,7 +137,7 @@ function BarChart({
               <text x={x + barW / 2} y={y - 3} textAnchor="middle" fontSize={8} fill={color} fontWeight="600">{val}</text>
             )}
             {labelIndices.has(i) && (
-              <text x={x + barW / 2} y={H - 4} textAnchor="middle" fontSize={8} fill={N.muted}>{shortLabel}</text>
+              <text x={x + barW / 2} y={H - 4} textAnchor="middle" fontSize={8} fill={colors.text.muted}>{shortLabel}</text>
             )}
           </g>
         )
@@ -168,20 +168,20 @@ const FUNNEL_LABELS: Record<string, string> = {
 }
 
 function FunnelChart({ data }: { data: FunnelStage[] }) {
-  if (!data.length) return <p style={{ fontSize: 12, color: N.muted, textAlign: 'center', padding: '32px 0' }}>No applications in this period</p>
+  if (!data.length) return <p style={{ fontSize: 12, color: colors.text.muted, textAlign: 'center', padding: '32px 0' }}>No applications in this period</p>
   const max = Math.max(...data.map(d => d.count), 1)
   return (
     <div className="flex flex-col gap-2">
       {data.map(d => {
         const pct = Math.round((d.count / max) * 100)
-        const color = FUNNEL_COLORS[d.status] ?? N.muted
+        const color = FUNNEL_COLORS[d.status] ?? colors.text.muted
         return (
           <div key={d.status} className="flex items-center gap-3">
-            <span style={{ fontSize: 12, color: N.muted, width: 160, flexShrink: 0 }}>{FUNNEL_LABELS[d.status] ?? d.status}</span>
-            <div style={{ flex: 1, background: N.cream, borderRadius: 9999, height: 12, overflow: 'hidden' }}>
+            <span style={{ fontSize: 12, color: colors.text.muted, width: 160, flexShrink: 0 }}>{FUNNEL_LABELS[d.status] ?? d.status}</span>
+            <div style={{ flex: 1, background: colors.surface.bg, borderRadius: 9999, height: 12, overflow: 'hidden' }}>
               <div style={{ width: `${pct}%`, background: color, height: 12, borderRadius: 9999, transition: 'all 0.3s' }} />
             </div>
-            <span style={{ fontSize: 12, fontWeight: 700, color: N.ink, width: 40, textAlign: 'right' }}>{d.count.toLocaleString()}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: colors.text.ink, width: 40, textAlign: 'right' }}>{d.count.toLocaleString()}</span>
           </div>
         )
       })}
@@ -198,18 +198,18 @@ function ScoreChart({ data }: { data: ScoreBin[] }) {
 // ── Cohort table ───────────────────────────────────────────────────────────────
 
 function CohortTable({ data }: { data: CohortRow[] }) {
-  if (!data.length) return <p style={{ fontSize: 12, color: N.muted, textAlign: 'center', padding: '32px 0' }}>No cohort data available</p>
+  if (!data.length) return <p style={{ fontSize: 12, color: colors.text.muted, textAlign: 'center', padding: '32px 0' }}>No cohort data available</p>
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr style={{ borderBottom: '1px solid rgba(0,0,0,0.08)', background: N.cream }}>
-            <th style={{ textAlign: 'left', padding: '10px 16px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: N.muted }}>Cohort (signup month)</th>
-            <th style={{ textAlign: 'right', padding: '10px 12px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: N.muted }}>Signups</th>
-            <th style={{ textAlign: 'right', padding: '10px 12px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: N.muted }}>Applied</th>
-            <th style={{ textAlign: 'right', padding: '10px 12px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: N.muted }}>Hired</th>
-            <th style={{ textAlign: 'right', padding: '10px 12px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: N.muted }}>Apply rate</th>
-            <th style={{ textAlign: 'right', padding: '10px 12px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: N.muted }}>Hire rate</th>
+          <tr style={{ borderBottom: '1px solid rgba(0,0,0,0.08)', background: colors.surface.bg }}>
+            <th style={{ textAlign: 'left', padding: '10px 16px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>Cohort (signup month)</th>
+            <th style={{ textAlign: 'right', padding: '10px 12px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>Signups</th>
+            <th style={{ textAlign: 'right', padding: '10px 12px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>Applied</th>
+            <th style={{ textAlign: 'right', padding: '10px 12px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>Hired</th>
+            <th style={{ textAlign: 'right', padding: '10px 12px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>Apply rate</th>
+            <th style={{ textAlign: 'right', padding: '10px 12px', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>Hire rate</th>
           </tr>
         </thead>
         <tbody>
@@ -219,21 +219,21 @@ function CohortTable({ data }: { data: CohortRow[] }) {
             return (
               <tr
                 key={row.month}
-                style={{ background: idx % 2 === 0 ? '#fff' : N.cream, borderBottom: '1px solid rgba(0,0,0,0.06)' }}
-                onMouseOver={e => (e.currentTarget.style.background = N.creamDk)}
-                onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : N.cream)}
+                style={{ background: idx % 2 === 0 ? '#fff' : colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.06)' }}
+                onMouseOver={e => (e.currentTarget.style.background = colors.surface.elevated)}
+                onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : colors.surface.bg)}
               >
-                <td style={{ padding: '10px 16px', fontSize: 12, fontWeight: 600, color: N.ink }}>{row.month}</td>
-                <td style={{ padding: '10px 12px', fontSize: 12, color: N.ink, textAlign: 'right' }}>{row.signups.toLocaleString()}</td>
-                <td style={{ padding: '10px 12px', fontSize: 12, color: N.ink, textAlign: 'right' }}>{row.applied.toLocaleString()}</td>
+                <td style={{ padding: '10px 16px', fontSize: 12, fontWeight: 600, color: colors.text.ink }}>{row.month}</td>
+                <td style={{ padding: '10px 12px', fontSize: 12, color: colors.text.ink, textAlign: 'right' }}>{row.signups.toLocaleString()}</td>
+                <td style={{ padding: '10px 12px', fontSize: 12, color: colors.text.ink, textAlign: 'right' }}>{row.applied.toLocaleString()}</td>
                 <td style={{ padding: '10px 12px', fontSize: 12, fontWeight: 600, color: '#16A34A', textAlign: 'right' }}>{row.hired.toLocaleString()}</td>
                 <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: applyRate >= 50 ? '#16A34A' : applyRate >= 20 ? '#D97706' : N.muted }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: applyRate >= 50 ? '#16A34A' : applyRate >= 20 ? '#D97706' : colors.text.muted }}>
                     {applyRate}%
                   </span>
                 </td>
                 <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: hireRate >= 10 ? '#16A34A' : hireRate >= 5 ? '#D97706' : N.muted }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: hireRate >= 10 ? '#16A34A' : hireRate >= 5 ? '#D97706' : colors.text.muted }}>
                     {hireRate}%
                   </span>
                 </td>
@@ -261,19 +261,19 @@ function ChartCard({
     <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: 20 }}>
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: N.creamDk, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Icon className="w-4 h-4" style={{ color: N.ink }} />
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: colors.surface.elevated, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Icon className="w-4 h-4" style={{ color: colors.text.ink }} />
           </div>
           <div>
-            <p style={{ fontSize: 14, fontWeight: 900, color: N.ink }}>{title}</p>
-            {subtitle && <p style={{ fontSize: 12, color: N.muted }}>{subtitle}</p>}
+            <p style={{ fontSize: 14, fontWeight: 900, color: colors.text.ink }}>{title}</p>
+            {subtitle && <p style={{ fontSize: 12, color: colors.text.muted }}>{subtitle}</p>}
           </div>
         </div>
         {onExport && (
           <button
             onClick={onExport}
             className="flex items-center gap-1"
-            style={{ padding: '6px 10px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', background: '#fff', color: N.muted, fontSize: 12, fontWeight: 600 }}
+            style={{ padding: '6px 10px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', background: '#fff', color: colors.text.muted, fontSize: 12, fontWeight: 600 }}
           >
             <Download className="w-3 h-3" />
             CSV
@@ -302,14 +302,14 @@ function SummaryPills({ data }: { data: AnalyticsResponse }) {
   return (
     <div className="flex gap-3 flex-wrap mb-6">
       {pills.map(p => (
-        <div key={p.label} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 10, background: N.cream, border: '1px solid rgba(0,0,0,0.08)' }}>
-          <span style={{ fontWeight: 900, fontSize: 18, color: N.ink }}>{p.value.toLocaleString()}</span>
-          <span style={{ fontWeight: 600, fontSize: 12, color: N.muted }}>{p.label}</span>
+        <div key={p.label} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 10, background: colors.surface.bg, border: '1px solid rgba(0,0,0,0.08)' }}>
+          <span style={{ fontWeight: 900, fontSize: 18, color: colors.text.ink }}>{p.value.toLocaleString()}</span>
+          <span style={{ fontWeight: 600, fontSize: 12, color: colors.text.muted }}>{p.label}</span>
         </div>
       ))}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 10, background: N.cream, border: '1px solid rgba(0,0,0,0.08)' }}>
-        <span style={{ fontWeight: 600, fontSize: 12, color: N.muted }}>Period:</span>
-        <span style={{ fontWeight: 700, fontSize: 12, color: N.ink }}>{data.period.from_date} → {data.period.to_date}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 10, background: colors.surface.bg, border: '1px solid rgba(0,0,0,0.08)' }}>
+        <span style={{ fontWeight: 600, fontSize: 12, color: colors.text.muted }}>Period:</span>
+        <span style={{ fontWeight: 700, fontSize: 12, color: colors.text.ink }}>{data.period.from_date} → {data.period.to_date}</span>
       </div>
     </div>
   )
@@ -339,12 +339,12 @@ export default function AnalyticsPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: N.creamDk, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <BarChart2 className="w-5 h-5" style={{ color: N.ink }} />
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: colors.surface.elevated, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <BarChart2 className="w-5 h-5" style={{ color: colors.text.ink }} />
           </div>
           <div>
-            <h1 style={{ fontSize: 20, fontWeight: 800, color: N.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>Analytics & Reports</h1>
-            <p style={{ fontSize: 14, color: N.muted }}>Platform growth, hiring funnel, match quality, and cohort retention.</p>
+            <h1 style={{ fontSize: 20, fontWeight: 800, color: colors.text.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>Analytics & Reports</h1>
+            <p style={{ fontSize: 14, color: colors.text.muted }}>Platform growth, hiring funnel, match quality, and cohort retention.</p>
           </div>
         </div>
         {data && (
@@ -357,7 +357,7 @@ export default function AnalyticsPage() {
               ],
             )}
             className="flex items-center gap-1.5 shrink-0"
-            style={{ height: 36, padding: '0 16px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', background: '#fff', color: N.ink, fontSize: 12, fontWeight: 600 }}
+            style={{ height: 36, padding: '0 16px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', background: '#fff', color: colors.text.ink, fontSize: 12, fontWeight: 600 }}
           >
             <Download className="w-3.5 h-3.5" />
             Export all CSV
@@ -367,10 +367,10 @@ export default function AnalyticsPage() {
 
       {/* Date range picker */}
       <div className="mb-6 flex items-center gap-3 flex-wrap">
-        <span style={{ fontSize: 12, fontWeight: 700, color: N.muted }}>Period:</span>
+        <span style={{ fontSize: 12, fontWeight: 700, color: colors.text.muted }}>Period:</span>
         <DateRangePicker value={range} onChange={setRange} />
         {isFetching && !isLoading && (
-          <span style={{ fontSize: 12, color: N.muted }} className="animate-pulse">Refreshing…</span>
+          <span style={{ fontSize: 12, color: colors.text.muted }} className="animate-pulse">Refreshing…</span>
         )}
       </div>
 

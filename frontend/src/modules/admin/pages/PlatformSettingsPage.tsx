@@ -1,10 +1,11 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { Settings, Flag } from 'lucide-react'
 import { usePlatformSettings, useUpdatePlatformSetting, useFeatureFlags, useUpdateFeatureFlag } from '../hooks/useAdmin'
 import { Spinner, Empty } from '../shared/adminUI'
 import { cn } from '@/lib/utils'
+import { colors } from '@/design-system/tokens'
+import Button from '@/shared/components/primitives/Button'
 
-const N = { navy: '#1A2744', ink: '#1E3A5F', muted: '#94A3B8', cream: '#F4F5F7', creamDk: '#EAECF0' }
 
 export default function PlatformSettingsPage() {
   const { data: settings, isLoading: settingsLoading } = usePlatformSettings()
@@ -22,15 +23,15 @@ export default function PlatformSettingsPage() {
   return (
     <section className="flex flex-col gap-8">
       <div>
-        <h1 style={{ fontSize: 20, fontWeight: 800, color: N.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>Platform Settings</h1>
-        <p style={{ fontSize: 14, color: N.muted, marginTop: 4 }}>Super Admin only — changes affect all users immediately.</p>
+        <h1 style={{ fontSize: 20, fontWeight: 800, color: colors.text.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>Platform Settings</h1>
+        <p style={{ fontSize: 14, color: colors.text.muted, marginTop: 4 }}>Super Admin only — changes affect all users immediately.</p>
       </div>
 
       {/* Platform settings */}
       <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(0,0,0,0.08)', background: N.cream, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Settings size={14} style={{ color: N.muted }} />
-          <h2 style={{ fontSize: 14, fontWeight: 700, color: N.ink }}>Platform Settings</h2>
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(0,0,0,0.08)', background: colors.surface.bg, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Settings size={14} style={{ color: colors.text.muted }} />
+          <h2 style={{ fontSize: 14, fontWeight: 700, color: colors.text.ink }}>Platform Settings</h2>
         </div>
 
         {settingsLoading ? <Spinner /> : !settings || settings.length === 0 ? (
@@ -42,43 +43,40 @@ export default function PlatformSettingsPage() {
               style={{
                 padding: '12px 20px',
                 borderBottom: idx < settings.length - 1 ? '1px solid rgba(0,0,0,0.06)' : 'none',
-                background: idx % 2 === 0 ? '#fff' : N.cream,
+                background: idx % 2 === 0 ? '#fff' : colors.surface.bg,
               }}
             >
               {editingKey === s.key ? (
                 <div className="flex flex-wrap items-end gap-3">
                   <div className="flex-1 min-w-[200px]">
-                    <p style={{ fontSize: 10, color: N.muted, marginBottom: 4 }}>{s.key}</p>
+                    <p style={{ fontSize: 10, color: colors.text.muted, marginBottom: 4 }}>{s.key}</p>
                     <input
                       value={settingValue}
                       onChange={e => setSettingValue(e.target.value)}
                       style={{ ...inputStyle, width: '100%', fontFamily: 'monospace' }}
                     />
                   </div>
-                  <button
+                  <Button
+                    size="sm"
+                    loading={updateSetting.isPending}
                     onClick={() => {
                       let parsed: unknown = settingValue
                       try { parsed = JSON.parse(settingValue) } catch { /* keep as string */ }
                       updateSetting.mutate({ key: s.key, value: parsed }, { onSuccess: () => setEditingKey(null) })
                     }}
-                    disabled={updateSetting.isPending}
-                    style={{ height: 32, padding: '0 12px', borderRadius: 10, background: N.navy, color: '#fff', fontSize: 12, fontWeight: 600, border: 'none', opacity: updateSetting.isPending ? 0.5 : 1 }}
-                  >Save</button>
-                  <button
-                    onClick={() => setEditingKey(null)}
-                    style={{ height: 32, padding: '0 12px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', fontSize: 12, fontWeight: 500, color: N.muted, background: '#fff' }}
-                  >Cancel</button>
+                  >Save</Button>
+                  <Button variant="outline" size="sm" onClick={() => setEditingKey(null)}>Cancel</Button>
                 </div>
               ) : (
                 <div className="flex items-center justify-between gap-4">
                   <div className="min-w-0">
-                    <p style={{ fontSize: 14, fontWeight: 600, color: N.ink }}>{s.key}</p>
-                    <p style={{ fontSize: 12, color: N.muted, marginTop: 2, fontFamily: 'monospace' }} className="truncate">{JSON.stringify(s.value)}</p>
-                    {s.description && <p style={{ fontSize: 12, color: N.muted, marginTop: 2 }}>{s.description}</p>}
+                    <p style={{ fontSize: 14, fontWeight: 600, color: colors.text.ink }}>{s.key}</p>
+                    <p style={{ fontSize: 12, color: colors.text.muted, marginTop: 2, fontFamily: 'monospace' }} className="truncate">{JSON.stringify(s.value)}</p>
+                    {s.description && <p style={{ fontSize: 12, color: colors.text.muted, marginTop: 2 }}>{s.description}</p>}
                   </div>
                   <button
                     onClick={() => { setEditingKey(s.key); setSettingValue(JSON.stringify(s.value)) }}
-                    style={{ flexShrink: 0, fontSize: 12, fontWeight: 600, color: N.navy, background: 'transparent', border: 'none' }}
+                    style={{ flexShrink: 0, fontSize: 12, fontWeight: 600, color: colors.brand.navy, background: 'transparent', border: 'none' }}
                   >Edit</button>
                 </div>
               )}
@@ -89,9 +87,9 @@ export default function PlatformSettingsPage() {
 
       {/* Feature flags */}
       <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(0,0,0,0.08)', background: N.cream, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Flag size={14} style={{ color: N.muted }} />
-          <h2 style={{ fontSize: 14, fontWeight: 700, color: N.ink }}>Feature Flags</h2>
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(0,0,0,0.08)', background: colors.surface.bg, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Flag size={14} style={{ color: colors.text.muted }} />
+          <h2 style={{ fontSize: 14, fontWeight: 700, color: colors.text.ink }}>Feature Flags</h2>
         </div>
 
         {flagsLoading ? <Spinner /> : !flags || flags.length === 0 ? (
@@ -103,17 +101,17 @@ export default function PlatformSettingsPage() {
               style={{
                 padding: '12px 20px',
                 borderBottom: idx < flags.length - 1 ? '1px solid rgba(0,0,0,0.06)' : 'none',
-                background: idx % 2 === 0 ? '#fff' : N.cream,
+                background: idx % 2 === 0 ? '#fff' : colors.surface.bg,
               }}
             >
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0">
-                  <p style={{ fontSize: 14, fontWeight: 600, color: N.ink }}>{f.flag_name}</p>
-                  <p style={{ fontSize: 12, color: N.muted, marginTop: 2 }}>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: colors.text.ink }}>{f.flag_name}</p>
+                  <p style={{ fontSize: 12, color: colors.text.muted, marginTop: 2 }}>
                     {f.rollout_pct}% rollout
                     {f.target_roles && f.target_roles.length > 0 && ` · ${f.target_roles.join(', ')}`}
                   </p>
-                  {f.description && <p style={{ fontSize: 12, color: N.muted, marginTop: 2 }}>{f.description}</p>}
+                  {f.description && <p style={{ fontSize: 12, color: colors.text.muted, marginTop: 2 }}>{f.description}</p>}
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   {editingFlag === f.flag_name ? (
@@ -128,13 +126,13 @@ export default function PlatformSettingsPage() {
                           flagName: f.flag_name,
                           payload: { is_enabled: f.is_enabled, rollout_pct: Number(flagRollout) || 0, target_roles: f.target_roles },
                         }, { onSuccess: () => setEditingFlag(null) })}
-                        style={{ height: 32, padding: '0 8px', borderRadius: 10, background: N.navy, color: '#fff', fontSize: 12, fontWeight: 600, border: 'none' }}
+                        style={{ height: 32, padding: '0 8px', borderRadius: 10, background: colors.brand.navy, color: '#fff', fontSize: 12, fontWeight: 600, border: 'none' }}
                       >Save</button>
                     </div>
                   ) : (
                     <button
                       onClick={() => { setEditingFlag(f.flag_name); setFlagRollout(String(f.rollout_pct)) }}
-                      style={{ fontSize: 12, fontWeight: 600, color: N.navy, background: 'transparent', border: 'none' }}
+                      style={{ fontSize: 12, fontWeight: 600, color: colors.brand.navy, background: 'transparent', border: 'none' }}
                     >Rollout %</button>
                   )}
                   {/* Toggle */}
@@ -146,7 +144,7 @@ export default function PlatformSettingsPage() {
                     disabled={updateFlag.isPending}
                     style={{
                       height: 28, width: 48, borderRadius: 9999, position: 'relative', flexShrink: 0,
-                      background: f.is_enabled ? N.navy : N.creamDk, border: 'none', transition: 'background 0.2s',
+                      background: f.is_enabled ? colors.brand.navy : colors.surface.elevated, border: 'none', transition: 'background 0.2s',
                       opacity: updateFlag.isPending ? 0.6 : 1,
                     }}
                   >

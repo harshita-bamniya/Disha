@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import {
   Users, Shield, ShieldOff, CheckCircle2, Monitor, LogOut,
@@ -13,8 +13,9 @@ import {
   Spinner, Empty, Badge, SectionHeading, DetailRow, ScoreBar, Breadcrumb, TabBar, type TabDef, STATUS_COLOR_MAP,
 } from '../shared/adminUI'
 import { cn } from '@/lib/utils'
+import { colors } from '@/design-system/tokens'
+import Button from '@/shared/components/primitives/Button'
 
-const N = { navy: '#1A2744', ink: '#1E3A5F', muted: '#94A3B8', cream: '#F4F5F7', creamDk: '#EAECF0' }
 
 const TABS: TabDef[] = [
   { key: 'profile',     label: 'Profile' },
@@ -33,7 +34,7 @@ const TICKET_PRIORITY_COLOR: Record<string, string> = {
 
 const cardStyle = { background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '20px' }
 const tableCardStyle = { background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' as const }
-const tableHeaderStyle = { background: N.cream, borderBottom: '1px solid rgba(0,0,0,0.08)', padding: '12px 16px' }
+const tableHeaderStyle = { background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)', padding: '12px 16px' }
 
 // ── Tab: Profile ───────────────────────────────────────────────────────────────
 
@@ -83,11 +84,11 @@ function ProfileTab({ user }: { user: any }) {
           <div style={cardStyle}>
             <SectionHeading>KRS Scores</SectionHeading>
             <div className="flex flex-col gap-3 mt-2">
-              <div><p className="text-xs mb-1" style={{ color: N.muted }}>Knowledge (K)</p><ScoreBar value={user.krs.k_score} color="bg-blue-500" /></div>
-              <div><p className="text-xs mb-1" style={{ color: N.muted }}>Resilience (R)</p><ScoreBar value={user.krs.r_score} color="bg-purple-500" /></div>
-              <div><p className="text-xs mb-1" style={{ color: N.muted }}>Skills (S)</p><ScoreBar value={user.krs.s_score} color="bg-teal-500" /></div>
+              <div><p className="text-xs mb-1" style={{ color: colors.text.muted }}>Knowledge (K)</p><ScoreBar value={user.krs.k_score} color="bg-blue-500" /></div>
+              <div><p className="text-xs mb-1" style={{ color: colors.text.muted }}>Resilience (R)</p><ScoreBar value={user.krs.r_score} color="bg-purple-500" /></div>
+              <div><p className="text-xs mb-1" style={{ color: colors.text.muted }}>Skills (S)</p><ScoreBar value={user.krs.s_score} color="bg-teal-500" /></div>
               <div className="pt-2" style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
-                <p className="text-xs mb-1" style={{ color: N.muted }}>Composite</p>
+                <p className="text-xs mb-1" style={{ color: colors.text.muted }}>Composite</p>
                 <ScoreBar value={user.krs.composite} color="bg-blue-700" />
               </div>
             </div>
@@ -99,7 +100,7 @@ function ProfileTab({ user }: { user: any }) {
             <SectionHeading>Skills</SectionHeading>
             <div className="flex flex-wrap gap-1.5 mt-2">
               {user.skills.map((s: string) => (
-                <span key={s} className="px-2 py-0.5 text-xs font-semibold rounded-full" style={{ background: N.creamDk, color: N.ink }}>{s}</span>
+                <span key={s} className="px-2 py-0.5 text-xs font-semibold rounded-full" style={{ background: colors.surface.elevated, color: colors.text.ink }}>{s}</span>
               ))}
             </div>
           </div>
@@ -122,8 +123,8 @@ function ProfileTab({ user }: { user: any }) {
             <div className="flex flex-col gap-2 mt-2">
               {user.selected_tracks.map((t: any) => (
                 <div key={t.track_id} className="flex items-center justify-between text-xs">
-                  <span className="font-semibold" style={{ color: N.ink }}>{t.title}</span>
-                  <span style={{ color: N.muted }}>{t.sector}</span>
+                  <span className="font-semibold" style={{ color: colors.text.ink }}>{t.title}</span>
+                  <span style={{ color: colors.text.muted }}>{t.sector}</span>
                 </div>
               ))}
             </div>
@@ -152,8 +153,8 @@ function ApplicationsTab({ userId }: { userId: string }) {
             className="h-8 px-3 text-xs font-semibold transition-all"
             style={{
               borderRadius: 10,
-              background: statusFilter === s ? N.navy : '#fff',
-              color: statusFilter === s ? '#fff' : N.ink,
+              background: statusFilter === s ? colors.brand.navy : '#fff',
+              color: statusFilter === s ? '#fff' : colors.text.ink,
               border: statusFilter === s ? 'none' : '1px solid rgba(0,0,0,0.08)',
             }}
           >
@@ -167,9 +168,9 @@ function ApplicationsTab({ userId }: { userId: string }) {
           <Empty icon={Briefcase} text="No applications" />
         ) : (
           <>
-            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-2" style={{ background: N.cream, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-2" style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
               {['Job', 'Score', 'Status', 'Applied'].map((h, i) => (
-                <span key={h} className={i > 0 ? 'text-right' : ''} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: N.muted }}>{h}</span>
+                <span key={h} className={i > 0 ? 'text-right' : ''} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>{h}</span>
               ))}
             </div>
             {data.map((app, idx) => (
@@ -178,21 +179,21 @@ function ApplicationsTab({ userId }: { userId: string }) {
                 onClick={() => navigate(`/admin/jobs/${app.job_id}`)}
                 className="w-full grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-3 items-center text-left"
                 style={{
-                  background: idx % 2 === 0 ? '#fff' : N.cream,
+                  background: idx % 2 === 0 ? '#fff' : colors.surface.bg,
                   borderBottom: idx < data.length - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined,
                 }}
-                onMouseOver={e => (e.currentTarget.style.background = N.creamDk)}
-                onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : N.cream)}
+                onMouseOver={e => (e.currentTarget.style.background = colors.surface.elevated)}
+                onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : colors.surface.bg)}
               >
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate" style={{ color: N.ink }}>{app.job_title}</p>
-                  <p className="text-xs truncate" style={{ color: N.muted }}>{app.company_name}</p>
+                  <p className="text-sm font-semibold truncate" style={{ color: colors.text.ink }}>{app.job_title}</p>
+                  <p className="text-xs truncate" style={{ color: colors.text.muted }}>{app.company_name}</p>
                 </div>
-                <span className="text-xs font-bold text-right" style={{ color: N.ink }}>{app.match_score ?? '—'}</span>
+                <span className="text-xs font-bold text-right" style={{ color: colors.text.ink }}>{app.match_score ?? '—'}</span>
                 <span className="text-right">
                   <Badge color={STATUS_COLOR_MAP[app.status] ?? 'gray'}>{app.status.replace(/_/g, ' ')}</Badge>
                 </span>
-                <span className="text-xs text-right whitespace-nowrap" style={{ color: N.muted }}>
+                <span className="text-xs text-right whitespace-nowrap" style={{ color: colors.text.muted }}>
                   {new Date(app.applied_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                 </span>
               </button>
@@ -215,23 +216,23 @@ function SecurityTab({ userId }: { userId: string }) {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div style={tableCardStyle}>
         <div style={tableHeaderStyle}>
-          <h3 className="text-sm font-bold" style={{ color: N.ink }}>Login History</h3>
-          <p className="text-[11px] mt-0.5" style={{ color: N.muted }}>Last 20 login attempts</p>
+          <h3 className="text-sm font-bold" style={{ color: colors.text.ink }}>Login History</h3>
+          <p className="text-[11px] mt-0.5" style={{ color: colors.text.muted }}>Last 20 login attempts</p>
         </div>
         {historyLoading ? <Spinner /> : !history?.length ? (
           <Empty icon={Shield} text="No login history" />
         ) : (
           history.slice(0, 20).map((h, idx) => (
             <div key={h.id} className="flex items-center justify-between px-4 py-2.5 gap-3"
-              style={{ borderBottom: idx < Math.min(history.length, 20) - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined, background: idx % 2 === 0 ? '#fff' : N.cream }}>
+              style={{ borderBottom: idx < Math.min(history.length, 20) - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined, background: idx % 2 === 0 ? '#fff' : colors.surface.bg }}>
               <div className="min-w-0">
-                <p className={cn('text-xs font-semibold', h.success ? '' : 'text-red-600')} style={h.success ? { color: N.ink } : {}}>
+                <p className={cn('text-xs font-semibold', h.success ? '' : 'text-red-600')} style={h.success ? { color: colors.text.ink } : {}}>
                   {h.success ? 'Success' : h.failure_reason ?? 'Failed'}
                 </p>
-                {h.device_label && <p className="text-[11px] truncate" style={{ color: N.muted }}>{h.device_label}</p>}
-                {h.ip_address && <p className="text-[11px]" style={{ color: N.muted }}>{h.ip_address}</p>}
+                {h.device_label && <p className="text-[11px] truncate" style={{ color: colors.text.muted }}>{h.device_label}</p>}
+                {h.ip_address && <p className="text-[11px]" style={{ color: colors.text.muted }}>{h.ip_address}</p>}
               </div>
-              <span className="text-[11px] whitespace-nowrap shrink-0" style={{ color: N.muted }}>
+              <span className="text-[11px] whitespace-nowrap shrink-0" style={{ color: colors.text.muted }}>
                 {new Date(h.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
@@ -242,8 +243,8 @@ function SecurityTab({ userId }: { userId: string }) {
       <div style={tableCardStyle}>
         <div style={{ ...tableHeaderStyle, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <h3 className="text-sm font-bold" style={{ color: N.ink }}>Active Sessions</h3>
-            <p className="text-[11px] mt-0.5" style={{ color: N.muted }}>{sessions?.length ?? 0} device{sessions?.length !== 1 ? 's' : ''}</p>
+            <h3 className="text-sm font-bold" style={{ color: colors.text.ink }}>Active Sessions</h3>
+            <p className="text-[11px] mt-0.5" style={{ color: colors.text.muted }}>{sessions?.length ?? 0} device{sessions?.length !== 1 ? 's' : ''}</p>
           </div>
           {sessions && sessions.length > 1 && (
             <button
@@ -267,11 +268,11 @@ function SecurityTab({ userId }: { userId: string }) {
               style={{ borderBottom: idx < sessions.length - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined }}>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <p className="text-xs font-semibold" style={{ color: N.ink }}>{s.device_label ?? 'Unknown device'}</p>
+                  <p className="text-xs font-semibold" style={{ color: colors.text.ink }}>{s.device_label ?? 'Unknown device'}</p>
                   {s.is_current && <Badge color="green">Current</Badge>}
                 </div>
-                {s.ip_address && <p className="text-[11px]" style={{ color: N.muted }}>{s.ip_address}</p>}
-                <p className="text-[11px]" style={{ color: N.muted }}>
+                {s.ip_address && <p className="text-[11px]" style={{ color: colors.text.muted }}>{s.ip_address}</p>}
+                <p className="text-[11px]" style={{ color: colors.text.muted }}>
                   Last seen {new Date(s.last_seen_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
@@ -306,7 +307,7 @@ function ModerationTab({ user }: { user: any }) {
         <SectionHeading>Account Status</SectionHeading>
         <div className="flex items-center gap-2 mb-3 mt-2">
           <div className={cn('w-2.5 h-2.5 rounded-full', user.is_active ? 'bg-green-400' : 'bg-red-400')} />
-          <span className="text-sm font-semibold capitalize" style={{ color: N.ink }}>{user.is_active ? 'Active' : 'Inactive'}</span>
+          <span className="text-sm font-semibold capitalize" style={{ color: colors.text.ink }}>{user.is_active ? 'Active' : 'Inactive'}</span>
         </div>
         <div className="flex gap-2 flex-wrap">
           <button
@@ -336,30 +337,27 @@ function ModerationTab({ user }: { user: any }) {
         </div>
 
         {reasonFor && (
-          <div className="mt-3 flex flex-col gap-2" style={{ background: N.cream, borderRadius: 10, padding: 12 }}>
+          <div className="mt-3 flex flex-col gap-2" style={{ background: colors.surface.bg, borderRadius: 10, padding: 12 }}>
             <textarea
               value={reason}
               onChange={e => setReason(e.target.value)}
               rows={2}
               placeholder={`Reason for ${reasonFor === 'banned' ? 'ban' : 'suspension'}…`}
               className="w-full px-3 py-2 text-xs outline-none resize-none"
-              style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, background: '#fff', color: N.ink }}
+              style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, background: '#fff', color: colors.text.ink }}
             />
             <div className="flex gap-2">
-              <button onClick={() => { setReasonFor(null); setReason('') }}
-                className="flex-1 h-8 text-xs font-medium"
-                style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, background: '#fff', color: N.ink }}>Cancel</button>
-              <button
+              <Button variant="outline" size="sm" className="flex-1" onClick={() => { setReasonFor(null); setReason('') }}>Cancel</Button>
+              <Button
+                variant="danger"
+                size="sm"
+                className="flex-1"
+                loading={updateStatus.isPending}
                 onClick={() => {
                   updateStatus.mutate({ userId: user.user_id, status: reasonFor, reason: reason.trim() || undefined })
                   setReasonFor(null); setReason('')
                 }}
-                disabled={updateStatus.isPending}
-                className="flex-1 h-8 text-xs font-semibold disabled:opacity-40"
-                style={{ background: '#EF4444', color: '#fff', borderRadius: 10, border: 'none' }}
-              >
-                Confirm
-              </button>
+              >Confirm</Button>
             </div>
           </div>
         )}
@@ -391,9 +389,9 @@ function SupportTab({ userId }: { userId: string }) {
           <Empty icon={MessageSquare} text="No support tickets for this candidate" />
         ) : (
           <>
-            <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-2" style={{ background: N.cream, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+            <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-2" style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
               {['Subject', 'Category', 'Priority', 'Status', 'Created'].map((h, i) => (
-                <span key={h} className={i > 0 ? 'text-right' : ''} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: N.muted }}>{h}</span>
+                <span key={h} className={i > 0 ? 'text-right' : ''} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>{h}</span>
               ))}
             </div>
             {data.items.map((t, idx) => (
@@ -402,14 +400,14 @@ function SupportTab({ userId }: { userId: string }) {
                 onClick={() => navigate(`/admin/support/${t.id}`)}
                 className="w-full grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-3 items-center text-left"
                 style={{
-                  background: idx % 2 === 0 ? '#fff' : N.cream,
+                  background: idx % 2 === 0 ? '#fff' : colors.surface.bg,
                   borderBottom: idx < data.items.length - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined,
                 }}
-                onMouseOver={e => (e.currentTarget.style.background = N.creamDk)}
-                onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : N.cream)}
+                onMouseOver={e => (e.currentTarget.style.background = colors.surface.elevated)}
+                onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : colors.surface.bg)}
               >
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate" style={{ color: N.ink }}>{t.subject}</p>
+                  <p className="text-sm font-semibold truncate" style={{ color: colors.text.ink }}>{t.subject}</p>
                 </div>
                 <span className="text-xs text-right capitalize" style={{ color: '#475569' }}>{t.category}</span>
                 <span className="text-right">
@@ -418,7 +416,7 @@ function SupportTab({ userId }: { userId: string }) {
                 <span className="text-right">
                   <Badge color={TICKET_STATUS_COLOR[t.status] ?? 'gray'}>{t.status}</Badge>
                 </span>
-                <span className="text-xs text-right whitespace-nowrap" style={{ color: N.muted }}>
+                <span className="text-xs text-right whitespace-nowrap" style={{ color: colors.text.muted }}>
                   {new Date(t.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
                 </span>
               </button>
@@ -454,14 +452,14 @@ export default function CandidateDetailPage() {
 
       {/* Header */}
       <div className="flex items-center gap-3 mb-5">
-        <div style={{ width: 44, height: 44, borderRadius: 12, background: N.creamDk, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <Users className="w-5 h-5" style={{ color: N.ink }} />
+        <div style={{ width: 44, height: 44, borderRadius: 12, background: colors.surface.elevated, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Users className="w-5 h-5" style={{ color: colors.text.ink }} />
         </div>
         <div className="min-w-0">
-          <h1 style={{ fontSize: 20, fontWeight: 800, color: N.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>
+          <h1 style={{ fontSize: 20, fontWeight: 800, color: colors.text.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>
             {user.full_name ?? user.phone}
           </h1>
-          <p className="text-xs" style={{ color: N.muted }}>{user.phone}{user.email ? ` · ${user.email}` : ''}</p>
+          <p className="text-xs" style={{ color: colors.text.muted }}>{user.phone}{user.email ? ` · ${user.email}` : ''}</p>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <Badge color={user.is_active ? 'green' : 'red'}>{user.is_active ? 'Active' : 'Inactive'}</Badge>
@@ -477,8 +475,8 @@ export default function CandidateDetailPage() {
           { label: 'Tracks',       value: user.selected_tracks?.length ?? 0 },
         ].map(({ label, value }) => (
           <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 16px' }}>
-            <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: N.muted, marginBottom: 6 }}>{label}</p>
-            <p style={{ fontSize: 22, fontWeight: 800, color: N.ink }}>{value}</p>
+            <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, marginBottom: 6 }}>{label}</p>
+            <p style={{ fontSize: 22, fontWeight: 800, color: colors.text.ink }}>{value}</p>
           </div>
         ))}
       </div>

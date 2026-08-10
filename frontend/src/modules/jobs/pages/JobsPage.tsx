@@ -3,21 +3,21 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import {
   Briefcase, MapPin, Wifi, AlertCircle, Search,
-  IndianRupee, X, ArrowUpRight, ChevronLeft, ChevronRight,
+  IndianRupee, X, ArrowUpRight,
 } from 'lucide-react'
-import AppSidebar from '@/components/layout/AppSidebar'
+import Pagination from '@/shared/components/navigation/Pagination'
+import AspLayout from '@/shared/layouts/AspLayout'
+import PageHeader from '@/shared/layouts/PageHeader'
+import Button from '@/shared/components/primitives/Button'
+import Breadcrumb from '@/shared/components/navigation/Breadcrumb'
+import { SkeletonCard } from '@/shared/components/feedback/Skeleton'
+import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors } from '@/design-system/tokens'
 import { getJobs, type JobListItem } from '@/api/matching'
 import { jobPlanApi } from '@/api/jobPlan'
 import { trackJobEvent } from '@/lib/analytics'
 
-// ── palette ────────────────────────────────────────────────────────────────────
-const NAVY   = '#1A2744'
-const INK    = '#1E3A5F'
-const INK_S  = '#475569'
-const MUTED  = '#94A3B8'
-const CREAM  = '#F4F5F7'
-const CREAM_DK = '#EAECF0'
-const BORDER = 'rgba(0,0,0,0.08)'
+const INK_S    = INK_SFT
+const CREAM_DK = colors.surface.elevated
 
 // ── filter options ─────────────────────────────────────────────────────────────
 const SECTORS   = ['Policy', 'ESG', 'EdTech', 'NGO', 'Consulting', 'Public Affairs', 'Research']
@@ -288,29 +288,13 @@ export default function JobsPage() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: CREAM }}>
-      <AppSidebar activePath="/app/jobs" />
-
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-
-        {/* ── top bar ── */}
-        <header style={{
-          background: '#fff', borderBottom: `1px solid ${BORDER}`,
-          padding: '0 24px', height: 58,
-          display: 'flex', alignItems: 'center', gap: 10,
-          position: 'sticky', top: 0, zIndex: 20,
-        }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-            background: NAVY, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Briefcase size={13} color="#fff" />
-          </div>
-          <div>
-            <p style={{ fontSize: 14, fontWeight: 700, color: INK, margin: 0 }}>Job Opportunities</p>
-            <p style={{ fontSize: 11, color: MUTED, margin: 0 }}>Ranked by your BeginAI profile match score</p>
-          </div>
-        </header>
+    <AspLayout activePath="/app/jobs">
+      <PageHeader
+        title="Job Opportunities"
+        subtitle="Ranked by your BeginAI profile match score"
+        icon={<Briefcase size={13} color={NAVY} />}
+        below={<Breadcrumb items={[{ label: 'Dashboard', href: '/app/dashboard' }, { label: 'Jobs' }]} />}
+      />
 
         {/* ── body: sidebar + feed ── */}
         <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -380,17 +364,9 @@ export default function JobsPage() {
             </FilterSection>
 
             {hasFilters && (
-              <button
-                onClick={clearAll}
-                style={{
-                  width: '100%', padding: '8px', borderRadius: 9,
-                  border: `1px solid ${BORDER}`, background: CREAM,
-                  fontSize: 12, fontWeight: 700, color: '#EF4444',
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                }}
-              >
+              <Button variant="ghost" size="sm" fullWidth onClick={clearAll} className="text-red-500 border border-gray-200">
                 <X size={12} /> Clear all filters
-              </button>
+              </Button>
             )}
           </aside>
 
@@ -411,12 +387,8 @@ export default function JobsPage() {
 
             {/* loading */}
             {isLoading && (
-              <div style={{ display: 'flex', justifyContent: 'center', padding: '64px 0' }}>
-                <div style={{
-                  width: 28, height: 28, border: `2px solid ${NAVY}`,
-                  borderTopColor: 'transparent', borderRadius: '50%',
-                  animation: 'spin 0.7s linear infinite',
-                }} />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} lines={3} />)}
               </div>
             )}
 
@@ -447,42 +419,18 @@ export default function JobsPage() {
                 }
 
                 {data.total > limit && (
-                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 24 }}>
-                    <button
-                      disabled={page === 0}
-                      onClick={() => setPage(p => p - 1)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 4,
-                        padding: '8px 14px', fontSize: 12, border: `1px solid ${BORDER}`,
-                        borderRadius: 9, background: '#fff', cursor: page === 0 ? 'not-allowed' : 'pointer',
-                        opacity: page === 0 ? 0.4 : 1, color: INK_S,
-                      }}
-                    >
-                      <ChevronLeft size={14} /> Previous
-                    </button>
-                    <span style={{ fontSize: 12, color: MUTED }}>
-                      Page {page + 1} of {Math.ceil(data.total / limit)}
-                    </span>
-                    <button
-                      disabled={(page + 1) * limit >= data.total}
-                      onClick={() => setPage(p => p + 1)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 4,
-                        padding: '8px 14px', fontSize: 12, border: `1px solid ${BORDER}`,
-                        borderRadius: 9, background: '#fff',
-                        cursor: (page + 1) * limit >= data.total ? 'not-allowed' : 'pointer',
-                        opacity: (page + 1) * limit >= data.total ? 0.4 : 1, color: INK_S,
-                      }}
-                    >
-                      Next <ChevronRight size={14} />
-                    </button>
+                  <div style={{ marginTop: 24 }}>
+                    <Pagination
+                      page={page + 1}
+                      totalPages={Math.ceil(data.total / limit)}
+                      onChange={p => setPage(p - 1)}
+                    />
                   </div>
                 )}
               </>
             )}
           </main>
         </div>
-      </div>
-    </div>
+    </AspLayout>
   )
 }

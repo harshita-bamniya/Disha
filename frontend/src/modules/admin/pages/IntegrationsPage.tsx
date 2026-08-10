@@ -1,11 +1,11 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+﻿import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plug, CheckCircle2, XCircle, MinusCircle, RefreshCw } from 'lucide-react'
 import { adminApi } from '@/api/admin'
 import type { IntegrationEntry, IntegrationStatus } from '@/api/admin'
 import { Spinner } from '@/modules/admin/shared/adminUI'
 import { cn } from '@/lib/utils'
+import { colors } from '@/design-system/tokens'
 
-const N = { navy: '#1A2744', ink: '#1E3A5F', muted: '#94A3B8', cream: '#F4F5F7', creamDk: '#EAECF0' }
 
 // ── Status helpers ─────────────────────────────────────────────────────────────
 
@@ -13,7 +13,7 @@ const STATUS_CONFIG: Record<IntegrationStatus, {
   icon: React.ElementType; label: string; border: string; bg: string; text: string
 }> = {
   connected:      { icon: CheckCircle2, label: 'Connected',     border: '1px solid rgba(0,0,0,0.08)', bg: '#F0FDF4',  text: '#15803D' },
-  not_configured: { icon: MinusCircle,  label: 'Not configured', border: '1px solid rgba(0,0,0,0.08)', bg: '#F4F5F7',  text: '#94A3B8' },
+  not_configured: { icon: MinusCircle,  label: 'Not configured', border: `1px solid ${colors.border.default}`, bg: colors.surface.bg,  text: colors.text.muted },
   error:          { icon: XCircle,      label: 'Error',          border: '1px solid rgba(0,0,0,0.08)', bg: '#FEF2F2',  text: '#DC2626' },
 }
 
@@ -37,24 +37,24 @@ function IntegrationCard({ item }: { item: IntegrationEntry }) {
   return (
     <div
       style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: 20, display: 'flex', flexDirection: 'column', gap: 12, transition: 'background 0.15s' }}
-      onMouseOver={e => (e.currentTarget.style.background = N.creamDk)}
+      onMouseOver={e => (e.currentTarget.style.background = colors.surface.elevated)}
       onMouseOut={e => (e.currentTarget.style.background = '#fff')}
     >
       {/* Top row */}
       <div className="flex items-start justify-between gap-2">
-        <p style={{ fontSize: 14, fontWeight: 900, color: N.ink, lineHeight: 1.3 }}>{item.name}</p>
+        <p style={{ fontSize: 14, fontWeight: 900, color: colors.text.ink, lineHeight: 1.3 }}>{item.name}</p>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 8px', borderRadius: 9999, fontSize: 11, fontWeight: 700, flexShrink: 0, background: cfg.bg, color: cfg.text }}>
           <Icon className="w-3 h-3" />
           {cfg.label}
         </span>
       </div>
 
-      <p style={{ fontSize: 12, color: N.muted, fontFamily: 'monospace', lineHeight: 1.5, wordBreak: 'break-all' }}>{item.detail}</p>
+      <p style={{ fontSize: 12, color: colors.text.muted, fontFamily: 'monospace', lineHeight: 1.5, wordBreak: 'break-all' }}>{item.detail}</p>
 
       {item.latency_ms !== null && (
         <div className="flex items-center gap-1.5">
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ADE80' }} />
-          <span style={{ fontSize: 11, color: N.muted, fontWeight: 500 }}>{item.latency_ms} ms</span>
+          <span style={{ fontSize: 11, color: colors.text.muted, fontWeight: 500 }}>{item.latency_ms} ms</span>
         </div>
       )}
     </div>
@@ -68,7 +68,7 @@ function CategoryGroup({ category, items }: { category: string; items: Integrati
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: N.muted, whiteSpace: 'nowrap' }}>
+        <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, whiteSpace: 'nowrap' }}>
           {CATEGORY_ICONS[category] ?? '🔌'} {category} ({connected}/{items.length})
         </span>
         <div style={{ flex: 1, height: '0.5px', background: '#E2E8F0' }} />
@@ -89,7 +89,7 @@ function SummaryBar({ items }: { items: IntegrationEntry[] }) {
 
   return (
     <div className="flex items-center gap-3 flex-wrap mb-6">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', background: N.cream, borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', background: colors.surface.bg, borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)' }}>
         <CheckCircle2 className="w-3.5 h-3.5" style={{ color: '#15803D' }} />
         <span style={{ fontSize: 12, fontWeight: 700, color: '#15803D' }}>{connected} connected</span>
       </div>
@@ -99,9 +99,9 @@ function SummaryBar({ items }: { items: IntegrationEntry[] }) {
           <span style={{ fontSize: 12, fontWeight: 700, color: '#DC2626' }}>{errors} error{errors > 1 ? 's' : ''}</span>
         </div>
       )}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', background: N.cream, borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)' }}>
-        <MinusCircle className="w-3.5 h-3.5" style={{ color: N.muted }} />
-        <span style={{ fontSize: 12, fontWeight: 700, color: N.muted }}>{notConfigured} not configured</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', background: colors.surface.bg, borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)' }}>
+        <MinusCircle className="w-3.5 h-3.5" style={{ color: colors.text.muted }} />
+        <span style={{ fontSize: 12, fontWeight: 700, color: colors.text.muted }}>{notConfigured} not configured</span>
       </div>
     </div>
   )
@@ -140,12 +140,12 @@ export default function IntegrationsPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: N.creamDk, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Plug className="w-5 h-5" style={{ color: N.ink }} />
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: colors.surface.elevated, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Plug className="w-5 h-5" style={{ color: colors.text.ink }} />
           </div>
           <div>
-            <h1 style={{ fontSize: 20, fontWeight: 800, color: N.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>Integrations</h1>
-            <p style={{ fontSize: 14, color: N.muted }}>
+            <h1 style={{ fontSize: 20, fontWeight: 800, color: colors.text.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>Integrations</h1>
+            <p style={{ fontSize: 14, color: colors.text.muted }}>
               Live connection status for all external services.
               {data && (
                 <span style={{ marginLeft: 8, color: '#CBD5E1' }}>
@@ -159,7 +159,7 @@ export default function IntegrationsPage() {
           onClick={() => qc.invalidateQueries({ queryKey: ['admin', 'integrations'] })}
           disabled={isFetching}
           className="flex items-center gap-1.5 shrink-0"
-          style={{ height: 36, padding: '0 16px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', background: '#fff', color: N.ink, fontSize: 12, fontWeight: 600, opacity: isFetching ? 0.5 : 1 }}
+          style={{ height: 36, padding: '0 16px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', background: '#fff', color: colors.text.ink, fontSize: 12, fontWeight: 600, opacity: isFetching ? 0.5 : 1 }}
         >
           <RefreshCw className={cn('w-3.5 h-3.5', isFetching && 'animate-spin')} />
           Refresh

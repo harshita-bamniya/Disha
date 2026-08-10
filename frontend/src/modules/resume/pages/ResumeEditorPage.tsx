@@ -10,6 +10,7 @@ import ResumeCopilotPanel from '@/modules/resume/components/ResumeCopilotPanel'
 import ScoreBreakdownCard from '@/modules/resume/components/ScoreBreakdownCard'
 import VersionDrawer from '@/modules/resume/components/VersionDrawer'
 import ResumeInsightsPanel from '@/modules/resume/components/ResumeInsightsPanel'
+import Tabs from '@/shared/components/navigation/Tabs'
 import {
   ArrowLeft, Wand2, BarChart2, FileText, Plus, Eye, Edit3,
   Download, Trash2, GripVertical, ChevronDown, ChevronUp, X, Clock, Lightbulb,
@@ -744,20 +745,15 @@ export default function ResumeEditorPage() {
         }
         actions={
           <>
-            <div style={{ display: 'flex', background: '#F1F5F9', borderRadius: 10, padding: 3, gap: 2 }}>
-              {(['preview', 'edit'] as const).map(tab => (
-                <button key={tab} onClick={() => setActiveTab(tab)} style={{
-                  padding: '5px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none',
-                  background: activeTab === tab ? 'white' : 'transparent',
-                  color: activeTab === tab ? '#0F172A' : '#94A3B8',
-                  boxShadow: activeTab === tab ? '0 1px 4px rgba(15,23,42,0.1)' : 'none',
-                  display: 'flex', alignItems: 'center', gap: 5, transition: 'all 0.15s',
-                }}>
-                  {tab === 'preview' ? <Eye size={12} /> : <Edit3 size={12} />}
-                  {tab === 'preview' ? 'Preview' : 'Edit'}
-                </button>
-              ))}
-            </div>
+            <Tabs
+              tabs={[
+                { key: 'preview', label: 'Preview', icon: <Eye size={12} /> },
+                { key: 'edit',    label: 'Edit',    icon: <Edit3 size={12} /> },
+              ]}
+              active={activeTab}
+              onChange={k => setActiveTab(k as 'edit' | 'preview')}
+              variant="pill"
+            />
             {resume.ats_score !== null && (
               <button
                 onClick={() => setScoreExpanded(v => !v)}

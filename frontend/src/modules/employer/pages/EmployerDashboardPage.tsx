@@ -1,16 +1,19 @@
 import { useNavigate, Link } from 'react-router-dom'
-import NotificationBell from '@/components/NotificationBell'
+import { colors, radius } from '@/design-system/tokens'
 import {
-  Plus, Clock, Building2, TrendingUp, Users, Briefcase,
-  CalendarClock, Send, Award, X, Sparkles,
-  CheckCircle2, ChevronRight, Activity, ArrowUpRight,
+  Plus, Building2,
+  CheckCircle2, ChevronRight, ArrowUpRight,
 } from 'lucide-react'
 import {
   useEmployerDashboard, useDashboardKpis, useApplicationTrend,
   useUpcomingInterviews, useCompanyProfile, useDepartments,
 } from '../hooks/useJobs'
-import { CommandBar } from '../components/CommandBar'
 import { useState } from 'react'
+import Button from '@/shared/components/primitives/Button'
+import { SkeletonCard } from '@/shared/components/feedback/Skeleton'
+import ErrorState from '@/shared/components/feedback/ErrorState'
+import AlertBanner from '@/shared/components/feedback/AlertBanner'
+import PageHeader from '@/shared/layouts/PageHeader'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -23,6 +26,7 @@ function fmt(n: number | null | undefined, fallback = '—'): string {
 // ── KPI Strip ─────────────────────────────────────────────────────────────────
 
 function KpiStrip({ kpis }: { kpis: Record<string, number> }) {
+  const navigate = useNavigate()
   const stats = [
     { label: 'Active Jobs',        value: fmt(kpis.active_jobs),                                                      to: '/app/employer/jobs' },
     { label: 'Total Applications', value: fmt(kpis.total_applications),                                               to: '/app/employer/applicants' },
@@ -38,30 +42,30 @@ function KpiStrip({ kpis }: { kpis: Record<string, number> }) {
     <div style={{
       display: 'grid',
       gridTemplateColumns: 'repeat(8, 1fr)',
-      background: '#fff',
-      border: '1px solid #E5E7EB',
-      borderRadius: 10,
+      background: colors.surface.card,
+      border: `1px solid ${colors.border.default}`,
+      borderRadius: radius.xl,
       overflow: 'hidden',
     }}>
       {stats.map((s, i) => (
         <div
           key={s.label}
-          onClick={() => s.to && window.location.assign(s.to)}
+          onClick={() => s.to && navigate(s.to)}
           style={{
             padding: '16px 18px',
-            borderRight: i < stats.length - 1 ? '1px solid #F3F4F6' : 'none',
+            borderRight: i < stats.length - 1 ? `1px solid ${colors.border.default}` : 'none',
             cursor: s.to ? 'pointer' : 'default',
             transition: 'background 0.12s',
           }}
-          onMouseOver={e => { if (s.to) e.currentTarget.style.background = '#F9FAFB' }}
+          onMouseOver={e => { if (s.to) e.currentTarget.style.background = '#F4F5F7' }}
           onMouseOut={e => { e.currentTarget.style.background = '#fff' }}
         >
           <p style={{
-            fontSize: 22, fontWeight: 700, color: '#111827',
+            fontSize: 22, fontWeight: 700, color: colors.text.ink,
             margin: 0, lineHeight: 1,
             fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.5px',
           }}>{s.value}</p>
-          <p style={{ fontSize: 11, color: '#6B7280', margin: '5px 0 0', fontWeight: 500, whiteSpace: 'nowrap' }}>{s.label}</p>
+          <p style={{ fontSize: 11, color: colors.text.muted, margin: '5px 0 0', fontWeight: 500, whiteSpace: 'nowrap' }}>{s.label}</p>
         </div>
       ))}
     </div>
@@ -106,23 +110,23 @@ function ApplicationTrend() {
   )
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 10, padding: '18px 20px' }}>
+    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, padding: '18px 20px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
         <div>
-          <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', margin: 0 }}>Application Trend</p>
-          <p style={{ fontSize: 12, color: '#9CA3AF', margin: '2px 0 0' }}>Last 30 days</p>
+          <p style={{ fontSize: 13, fontWeight: 600, color: colors.text.ink, margin: 0 }}>Application Trend</p>
+          <p style={{ fontSize: 12, color: colors.text.muted, margin: '2px 0 0' }}>Last 30 days</p>
         </div>
         {total > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontSize: 20, fontWeight: 700, color: '#111827', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.5px' }}>{fmt(total)}</span>
-            <span style={{ fontSize: 11, color: '#9CA3AF' }}>total</span>
+            <span style={{ fontSize: 20, fontWeight: 700, color: colors.text.ink, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.5px' }}>{fmt(total)}</span>
+            <span style={{ fontSize: 11, color: colors.text.muted }}>total</span>
           </div>
         )}
       </div>
 
       {series.length < 2 ? (
         <div style={{ height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <p style={{ fontSize: 12, color: '#D1D5DB' }}>No applications yet</p>
+          <p style={{ fontSize: 12, color: colors.text.muted }}>No applications yet</p>
         </div>
       ) : (
         <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }}>
@@ -136,8 +140,8 @@ function ApplicationTrend() {
           {/* Grid lines */}
           {gridLines.map(g => (
             <g key={g.y}>
-              <line x1={PAD.l} y1={g.y} x2={W - PAD.r} y2={g.y} stroke="#F3F4F6" strokeWidth="1" />
-              <text x={PAD.l - 6} y={g.y + 4} fontSize="9" fill="#9CA3AF" textAnchor="end">{g.label}</text>
+              <line x1={PAD.l} y1={g.y} x2={W - PAD.r} y2={g.y} stroke={colors.surface.elevated} strokeWidth="1" />
+              <text x={PAD.l - 6} y={g.y + 4} fontSize="9" fill={colors.text.muted} textAnchor="end">{g.label}</text>
             </g>
           ))}
 
@@ -153,7 +157,7 @@ function ApplicationTrend() {
             const d = new Date(series[idx].date)
             const label = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
             return (
-              <text key={idx} x={p.x} y={H - 4} fontSize="9" fill="#9CA3AF" textAnchor="middle">{label}</text>
+              <text key={idx} x={p.x} y={H - 4} fontSize="9" fill={colors.text.muted} textAnchor="middle">{label}</text>
             )
           })}
         </svg>
@@ -173,19 +177,19 @@ function HiringFunnel({ kpis }: { kpis: Record<string, number> }) {
   ]
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 10, padding: '18px 20px' }}>
-      <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', margin: '0 0 16px' }}>Hiring Funnel</p>
+    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, padding: '18px 20px' }}>
+      <p style={{ fontSize: 13, fontWeight: 600, color: colors.text.ink, margin: '0 0 16px' }}>Hiring Funnel</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {stages.map((s, i) => (
           <div key={s.label}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
-              <span style={{ fontSize: 12, color: '#374151', fontWeight: 500 }}>{s.label}</span>
+              <span style={{ fontSize: 12, color: colors.text.inkSoft, fontWeight: 500 }}>{s.label}</span>
               <div style={{ display: 'flex', align: 'center', gap: 10 }}>
-                <span style={{ fontSize: 11, color: '#9CA3AF', fontVariantNumeric: 'tabular-nums' }}>{s.pct}%</span>
-                <span style={{ fontSize: 12, fontWeight: 600, color: '#111827', fontVariantNumeric: 'tabular-nums', minWidth: 24, textAlign: 'right' }}>{s.value}</span>
+                <span style={{ fontSize: 11, color: colors.text.muted, fontVariantNumeric: 'tabular-nums' }}>{s.pct}%</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: colors.text.ink, fontVariantNumeric: 'tabular-nums', minWidth: 24, textAlign: 'right' }}>{s.value}</span>
               </div>
             </div>
-            <div style={{ height: 5, background: '#F3F4F6', borderRadius: 99, overflow: 'hidden' }}>
+            <div style={{ height: 5, background: colors.surface.elevated, borderRadius: 99, overflow: 'hidden' }}>
               <div style={{
                 width: `${s.pct}%`, height: '100%', borderRadius: 99,
                 background: i === 0 ? '#2563EB' : i === 1 ? '#7C3AED' : i === 2 ? '#0891B2' : '#16A34A',
@@ -207,17 +211,17 @@ function DepartmentsTable() {
   if (!departments?.length) return null
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 10, overflow: 'hidden' }}>
+    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, overflow: 'hidden' }}>
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '14px 20px', borderBottom: '1px solid #F3F4F6',
+        padding: '14px 20px', borderBottom: `1px solid ${colors.border.default}`,
       }}>
-        <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', margin: 0 }}>
-          Departments <span style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 400, marginLeft: 4 }}>{departments.length}</span>
+        <p style={{ fontSize: 13, fontWeight: 600, color: colors.text.ink, margin: 0 }}>
+          Departments <span style={{ fontSize: 11, color: colors.text.muted, fontWeight: 400, marginLeft: 4 }}>{departments.length}</span>
         </p>
         <Link to="/app/employer/departments" style={{
           display: 'flex', alignItems: 'center', gap: 3,
-          fontSize: 12, color: '#2563EB', fontWeight: 500, textDecoration: 'none',
+          fontSize: 12, color: colors.state.info, fontWeight: 500, textDecoration: 'none',
         }}>
           Manage <ChevronRight size={12} />
         </Link>
@@ -226,11 +230,11 @@ function DepartmentsTable() {
       {/* Table header */}
       <div style={{
         display: 'grid', gridTemplateColumns: '1fr 140px 90px 90px 90px',
-        padding: '8px 20px', background: '#F9FAFB',
-        borderBottom: '1px solid #F3F4F6',
+        padding: '8px 20px', background: colors.surface.bg,
+        borderBottom: `1px solid ${colors.border.default}`,
       }}>
         {['Department', 'Head', 'Members', 'Active Jobs', 'Applicants'].map(col => (
-          <span key={col} style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{col}</span>
+          <span key={col} style={{ fontSize: 11, fontWeight: 600, color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{col}</span>
         ))}
       </div>
 
@@ -241,27 +245,27 @@ function DepartmentsTable() {
           style={{
             display: 'grid', gridTemplateColumns: '1fr 140px 90px 90px 90px',
             padding: '11px 20px',
-            borderBottom: i < departments.length - 1 ? '1px solid #F9FAFB' : 'none',
+            borderBottom: i < departments.length - 1 ? `1px solid ${colors.surface.bg}` : 'none',
             cursor: 'pointer', transition: 'background 0.1s',
             alignItems: 'center',
           }}
-          onMouseOver={e => { e.currentTarget.style.background = '#F9FAFB' }}
+          onMouseOver={e => { e.currentTarget.style.background = '#F4F5F7' }}
           onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
             <div style={{
               width: 28, height: 28, borderRadius: 6,
-              background: '#F3F4F6',
+              background: colors.surface.elevated,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <Building2 size={13} color="#6B7280" />
+              <Building2 size={13} color={colors.text.muted} />
             </div>
-            <span style={{ fontSize: 13, fontWeight: 500, color: '#111827' }}>{d.name}</span>
+            <span style={{ fontSize: 13, fontWeight: 500, color: colors.text.ink }}>{d.name}</span>
           </div>
-          <span style={{ fontSize: 12, color: '#6B7280' }}>{d.head_name ?? '—'}</span>
-          <span style={{ fontSize: 13, fontWeight: 500, color: '#374151', fontVariantNumeric: 'tabular-nums' }}>{d.member_count}</span>
-          <span style={{ fontSize: 13, fontWeight: 500, color: '#374151', fontVariantNumeric: 'tabular-nums' }}>{d.active_job_count}</span>
-          <span style={{ fontSize: 13, fontWeight: 500, color: '#374151', fontVariantNumeric: 'tabular-nums' }}>{d.total_applicant_count}</span>
+          <span style={{ fontSize: 12, color: colors.text.muted }}>{d.head_name ?? '—'}</span>
+          <span style={{ fontSize: 13, fontWeight: 500, color: colors.text.inkSoft, fontVariantNumeric: 'tabular-nums' }}>{d.member_count}</span>
+          <span style={{ fontSize: 13, fontWeight: 500, color: colors.text.inkSoft, fontVariantNumeric: 'tabular-nums' }}>{d.active_job_count}</span>
+          <span style={{ fontSize: 13, fontWeight: 500, color: colors.text.inkSoft, fontVariantNumeric: 'tabular-nums' }}>{d.total_applicant_count}</span>
         </div>
       ))}
     </div>
@@ -274,15 +278,15 @@ function UpcomingInterviews() {
   const { data: interviews } = useUpcomingInterviews(5)
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 10, overflow: 'hidden' }}>
+    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, overflow: 'hidden' }}>
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '14px 18px', borderBottom: '1px solid #F3F4F6',
+        padding: '14px 18px', borderBottom: `1px solid ${colors.border.default}`,
       }}>
-        <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', margin: 0 }}>Upcoming Interviews</p>
+        <p style={{ fontSize: 13, fontWeight: 600, color: colors.text.ink, margin: 0 }}>Upcoming Interviews</p>
         <Link to="/app/employer/calendar" style={{
           display: 'flex', alignItems: 'center', gap: 3,
-          fontSize: 12, color: '#2563EB', fontWeight: 500, textDecoration: 'none',
+          fontSize: 12, color: colors.state.info, fontWeight: 500, textDecoration: 'none',
         }}>
           Calendar <ChevronRight size={12} />
         </Link>
@@ -290,7 +294,7 @@ function UpcomingInterviews() {
 
       {!interviews?.length ? (
         <div style={{ padding: '24px 18px', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0 }}>No upcoming interviews</p>
+          <p style={{ fontSize: 12, color: colors.text.muted, margin: 0 }}>No upcoming interviews</p>
         </div>
       ) : (
         interviews.map((iv, i) => {
@@ -300,11 +304,11 @@ function UpcomingInterviews() {
             <div key={iv.id} style={{
               display: 'flex', alignItems: 'center', gap: 12,
               padding: '10px 18px',
-              borderBottom: i < interviews.length - 1 ? '1px solid #F9FAFB' : 'none',
+              borderBottom: i < interviews.length - 1 ? `1px solid ${colors.surface.bg}` : 'none',
             }}>
               <div style={{
                 width: 34, height: 34, borderRadius: 7,
-                background: '#EFF6FF',
+                background: colors.state.infoBg,
                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0,
               }}>
@@ -314,10 +318,10 @@ function UpcomingInterviews() {
                 </span>
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 13, fontWeight: 500, color: '#111827', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{iv.candidate_name ?? 'Candidate'}</p>
-                <p style={{ fontSize: 11, color: '#9CA3AF', margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{iv.job_title}</p>
+                <p style={{ fontSize: 13, fontWeight: 500, color: colors.text.ink, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{iv.candidate_name ?? 'Candidate'}</p>
+                <p style={{ fontSize: 11, color: colors.text.muted, margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{iv.job_title}</p>
               </div>
-              <span style={{ fontSize: 11, color: '#6B7280', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{timeStr}</span>
+              <span style={{ fontSize: 11, color: colors.text.muted, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{timeStr}</span>
             </div>
           )
         })
@@ -337,16 +341,16 @@ function ActionItems({ kpis }: { kpis: Record<string, number> }) {
   if (kpis.offers_sent > 0)          items.push({ label: 'offers pending response',count: kpis.offers_sent,         to: '/app/employer/offers',   color: '#0891B2' })
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #E5E7EB', borderRadius: 10, overflow: 'hidden' }}>
-      <div style={{ padding: '14px 18px', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <p style={{ fontSize: 13, fontWeight: 600, color: '#111827', margin: 0 }}>Action Items</p>
-        <span style={{ fontSize: 11, color: '#9CA3AF' }}>Needs attention</span>
+    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, overflow: 'hidden' }}>
+      <div style={{ padding: '14px 18px', borderBottom: `1px solid ${colors.border.default}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <p style={{ fontSize: 13, fontWeight: 600, color: colors.text.ink, margin: 0 }}>Action Items</p>
+        <span style={{ fontSize: 11, color: colors.text.muted }}>Needs attention</span>
       </div>
 
       {items.length === 0 ? (
         <div style={{ padding: '18px', display: 'flex', alignItems: 'center', gap: 9 }}>
           <CheckCircle2 size={15} color="#16A34A" />
-          <p style={{ fontSize: 12, color: '#6B7280', margin: 0 }}>All caught up</p>
+          <p style={{ fontSize: 12, color: colors.text.muted, margin: 0 }}>All caught up</p>
         </div>
       ) : (
         items.map((item, i) => (
@@ -356,10 +360,10 @@ function ActionItems({ kpis }: { kpis: Record<string, number> }) {
             style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '11px 18px',
-              borderBottom: i < items.length - 1 ? '1px solid #F9FAFB' : 'none',
+              borderBottom: i < items.length - 1 ? `1px solid ${colors.surface.bg}` : 'none',
               cursor: 'pointer', transition: 'background 0.1s',
             }}
-            onMouseOver={e => { e.currentTarget.style.background = '#F9FAFB' }}
+            onMouseOver={e => { e.currentTarget.style.background = '#F4F5F7' }}
             onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -370,9 +374,9 @@ function ActionItems({ kpis }: { kpis: Record<string, number> }) {
                 fontSize: 11, fontWeight: 700, padding: '0 5px',
                 fontVariantNumeric: 'tabular-nums',
               }}>{item.count}</span>
-              <span style={{ fontSize: 12, color: '#374151' }}>{item.label}</span>
+              <span style={{ fontSize: 12, color: colors.text.inkSoft }}>{item.label}</span>
             </div>
-            <ArrowUpRight size={13} color="#D1D5DB" />
+            <ArrowUpRight size={13} color={colors.text.muted} />
           </div>
         ))
       )}
@@ -384,23 +388,20 @@ function ActionItems({ kpis }: { kpis: Record<string, number> }) {
 
 function VerificationBanner() {
   return (
-    <div style={{
-      background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8,
-      padding: '11px 16px',
-      display: 'flex', alignItems: 'center', gap: 10,
-    }}>
-      <Clock size={14} color="#D97706" style={{ flexShrink: 0 }} />
-      <p style={{ fontSize: 12, color: '#92400E', margin: 0, flex: 1 }}>
-        <strong style={{ fontWeight: 600 }}>Verification pending</strong> — job posting is locked until your company documents are submitted.
-      </p>
-      <Link to="/app/employer/verification" style={{
-        padding: '5px 12px', borderRadius: 6,
-        background: '#D97706', color: 'white',
-        fontSize: 12, fontWeight: 600, textDecoration: 'none', flexShrink: 0,
-      }}>
-        Start verification
-      </Link>
-    </div>
+    <AlertBanner
+      variant="warning"
+      title="Verification pending"
+      message="Job posting is locked until your company documents are submitted."
+      action={
+        <Link to="/app/employer/verification" style={{
+          padding: '5px 12px', borderRadius: 6,
+          background: colors.state.warning, color: 'white',
+          fontSize: 12, fontWeight: 600, textDecoration: 'none',
+        }}>
+          Start verification
+        </Link>
+      }
+    />
   )
 }
 
@@ -412,147 +413,92 @@ function SetupBanner() {
   if (!company || company.industry || dismissed) return null
 
   return (
-    <div style={{
-      background: '#F5F3FF', border: '1px solid #DDD6FE', borderRadius: 8,
-      padding: '11px 16px',
-      display: 'flex', alignItems: 'center', gap: 10,
-    }}>
-      <Sparkles size={14} color="#7C3AED" style={{ flexShrink: 0 }} />
-      <p style={{ fontSize: 12, color: '#5B21B6', margin: 0, flex: 1 }}>
-        <strong style={{ fontWeight: 600 }}>Complete your company profile</strong> — add industry, logo, and description to attract stronger candidates.
-      </p>
-      <Link to="/app/employer/setup" style={{
-        padding: '5px 12px', borderRadius: 6,
-        background: '#7C3AED', color: 'white',
-        fontSize: 12, fontWeight: 600, textDecoration: 'none', flexShrink: 0,
-      }}>
-        Complete
-      </Link>
-      <button
-        type="button"
-        onClick={() => { sessionStorage.setItem('setup_banner_v2', '1'); setDismissed(true) }}
-        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#A78BFA', padding: 2, flexShrink: 0 }}
-      >
-        <X size={13} />
-      </button>
-    </div>
+    <AlertBanner
+      variant="info"
+      title="Complete your company profile"
+      message="Add industry, logo, and description to attract stronger candidates."
+      action={
+        <Link to="/app/employer/setup" style={{
+          padding: '5px 12px', borderRadius: 6,
+          background: colors.state.info, color: 'white',
+          fontSize: 12, fontWeight: 600, textDecoration: 'none',
+        }}>
+          Complete
+        </Link>
+      }
+      onDismiss={() => { sessionStorage.setItem('setup_banner_v2', '1'); setDismissed(true) }}
+    />
   )
 }
 
-// ── Skeleton ──────────────────────────────────────────────────────────────────
+// ── Skeleton — uses shared SkeletonCard, no local keyframes ──────────────────
 
-function Skeleton() {
-  const pulse = {
-    background: 'linear-gradient(90deg, #F3F4F6 25%, #E5E7EB 50%, #F3F4F6 75%)',
-    backgroundSize: '200% 100%',
-    animation: 'shimmer 1.4s infinite',
-    borderRadius: 6,
-  } as React.CSSProperties
-
+function DashboardSkeleton() {
   return (
-    <>
-      <style>{`@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ ...pulse, height: 80, borderRadius: 10 }} />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div style={{ ...pulse, height: 160, borderRadius: 10 }} />
-          <div style={{ ...pulse, height: 160, borderRadius: 10 }} />
-        </div>
-        <div style={{ ...pulse, height: 180, borderRadius: 10 }} />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <SkeletonCard lines={2} />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <SkeletonCard lines={4} />
+        <SkeletonCard lines={4} />
       </div>
-    </>
+      <SkeletonCard lines={5} />
+    </div>
   )
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function EmployerDashboardPage() {
-  const { data, isLoading }           = useEmployerDashboard()
-  const { data: kpis, isLoading: kL } = useDashboardKpis()
-  const navigate                      = useNavigate()
-
-  const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })
+  const { data, isLoading, isError, refetch } = useEmployerDashboard()
+  const { data: kpis, isLoading: kL }         = useDashboardKpis()
+  const navigate                              = useNavigate()
 
   return (
-    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+      <PageHeader title="Dashboard" subtitle="Your hiring activity at a glance" />
 
-      {/* Top bar */}
-      <header style={{
-        height: 52,
-        background: '#fff',
-        borderBottom: '1px solid #E5E7EB',
-        padding: '0 24px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        flexShrink: 0,
-        position: 'sticky', top: 0, zIndex: 20,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>
-            {data?.company_name ?? 'Dashboard'}
-          </span>
-          <span style={{ fontSize: 12, color: '#D1D5DB' }}>·</span>
-          <span style={{ fontSize: 12, color: '#9CA3AF' }}>{today}</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <CommandBar onPostJob={() => navigate('/app/employer/jobs')} />
-          <NotificationBell />
-          {data?.is_approved && (
-            <button
-              onClick={() => navigate('/app/employer/jobs')}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '6px 14px', borderRadius: 7,
-                background: '#1E3A5F', color: 'white',
-                border: 'none', fontSize: 12, fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              <Plus size={13} strokeWidth={2.5} />Post a Job
-            </button>
-          )}
-        </div>
-      </header>
+      <main style={{ padding: '20px 28px', background: colors.surface.bg, minHeight: '100%', flex: 1 }}>
 
-      {/* Main content */}
-      <main style={{ flex: 1, overflow: 'auto', padding: '20px 24px', background: '#F9FAFB' }}>
+      {(isLoading || kL) ? <DashboardSkeleton /> : (isError || !data) ? (
+        <ErrorState title="Could not load dashboard" description="There was an error loading your dashboard data." onRetry={refetch} />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 1280 }}>
 
-        {(isLoading || kL) ? <Skeleton /> : !data ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 300, gap: 10, color: '#9CA3AF' }}>
-            <Building2 size={36} strokeWidth={1.5} />
-            <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: '#374151' }}>Could not load dashboard</p>
-            <button onClick={() => window.location.reload()} style={{ marginTop: 4, padding: '6px 16px', borderRadius: 7, background: '#1E3A5F', color: '#fff', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-              Refresh
-            </button>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 1280 }}>
+          {/* Banners */}
+          {!data.is_approved && <VerificationBanner />}
+          <SetupBanner />
 
-            {/* Banners */}
-            {!data.is_approved && <VerificationBanner />}
-            <SetupBanner />
-
-            {/* KPI strip */}
-            {kpis && <KpiStrip kpis={kpis as unknown as Record<string, number>} />}
-
-            {/* Charts row */}
-            {kpis && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 14 }}>
-                <ApplicationTrend />
-                <HiringFunnel kpis={kpis as unknown as Record<string, number>} />
-              </div>
-            )}
-
-            {/* Departments */}
-            <DepartmentsTable />
-
-            {/* Bottom row */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              {kpis && <ActionItems kpis={kpis as unknown as Record<string, number>} />}
-              <UpcomingInterviews />
+          {/* Post a Job action */}
+          {data.is_approved && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button size="sm" onClick={() => navigate('/app/employer/jobs')}>
+                <Plus size={13} strokeWidth={2.5} />Post a Job
+              </Button>
             </div>
+          )}
 
+          {/* KPI strip */}
+          {kpis && <KpiStrip kpis={kpis as unknown as Record<string, number>} />}
+
+          {/* Charts row */}
+          {kpis && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 14 }}>
+              <ApplicationTrend />
+              <HiringFunnel kpis={kpis as unknown as Record<string, number>} />
+            </div>
+          )}
+
+          {/* Departments */}
+          <DepartmentsTable />
+
+          {/* Bottom row */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+            {kpis && <ActionItems kpis={kpis as unknown as Record<string, number>} />}
+            <UpcomingInterviews />
           </div>
-        )}
+
+        </div>
+      )}
       </main>
     </div>
   )

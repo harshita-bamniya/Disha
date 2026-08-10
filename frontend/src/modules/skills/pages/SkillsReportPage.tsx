@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { RefreshCw, Zap, Brain, Target, TrendingUp, CheckCircle2, AlertCircle, ArrowUpRight, Shield, BarChart3, ClipboardList } from 'lucide-react'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
+import PageHeader from '@/shared/layouts/PageHeader'
 import { useKrsDashboard, useRecompute } from '@/modules/dashboard/hooks/useKrs'
 import { useOnboardingStatus } from '@/modules/onboarding/hooks/useOnboarding'
 
@@ -133,25 +134,15 @@ export default function SkillsReportPage() {
   const nextOnboardingStep = onboarding?.current_step ?? 2
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-      <AppSidebar activePath="/app/skills/report" />
-
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-
-        {/* Top bar */}
-        <header style={{
-          background: 'white',
-          borderBottom: '1px solid rgba(37,99,235,0.08)',
-          padding: '0 28px', height: 64,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          position: 'sticky', top: 0, zIndex: 20,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #818CF8, #6366F1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <BarChart3 size={14} color="white" />
-            </div>
-            <span style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>Skill Intelligence Report</span>
+    <AspLayout activePath="/app/profile">
+      <PageHeader
+        title="Skill Intelligence Report"
+        icon={
+          <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #818CF8, #6366F1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <BarChart3 size={14} color="white" />
           </div>
+        }
+        actions={
           <button
             onClick={() => recompute.mutate()}
             disabled={recompute.isPending}
@@ -164,7 +155,8 @@ export default function SkillsReportPage() {
             <RefreshCw size={12} className={recompute.isPending ? 'animate-spin' : ''} />
             {recompute.isPending ? 'Recomputing…' : 'Recompute'}
           </button>
-        </header>
+        }
+      />
 
         <main style={{ padding: '28px', flex: 1, background: '#FAFBFD' }}>
 
@@ -425,13 +417,12 @@ export default function SkillsReportPage() {
             </div>
           )}
         </main>
-      </div>
 
       <style>{`
         @keyframes spin      { to { transform: rotate(360deg) } }
         @keyframes slideDown { from { opacity:0; transform:translateY(-14px) } to { opacity:1; transform:translateY(0) } }
         @keyframes cardIn    { from { opacity:0; transform:translateY(14px) scale(0.97) } to { opacity:1; transform:translateY(0) scale(1) } }
       `}</style>
-    </div>
+    </AspLayout>
   )
 }

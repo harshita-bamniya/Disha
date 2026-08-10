@@ -169,16 +169,16 @@ export default function RegisterPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#94A3B8' }}>
                   <RotateCcw className="w-3 h-3" />
                   {countdown > 0 ? <span>Resend in {countdown}s</span> : (
-                    <button type="button" onClick={handleResend} disabled={sendOtp.isPending}
-                      style={{ color: '#1A2744', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, padding: 0 }}>
+                    <Button type="button" variant="ghost" size="sm" onClick={handleResend} disabled={sendOtp.isPending}
+                      className="text-[#1A2744] font-semibold text-xs p-0 h-auto">
                       Resend OTP
-                    </button>
+                    </Button>
                   )}
                 </div>
-                <button type="button" onClick={() => { setOtpSent(false); setOtp(''); setDevOtp(null) }}
-                  style={{ fontSize: 12, color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                <Button type="button" variant="ghost" size="sm" onClick={() => { setOtpSent(false); setOtp(''); setDevOtp(null) }}
+                  className="text-xs text-[#94A3B8] p-0 h-auto">
                   Change number
-                </button>
+                </Button>
               </div>
             </div>
           )}

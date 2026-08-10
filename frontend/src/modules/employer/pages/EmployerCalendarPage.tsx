@@ -12,6 +12,10 @@ import { useUpcomingInterviews } from '../hooks/useJobs'
 import { inboxApi } from '@/api/inbox'
 import { calendarApi } from '@/api/calendar'
 import { CalendarDays, Clock, Video, Briefcase, User, Square, Plus, Trash2, ListTodo, Zap, CheckCircle2, AlertCircle, X } from 'lucide-react'
+import { colors } from '@/design-system/tokens'
+import { SkeletonCard } from '@/shared/components/feedback/Skeleton'
+import ErrorState from '@/shared/components/feedback/ErrorState'
+import PageHeader from '@/shared/layouts/PageHeader'
 
 function groupByDay(items: { scheduled_at: string }[]) {
   const groups = new Map<string, typeof items>()
@@ -42,10 +46,10 @@ function TasksPanel() {
   })
 
   return (
-    <div style={{ background: '#fff', border: '1px solid rgba(37,99,235,0.09)', borderRadius: 14, padding: 16, marginBottom: 24 }}>
+    <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 14, padding: 16, marginBottom: 24 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <ListTodo size={15} color="#3B82F6" />
-        <h2 style={{ fontSize: 13, fontWeight: 800, color: '#0F172A', margin: 0 }}>Tasks</h2>
+        <ListTodo size={15} color={colors.brand.navy} />
+        <h2 style={{ fontSize: 13, fontWeight: 800, color: colors.text.ink, margin: 0 }}>Tasks</h2>
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
@@ -54,12 +58,12 @@ function TasksPanel() {
           onChange={e => setNewTitle(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter' && newTitle.trim()) create.mutate() }}
           placeholder="Add a follow-up, e.g. 'Call back Priya about offer'…"
-          style={{ flex: 1, height: 34, border: '1px solid rgba(37,99,235,0.09)', borderRadius: 8, padding: '0 10px', fontSize: 12, outline: 'none' }}
+          style={{ flex: 1, height: 34, border: '1px solid rgba(0,0,0,0.08)', borderRadius: 8, padding: '0 10px', fontSize: 12, outline: 'none' }}
         />
         <button
           onClick={() => newTitle.trim() && create.mutate()}
           disabled={!newTitle.trim() || create.isPending}
-          style={{ width: 34, height: 34, borderRadius: 8, border: 'none', background: '#3B82F6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: !newTitle.trim() ? 0.5 : 1 }}
+          style={{ width: 34, height: 34, borderRadius: 8, border: 'none', background: colors.brand.navy, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: !newTitle.trim() ? 0.5 : 1 }}
         >
           <Plus size={15} />
         </button>
@@ -75,7 +79,7 @@ function TasksPanel() {
                 <Square size={15} />
               </button>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: '#1E293B', margin: 0 }}>{t.title}</p>
+                <p style={{ fontSize: 12, fontWeight: 600, color: colors.text.ink, margin: 0 }}>{t.title}</p>
                 {(t.candidate_name || t.job_title) && (
                   <p style={{ fontSize: 10, color: '#94A3B8', margin: 0 }}>{[t.candidate_name, t.job_title].filter(Boolean).join(' · ')}</p>
                 )}
@@ -135,14 +139,14 @@ function GoogleCalendarBanner() {
       )}
 
       {/* Connection card */}
-      <div style={{ background: '#fff', border: '1px solid rgba(37,99,235,0.09)', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+      <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           {/* Google Calendar icon */}
           <div style={{ width: 36, height: 36, borderRadius: 8, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <CalendarDays size={18} color="#3B82F6" />
+            <CalendarDays size={18} color={colors.state.info} />
           </div>
           <div>
-            <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', margin: 0 }}>Google Calendar</p>
+            <p style={{ fontSize: 13, fontWeight: 700, color: colors.text.ink, margin: 0 }}>Google Calendar</p>
             {status?.connected ? (
               <p style={{ fontSize: 11, color: '#16A34A', margin: '2px 0 0', display: 'flex', alignItems: 'center', gap: 4 }}>
                 <CheckCircle2 size={11} />Connected · interviews auto-sync
@@ -165,7 +169,7 @@ function GoogleCalendarBanner() {
         ) : (
           <button
             onClick={calendarApi.authorize}
-            style={{ height: 32, padding: '0 16px', borderRadius: 8, border: 'none', background: '#3B82F6', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+            style={{ height: 32, padding: '0 16px', borderRadius: 8, border: 'none', background: colors.brand.navy, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
           >
             <Zap size={13} />Connect
           </button>
@@ -181,23 +185,17 @@ export default function EmployerCalendarPage() {
   const groups = data ? groupByDay(data) : []
 
   return (
-    <div style={{ flex: 1 }}>
-      <header style={{ background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(37,99,235,0.08)', padding: '0 28px', height: 60, display: 'flex', alignItems: 'center', gap: 16, position: 'sticky', top: 0, zIndex: 10, boxShadow: '0 1px 0 rgba(37,99,235,0.06)' }}>
-        <h1 style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <CalendarDays size={16} color="#3B82F6" />Calendar
-        </h1>
-        {data && <span style={{ fontSize: 12, color: '#94A3B8' }}>{data.length} upcoming interview{data.length !== 1 ? 's' : ''}</span>}
-      </header>
-
-      <div style={{ maxWidth: 760, margin: '0 auto', padding: 24 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+      <PageHeader title="Calendar" subtitle="Upcoming interviews and schedule" />
+      <div style={{ maxWidth: 760, margin: '0 auto', padding: 24, width: '100%' }}>
         <GoogleCalendarBanner />
         <TasksPanel />
         {isLoading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
-            <div style={{ width: 32, height: 32, border: '3px solid rgba(59,130,246,0.2)', borderTopColor: '#3B82F6', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} lines={2} />)}
           </div>
         ) : isError ? (
-          <p style={{ textAlign: 'center', color: '#DC2626', padding: 40 }}>Failed to load upcoming interviews.</p>
+          <ErrorState title="Failed to load interviews" description="Could not fetch your upcoming schedule. Please try again." onRetry={() => window.location.reload()} />
         ) : groups.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 24px', color: '#94A3B8' }}>
             <CalendarDays size={40} style={{ margin: '0 auto 12px', opacity: 0.3, display: 'block' }} />
@@ -213,16 +211,16 @@ export default function EmployerCalendarPage() {
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {items.map(iv => (
-                    <div key={iv.id} style={{ background: '#fff', border: '1px solid rgba(37,99,235,0.09)', borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                    <div key={iv.id} style={{ background: '#fff', border: `1px solid ${colors.border.default}`, borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                         <div style={{ textAlign: 'center', minWidth: 52 }}>
-                          <p style={{ fontSize: 14, fontWeight: 800, color: '#3B82F6', margin: 0 }}>
+                          <p style={{ fontSize: 14, fontWeight: 800, color: colors.text.ink, margin: 0 }}>
                             {new Date(iv.scheduled_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                           </p>
                         </div>
                         <div style={{ width: 1, height: 32, background: '#F1F5F9' }} />
                         <div>
-                          <p style={{ fontSize: 13, fontWeight: 700, color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: colors.text.ink, margin: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
                             <User size={12} color="#94A3B8" />{iv.candidate_name ?? 'Anonymous'}
                           </p>
                           <p style={{ fontSize: 11, color: '#64748B', margin: '2px 0 0', display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -232,7 +230,7 @@ export default function EmployerCalendarPage() {
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         {iv.meeting_link && (
-                          <a href={iv.meeting_link} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: '#3B82F6', textDecoration: 'none' }}>
+                          <a href={iv.meeting_link} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: colors.state.info, textDecoration: 'none' }}>
                             <Video size={12} />Join
                           </a>
                         )}
@@ -245,7 +243,7 @@ export default function EmployerCalendarPage() {
                         </button>
                         <Link
                           to={`/app/employer/pipeline/${iv.job_id}`}
-                          style={{ fontSize: 11, fontWeight: 700, color: '#3B82F6', textDecoration: 'none' }}
+                          style={{ fontSize: 11, fontWeight: 700, color: colors.state.info, textDecoration: 'none' }}
                         >
                           View →
                         </Link>

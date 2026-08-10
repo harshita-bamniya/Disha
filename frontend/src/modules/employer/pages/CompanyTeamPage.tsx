@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   Building2, Users, MapPin, Briefcase as BriefcaseIcon,
-  Activity, ShieldCheck, Plus, Trash2, Crown, X,
+  Activity, ShieldCheck, Plus, Trash2, Crown,
   Eye, EyeOff, CheckCircle, Pencil, ChevronRight,
   LayoutGrid, UserSquare2, Settings,
 } from 'lucide-react'
@@ -15,9 +15,18 @@ import {
 } from '../hooks/useJobs'
 import { getApiError } from '@/api/client'
 import type { TeamInvitePayload } from '@/api/company'
-import { DS, C, initials } from '../ds'
-import Button from '@/components/ui/Button'
+import { DS, C } from '../ds'
+import PageHeader from '@/shared/layouts/PageHeader'
+
+const inputStyle: React.CSSProperties = { width: '100%', padding: '7px 10px', border: `1px solid ${colors.border.default}`, borderRadius: 7, fontSize: 13, color: colors.text.ink, background: colors.surface.card, outline: 'none', boxSizing: 'border-box' }
+const selectStyle: React.CSSProperties = { padding: '6px 10px', border: `1px solid ${colors.border.default}`, borderRadius: 7, fontSize: 13, color: colors.text.ink, background: colors.surface.card, cursor: 'pointer' }
+import { colors, radius } from '@/design-system/tokens'
+import Button from '@/shared/components/primitives/Button'
 import Tabs, { type TabItem } from '@/shared/components/navigation/Tabs'
+import Modal from '@/shared/components/overlays/Modal'
+import Avatar from '@/shared/components/data-display/Avatar'
+import ErrorState from '@/shared/components/feedback/ErrorState'
+import Spinner from '@/shared/components/feedback/Spinner'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -54,58 +63,7 @@ function formatAction(a: string) {
   return a.replace(/_/g, ' ').replace(/\./g, ' › ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
-// ── Avatar ─────────────────────────────────────────────────────────────────────
 
-function Avatar({ name, size = 36 }: { name?: string | null; size?: number }) {
-  const bg = ['#EEF2FF','#F0FDF4','#FFF7ED','#FAF5FF','#EFF6FF']
-  const fg = [C.accent, '#16A34A', '#D97706', '#7C3AED', C.blue]
-  const idx = (name?.charCodeAt(0) ?? 0) % 5
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: size * 0.3,
-      background: bg[idx], color: fg[idx],
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: size * 0.38, fontWeight: 700, flexShrink: 0,
-    }}>
-      {initials(name)}
-    </div>
-  )
-}
-
-// ── Modal shell ────────────────────────────────────────────────────────────────
-
-function Modal({ title, onClose, children, width = 480 }: {
-  title: string; onClose: () => void; children: React.ReactNode; width?: number
-}) {
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      zIndex: 100, padding: 16,
-    }}>
-      <div style={{
-        background: C.surface, borderRadius: 12, width: '100%', maxWidth: width,
-        border: `1px solid ${C.border}`, boxShadow: '0 20px 60px rgba(0,0,0,0.12)',
-        maxHeight: '90vh', display: 'flex', flexDirection: 'column',
-      }}>
-        {/* header */}
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '16px 20px', borderBottom: `1px solid ${C.border}`, flexShrink: 0,
-        }}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: C.ink1 }}>{title}</span>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close">
-            <X size={15} />
-          </Button>
-        </div>
-        {/* body */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
-          {children}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ── Invite Modal ───────────────────────────────────────────────────────────────
 
@@ -131,7 +89,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
   }
 
   if (done) return (
-    <Modal title="Member added" onClose={onClose} width={420}>
+    <Modal open={true} title="Member added" onClose={onClose} width={420}>
       <div style={{ textAlign: 'center', padding: '8px 0 16px' }}>
         <div style={{
           width: 56, height: 56, borderRadius: 16, background: '#F0FDF4',
@@ -144,7 +102,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
           Share these credentials with <strong>{form.contact_person}</strong>:
         </p>
         <div style={{
-          background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10,
+          background: C.bg, border: `1px solid ${C.border}`, borderRadius: radius.xl,
           padding: '14px 16px', textAlign: 'left', marginBottom: 20,
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -165,7 +123,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
   )
 
   return (
-    <Modal title="Invite team member" onClose={onClose} width={440}>
+    <Modal open={true} title="Invite team member" onClose={onClose} width={440}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <Field label="Full name">
           <input
@@ -173,7 +131,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
             onChange={e => { setForm({ ...form, contact_person: e.target.value }); setErr('') }}
             placeholder="Jane Smith"
             autoFocus
-            style={DS.input}
+            style={inputStyle}
           />
         </Field>
         <Field label="Email address">
@@ -182,7 +140,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
             onChange={e => { setForm({ ...form, email: e.target.value }); setErr('') }}
             placeholder="jane@company.com"
             type="email"
-            style={DS.input}
+            style={inputStyle}
           />
         </Field>
         <Field label="Password" hint="You set this — share it with them after creating the account.">
@@ -192,7 +150,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
               value={password}
               onChange={e => { setPassword(e.target.value); setErr('') }}
               placeholder="Min. 6 characters"
-              style={{ ...DS.input, paddingRight: 36 }}
+              style={{ ...inputStyle, paddingRight: 36 }}
             />
             <button type="button" onClick={() => setShowPw(s => !s)}
               style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: C.ink3 }}>
@@ -204,7 +162,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
           <select
             value={form.role_name}
             onChange={e => setForm({ ...form, role_name: e.target.value as TeamInvitePayload['role_name'], department_id: undefined })}
-            style={{ ...DS.select, width: '100%' }}
+            style={{ ...selectStyle, width: '100%' }}
           >
             <option value="hr_manager">HR Manager</option>
             <option value="hiring_manager">Hiring Manager</option>
@@ -217,7 +175,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
             <select
               value={form.department_id ?? ''}
               onChange={e => setForm({ ...form, department_id: e.target.value || undefined })}
-              style={{ ...DS.select, width: '100%' }}
+              style={{ ...selectStyle, width: '100%' }}
             >
               <option value="">— Company-wide —</option>
               {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -254,7 +212,7 @@ function OfficesModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal title="Manage Offices" onClose={onClose} width={480}>
+    <Modal open={true} title="Manage Offices" onClose={onClose} width={480}>
       {/* List */}
       <div style={{ marginBottom: 24 }}>
         {!offices || offices.length === 0 ? (
@@ -301,13 +259,13 @@ function OfficesModal({ onClose }: { onClose: () => void }) {
             value={form.name}
             onChange={e => { setForm({ ...form, name: e.target.value }); setErr('') }}
             placeholder="Office name (e.g. Mumbai HQ)"
-            style={{ ...DS.input, flex: 1 }}
+            style={{ ...inputStyle, flex: 1 }}
           />
           <input
             value={form.city}
             onChange={e => { setForm({ ...form, city: e.target.value }); setErr('') }}
             placeholder="City"
-            style={{ ...DS.input, flex: 1 }}
+            style={{ ...inputStyle, flex: 1 }}
           />
         </div>
         {err && <p style={{ fontSize: 12, color: C.red, margin: '0 0 8px' }}>{err}</p>}
@@ -337,7 +295,7 @@ function DepartmentsModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal title="Manage Departments" onClose={onClose} width={440}>
+    <Modal open={true} title="Manage Departments" onClose={onClose} width={440}>
       {/* List */}
       <div style={{ marginBottom: 24 }}>
         {!departments || departments.length === 0 ? (
@@ -377,7 +335,7 @@ function DepartmentsModal({ onClose }: { onClose: () => void }) {
             value={name}
             onChange={e => { setName(e.target.value); setErr('') }}
             placeholder="e.g. Engineering, Design, Sales"
-            style={{ ...DS.input, flex: 1 }}
+            style={{ ...inputStyle, flex: 1 }}
             onKeyDown={e => e.key === 'Enter' && handleAdd()}
           />
         </div>
@@ -405,13 +363,13 @@ function EditDescriptionModal({ current, onClose }: { current: string; onClose: 
   }
 
   return (
-    <Modal title="Company Description" onClose={onClose} width={480}>
+    <Modal open={true} title="Company Description" onClose={onClose} width={480}>
       <Field label="Description" hint="Tell candidates what your company is about.">
         <textarea
           value={val}
           onChange={e => setVal(e.target.value)}
           rows={5}
-          style={{ ...DS.input, resize: 'vertical' }}
+          style={{ ...inputStyle, resize: 'vertical' }}
           placeholder="Describe your company culture, mission, and what makes it a great place to work…"
         />
       </Field>
@@ -435,7 +393,7 @@ function PermissionsModal({ onClose }: { onClose: () => void }) {
   const rc = ROLE_COLORS[perms.role_name] ?? { bg: C.bg, color: C.ink2 }
 
   return (
-    <Modal title="Your Access & Permissions" onClose={onClose} width={420}>
+    <Modal open={true} title="Your Access & Permissions" onClose={onClose} width={420}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
         <div style={{
           width: 44, height: 44, borderRadius: 12, background: rc.bg,
@@ -482,7 +440,7 @@ function StatCard({
     <button
       onClick={onClick}
       style={{
-        background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10,
+        background: C.surface, border: `1px solid ${C.border}`, borderRadius: radius.xl,
         padding: '16px 18px', textAlign: 'left', cursor: onClick ? 'pointer' : 'default',
         flex: 1, minWidth: 0, transition: 'box-shadow 0.15s',
       }}
@@ -529,7 +487,7 @@ const COMPANY_TABS: TabItem[] = [
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function CompanyTeamPage() {
-  const { data: company, isLoading: companyLoading } = useCompanyProfile()
+  const { data: company, isLoading: companyLoading, isError: companyError, refetch: refetchCompany } = useCompanyProfile()
   const { data: team, isLoading: teamLoading } = useTeamMembers()
   const { data: offices } = useOffices()
   const { data: departments } = useDepartments()
@@ -555,46 +513,46 @@ export default function CompanyTeamPage() {
 
   const showMyPerms = perms && !perms.is_company_wide
 
+  if (companyLoading) return (
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+      <Spinner size="md" />
+    </div>
+  )
+  if (companyError) return (
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+      <ErrorState title="Company data unavailable" description="Could not load company profile. Please try again." onRetry={() => refetchCompany()} />
+    </div>
+  )
+
   return (
-    <div style={{ ...DS.pageWrap }}>
-      {/* Top bar */}
-      <div style={DS.topbar}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: 8, background: C.accentBg,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Building2 size={15} color={C.accent} />
-          </div>
-          <div>
-            <p style={DS.pageTitle}>{companyLoading ? 'Loading…' : (company?.name ?? 'Company')}</p>
-            {company && (
-              <p style={DS.pageSub}>{[company.industry, company.company_size ? `${company.company_size} employees` : null].filter(Boolean).join(' · ')}</p>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+      <PageHeader
+        title="Company"
+        subtitle="Team members, departments, and offices"
+        actions={
+          <div style={{ display: 'flex', gap: 8 }}>
+            {showMyPerms && (
+              <Button variant="outline" size="sm" onClick={() => setShowPerms(true)}>
+                <ShieldCheck size={13} />My Access
+              </Button>
+            )}
+            {canEditCompany && (
+              <Button variant="outline" size="sm" onClick={() => setShowEditDesc(true)}>
+                <Pencil size={13} />Edit Company
+              </Button>
             )}
           </div>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {showMyPerms && (
-            <Button variant="outline" size="sm" onClick={() => setShowPerms(true)}>
-              <ShieldCheck size={13} />My Access
-            </Button>
-          )}
-          {canEditCompany && (
-            <Button variant="outline" size="sm" onClick={() => setShowEditDesc(true)}>
-              <Pencil size={13} />Edit Company
-            </Button>
-          )}
-        </div>
-      </div>
+        }
+      />
 
       {/* Content */}
-      <div style={{ ...DS.content, padding: '24px' }}>
+      <div style={{ flex: 1, padding: '24px 28px', background: colors.surface.bg }}>
         <div style={{ maxWidth: 740, margin: '0 auto' }}>
 
           {/* Company description */}
           {company?.description && (
             <div style={{
-              background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10,
+              background: C.surface, border: `1px solid ${C.border}`, borderRadius: radius.xl,
               padding: '14px 18px', marginBottom: 20, fontSize: 13, color: C.ink2, lineHeight: 1.6,
             }}>
               {company.description}
@@ -699,7 +657,7 @@ export default function CompanyTeamPage() {
                       )}
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <Link to="/app/employer/departments" style={{ ...DS.btnSecondary, fontSize: 12, padding: '4px 10px', textDecoration: 'none' }}>
+                      <Link to="/app/employer/departments" className="inline-flex items-center gap-1 border-[1.5px] border-[#1A2744] text-[#1A2744] font-semibold hover:bg-[#1A2744] hover:text-white transition-all duration-200 active:scale-[0.98] rounded-lg no-underline text-xs px-[10px] py-1">
                         Full view <ChevronRight size={11} />
                       </Link>
                       {canManageDepts && (
@@ -810,7 +768,7 @@ export default function CompanyTeamPage() {
                         borderBottom: idx < team.length - 1 ? `1px solid ${C.borderLight}` : 'none',
                       }}
                     >
-                      <Avatar name={m.contact_person} size={38} />
+                      <Avatar name={m.contact_person ?? '?'} size={38} shape="rounded" />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                           <span style={{ fontSize: 13, fontWeight: 700, color: C.ink1 }}>{m.contact_person}</span>
@@ -832,7 +790,7 @@ export default function CompanyTeamPage() {
                           <select
                             value={m.department_id ?? ''}
                             onChange={e => assignDept.mutate({ employerProfileId: m.employer_profile_id, departmentId: e.target.value || null })}
-                            style={{ ...DS.select, fontSize: 12, padding: '3px 8px', height: 28 }}
+                            style={{ ...selectStyle, fontSize: 12, padding: '3px 8px', height: 28 }}
                           >
                             <option value="">No dept</option>
                             {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}

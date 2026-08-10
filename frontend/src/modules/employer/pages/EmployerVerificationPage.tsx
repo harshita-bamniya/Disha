@@ -1,6 +1,11 @@
 import { CheckCircle2, Clock, FileText, Mail, ShieldCheck, XCircle } from 'lucide-react'
 import { useVerificationStatus, useRequestVerification } from '../hooks/useJobs'
 import { getApiError } from '@/api/client'
+import { colors, radius } from '@/design-system/tokens'
+import Button from '@/shared/components/primitives/Button'
+import PageHeader from '@/shared/layouts/PageHeader'
+import ErrorState from '@/shared/components/feedback/ErrorState'
+import Spinner from '@/shared/components/feedback/Spinner'
 
 const STEPS = [
   { key: 'requested',    label: 'Verification Requested',   desc: 'Your request has been received. A welcome email has been sent to you.' },
@@ -17,7 +22,7 @@ const DOCUMENTS = [
 ]
 
 export default function EmployerVerificationPage() {
-  const { data: v, isLoading } = useVerificationStatus()
+  const { data: v, isLoading, isError, refetch } = useVerificationStatus()
   const request = useRequestVerification()
 
   const status = v?.status ?? 'not_submitted'
@@ -27,21 +32,23 @@ export default function EmployerVerificationPage() {
   const hasRequested = status !== 'not_submitted'
 
   return (
-    <div style={{ padding: '32px 24px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+      <PageHeader
+        title="Verification"
+        subtitle="Submit documents to unlock job posting"
+        icon={<ShieldCheck size={16} color={colors.text.ink} />}
+      />
+      <div style={{ padding: '20px 28px', background: colors.surface.bg, flex: 1 }}>
       <div style={{ maxWidth: 600, margin: '0 auto' }}>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-          <ShieldCheck size={22} color="#3B82F6" />
-          <h1 style={{ fontFamily: 'Hind, sans-serif', fontSize: 22, fontWeight: 800, color: '#1E3A5F' }}>
-            Company Verification
-          </h1>
-        </div>
-        <p style={{ fontSize: 13, color: '#6B7280', marginBottom: 28, lineHeight: 1.6 }}>
+        <p style={{ fontSize: 13, color: colors.text.inkSoft, marginBottom: 28, lineHeight: 1.6 }}>
           Get your company verified to unlock job posting. Click the button below and our team will reach out to guide you through the process.
         </p>
 
         {isLoading ? (
-          <p style={{ fontSize: 13, color: '#9CA3AF' }}>Loading…</p>
+          <Spinner size="md" />
+        ) : isError ? (
+          <ErrorState compact title="Status unavailable" description="Could not load verification status." onRetry={() => refetch()} />
         ) : isRejected ? (
           <div style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
@@ -58,17 +65,15 @@ export default function EmployerVerificationPage() {
                 Please contact us at <strong>support@beginableai.com</strong> for assistance.
               </p>
             </div>
-            <button
+            <Button
+              variant="primary"
+              size="md"
               onClick={() => request.mutate()}
               disabled={request.isPending}
-              style={{
-                padding: '11px 24px', borderRadius: 12, border: 'none',
-                background: '#3B82F6', color: 'white', fontSize: 13, fontWeight: 700,
-                cursor: request.isPending ? 'default' : 'pointer', opacity: request.isPending ? 0.6 : 1,
-              }}
+              loading={request.isPending}
             >
               {request.isPending ? 'Requesting…' : 'Request Again'}
-            </button>
+            </Button>
           </div>
         ) : (
           <>
@@ -83,8 +88,8 @@ export default function EmployerVerificationPage() {
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                         <div style={{
                           width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          background: done || active ? (isApproved && idx === 2 ? '#059669' : '#3B82F6') : 'rgba(0,0,0,0.06)',
-                          border: active && !isApproved ? '2px solid #3B82F6' : 'none',
+                          background: done || active ? (isApproved && idx === 2 ? colors.state.success : colors.brand.navy) : colors.border.default,
+                          border: active && !isApproved ? `2px solid ${colors.brand.navy}` : 'none',
                           flexShrink: 0,
                         }}>
                           {done || active ? (
@@ -92,17 +97,17 @@ export default function EmployerVerificationPage() {
                               ? <CheckCircle2 size={18} color="white" />
                               : active ? <Clock size={16} color="white" /> : <CheckCircle2 size={16} color="white" />
                           ) : (
-                            <span style={{ fontSize: 13, fontWeight: 700, color: '#9CA3AF' }}>{idx + 1}</span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: colors.text.muted }}>{idx + 1}</span>
                           )}
                         </div>
                         {idx < STEPS.length - 1 && (
-                          <div style={{ width: 2, height: 48, background: done ? '#3B82F6' : 'rgba(0,0,0,0.08)', margin: '4px 0' }} />
+                          <div style={{ width: 2, height: 48, background: done ? colors.brand.navy : colors.border.default, margin: '4px 0' }} />
                         )}
                       </div>
                       <div style={{ paddingBottom: idx < STEPS.length - 1 ? 0 : 0, paddingTop: 6, flex: 1, marginBottom: idx < STEPS.length - 1 ? 40 : 0 }}>
-                        <p style={{ fontSize: 14, fontWeight: 700, color: active || done ? '#1E3A5F' : '#9CA3AF' }}>{step.label}</p>
+                        <p style={{ fontSize: 14, fontWeight: 700, color: active || done ? colors.text.ink : colors.text.muted }}>{step.label}</p>
                         {(active || done) && (
-                          <p style={{ fontSize: 12.5, color: '#6B7280', marginTop: 3, lineHeight: 1.5 }}>{step.desc}</p>
+                          <p style={{ fontSize: 12.5, color: colors.text.inkSoft, marginTop: 3, lineHeight: 1.5 }}>{step.desc}</p>
                         )}
                       </div>
                     </div>
@@ -116,20 +121,20 @@ export default function EmployerVerificationPage() {
               <>
                 {/* Document list info */}
                 <div style={{
-                  padding: '20px 22px', borderRadius: 14, marginBottom: 20,
-                  background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.12)',
+                  padding: '20px 22px', borderRadius: radius.lg, marginBottom: 20,
+                  background: colors.state.infoBg, border: `1px solid ${colors.border.default}`,
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                    <FileText size={15} color="#3B82F6" />
-                    <p style={{ fontSize: 13, fontWeight: 700, color: '#1E3A5F' }}>Documents you'll need to prepare</p>
+                    <FileText size={15} color={colors.brand.navy} />
+                    <p style={{ fontSize: 13, fontWeight: 700, color: colors.text.ink, margin: 0 }}>Documents you'll need to prepare</p>
                   </div>
                   {DOCUMENTS.map((doc, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
-                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#3B82F6', marginTop: 5, flexShrink: 0 }} />
-                      <p style={{ fontSize: 13, color: '#374151', lineHeight: 1.5 }}>{doc}</p>
+                      <div style={{ width: 6, height: 6, borderRadius: '50%', background: colors.brand.navy, marginTop: 5, flexShrink: 0 }} />
+                      <p style={{ fontSize: 13, color: colors.text.inkSoft, lineHeight: 1.5, margin: 0 }}>{doc}</p>
                     </div>
                   ))}
-                  <p style={{ fontSize: 11.5, color: '#9CA3AF', marginTop: 12 }}>
+                  <p style={{ fontSize: 11.5, color: colors.text.muted, marginTop: 12, margin: '12px 0 0' }}>
                     You don't need to upload these now — our team will contact you to collect them.
                   </p>
                 </div>
@@ -146,20 +151,18 @@ export default function EmployerVerificationPage() {
                   </p>
                 </div>
 
-                <button
+                <Button
+                  variant="primary"
+                  size="lg"
+                  fullWidth
                   onClick={() => request.mutate()}
                   disabled={request.isPending}
-                  style={{
-                    width: '100%', padding: '14px 18px', borderRadius: 12, border: 'none',
-                    background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)', color: 'white',
-                    fontSize: 14, fontWeight: 700,
-                    cursor: request.isPending ? 'default' : 'pointer', opacity: request.isPending ? 0.7 : 1,
-                  }}
+                  loading={request.isPending}
                 >
                   {request.isPending ? 'Sending request…' : 'Request Verification'}
-                </button>
+                </Button>
                 {request.isError && (
-                  <p style={{ fontSize: 12, color: '#DC2626', marginTop: 8 }}>{getApiError(request.error)}</p>
+                  <p style={{ fontSize: 12, color: colors.state.danger, marginTop: 8 }}>{getApiError(request.error)}</p>
                 )}
               </>
             )}
@@ -167,10 +170,10 @@ export default function EmployerVerificationPage() {
             {/* Timeline */}
             {v?.events && v.events.length > 0 && (
               <div style={{ marginTop: 28 }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>Timeline</p>
+                <p style={{ fontSize: 11, fontWeight: 700, color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>Timeline</p>
                 {v.events.map(e => (
-                  <div key={e.id} style={{ fontSize: 12, color: '#6B7280', marginBottom: 6 }}>
-                    <span style={{ fontWeight: 700, color: '#1E3A5F' }}>{e.to_status.replace(/_/g, ' ')}</span>
+                  <div key={e.id} style={{ fontSize: 12, color: colors.text.inkSoft, marginBottom: 6 }}>
+                    <span style={{ fontWeight: 700, color: colors.text.ink }}>{e.to_status.replace(/_/g, ' ')}</span>
                     {' · '}{new Date(e.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     {e.note && <span> — {e.note}</span>}
                   </div>
@@ -179,6 +182,7 @@ export default function EmployerVerificationPage() {
             )}
           </>
         )}
+      </div>
       </div>
     </div>
   )

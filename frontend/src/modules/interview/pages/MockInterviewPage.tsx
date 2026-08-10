@@ -4,8 +4,10 @@ import { useQuery } from '@tanstack/react-query'
 import { counsellorApi } from '@/api/counsellor'
 import { krsApi, type LiveJob } from '@/api/krs'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
-import AppSidebar from '@/components/layout/AppSidebar'
+import AspLayout from '@/shared/layouts/AspLayout'
 import { Mic, MicOff, Send, ChevronRight, User, BarChart2, CheckCircle, ArrowLeft, Loader } from 'lucide-react'
+import ChatBubble from '@/shared/components/ai/ChatBubble'
+import TypingIndicator from '@/shared/components/ai/TypingIndicator'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type InterviewType = 'hr' | 'technical' | 'stress'
@@ -46,49 +48,6 @@ const PERSONAS: Persona[] = [
     description: 'High pressure — pushes back on every answer to test resilience and clarity.',
   },
 ]
-
-// ── Message bubble ─────────────────────────────────────────────────────────────
-function Bubble({ msg, persona }: { msg: any; persona: Persona }) {
-  const isUser = msg.role === 'user'
-  return (
-    <div style={{ display: 'flex', justifyContent: isUser ? 'flex-end' : 'flex-start', marginBottom: 16, animation: 'fadeIn 0.3s ease' }}>
-      {!isUser && (
-        <div style={{
-          width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-          background: `${persona.color}18`, border: `2px solid ${persona.color}30`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 18, marginRight: 10, marginTop: 2,
-        }}>{persona.avatar}</div>
-      )}
-      <div style={{
-        maxWidth: '75%',
-        background: isUser ? '#2563EB' : 'white',
-        color: isUser ? 'white' : '#1e293b',
-        padding: '12px 16px',
-        borderRadius: isUser ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-        fontSize: 14, lineHeight: 1.7,
-        boxShadow: isUser ? '0 4px 14px rgba(59,130,246,0.25)' : '0 2px 8px rgba(0,0,0,0.06)',
-        border: isUser ? 'none' : '1px solid rgba(226,232,240,0.8)',
-        whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-      }}>
-        {msg.content}
-        {msg.streaming && (
-          <span style={{ display: 'inline-block', width: 8, height: 8, background: '#94A3B8', borderRadius: '50%', marginLeft: 4, animation: 'blink 1s infinite' }} />
-        )}
-      </div>
-      {isUser && (
-        <div style={{
-          width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
-          background: '#2563EB',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          marginLeft: 10, marginTop: 2,
-        }}>
-          <User size={16} color="white" />
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ── Score ring ─────────────────────────────────────────────────────────────────
 function ScoreRing({ score, size = 80 }: { score: number; size?: number }) {
@@ -380,8 +339,7 @@ export default function MockInterviewPage() {
   // ── SETUP SCREEN ─────────────────────────────────────────────────────────────
   if (phase === 'setup') {
     return (
-      <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-        <AppSidebar activePath="/app/jobs" />
+      <AspLayout activePath="/app/mock-interview">
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
           <div style={{ width: '100%', maxWidth: 560 }}>
             <button onClick={() => navigate(-1)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', fontSize: 13, marginBottom: 24 }}>
@@ -452,7 +410,7 @@ export default function MockInterviewPage() {
           </div>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-      </div>
+      </AspLayout>
     )
   }
 
@@ -508,15 +466,19 @@ export default function MockInterviewPage() {
         {/* Messages */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '24px', maxWidth: 780, width: '100%', margin: '0 auto' }}>
           {messages.map(m => (
-            <Bubble key={m.id} msg={m} persona={persona} />
+            <ChatBubble
+              key={m.id}
+              role={m.role === 'user' ? 'user' : 'assistant'}
+              content={m.content}
+              streaming={m.streaming}
+              theme={{ avatarContent: persona.avatar, avatarBg: persona.color }}
+            />
           ))}
           {isStreaming && messages[messages.length - 1]?.role !== 'assistant' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-              <div style={{ fontSize: 26 }}>{persona.avatar}</div>
-              <div style={{ background: 'white', padding: '12px 16px', borderRadius: '18px 18px 18px 4px', border: '1px solid rgba(226,232,240,0.8)', display: 'flex', gap: 5 }}>
-                {[0,1,2].map(i => <div key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: '#94A3B8', animation: `bounce 1.2s ease-in-out ${i*0.2}s infinite` }} />)}
-              </div>
-            </div>
+            <TypingIndicator
+              avatarContent={persona.avatar}
+              avatarBg={persona.color}
+            />
           )}
           <div ref={messagesEndRef} />
         </div>
@@ -640,8 +602,7 @@ export default function MockInterviewPage() {
   if (phase === 'report' && report) {
     const vc = verdictColor(report.verdict)
     return (
-      <div style={{ minHeight: '100vh', background: '#F4F5F7', display: 'flex' }}>
-        <AppSidebar activePath="/app/jobs" />
+      <AspLayout activePath="/app/mock-interview">
         <div style={{ flex: 1, overflowY: 'auto', padding: '32px 40px' }}>
           <div style={{ maxWidth: 720, margin: '0 auto' }}>
             {/* Header */}
@@ -766,7 +727,7 @@ export default function MockInterviewPage() {
             </div>
           </div>
         </div>
-      </div>
+      </AspLayout>
     )
   }
 

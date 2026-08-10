@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+﻿import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   Users, Briefcase, CheckCircle2, Building2, FileText, Award,
@@ -10,13 +10,9 @@ import { Spinner, Empty } from '../shared/adminUI'
 import { useAuthStore } from '@/stores/authStore'
 import { cn } from '@/lib/utils'
 import type { TrendMetric } from '@/api/analytics'
+import { colors } from '@/design-system/tokens'
+import Button from '@/shared/components/primitives/Button'
 
-const N = {
-  navy:    '#1A2744',
-  navySoft:'#243359',
-  ink:     '#1E3A5F',
-  muted:   '#94A3B8',
-}
 
 // ── Activity dot colour ───────────────────────────────────────────────────────
 const STATUS_COLORS: Record<string, string> = {
@@ -30,7 +26,7 @@ const STATUS_COLORS: Record<string, string> = {
 function SectionDivider({ label }: { label: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-      <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: N.muted, whiteSpace: 'nowrap' }}>
+      <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: colors.text.muted, whiteSpace: 'nowrap' }}>
         {label}
       </span>
       <div style={{ flex: 1, height: '0.5px', background: '#E2E8F0' }} />
@@ -59,8 +55,8 @@ function TrendChart({ metric, label }: { metric: TrendMetric; label: string }) {
       onMouseOut={e => (e.currentTarget.style.background = '#fff')}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
-        <p style={{ fontSize: 12, fontWeight: 700, color: N.ink }}>{label}</p>
-        <span style={{ fontSize: 11, fontWeight: 700, color: N.navy }}>{total}</span>
+        <p style={{ fontSize: 12, fontWeight: 700, color: colors.text.ink }}>{label}</p>
+        <span style={{ fontSize: 11, fontWeight: 700, color: colors.brand.navy }}>{total}</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 64 }}>
         {series.map((p, i) => {
@@ -73,14 +69,14 @@ function TrendChart({ metric, label }: { metric: TrendMetric; label: string }) {
               style={{
                 flex: 1, minHeight: 2, borderRadius: '2px 2px 0 0',
                 height: `${Math.max(pct, 3)}%`,
-                background: isRecent ? N.navy : 'rgba(26,39,68,0.12)',
+                background: isRecent ? colors.brand.navy : 'rgba(26,39,68,0.12)',
                 transition: 'opacity 0.15s',
               }}
             />
           )
         })}
       </div>
-      <p style={{ fontSize: 10, color: N.muted, marginTop: 8 }}>
+      <p style={{ fontSize: 10, color: colors.text.muted, marginTop: 8 }}>
         {series.length > 0 ? `${series[0].date} → ${series[series.length - 1].date}` : 'last 30 days'}
       </p>
     </div>
@@ -107,11 +103,11 @@ function MiniStatCard({ icon: Icon, label, value, sub }: {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         marginBottom: 16,
       }}>
-        <Icon size={17} color={N.ink} />
+        <Icon size={17} color={colors.text.ink} />
       </div>
-      <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: N.muted, marginBottom: 8 }}>{label}</p>
-      <p style={{ fontSize: 26, fontWeight: 800, color: N.ink, lineHeight: 1 }}>{value}</p>
-      {sub && <p style={{ fontSize: 11, color: N.muted, marginTop: 5 }}>{sub}</p>}
+      <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, marginBottom: 8 }}>{label}</p>
+      <p style={{ fontSize: 26, fontWeight: 800, color: colors.text.ink, lineHeight: 1 }}>{value}</p>
+      {sub && <p style={{ fontSize: 11, color: colors.text.muted, marginTop: 5 }}>{sub}</p>}
     </div>
   )
 }
@@ -126,7 +122,7 @@ function KpiBanner({ stats }: { stats: Record<string, number | string> }) {
   ]
   return (
     <div style={{
-      background: N.navy, borderRadius: 16,
+      background: colors.brand.navy, borderRadius: 16,
       padding: '22px 28px',
       display: 'flex', gap: 0,
     }}>
@@ -160,7 +156,7 @@ function KycFocusPanel() {
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 8 }}>
       {[
         { label: 'Pending Review',    value: pending?.length ?? '—',     accent: '#F59E0B' },
-        { label: 'Under Review',      value: underReview?.length ?? '—', accent: N.navy },
+        { label: 'Under Review',      value: underReview?.length ?? '—', accent: colors.brand.navy },
         { label: 'Overdue (>3 days)', value: overdueCount,               accent: '#EF4444' },
       ].map(({ label, value, accent }) => (
         <div
@@ -176,7 +172,7 @@ function KycFocusPanel() {
           onMouseOut={e => (e.currentTarget.style.background = '#fff')}
         >
           <p style={{ fontSize: 24, fontWeight: 900, color: accent }}>{value}</p>
-          <p style={{ fontSize: 12, fontWeight: 600, color: N.ink, marginTop: 4 }}>{label}</p>
+          <p style={{ fontSize: 12, fontWeight: 600, color: colors.text.ink, marginTop: 4 }}>{label}</p>
         </div>
       ))}
     </div>
@@ -193,19 +189,116 @@ function FinanceFocusPanel() {
       marginBottom: 8,
     }}>
       <div>
-        <p style={{ fontSize: 14, fontWeight: 700, color: N.ink }}>Revenue Dashboard</p>
-        <p style={{ fontSize: 12, color: N.muted, marginTop: 2 }}>View MRR, ARPA, and subscription plan distribution</p>
+        <p style={{ fontSize: 14, fontWeight: 700, color: colors.text.ink }}>Revenue Dashboard</p>
+        <p style={{ fontSize: 12, color: colors.text.muted, marginTop: 2 }}>View MRR, ARPA, and subscription plan distribution</p>
       </div>
-      <button
-        onClick={() => navigate('/admin/billing')}
-        style={{
-          height: 34, padding: '0 16px', borderRadius: 10,
-          background: N.navy, color: '#fff', fontSize: 12, fontWeight: 600,
-          border: 'none', cursor: 'pointer',
-        }}
-      >
-        Open Revenue →
-      </button>
+      <Button size="sm" onClick={() => navigate('/admin/billing')}>Open Revenue →</Button>
+    </div>
+  )
+}
+
+// ── Stats row ─────────────────────────────────────────────────────────────────
+function StatsRow({ stats, compact }: { stats: Record<string, number>; compact?: boolean }) {
+  if (compact) {
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+        <MiniStatCard icon={Users}     label="Total Aspirants" value={stats.total_aspirants}     sub={`+${stats.new_users_last_7d} this week`} />
+        <MiniStatCard icon={Briefcase} label="Active Jobs"     value={stats.active_job_postings} sub={`${stats.total_job_postings} total`} />
+        <MiniStatCard icon={FileText}  label="Applications"    value={stats.total_applications}  sub={`${stats.hired_count} hired`} />
+      </div>
+    )
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <KpiBanner stats={stats as unknown as Record<string, number | string>} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+        <MiniStatCard icon={CheckCircle2} label="Onboarding Done"    value={stats.completed_onboarding} sub={`${Math.round(stats.completed_onboarding / Math.max(stats.total_aspirants, 1) * 100)}% completion`} />
+        <MiniStatCard icon={FileText}     label="Applications"       value={stats.total_applications}   sub={`${stats.hired_count} hired`} />
+        <MiniStatCard icon={Award}        label="Hired"              value={stats.hired_count}          sub="Total placements" />
+        <MiniStatCard icon={Shield}       label="Approved Employers" value={stats.approved_employers}   sub={`${stats.total_employers - stats.approved_employers} not yet`} />
+      </div>
+    </div>
+  )
+}
+
+// ── Admin action grid ─────────────────────────────────────────────────────────
+function AdminActionGrid({ navigate }: { navigate: (r: string) => void }) {
+  const items = [
+    { label: 'Revenue',   sub: 'MRR · ARPA · Plans',      icon: IndianRupee, route: '/admin/billing',     accent: '#22C55E' },
+    { label: 'Team',      sub: 'Sub-admins · Roles',       icon: Users,       route: '/admin/sub-admins',  accent: colors.brand.navy },
+    { label: 'Audit log', sub: 'Platform event log',       icon: Activity,    route: '/admin/audit-log',   accent: '#475569' },
+    { label: 'Platform',  sub: 'Settings · Feature flags', icon: Shield,      route: '/admin/settings',    accent: '#DC2626' },
+  ]
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+      {items.map(({ label, sub, icon: Icon, route, accent }) => (
+        <div
+          key={label}
+          onClick={() => navigate(route)}
+          style={{
+            background: '#fff', borderRadius: 16, cursor: 'pointer',
+            border: '1px solid rgba(0,0,0,0.08)',
+            padding: '16px 18px',
+            transition: 'background 0.2s',
+          }}
+          onMouseOver={e => (e.currentTarget.style.background = '#EAECF0')}
+          onMouseOut={e => (e.currentTarget.style.background = '#fff')}
+        >
+          <Icon size={16} color={accent} style={{ marginBottom: 10 }} />
+          <p style={{ fontSize: 13, fontWeight: 700, color: colors.text.ink }}>{label} →</p>
+          <p style={{ fontSize: 11, color: colors.text.muted, marginTop: 2 }}>{sub}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Quick actions panel ───────────────────────────────────────────────────────
+function QuickActionsPanel({ stats, flags, navigate }: {
+  stats: Record<string, number> | undefined
+  flags: { showFullStats: boolean; isSupportExec: boolean; isModerator: boolean; isVerificationOfficer: boolean; isFinanceManager: boolean }
+  navigate: (r: string) => void
+}) {
+  const { showFullStats, isSupportExec, isModerator, isVerificationOfficer, isFinanceManager } = flags
+  const actions = [
+    showFullStats && { label: 'Pending Approvals', sub: `${stats?.pending_employers ?? 0} employers`,    icon: Clock,       route: '/admin/employers' },
+    (showFullStats || isSupportExec) && { label: 'Manage Users',    sub: `${stats?.total_aspirants ?? 0} aspirants`,  icon: Users,       route: '/admin/users' },
+    (showFullStats || isModerator) && { label: 'Review Jobs',     sub: `${stats?.active_job_postings ?? 0} active`, icon: Briefcase,   route: '/admin/jobs' },
+    showFullStats && { label: 'All Applications',   sub: `${stats?.total_applications ?? 0} total`,   icon: FileText,    route: '/admin/applications' },
+    isVerificationOfficer && { label: 'KYC Queue',     sub: 'Review verifications',                       icon: Shield,      route: '/admin/kyc' },
+    isFinanceManager && { label: 'Revenue',       sub: 'MRR & subscriptions',                        icon: IndianRupee, route: '/admin/billing' },
+  ].filter(Boolean) as { label: string; sub: string; icon: React.ElementType; route: string }[]
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {actions.map(({ label, sub, icon: Icon, route }) => (
+        <button
+          key={label}
+          onClick={() => navigate(route)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 12,
+            padding: '12px 16px', borderRadius: 12, textAlign: 'left',
+            background: '#fff', border: '1px solid rgba(0,0,0,0.08)',
+            cursor: 'pointer', transition: 'background 0.2s', width: '100%',
+          }}
+          onMouseOver={e => (e.currentTarget.style.background = '#EAECF0')}
+          onMouseOut={e => (e.currentTarget.style.background = '#fff')}
+        >
+          <div style={{
+            width: 36, height: 36, borderRadius: 10,
+            background: '#EAECF0',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <Icon size={15} color={colors.brand.navy} />
+          </div>
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 700, color: colors.text.ink }}>{label}</p>
+            <p style={{ fontSize: 11, color: colors.text.muted }}>{sub}</p>
+          </div>
+          <span style={{ marginLeft: 'auto', fontSize: 16, color: '#CBD5E1' }}>›</span>
+        </button>
+      ))}
     </div>
   )
 }
@@ -248,13 +341,13 @@ export default function AdminDashboard() {
 
       {/* ── Page header ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h1 style={{ fontSize: 20, fontWeight: 800, color: N.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>
+        <h1 style={{ fontSize: 20, fontWeight: 800, color: colors.text.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>
           {pageTitle}
         </h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{
             display: 'inline-flex', alignItems: 'center', gap: 5,
-            fontSize: 11, fontWeight: 600, color: N.navy,
+            fontSize: 11, fontWeight: 600, color: colors.brand.navy,
             background: 'rgba(26,39,68,0.07)', border: '0.5px solid rgba(26,39,68,0.12)',
             borderRadius: 20, padding: '4px 12px',
           }}>
@@ -263,7 +356,7 @@ export default function AdminDashboard() {
           </span>
           {role && (
             <span style={{
-              fontSize: 11, fontWeight: 600, color: N.muted,
+              fontSize: 11, fontWeight: 600, color: colors.text.muted,
               background: '#F4F5F7', border: '0.5px solid #E2E8F0',
               borderRadius: 20, padding: '4px 12px', textTransform: 'capitalize',
             }}>
@@ -279,52 +372,16 @@ export default function AdminDashboard() {
 
       {/* ── KPI banner + secondary stats ── */}
       {statsLoading ? <Spinner /> : stats && showFullStats ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <KpiBanner stats={stats as unknown as Record<string, number | string>} />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
-            <MiniStatCard icon={CheckCircle2} label="Onboarding Done"    value={stats.completed_onboarding} sub={`${Math.round(stats.completed_onboarding / Math.max(stats.total_aspirants, 1) * 100)}% completion`} />
-            <MiniStatCard icon={FileText}     label="Applications"       value={stats.total_applications}   sub={`${stats.hired_count} hired`} />
-            <MiniStatCard icon={Award}        label="Hired"              value={stats.hired_count}          sub="Total placements" />
-            <MiniStatCard icon={Shield}       label="Approved Employers" value={stats.approved_employers}   sub={`${stats.total_employers - stats.approved_employers} not yet`} />
-          </div>
-        </div>
+        <StatsRow stats={stats as unknown as Record<string, number>} />
       ) : stats && (isModerator || isSupportExec) ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-          <MiniStatCard icon={Users}     label="Total Aspirants" value={stats.total_aspirants}     sub={`+${stats.new_users_last_7d} this week`} />
-          <MiniStatCard icon={Briefcase} label="Active Jobs"     value={stats.active_job_postings} sub={`${stats.total_job_postings} total`} />
-          <MiniStatCard icon={FileText}  label="Applications"    value={stats.total_applications}  sub={`${stats.hired_count} hired`} />
-        </div>
+        <StatsRow stats={stats as unknown as Record<string, number>} compact />
       ) : null}
 
       {/* ── Super admin quick links ── */}
       {isSuperAdmin && stats && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
           <SectionDivider label="Admin access" />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
-            {[
-              { label: 'Revenue',   sub: 'MRR · ARPA · Plans',     icon: IndianRupee, route: '/admin/billing',     accent: '#22C55E' },
-              { label: 'Team',      sub: 'Sub-admins · Roles',      icon: Users,       route: '/admin/sub-admins',  accent: N.navy },
-              { label: 'Audit log', sub: 'Platform event log',      icon: Activity,    route: '/admin/audit-log',   accent: '#475569' },
-              { label: 'Platform',  sub: 'Settings · Feature flags',icon: Shield,      route: '/admin/settings',    accent: '#DC2626' },
-            ].map(({ label, sub, icon: Icon, route, accent }) => (
-              <div
-                key={label}
-                onClick={() => navigate(route)}
-                style={{
-                  background: '#fff', borderRadius: 16, cursor: 'pointer',
-                  border: '1px solid rgba(0,0,0,0.08)',
-                  padding: '16px 18px',
-                  transition: 'background 0.2s',
-                }}
-                onMouseOver={e => (e.currentTarget.style.background = '#EAECF0')}
-                onMouseOut={e => (e.currentTarget.style.background = '#fff')}
-              >
-                <Icon size={16} color={accent} style={{ marginBottom: 10 }} />
-                <p style={{ fontSize: 13, fontWeight: 700, color: N.ink }}>{label} →</p>
-                <p style={{ fontSize: 11, color: N.muted, marginTop: 2 }}>{sub}</p>
-              </div>
-            ))}
-          </div>
+          <AdminActionGrid navigate={navigate} />
         </div>
       )}
 
@@ -365,15 +422,15 @@ export default function AdminDashboard() {
                 return (
                   <div key={label}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <span style={{ fontSize: 12, fontWeight: 500, color: N.ink }}>{label}</span>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: N.ink }}>
-                        {value} <span style={{ color: N.muted, fontWeight: 400 }}>({pct}%)</span>
+                      <span style={{ fontSize: 12, fontWeight: 500, color: colors.text.ink }}>{label}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: colors.text.ink }}>
+                        {value} <span style={{ color: colors.text.muted, fontWeight: 400 }}>({pct}%)</span>
                       </span>
                     </div>
                     <div style={{ height: 6, background: '#F1F5F9', borderRadius: 3, overflow: 'hidden' }}>
                       <div style={{
                         height: '100%', borderRadius: 3,
-                        background: N.navy, opacity,
+                        background: colors.brand.navy, opacity,
                         width: `${pct}%`, transition: 'width 0.4s',
                       }} />
                     </div>
@@ -387,47 +444,11 @@ export default function AdminDashboard() {
         {/* Quick actions */}
         <div>
           <SectionDivider label="Quick actions" />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {[
-              showFullStats && { label: 'Pending Approvals', sub: `${stats?.pending_employers ?? 0} employers`, icon: Clock,      route: '/admin/employers' },
-              (showFullStats || isSupportExec) && { label: 'Manage Users',    sub: `${stats?.total_aspirants ?? 0} aspirants`,   icon: Users,      route: '/admin/users' },
-              (showFullStats || isModerator) && { label: 'Review Jobs',     sub: `${stats?.active_job_postings ?? 0} active`,   icon: Briefcase,  route: '/admin/jobs' },
-              showFullStats && { label: 'All Applications',   sub: `${stats?.total_applications ?? 0} total`,   icon: FileText,   route: '/admin/applications' },
-              isVerificationOfficer && { label: 'KYC Queue',     sub: 'Review verifications', icon: Shield,     route: '/admin/kyc' },
-              isFinanceManager && { label: 'Revenue',       sub: 'MRR & subscriptions', icon: IndianRupee, route: '/admin/billing' },
-            ].filter(Boolean).map(item => {
-              if (!item) return null
-              const { label, sub, icon: Icon, route } = item as { label: string; sub: string; icon: React.ElementType; route: string }
-              return (
-                <button
-                  key={label}
-                  onClick={() => navigate(route)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    padding: '12px 16px', borderRadius: 12, textAlign: 'left',
-                    background: '#fff', border: '1px solid rgba(0,0,0,0.08)',
-                    cursor: 'pointer', transition: 'background 0.2s', width: '100%',
-                  }}
-                  onMouseOver={e => (e.currentTarget.style.background = '#EAECF0')}
-                  onMouseOut={e => (e.currentTarget.style.background = '#fff')}
-                >
-                  <div style={{
-                    width: 36, height: 36, borderRadius: 10,
-                    background: '#EAECF0',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    flexShrink: 0,
-                  }}>
-                    <Icon size={15} color={N.navy} />
-                  </div>
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: N.ink }}>{label}</p>
-                    <p style={{ fontSize: 11, color: N.muted }}>{sub}</p>
-                  </div>
-                  <span style={{ marginLeft: 'auto', fontSize: 16, color: '#CBD5E1' }}>›</span>
-                </button>
-              )
-            })}
-          </div>
+          <QuickActionsPanel
+            stats={stats as unknown as Record<string, number> | undefined}
+            flags={{ showFullStats, isSupportExec, isModerator, isVerificationOfficer, isFinanceManager }}
+            navigate={navigate}
+          />
         </div>
       </div>
 
@@ -458,8 +479,8 @@ export default function AdminDashboard() {
                 >
                   <div className={cn('w-2 h-2 rounded-full mt-1.5 shrink-0', STATUS_COLORS[item.type] ?? 'bg-gray-300')} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 13, fontWeight: 500, color: N.ink, lineHeight: 1.4 }}>{item.title}</p>
-                    {item.subtitle && <p style={{ fontSize: 12, color: N.muted, marginTop: 2 }}>{item.subtitle}</p>}
+                    <p style={{ fontSize: 13, fontWeight: 500, color: colors.text.ink, lineHeight: 1.4 }}>{item.title}</p>
+                    {item.subtitle && <p style={{ fontSize: 12, color: colors.text.muted, marginTop: 2 }}>{item.subtitle}</p>}
                   </div>
                   <span style={{ fontSize: 11, color: '#CBD5E1', whiteSpace: 'nowrap', flexShrink: 0 }}>{timeAgo(item.timestamp)}</span>
                 </div>

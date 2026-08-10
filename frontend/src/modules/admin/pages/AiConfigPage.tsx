@@ -1,12 +1,13 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Bot, ChevronDown, ChevronRight, Plus, Zap, RefreshCw, CheckCircle2, AlertCircle, X } from 'lucide-react'
 import { adminApi } from '@/api/admin'
 import type { PromptTemplateEntry, PromptTemplateDetail } from '@/api/admin'
 import { Badge, Spinner, Empty } from '@/modules/admin/shared/adminUI'
 import { cn } from '@/lib/utils'
+import { colors } from '@/design-system/tokens'
+import Button from '@/shared/components/primitives/Button'
 
-const N = { navy: '#1A2744', ink: '#1E3A5F', muted: '#94A3B8', cream: '#F4F5F7', creamDk: '#EAECF0' }
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -45,7 +46,7 @@ function NotifBanner({ notif, onDismiss }: { notif: Notif; onDismiss: () => void
         ? <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
         : <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />}
       <p className="flex-1">{notif.message}</p>
-      <button onClick={onDismiss}><X className="w-4 h-4 opacity-50 hover:opacity-100" /></button>
+      <button onClick={onDismiss} aria-label="Dismiss"><X className="w-4 h-4 opacity-50 hover:opacity-100" /></button>
     </div>
   )
 }
@@ -101,10 +102,10 @@ function EditModal({ useCase, modelHint, basePrompt, onClose, onSaved }: EditMod
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
           <div>
-            <p style={{ fontSize: 14, fontWeight: 900, color: N.ink }}>New version — <span style={{ color: N.navy }}>{useCase}</span></p>
-            <p style={{ fontSize: 12, color: N.muted, marginTop: 2 }}>Publishing this version will deactivate the current active version.</p>
+            <p style={{ fontSize: 14, fontWeight: 900, color: colors.text.ink }}>New version — <span style={{ color: colors.brand.navy }}>{useCase}</span></p>
+            <p style={{ fontSize: 12, color: colors.text.muted, marginTop: 2 }}>Publishing this version will deactivate the current active version.</p>
           </div>
-          <button onClick={onClose} style={{ color: N.muted }}>
+          <button onClick={onClose} aria-label="Close" style={{ color: colors.text.muted }}>
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -112,7 +113,7 @@ function EditModal({ useCase, modelHint, basePrompt, onClose, onSaved }: EditMod
         {/* Body */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: N.ink, marginBottom: 4, display: 'block' }}>Prompt name</label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: colors.text.ink, marginBottom: 4, display: 'block' }}>Prompt name</label>
             <input
               value={name}
               onChange={e => setName(e.target.value)}
@@ -123,7 +124,7 @@ function EditModal({ useCase, modelHint, basePrompt, onClose, onSaved }: EditMod
 
           <div className="flex gap-3">
             <div className="flex-1">
-              <label style={{ fontSize: 12, fontWeight: 700, color: N.ink, marginBottom: 4, display: 'block' }}>Prompt type</label>
+              <label style={{ fontSize: 12, fontWeight: 700, color: colors.text.ink, marginBottom: 4, display: 'block' }}>Prompt type</label>
               <select
                 value={promptType}
                 onChange={e => setPromptType(e.target.value as 'system' | 'user' | 'assistant')}
@@ -135,7 +136,7 @@ function EditModal({ useCase, modelHint, basePrompt, onClose, onSaved }: EditMod
               </select>
             </div>
             <div className="flex-1">
-              <label style={{ fontSize: 12, fontWeight: 700, color: N.ink, marginBottom: 4, display: 'block' }}>Model hint</label>
+              <label style={{ fontSize: 12, fontWeight: 700, color: colors.text.ink, marginBottom: 4, display: 'block' }}>Model hint</label>
               <select
                 value={model}
                 onChange={e => setModel(e.target.value)}
@@ -150,8 +151,8 @@ function EditModal({ useCase, modelHint, basePrompt, onClose, onSaved }: EditMod
 
           <div className="flex-1">
             <div className="flex items-center justify-between mb-1">
-              <label style={{ fontSize: 12, fontWeight: 700, color: N.ink }}>Prompt content</label>
-              <span style={{ fontSize: 10, color: N.muted }}>{charCount.toLocaleString()} chars</span>
+              <label style={{ fontSize: 12, fontWeight: 700, color: colors.text.ink }}>Prompt content</label>
+              <span style={{ fontSize: 10, color: colors.text.muted }}>{charCount.toLocaleString()} chars</span>
             </div>
             <textarea
               value={content}
@@ -163,7 +164,7 @@ function EditModal({ useCase, modelHint, basePrompt, onClose, onSaved }: EditMod
           </div>
 
           <div>
-            <label style={{ fontSize: 12, fontWeight: 700, color: N.ink, marginBottom: 4, display: 'block' }}>Notes <span style={{ fontWeight: 400, color: N.muted }}>(optional)</span></label>
+            <label style={{ fontSize: 12, fontWeight: 700, color: colors.text.ink, marginBottom: 4, display: 'block' }}>Notes <span style={{ fontWeight: 400, color: colors.text.muted }}>(optional)</span></label>
             <input
               value={notes}
               onChange={e => setNotes(e.target.value)}
@@ -181,14 +182,12 @@ function EditModal({ useCase, modelHint, basePrompt, onClose, onSaved }: EditMod
 
         {/* Footer */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12, padding: '16px 24px', borderTop: '1px solid rgba(0,0,0,0.08)' }}>
-          <button onClick={onClose} style={{ padding: '8px 16px', borderRadius: 10, fontSize: 14, color: N.muted, background: 'transparent', border: 'none' }}>Cancel</button>
-          <button
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button
+            loading={create.isPending}
+            disabled={!content.trim() || !name.trim()}
             onClick={() => create.mutate()}
-            disabled={create.isPending || !content.trim() || !name.trim()}
-            style={{ padding: '8px 20px', borderRadius: 10, background: N.navy, color: '#fff', fontSize: 14, fontWeight: 600, border: 'none', opacity: (create.isPending || !content.trim() || !name.trim()) ? 0.5 : 1 }}
-          >
-            {create.isPending ? 'Publishing…' : 'Publish version'}
-          </button>
+          >Publish version</Button>
         </div>
       </div>
     </div>
@@ -229,29 +228,29 @@ function UseCaseCard({ group }: { group: UseCaseGroup }) {
           onClick={() => setExpanded(e => !e)}
           className="w-full flex items-center gap-3 text-left"
           style={{ padding: '16px 20px' }}
-          onMouseOver={e => (e.currentTarget.style.background = N.cream)}
+          onMouseOver={e => (e.currentTarget.style.background = colors.surface.bg)}
           onMouseOut={e => (e.currentTarget.style.background = '#fff')}
         >
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: N.creamDk, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Bot className="w-4 h-4" style={{ color: N.ink }} />
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: colors.surface.elevated, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Bot className="w-4 h-4" style={{ color: colors.text.ink }} />
           </div>
           <div className="flex-1 min-w-0">
-            <p style={{ fontSize: 14, fontWeight: 900, color: N.ink }}>{group.use_case}</p>
-            <p style={{ fontSize: 12, color: N.muted, marginTop: 2 }}>
+            <p style={{ fontSize: 14, fontWeight: 900, color: colors.text.ink }}>{group.use_case}</p>
+            <p style={{ fontSize: 12, color: colors.text.muted, marginTop: 2 }}>
               {group.versions.length} version{group.versions.length !== 1 ? 's' : ''}
               {activeCount > 0 && ` · ${activeCount} active${activeCount === 2 ? ' (A/B)' : ''}`}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {group.model_hint && (
-              <span style={{ fontSize: 11, fontWeight: 600, color: N.muted, background: N.cream, padding: '2px 8px', borderRadius: 6 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: colors.text.muted, background: colors.surface.bg, padding: '2px 8px', borderRadius: 6 }}>
                 {MODEL_LABELS[group.model_hint] ?? group.model_hint}
               </span>
             )}
             {activeCount === 2 && (
               <span style={{ fontSize: 11, fontWeight: 700, color: '#6D28D9', background: '#EDE9FE', padding: '2px 8px', borderRadius: 6 }}>A/B</span>
             )}
-            {expanded ? <ChevronDown className="w-4 h-4" style={{ color: N.muted }} /> : <ChevronRight className="w-4 h-4" style={{ color: N.muted }} />}
+            {expanded ? <ChevronDown className="w-4 h-4" style={{ color: colors.text.muted }} /> : <ChevronRight className="w-4 h-4" style={{ color: colors.text.muted }} />}
           </div>
         </button>
 
@@ -269,23 +268,23 @@ function UseCaseCard({ group }: { group: UseCaseGroup }) {
                   borderBottom: idx !== group.versions.length - 1 ? '1px solid rgba(0,0,0,0.06)' : 'none',
                 }}
               >
-                <div style={{ width: 32, height: 32, borderRadius: 10, background: N.cream, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
-                  <span style={{ fontSize: 12, fontWeight: 900, color: N.muted }}>v{v.version}</span>
+                <div style={{ width: 32, height: 32, borderRadius: 10, background: colors.surface.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
+                  <span style={{ fontSize: 12, fontWeight: 900, color: colors.text.muted }}>v{v.version}</span>
                 </div>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span style={{ fontSize: 14, fontWeight: 700, color: N.ink }}>{v.name}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: colors.text.ink }}>{v.name}</span>
                     <Badge color={PROMPT_TYPE_COLOR[v.prompt_type] ?? 'gray'}>{v.prompt_type}</Badge>
                     {v.is_active && <Badge color="green">Active</Badge>}
                     {v.model_hint && (
-                      <span style={{ fontSize: 10, color: N.muted, fontWeight: 500 }}>{MODEL_LABELS[v.model_hint] ?? v.model_hint}</span>
+                      <span style={{ fontSize: 10, color: colors.text.muted, fontWeight: 500 }}>{MODEL_LABELS[v.model_hint] ?? v.model_hint}</span>
                     )}
                   </div>
-                  <p style={{ fontSize: 12, color: N.muted, fontFamily: 'monospace', lineHeight: 1.6 }} className="line-clamp-3 whitespace-pre-wrap break-all">
+                  <p style={{ fontSize: 12, color: colors.text.muted, fontFamily: 'monospace', lineHeight: 1.6 }} className="line-clamp-3 whitespace-pre-wrap break-all">
                     {v.content_preview}
                   </p>
-                  {v.notes && <p style={{ fontSize: 11, color: N.muted, marginTop: 4, fontStyle: 'italic' }}>{v.notes}</p>}
+                  {v.notes && <p style={{ fontSize: 11, color: colors.text.muted, marginTop: 4, fontStyle: 'italic' }}>{v.notes}</p>}
                   <p style={{ fontSize: 10, color: '#CBD5E1', marginTop: 4 }}>
                     {new Date(v.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
                   </p>
@@ -302,15 +301,15 @@ function UseCaseCard({ group }: { group: UseCaseGroup }) {
                       fontWeight: 600,
                       border: 'none',
                       opacity: (loadingId === v.id || activate.isPending) ? 0.5 : 1,
-                      background: v.is_active ? '#F0FDF4' : N.cream,
-                      color: v.is_active ? '#15803D' : N.muted,
+                      background: v.is_active ? '#F0FDF4' : colors.surface.bg,
+                      color: v.is_active ? '#15803D' : colors.text.muted,
                     }}
                   >
                     {loadingId === v.id ? '…' : v.is_active ? 'Deactivate' : 'Activate'}
                   </button>
                   <button
                     onClick={() => handleEditClick(v)}
-                    style={{ padding: '6px 12px', borderRadius: 10, fontSize: 12, fontWeight: 600, background: N.creamDk, color: N.ink, border: 'none' }}
+                    style={{ padding: '6px 12px', borderRadius: 10, fontSize: 12, fontWeight: 600, background: colors.surface.elevated, color: colors.text.ink, border: 'none' }}
                   >
                     New version
                   </button>
@@ -318,11 +317,11 @@ function UseCaseCard({ group }: { group: UseCaseGroup }) {
               </div>
             ))}
 
-            <div style={{ padding: '12px 20px', background: N.cream, borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+            <div style={{ padding: '12px 20px', background: colors.surface.bg, borderTop: '1px solid rgba(0,0,0,0.08)' }}>
               <button
                 onClick={() => setEditingVersion(undefined)}
                 className="flex items-center gap-1.5"
-                style={{ fontSize: 12, fontWeight: 600, color: N.navy, background: 'transparent', border: 'none' }}
+                style={{ fontSize: 12, fontWeight: 600, color: colors.brand.navy, background: 'transparent', border: 'none' }}
               >
                 <Plus className="w-3.5 h-3.5" />
                 Add new version from scratch
@@ -412,12 +411,12 @@ export default function AiConfigPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 mb-8">
         <div className="flex items-center gap-3">
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: N.creamDk, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Bot className="w-5 h-5" style={{ color: N.ink }} />
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: colors.surface.elevated, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Bot className="w-5 h-5" style={{ color: colors.text.ink }} />
           </div>
           <div>
-            <h1 style={{ fontSize: 20, fontWeight: 800, color: N.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>AI Configuration</h1>
-            <p style={{ fontSize: 14, color: N.muted }}>Manage prompt templates, model hints, and embedding backfill. Changes take effect on the next AI call.</p>
+            <h1 style={{ fontSize: 20, fontWeight: 800, color: colors.text.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>AI Configuration</h1>
+            <p style={{ fontSize: 14, color: colors.text.muted }}>Manage prompt templates, model hints, and embedding backfill. Changes take effect on the next AI call.</p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -425,7 +424,7 @@ export default function AiConfigPage() {
             onClick={handleBackfill}
             disabled={backfillLoading}
             className="flex items-center gap-1.5"
-            style={{ padding: '8px 16px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', background: '#fff', color: N.ink, fontSize: 14, fontWeight: 600, opacity: backfillLoading ? 0.5 : 1 }}
+            style={{ padding: '8px 16px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', background: '#fff', color: colors.text.ink, fontSize: 14, fontWeight: 600, opacity: backfillLoading ? 0.5 : 1 }}
           >
             <RefreshCw className={cn('w-3.5 h-3.5', backfillLoading && 'animate-spin')} />
             {backfillLoading ? 'Queueing…' : 'Backfill Embeddings'}
@@ -434,7 +433,7 @@ export default function AiConfigPage() {
             onClick={handleSeed}
             disabled={seedLoading}
             className="flex items-center gap-1.5"
-            style={{ padding: '8px 16px', borderRadius: 10, background: N.navy, color: '#fff', fontSize: 14, fontWeight: 600, border: 'none', opacity: seedLoading ? 0.5 : 1 }}
+            style={{ padding: '8px 16px', borderRadius: 10, background: colors.brand.navy, color: '#fff', fontSize: 14, fontWeight: 600, border: 'none', opacity: seedLoading ? 0.5 : 1 }}
           >
             <Zap className="w-3.5 h-3.5" />
             {seedLoading ? 'Seeding…' : 'Seed Defaults'}
@@ -445,8 +444,8 @@ export default function AiConfigPage() {
       {notif && <NotifBanner notif={notif} onDismiss={() => setNotif(null)} />}
 
       {/* A/B info pill */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: N.cream, border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '10px 16px', marginBottom: 24, fontSize: 12, color: N.ink, fontWeight: 500 }}>
-        <span style={{ fontWeight: 700, color: N.navy }}>A/B testing:</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: colors.surface.bg, border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '10px 16px', marginBottom: 24, fontSize: 12, color: colors.text.ink, fontWeight: 500 }}>
+        <span style={{ fontWeight: 700, color: colors.brand.navy }}>A/B testing:</span>
         Up to 2 versions per use case can be active simultaneously. Activate a second version to run an A/B test; deactivate one to promote a winner.
       </div>
 

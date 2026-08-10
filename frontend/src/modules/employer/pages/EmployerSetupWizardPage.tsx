@@ -4,7 +4,8 @@ import {
   Building2, Globe, User, Image as ImageIcon, ShieldCheck,
   ArrowRight, ArrowLeft, Check, Upload, Mail,
 } from 'lucide-react'
-import Input from '@/components/ui/Input'
+import Input from '@/shared/components/primitives/Input'
+import Button from '@/shared/components/primitives/Button'
 import {
   useCompanyProfile, useUpdateCompanyProfile, useUpdateEmployerProfile,
   useUploadCompanyLogo, useUploadCompanyBanner,
@@ -228,9 +229,9 @@ export default function EmployerSetupWizardPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: N.muted, marginBottom: 10 }}>Industry</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  <div role="radiogroup" aria-label="Industry" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     {INDUSTRIES.map(ind => (
-                      <button key={ind} type="button" onClick={() => setIndustry(ind)} style={{
+                      <button key={ind} type="button" role="radio" aria-checked={industry === ind} onClick={() => setIndustry(ind)} style={{
                         padding: '7px 14px', borderRadius: 100, fontSize: 12, fontWeight: 500, cursor: 'pointer',
                         border: industry === ind ? `1.5px solid ${N.navy}` : '1.5px solid #E2E8F0',
                         background: industry === ind ? N.navy : 'transparent',
@@ -243,9 +244,9 @@ export default function EmployerSetupWizardPage() {
 
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: N.muted, marginBottom: 10 }}>Company size</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                  <div role="radiogroup" aria-label="Company size" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                     {COMPANY_SIZES.map(({ value, label }) => (
-                      <button key={value} type="button" onClick={() => setCompanySize(value)} style={{
+                      <button key={value} type="button" role="radio" aria-checked={companySize === value} onClick={() => setCompanySize(value)} style={{
                         height: 40, borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer',
                         border: companySize === value ? `1.5px solid ${N.navy}` : '1.5px solid #E2E8F0',
                         background: companySize === value ? N.navy : 'transparent',
@@ -318,19 +319,12 @@ export default function EmployerSetupWizardPage() {
                     Request verification to get a verified badge on all job listings and unlock unlimited posting limits.
                   </p>
                 </div>
-                <button type="button" onClick={() => navigate('/app/employer/verification')} style={{
-                  width: '100%', height: 48, background: N.navy, color: N.white,
-                  border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700,
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                }}>
+                <Button variant="primary" size="lg" onClick={() => navigate('/app/employer/verification')} fullWidth>
                   Start verification <ArrowRight size={16} />
-                </button>
-                <button type="button" onClick={finish} style={{
-                  width: '100%', height: 44, background: 'transparent', color: N.muted,
-                  border: '1.5px solid #E2E8F0', borderRadius: 12, fontSize: 14, cursor: 'pointer',
-                }}>
+                </Button>
+                <Button variant="outline" size="lg" onClick={finish} fullWidth>
                   Skip for now — go to dashboard
-                </button>
+                </Button>
               </div>
             )}
           </div>
@@ -348,16 +342,9 @@ export default function EmployerSetupWizardPage() {
               ))}
             </div>
             {step > 0 && (
-              <button type="button" onClick={() => setStep(s => s - 1)} style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: 13, fontWeight: 500, color: N.muted, padding: 0,
-              }}
-                onMouseOver={e => (e.currentTarget.style.color = N.ink)}
-                onMouseOut={e => (e.currentTarget.style.color = N.muted)}
-              >
+              <Button type="button" variant="ghost" size="sm" onClick={() => setStep(s => s - 1)}>
                 <ArrowLeft size={14} /> Back
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -369,20 +356,12 @@ export default function EmployerSetupWizardPage() {
 function Footer({ onSkip, onNext, loading }: { onSkip: () => void; onNext: () => void; loading: boolean }) {
   return (
     <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
-      <button type="button" onClick={onSkip} style={{
-        flex: 1, height: 44, background: 'transparent', color: N.muted,
-        border: '1.5px solid #E2E8F0', borderRadius: 12, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit',
-      }}>
+      <Button type="button" variant="outline" size="lg" onClick={onSkip} style={{ flex: 1 }}>
         Skip for now
-      </button>
-      <button type="button" onClick={onNext} disabled={loading} style={{
-        flex: 2, height: 44, background: N.navy, color: N.white,
-        border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700,
-        cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontFamily: 'inherit',
-      }}>
+      </Button>
+      <Button type="button" variant="primary" size="lg" onClick={onNext} disabled={loading} loading={loading} style={{ flex: 2 }}>
         {loading ? 'Saving…' : <>Continue <ArrowRight size={15} /></>}
-      </button>
+      </Button>
     </div>
   )
 }

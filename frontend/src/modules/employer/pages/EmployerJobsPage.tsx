@@ -11,27 +11,21 @@ import {
   useHasPermission, useBulkImportJobs, useDepartments, useEmployerPermissions,
 } from '../hooks/useJobs'
 import JobForm from '../components/JobForm'
-import { CommandBar } from '../components/CommandBar'
 import { ApprovalQueue } from '../components/ApprovalQueue'
 import type { JobPosting, JobPostingPayload } from '@/api/jobs'
 import { formatSalary, EMPLOYMENT_TYPE_LABELS } from '@/api/jobs'
 import { getApiError } from '@/api/client'
-import NotificationBell from '@/components/NotificationBell'
-import { DS, C, statusDot, fmtDate } from '../ds'
-import Button from '@/components/ui/Button'
+import { DS, C, fmtDate } from '../ds'
+import { colors, radius } from '@/design-system/tokens'
+import Button from '@/shared/components/primitives/Button'
+import PageHeader from '@/shared/layouts/PageHeader'
+import StatusChip from '../components/StatusChip'
+import ErrorState from '@/shared/components/feedback/ErrorState'
+
+const inputStyle: React.CSSProperties = { width: '100%', padding: '7px 10px', border: `1px solid ${colors.border.default}`, borderRadius: 7, fontSize: 13, color: colors.text.ink, background: colors.surface.card, outline: 'none', boxSizing: 'border-box' }
+const selectStyle: React.CSSProperties = { padding: '6px 10px', border: `1px solid ${colors.border.default}`, borderRadius: 7, fontSize: 13, color: colors.text.ink, background: colors.surface.card, cursor: 'pointer' }
 
 type View = 'list' | 'new' | { edit: JobPosting }
-
-// ── Status dot + label ─────────────────────────────────────────────────────────
-function StatusChip({ status }: { status: string }) {
-  const s = statusDot(status)
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: s.color, whiteSpace: 'nowrap' }}>
-      <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
-      {s.label}
-    </span>
-  )
-}
 
 // ── Bulk import ────────────────────────────────────────────────────────────────
 const BULK_CSV =
@@ -49,7 +43,7 @@ function BulkImportModal({ onClose }: { onClose: () => void }) {
   const [file, setFile] = useState<File | null>(null)
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 10, padding: 24, maxWidth: 460, width: '100%', border: `1px solid ${C.border}` }}>
+      <div style={{ background: '#fff', borderRadius: radius.xl, padding: 24, maxWidth: 460, width: '100%', border: `1px solid ${C.border}` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h3 style={{ fontSize: 15, fontWeight: 600, color: C.ink1, margin: 0 }}>Bulk import jobs</h3>
           <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close"><X size={16} /></Button>
@@ -120,7 +114,7 @@ function JobRow({
 
   return (
     <div
-      style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: `1px solid ${C.borderLight}`, background: hovered ? '#FAFAFA' : '#fff', transition: 'background 0.1s', opacity: job.status === 'archived' ? 0.6 : 1 }}
+      style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: `1px solid ${C.borderLight}`, background: hovered ? colors.surface.elevated : colors.surface.card, transition: 'background 0.1s', opacity: job.status === 'archived' ? 0.6 : 1 }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
@@ -184,7 +178,7 @@ const STATUS_TABS = [
 
 // ── Page ───────────────────────────────────────────────────────────────────────
 export default function EmployerJobsPage() {
-  const { data, isLoading } = useEmployerDashboard()
+  const { data, isLoading, isError, refetch } = useEmployerDashboard()
   const createJob   = useCreateJob()
   const updateJob   = useUpdateJob()
   const deleteJob   = useDeleteJob()
@@ -229,60 +223,52 @@ export default function EmployerJobsPage() {
   })
 
   if (view === 'new') return (
-    <div style={DS.pageWrap}>
-      <header style={DS.topbar}>
-        <div><h1 style={DS.pageTitle}>New Job Posting</h1></div>
+    <div style={{ padding: '20px 28px', background: colors.surface.bg, minHeight: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <p style={{ fontSize: 18, fontWeight: 700, color: colors.text.ink, margin: 0 }}>New Job Posting</p>
         <Button variant="outline" size="sm" onClick={() => setView('list')}><X size={14} />Cancel</Button>
-      </header>
-      <div style={{ ...DS.content, padding: '24px' }}>
-        <JobForm onSubmit={handleCreate} isLoading={createJob.isPending} error={createJob.isError ? getApiError(createJob.error) : undefined} />
       </div>
+      <JobForm onSubmit={handleCreate} isLoading={createJob.isPending} error={createJob.isError ? getApiError(createJob.error) : undefined} />
     </div>
   )
 
   if (typeof view === 'object' && 'edit' in view) return (
-    <div style={DS.pageWrap}>
-      <header style={DS.topbar}>
-        <div><h1 style={DS.pageTitle}>Edit: {view.edit.title}</h1></div>
+    <div style={{ padding: '20px 28px', background: colors.surface.bg, minHeight: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <p style={{ fontSize: 18, fontWeight: 700, color: colors.text.ink, margin: 0 }}>Edit: {view.edit.title}</p>
         <Button variant="outline" size="sm" onClick={() => setView('list')}><X size={14} />Cancel</Button>
-      </header>
-      <div style={{ ...DS.content, padding: '24px' }}>
-        <JobForm job={view.edit} onSubmit={p => handleUpdate(view.edit.id, p)} isLoading={updateJob.isPending} error={updateJob.isError ? getApiError(updateJob.error) : undefined} />
       </div>
+      <JobForm job={view.edit} onSubmit={p => handleUpdate(view.edit.id, p)} isLoading={updateJob.isPending} error={updateJob.isError ? getApiError(updateJob.error) : undefined} />
     </div>
   )
 
   return (
-    <div style={DS.pageWrap}>
-
-      {/* Top bar */}
-      <header style={DS.topbar}>
-        <div>
-          <h1 style={DS.pageTitle}>Jobs</h1>
-          <p style={DS.pageSub}>{data?.active_jobs ?? 0} active · {data?.total_jobs ?? 0} total</p>
-        </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <CommandBar onPostJob={() => setView('new')} />
-          <Button variant="outline" size="sm" onClick={() => setShowApprovalQueue(true)}>
-            <FileSignature size={13} />Approvals
-          </Button>
-          <NotificationBell />
-          {data?.is_approved && canCreateJob && (
-            <>
-              <Button variant="outline" size="sm" onClick={() => setShowBulkImport(true)}>
-                <Upload size={13} />Import
-              </Button>
-              <Button variant="primary" size="sm" onClick={() => setView('new')}>
-                <Plus size={13} strokeWidth={2.5} />Post a Job
-              </Button>
-            </>
-          )}
-        </div>
-      </header>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+      <PageHeader
+        title="Jobs"
+        subtitle="Post and manage job openings"
+        actions={
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button variant="outline" size="sm" onClick={() => setShowApprovalQueue(true)}>
+              <FileSignature size={13} />Approvals
+            </Button>
+            {data?.is_approved && canCreateJob && (
+              <>
+                <Button variant="outline" size="sm" onClick={() => setShowBulkImport(true)}>
+                  <Upload size={13} />Import
+                </Button>
+                <Button variant="primary" size="sm" onClick={() => setView('new')}>
+                  <Plus size={13} strokeWidth={2.5} />Post a Job
+                </Button>
+              </>
+            )}
+          </div>
+        }
+      />
 
       {/* Dept scope notice */}
       {myPerms && !myPerms.is_company_wide && myPerms.department_name && (
-        <div style={{ padding: '8px 24px', background: C.accentBg, borderBottom: `1px solid #C7D2FE`, fontSize: 12, color: C.accent, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ padding: '8px 24px', background: C.accentBg, borderBottom: `1px solid #BFDBFE`, fontSize: 12, color: C.accent, display: 'flex', alignItems: 'center', gap: 6 }}>
           <Briefcase size={12} />
           Scoped to <strong>{myPerms.department_name}</strong>
         </div>
@@ -297,7 +283,7 @@ export default function EmployerJobsPage() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search jobs…"
-            style={{ ...DS.input, width: 200, paddingLeft: 30 }}
+            style={{ ...inputStyle, width: 200, paddingLeft: 30 }}
           />
         </div>
 
@@ -316,7 +302,7 @@ export default function EmployerJobsPage() {
 
         {/* Dept filter */}
         {departments && departments.length > 0 && (
-          <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)} style={DS.select}>
+          <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)} style={selectStyle}>
             <option value="all">All departments</option>
             {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
@@ -326,7 +312,7 @@ export default function EmployerJobsPage() {
       </div>
 
       {/* Table */}
-      <div style={{ ...DS.content, padding: '16px 24px' }}>
+      <div style={{ padding: '16px 28px', background: colors.surface.bg, flex: 1 }}>
         <div style={DS.card}>
           {/* Header */}
           <div style={{ ...DS.tHead, gridTemplateColumns: COLS }}>
@@ -340,6 +326,8 @@ export default function EmployerJobsPage() {
               <div style={{ width: 16, height: 16, border: `2px solid ${C.border}`, borderTopColor: C.accent, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
               Loading…
             </div>
+          ) : isError ? (
+            <ErrorState title="Failed to load jobs" onRetry={refetch} compact />
           ) : filtered.length === 0 ? (
             <div style={{ padding: '56px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
               <Briefcase size={28} color={C.ink3} strokeWidth={1.5} />
@@ -378,7 +366,7 @@ export default function EmployerJobsPage() {
       {/* Delete confirm */}
       {confirmDelete && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
-          <div style={{ background: '#fff', borderRadius: 10, padding: 24, maxWidth: 380, width: '100%', border: `1px solid ${C.border}` }}>
+          <div style={{ background: '#fff', borderRadius: radius.xl, padding: 24, maxWidth: 380, width: '100%', border: `1px solid ${C.border}` }}>
             <h3 style={{ fontSize: 15, fontWeight: 600, color: C.ink1, margin: '0 0 8px' }}>Delete job posting?</h3>
             <p style={{ fontSize: 13, color: C.ink2, margin: '0 0 20px' }}>This cannot be undone. All applicants for this job will lose access.</p>
             <div style={{ display: 'flex', gap: 8 }}>

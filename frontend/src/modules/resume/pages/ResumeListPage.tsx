@@ -10,6 +10,7 @@ import { FileText, Plus, Star, Trash2, Edit3, Upload, BarChart2, ChevronDown } f
 import Button from '@/shared/components/primitives/Button'
 import EmptyState from '@/shared/components/feedback/EmptyState'
 import Breadcrumb from '@/shared/components/navigation/Breadcrumb'
+import { SkeletonCard } from '@/shared/components/feedback/Skeleton'
 
 const TEMPLATE_BADGES: Record<string, { label: string; color: string; bg: string }> = {
   ats_clean: { label: 'ATS Friendly',     color: '#16A34A', bg: '#F0FDF4' },
@@ -83,8 +84,8 @@ export default function ResumeListPage() {
 
       <main style={{ padding: '28px 32px 48px', maxWidth: 1000, margin: '0 auto' }}>
           {isLoading && (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}>
-              <div style={{ width: 28, height: 28, border: '3px solid #1A2744', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 18 }}>
+              {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} lines={3} />)}
             </div>
           )}
 

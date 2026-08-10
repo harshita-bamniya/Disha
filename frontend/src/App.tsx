@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom'
 import PageLoader from '@/components/PageLoader'
 
 // ── Global Error Boundary ─────────────────────────────────────────────────────
+// Uses design-system tokens — no local magic color strings.
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null }
   static getDerivedStateFromError(error: Error) { return { error } }
@@ -13,20 +14,74 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
       const err = this.state.error as Error
       const isDev = import.meta.env.DEV
       return (
-        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, background: '#FEF2F2' }}>
-          <div style={{ maxWidth: 600, background: 'white', borderRadius: 16, padding: 32, border: '1px solid #FCA5A5', boxShadow: '0 4px 20px rgba(220,38,38,0.1)' }}>
-            <h2 style={{ fontFamily: 'Hind, sans-serif', fontSize: 20, fontWeight: 800, color: '#DC2626', marginBottom: 12 }}>Something went wrong</h2>
-            <p style={{ fontSize: 14, color: '#6B7280', marginBottom: 16 }}>
-              An unexpected error occurred. Please reload the page. If the problem persists, contact support.
+        <div style={{
+          minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: 24, background: 'var(--disha-danger-bg)',
+        }}>
+          <div style={{
+            maxWidth: 600, width: '100%',
+            background: 'var(--disha-card)',
+            borderRadius: 'var(--disha-radius-2xl)',
+            padding: 32,
+            border: '1px solid rgba(220,38,38,0.20)',
+            boxShadow: 'var(--disha-shadow-elevated)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: 10,
+                background: 'rgba(220,38,38,0.10)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 18, flexShrink: 0,
+              }}>⚠</div>
+              <h2 style={{
+                fontFamily: 'Hind, sans-serif', fontSize: 18, fontWeight: 800,
+                color: 'var(--disha-danger)', margin: 0,
+              }}>Something went wrong</h2>
+            </div>
+            <p style={{ fontSize: 14, color: 'var(--disha-ink-soft)', marginBottom: 16, lineHeight: 1.6 }}>
+              An unexpected error occurred. Please reload the page. If the problem persists,{' '}
+              <a href="mailto:support@beginable.ai" style={{ color: 'var(--disha-navy)', fontWeight: 600 }}>
+                contact support
+              </a>.
             </p>
             {isDev && (
-              <pre style={{ fontSize: 12, color: '#374151', background: '#F9FAFB', padding: 16, borderRadius: 8, overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+              <pre style={{
+                fontSize: 11, color: 'var(--disha-ink)',
+                background: 'var(--disha-elevated)',
+                padding: 14, borderRadius: 8,
+                overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+                marginBottom: 16, maxHeight: 240, overflow: 'auto',
+                fontFamily: '"JetBrains Mono", monospace',
+              }}>
                 {err.message}{'\n\n'}{err.stack}
               </pre>
             )}
-            <button onClick={() => window.location.reload()} style={{ marginTop: 16, padding: '10px 20px', background: '#DC2626', color: 'white', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 700 }}>
-              Reload
-            </button>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => window.location.reload()}
+                style={{
+                  padding: '9px 20px', background: 'var(--disha-danger)',
+                  color: 'white', border: 'none',
+                  borderRadius: 'var(--disha-radius-lg)',
+                  cursor: 'pointer', fontWeight: 700, fontSize: 13,
+                  boxShadow: '0 4px 12px rgba(220,38,38,0.25)',
+                }}
+              >
+                Reload page
+              </button>
+              <button
+                onClick={() => { window.history.back() }}
+                style={{
+                  padding: '9px 20px', background: 'transparent',
+                  color: 'var(--disha-ink-soft)',
+                  border: '1.5px solid var(--disha-border-md)',
+                  borderRadius: 'var(--disha-radius-lg)',
+                  cursor: 'pointer', fontWeight: 600, fontSize: 13,
+                }}
+              >
+                Go back
+              </button>
+            </div>
           </div>
         </div>
       )
@@ -35,9 +90,8 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   }
 }
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { GoogleOAuthProvider } from '@react-oauth/google'
 import { useAuthStore } from '@/stores/authStore'
+import { AppProviders } from '@/providers'
 import { useEmployerPermissions } from '@/modules/employer/hooks/useJobs'
 
 // Auth pages
@@ -142,12 +196,6 @@ const RoadmapHistoryPage      = lazy(() => import('@/modules/roadmap/pages/Roadm
 const QuizPage                = lazy(() => import('@/modules/roadmap/pages/QuizPage'))
 const CompanionPage           = lazy(() => import('@/modules/companion/pages/CompanionPage'))
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: { retry: 1, staleTime: 5 * 60 * 1000 },
-  },
-})
-
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   return isAuthenticated ? <>{children}</> : <Navigate to="/auth/login" replace />
@@ -208,8 +256,7 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <ErrorBoundary>
-    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ''}>
-    <QueryClientProvider client={queryClient}>
+    <AppProviders>
       <BrowserRouter>
         <Routes>
           {/* Landing — authenticated users are redirected to their dashboard */}
@@ -399,8 +446,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
-    </QueryClientProvider>
-    </GoogleOAuthProvider>
+    </AppProviders>
     </ErrorBoundary>
   )
 }
