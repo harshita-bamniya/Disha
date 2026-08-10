@@ -1,10 +1,14 @@
 ﻿import { useState, useMemo } from 'react'
-import { Shield, X, Clock, AlertTriangle } from 'lucide-react'
+import { Shield, Clock, AlertTriangle } from 'lucide-react'
 import { useEmployerVerifications, useEmployerVerificationDetail, useReviewEmployerVerification } from '../hooks/useAdmin'
-import { Spinner, Empty, Badge, SectionHeading, VERIF_STATUS_COLOR } from '../shared/adminUI'
+import { Spinner, Badge, SectionHeading, VERIF_STATUS_COLOR } from '../shared/adminUI'
 import { getApiError } from '@/api/client'
 import { cn } from '@/lib/utils'
 import { colors } from '@/design-system/tokens'
+import Drawer from '@/shared/components/overlays/Drawer'
+import DataTable from '@/shared/components/data-display/DataTable'
+import type { TableColumn } from '@/shared/types'
+import type { EmployerVerificationEntry } from '@/api/admin'
 
 
 const SLA_DAYS = 3
@@ -34,28 +38,25 @@ function VerificationDetailDrawer({ id, onClose }: { id: string; onClose: () => 
   const inputStyle = { border: '1px solid rgba(0,0,0,0.08)', borderRadius: 8, background: '#fff', color: colors.text.ink }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-end z-50">
-      <div className="absolute inset-0" onClick={onClose} />
-      <div className="relative w-full max-w-md h-full bg-white flex flex-col overflow-hidden" style={{ borderLeft: '1px solid rgba(0,0,0,0.08)' }}>
-        <div className="flex items-start justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(0,0,0,0.08)', background: colors.surface.bg }}>
-          <div>
-            <h3 className="text-base font-bold" style={{ color: colors.text.ink }}>{isLoading ? 'Loading…' : v?.company_name}</h3>
-            {v && (
-              <div className="flex items-center gap-2 mt-1">
-                <Badge color={VERIF_STATUS_COLOR[v.status] ?? 'gray'}>{v.status.replace(/_/g, ' ')}</Badge>
-                <SlaBadge submittedAt={v.submitted_at} status={v.status} />
-              </div>
-            )}
+    <Drawer
+      open
+      onClose={onClose}
+      title={isLoading ? 'Loading…' : v?.company_name}
+      header={
+        v && (
+          <div className="flex items-center gap-2 px-5 pb-4">
+            <Badge color={VERIF_STATUS_COLOR[v.status] ?? 'gray'}>{v.status.replace(/_/g, ' ')}</Badge>
+            <SlaBadge submittedAt={v.submitted_at} status={v.status} />
           </div>
-          <button onClick={onClose} aria-label="Close" style={{ color: colors.text.muted }}><X className="w-4 h-4" /></button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-5 py-4">
-          {isLoading ? <Spinner /> : !v ? (
-            <p className="text-sm text-center py-10" style={{ color: colors.text.muted }}>Could not load verification.</p>
-          ) : (
-            <div className="flex flex-col gap-1">
-              <SectionHeading>Employer Info</SectionHeading>
+        )
+      }
+    >
+      <div className="px-5 py-4">
+        {isLoading ? <Spinner /> : !v ? (
+          <p className="text-sm text-center py-10" style={{ color: colors.text.muted }}>Could not load verification.</p>
+        ) : (
+          <div className="flex flex-col gap-1">
+            <SectionHeading>Employer Info</SectionHeading>
               <div className="px-3 py-3 mb-3 text-xs flex flex-col gap-1" style={{ background: colors.surface.bg, borderRadius: 8 }}>
                 <p style={{ color: colors.text.ink }}><span style={{ color: colors.text.muted }}>Company:</span> <strong>{v.company_name}</strong></p>
                 {v.contact_email && <p style={{ color: colors.text.ink }}><span style={{ color: colors.text.muted }}>Email:</span> {v.contact_email}</p>}
@@ -134,8 +135,7 @@ function VerificationDetailDrawer({ id, onClose }: { id: string; onClose: () => 
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </Drawer>
   )
 }
 
@@ -157,6 +157,42 @@ export default function KycQueuePage() {
     return list
   }, [list, statusFilter])
 
+  const columns: TableColumn<EmployerVerificationEntry>[] = useMemo(() => [
+    {
+      key: 'company_name',
+      header: 'Company',
+      render: row => (
+        <div className="min-w-0">
+          <p className="text-sm font-semibold truncate" style={{ color: colors.text.ink }}>{row.company_name}</p>
+          <p className="text-xs mt-0.5" style={{ color: colors.text.muted }}>
+            Submitted {new Date(row.submitted_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: 'days',
+      header: 'Days',
+      align: 'right',
+      width: 60,
+      render: row => <span className="text-xs font-bold" style={{ color: colors.text.ink }}>{daysInQueue(row.submitted_at)}d</span>,
+    },
+    {
+      key: 'sla',
+      header: 'In Queue',
+      align: 'right',
+      width: 90,
+      render: row => <SlaBadge submittedAt={row.submitted_at} status={row.status} />,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      align: 'right',
+      width: 110,
+      render: row => <Badge color={VERIF_STATUS_COLOR[row.status] ?? 'gray'}>{row.status.replace(/_/g, ' ')}</Badge>,
+    },
+  ], [])
+
   return (
     <section className="flex flex-col gap-6">
       <h1 style={{ fontSize: 20, fontWeight: 800, color: colors.text.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>KYC Verification</h1>
@@ -170,8 +206,8 @@ export default function KycQueuePage() {
         </div>
       )}
 
-      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-        <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid rgba(0,0,0,0.08)', background: colors.surface.bg }}>
+      <div>
+        <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-bold" style={{ color: colors.text.ink }}>Employer Verification Queue</h2>
           <select
             value={statusFilter ?? ''}
@@ -187,52 +223,20 @@ export default function KycQueuePage() {
           </select>
         </div>
 
-        {isLoading ? <Spinner /> : sorted.length === 0 ? (
-          <Empty icon={Shield} text="No verifications match this filter" />
-        ) : (
-          <>
-            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-2" style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
-              {['Company', 'Days', 'In Queue', 'Status'].map((h, i) => (
-                <span key={h} className={i > 0 ? 'text-right' : ''} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>{h}</span>
-              ))}
-            </div>
-            {sorted.map((v, idx) => {
-              const d = daysInQueue(v.submitted_at)
-              const isOverdue = (v.status === 'requested' || v.status === 'under_review') && d > SLA_DAYS
-              return (
-                <div
-                  key={v.id}
-                  onClick={() => setSelectedId(v.id)}
-                  className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-3 cursor-pointer"
-                  style={{
-                    background: isOverdue ? '#FEF2F2' : idx % 2 === 0 ? '#fff' : colors.surface.bg,
-                    borderBottom: idx < sorted.length - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined,
-                  }}
-                  onMouseOver={e => (e.currentTarget.style.background = colors.surface.elevated)}
-                  onMouseOut={e => (e.currentTarget.style.background = isOverdue ? '#FEF2F2' : idx % 2 === 0 ? '#fff' : colors.surface.bg)}
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold truncate" style={{ color: colors.text.ink }}>{v.company_name}</p>
-                    <p className="text-xs mt-0.5" style={{ color: colors.text.muted }}>
-                      Submitted {new Date(v.submitted_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
-                    </p>
-                  </div>
-                  <span className="text-xs font-bold text-right self-center" style={{ color: colors.text.ink }}>
-                    {daysInQueue(v.submitted_at)}d
-                  </span>
-                  <div className="flex items-center justify-end">
-                    <SlaBadge submittedAt={v.submitted_at} status={v.status} />
-                  </div>
-                  <div className="flex items-center justify-end">
-                    <Badge color={VERIF_STATUS_COLOR[v.status] ?? 'gray'}>{v.status.replace(/_/g, ' ')}</Badge>
-                  </div>
-                </div>
-              )
-            })}
-            <div className="px-4 py-2.5" style={{ background: colors.surface.bg, borderTop: '1px solid rgba(0,0,0,0.08)' }}>
-              <p className="text-xs" style={{ color: colors.text.muted }}>{sorted.length} verification{sorted.length !== 1 ? 's' : ''}{overdue > 0 ? ` · ${overdue} overdue` : ''}</p>
-            </div>
-          </>
+        <DataTable<EmployerVerificationEntry>
+          columns={columns}
+          rows={sorted}
+          rowKey={r => r.id}
+          loading={isLoading}
+          onRowClick={r => setSelectedId(r.id)}
+          emptyIcon={<Shield size={28} color={colors.surface.elevated} />}
+          emptyTitle="No verifications match this filter"
+        />
+
+        {sorted.length > 0 && (
+          <p className="text-xs mt-2.5" style={{ color: colors.text.muted }}>
+            {sorted.length} verification{sorted.length !== 1 ? 's' : ''}{overdue > 0 ? ` · ${overdue} overdue` : ''}
+          </p>
         )}
       </div>
 

@@ -1,5 +1,5 @@
 ﻿import { useState, useMemo } from 'react'
-import { KeyRound, Plus, Trash2, X, Copy } from 'lucide-react'
+import { KeyRound, Plus, Trash2, Copy } from 'lucide-react'
 import {
   useAdminRoles, useUpdateRolePermissions, useAdminPermissions,
   useCreateRole, useDeleteRole,
@@ -9,6 +9,9 @@ import { getApiError } from '@/api/client'
 import type { RoleEntry, PermissionEntry } from '@/api/admin'
 import { colors } from '@/design-system/tokens'
 import Button from '@/shared/components/primitives/Button'
+import Modal from '@/shared/components/overlays/Modal'
+
+const titleCase = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 
 
 // ── Permission checkbox group ──────────────────────────────────────────────────
@@ -107,29 +110,32 @@ function EditModal({
   const update = useUpdateRolePermissions()
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
-      <div style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 512, width: '100%', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
-        <div className="flex items-start justify-between mb-4 shrink-0">
-          <div>
-            <h3 style={{ fontSize: 16, fontWeight: 900, color: colors.text.ink, textTransform: 'capitalize' }}>{role.name.replace(/_/g, ' ')}</h3>
-            <p style={{ fontSize: 12, color: colors.text.muted, marginTop: 2 }}>{selectedIds.length} permission{selectedIds.length !== 1 ? 's' : ''} selected</p>
+    <Modal
+      open
+      onClose={onClose}
+      title={titleCase(role.name)}
+      width={512}
+      header={
+        <p style={{ fontSize: 12, color: colors.text.muted, padding: '0 24px 14px' }}>
+          {selectedIds.length} permission{selectedIds.length !== 1 ? 's' : ''} selected
+        </p>
+      }
+      footer={
+        <>
+          {update.isError && <p style={{ fontSize: 12, color: '#EF4444', marginBottom: 12 }}>{getApiError(update.error)}</p>}
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+            <Button
+              className="flex-1"
+              loading={update.isPending}
+              onClick={() => update.mutate({ roleId: role.id, permissionIds: selectedIds }, { onSuccess: onClose })}
+            >Save permissions</Button>
           </div>
-          <button onClick={onClose} aria-label="Close" style={{ color: colors.text.muted }}><X className="w-4 h-4" /></button>
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          <PermissionMatrix permissions={permissions} selectedIds={selectedIds} onChange={setSelectedIds} />
-        </div>
-        {update.isError && <p style={{ fontSize: 12, color: '#EF4444', marginTop: 12, flexShrink: 0 }}>{getApiError(update.error)}</p>}
-        <div className="flex gap-3 mt-5 shrink-0">
-          <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
-          <Button
-            className="flex-1"
-            loading={update.isPending}
-            onClick={() => update.mutate({ roleId: role.id, permissionIds: selectedIds }, { onSuccess: onClose })}
-          >Save permissions</Button>
-        </div>
-      </div>
-    </div>
+        </>
+      }
+    >
+      <PermissionMatrix permissions={permissions} selectedIds={selectedIds} onChange={setSelectedIds} />
+    </Modal>
   )
 }
 
@@ -183,17 +189,14 @@ function CreateModal({
   const inputStyle = { width: '100%', height: 36, padding: '0 12px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', fontSize: 14, outline: 'none' }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
-      <div style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 512, width: '100%', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
-        <div className="flex items-start justify-between mb-5 shrink-0">
-          <div>
-            <h3 style={{ fontSize: 16, fontWeight: 900, color: colors.text.ink }}>Create custom role</h3>
-            <p style={{ fontSize: 12, color: colors.text.muted, marginTop: 2 }}>Custom roles can be assigned to sub-admins and deleted when no longer needed.</p>
-          </div>
-          <button onClick={onClose} aria-label="Close" style={{ color: colors.text.muted }}><X className="w-4 h-4" /></button>
-        </div>
-
-        <div className="flex flex-col gap-4 shrink-0">
+    <Modal
+      open
+      onClose={onClose}
+      title="Create custom role"
+      width={512}
+      header={
+        <div className="flex flex-col gap-4" style={{ padding: '0 24px 16px' }}>
+          <p style={{ fontSize: 12, color: colors.text.muted, marginTop: -8 }}>Custom roles can be assigned to sub-admins and deleted when no longer needed.</p>
           <div>
             <label style={{ fontSize: 12, fontWeight: 700, color: colors.text.ink, marginBottom: 4, display: 'block' }}>
               Role name <span style={{ fontWeight: 400, color: colors.text.muted }}>(lowercase, underscores only)</span>
@@ -226,29 +229,27 @@ function CreateModal({
             >
               <option value="">— start empty —</option>
               {roles.filter(r => r.name !== 'super_admin').map(r => (
-                <option key={r.id} value={r.id}>{r.name.replace(/_/g, ' ')}</option>
+                <option key={r.id} value={r.id}>{titleCase(r.name)}</option>
               ))}
             </select>
           </div>
         </div>
-
-        <div style={{ flex: 1, overflowY: 'auto', marginTop: 16, borderTop: '1px solid rgba(0,0,0,0.08)', paddingTop: 16 }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: colors.text.muted, marginBottom: 12 }}>{selectedIds.length} permission{selectedIds.length !== 1 ? 's' : ''} selected</p>
-          <PermissionMatrix permissions={permissions} selectedIds={selectedIds} onChange={setSelectedIds} />
-        </div>
-
-        {create.isError && (
-          <p style={{ fontSize: 12, color: '#EF4444', marginTop: 12, flexShrink: 0 }}>{getApiError(create.error)}</p>
-        )}
-
-        <div className="flex gap-3 mt-5 shrink-0">
-          <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
-          <Button className="flex-1" disabled={!canSubmit} loading={create.isPending} onClick={handleSubmit}>
-            Create role
-          </Button>
-        </div>
-      </div>
-    </div>
+      }
+      footer={
+        <>
+          {create.isError && <p style={{ fontSize: 12, color: '#EF4444', marginBottom: 12 }}>{getApiError(create.error)}</p>}
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+            <Button className="flex-1" disabled={!canSubmit} loading={create.isPending} onClick={handleSubmit}>
+              Create role
+            </Button>
+          </div>
+        </>
+      }
+    >
+      <p style={{ fontSize: 12, fontWeight: 700, color: colors.text.muted, marginBottom: 12 }}>{selectedIds.length} permission{selectedIds.length !== 1 ? 's' : ''} selected</p>
+      <PermissionMatrix permissions={permissions} selectedIds={selectedIds} onChange={setSelectedIds} />
+    </Modal>
   )
 }
 
@@ -257,24 +258,28 @@ function CreateModal({
 function DeleteConfirm({ role, onClose }: { role: RoleEntry; onClose: () => void }) {
   const del = useDeleteRole()
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
-      <div style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 384, width: '100%' }}>
-        <h3 style={{ fontSize: 16, fontWeight: 900, color: colors.text.ink, marginBottom: 8 }}>Delete role?</h3>
-        <p style={{ fontSize: 14, color: colors.text.muted, marginBottom: 4 }}>
-          This will permanently delete <span style={{ fontWeight: 600, color: colors.text.ink }}>"{role.name}"</span> and remove all its permission assignments.
-        </p>
-        <p style={{ fontSize: 12, color: '#D97706', background: '#FFFBEB', borderRadius: 10, padding: '8px 12px', marginBottom: 20 }}>
-          The role must have no assigned users before it can be deleted.
-        </p>
-        {del.isError && <p style={{ fontSize: 12, color: '#EF4444', marginBottom: 12 }}>{getApiError(del.error)}</p>}
+    <Modal
+      open
+      onClose={onClose}
+      title="Delete role?"
+      width={384}
+      footer={
         <div className="flex gap-3">
           <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
           <Button variant="danger" className="flex-1" loading={del.isPending} onClick={() => del.mutate(role.id, { onSuccess: onClose })}>
             Delete
           </Button>
         </div>
-      </div>
-    </div>
+      }
+    >
+      <p style={{ fontSize: 14, color: colors.text.muted, marginBottom: 4 }}>
+        This will permanently delete <span style={{ fontWeight: 600, color: colors.text.ink }}>"{role.name}"</span> and remove all its permission assignments.
+      </p>
+      <p style={{ fontSize: 12, color: '#D97706', background: '#FFFBEB', borderRadius: 10, padding: '8px 12px', marginTop: 12 }}>
+        The role must have no assigned users before it can be deleted.
+      </p>
+      {del.isError && <p style={{ fontSize: 12, color: '#EF4444', marginTop: 12 }}>{getApiError(del.error)}</p>}
+    </Modal>
   )
 }
 

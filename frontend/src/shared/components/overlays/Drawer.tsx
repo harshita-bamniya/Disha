@@ -6,12 +6,14 @@ interface DrawerProps {
   open: boolean
   onClose: () => void
   title?: string
+  /** Non-scrolling content rendered between the title row and the scroll container */
+  header?: ReactNode
   children: ReactNode
   width?: number | string
   side?: 'right' | 'left'
 }
 
-export default function Drawer({ open, onClose, title, children, width = 420, side = 'right' }: DrawerProps) {
+export default function Drawer({ open, onClose, title, header, children, width = 420, side = 'right' }: DrawerProps) {
   return (
     <>
       {/* Backdrop */}
@@ -58,6 +60,7 @@ export default function Drawer({ open, onClose, title, children, width = 420, si
             </button>
           </div>
         )}
+        {header && <div style={{ flexShrink: 0 }}>{header}</div>}
         <div style={{ flex: 1, overflowY: 'auto' }}>{children}</div>
       </div>
     </>
