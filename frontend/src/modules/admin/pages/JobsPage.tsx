@@ -1,9 +1,11 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Briefcase, Search, ToggleLeft, ToggleRight, Trash2, Filter, X } from 'lucide-react'
+import { Briefcase, CheckCircle2, Users, ToggleLeft, ToggleRight, Trash2 } from 'lucide-react'
 import { useAdminJobs, useToggleAdminJob, useDeleteAdminJob } from '../hooks/useAdmin'
-import { Empty, Badge, ExportButton, downloadCSV } from '../shared/adminUI'
+import { Empty, Badge, ExportButton, downloadCSV, StatCard } from '../shared/adminUI'
 import DataTable from '@/shared/components/data-display/DataTable'
+import FilterBar from '@/shared/components/data-display/FilterBar'
+import BulkActionBar from '@/shared/components/data-display/BulkActionBar'
 import NavPill from '@/shared/components/navigation/NavPill'
 import Modal from '@/shared/components/overlays/Modal'
 import type { TableColumn } from '@/shared/types'
@@ -215,45 +217,23 @@ export default function JobsPage() {
   return (
     <section className="flex flex-col gap-6">
       {/* ── Page header ── */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 style={{ fontSize: 20, fontWeight: 800, color: colors.text.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>
-          Jobs
-        </h1>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color: colors.text.muted }} />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search title, company, sector…"
-              className="pl-8 pr-3 h-9 text-xs outline-none w-60"
-              style={inputStyle}
-              onFocus={e => (e.currentTarget.style.border = `1px solid ${colors.brand.navy}`)}
-              onBlur={e => (e.currentTarget.style.border = '1px solid rgba(0,0,0,0.08)')}
-            />
-          </div>
-          <button
-            onClick={() => setShowFilters(f => !f)}
-            className="flex items-center gap-1.5 h-9 px-3 text-xs font-semibold transition-colors"
-            style={{
-              borderRadius: 10,
-              background: showFilters || hasActiveFilters ? colors.brand.navy : '#fff',
-              color: showFilters || hasActiveFilters ? '#fff' : colors.text.ink,
-              border: showFilters || hasActiveFilters ? 'none' : '1px solid rgba(0,0,0,0.08)',
-            }}
-          >
-            <Filter size={13} /> Filters
-            {hasActiveFilters && <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-white opacity-80" />}
-          </button>
-          {hasActiveFilters && (
-            <button
-              onClick={clearFilters}
-              className="flex items-center gap-1 h-9 px-3 text-xs font-semibold"
-              style={{ borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', background: '#fff', color: colors.text.muted }}
-            >
-              <X size={12} /> Clear
-            </button>
-          )}
+      <h1 style={{ fontSize: 20, fontWeight: 800, color: colors.text.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>
+        Jobs
+      </h1>
+
+      {/* ── Filter bar ── */}
+      <FilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search title, company, sector…"
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters(f => !f)}
+        hasActiveFilters={hasActiveFilters}
+        onClearFilters={clearFilters}
+        resultCount={filtered.length}
+        totalCount={jobs?.length ?? 0}
+        resultLabel="jobs"
+        actions={
           <ExportButton
             rows={filtered.map(j => ({
               title: j.title, company_name: j.company_name, sector: j.sector,
@@ -264,82 +244,57 @@ export default function JobsPage() {
             }))}
             filename="job_postings.csv"
           />
+        }
+      >
+        <div className="flex flex-col gap-1">
+          <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted }}>Employer</label>
+          <select value={filterCompany} onChange={e => setFilterCompany(e.target.value)}
+            className="h-8 text-xs px-2 outline-none min-w-[180px]" style={inputStyle}>
+            <option value="">All employers</option>
+            {companies.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
         </div>
-      </div>
-
-      {/* ── Filter panel ── */}
-      {showFilters && (
-        <div
-          style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '16px' }}
-          className="flex items-center gap-4 flex-wrap"
-        >
-          <div className="flex flex-col gap-1">
-            <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted }}>Employer</label>
-            <select value={filterCompany} onChange={e => setFilterCompany(e.target.value)}
-              className="h-8 text-xs px-2 outline-none min-w-[180px]" style={inputStyle}>
-              <option value="">All employers</option>
-              {companies.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted }}>Sector</label>
-            <select value={filterSector} onChange={e => setFilterSector(e.target.value)}
-              className="h-8 text-xs px-2 outline-none min-w-[160px]" style={inputStyle}>
-              <option value="">All sectors</option>
-              {sectors.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          <p className="text-xs mt-4 ml-auto" style={{ color: colors.text.muted }}>
-            Showing {filtered.length} of {jobs?.length ?? 0} jobs
-          </p>
+        <div className="flex flex-col gap-1">
+          <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted }}>Sector</label>
+          <select value={filterSector} onChange={e => setFilterSector(e.target.value)}
+            className="h-8 text-xs px-2 outline-none min-w-[160px]" style={inputStyle}>
+            <option value="">All sectors</option>
+            {sectors.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
         </div>
-      )}
+      </FilterBar>
 
       {/* ── KPI strip ── */}
       <div className="grid grid-cols-3 gap-4">
-        {[
-          { label: 'Total job postings', value: jobs?.length ?? '—' },
-          { label: 'Active postings',    value: activeCount },
-          { label: 'Total applications', value: totalApps },
-        ].map(({ label, value }) => (
-          <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '16px 20px' }}>
-            <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, marginBottom: 8 }}>{label}</p>
-            <p style={{ fontSize: 28, fontWeight: 800, color: colors.text.ink }}>{typeof value === 'number' ? value.toLocaleString() : value}</p>
-          </div>
-        ))}
+        <StatCard icon={Briefcase} label="Total job postings" value={jobs?.length ?? '—'} />
+        <StatCard icon={CheckCircle2} label="Active postings" value={activeCount} />
+        <StatCard icon={Users} label="Total applications" value={totalApps} />
       </div>
 
       {/* ── Bulk action bar ── */}
-      {selected.size > 0 && (
-        <div className="flex items-center gap-3 flex-wrap px-4 py-3"
-          style={{ background: colors.surface.bg, border: '1px solid rgba(0,0,0,0.08)', borderRadius: 16 }}>
-          <span className="text-sm font-semibold" style={{ color: colors.text.ink }}>{selected.size} selected</span>
-          <div className="flex gap-2 ml-auto flex-wrap">
-            <Button variant="outline" size="sm" onClick={handleBulkExport}>Export CSV</Button>
-            {inactiveSelected.length > 0 && (
-              <Button
-                size="sm"
-                loading={toggle.isPending}
-                onClick={() => Promise.all(inactiveSelected.map(j => toggle.mutateAsync(j.id))).then(() => setSelected(new Set()))}
-                style={{ background: '#22C55E' }}
-              >
-                Activate {inactiveSelected.length}
-              </Button>
-            )}
-            {activeSelected.length > 0 && (
-              <Button
-                size="sm"
-                loading={toggle.isPending}
-                onClick={() => Promise.all(activeSelected.map(j => toggle.mutateAsync(j.id))).then(() => setSelected(new Set()))}
-                style={{ background: '#F59E0B' }}
-              >
-                Deactivate {activeSelected.length}
-              </Button>
-            )}
-            <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>Clear</Button>
-          </div>
-        </div>
-      )}
+      <BulkActionBar count={selected.size} onClear={() => setSelected(new Set())}>
+        <Button variant="outline" size="sm" onClick={handleBulkExport}>Export CSV</Button>
+        {inactiveSelected.length > 0 && (
+          <Button
+            size="sm"
+            loading={toggle.isPending}
+            onClick={() => Promise.all(inactiveSelected.map(j => toggle.mutateAsync(j.id))).then(() => setSelected(new Set()))}
+            style={{ background: '#22C55E' }}
+          >
+            Activate {inactiveSelected.length}
+          </Button>
+        )}
+        {activeSelected.length > 0 && (
+          <Button
+            size="sm"
+            loading={toggle.isPending}
+            onClick={() => Promise.all(activeSelected.map(j => toggle.mutateAsync(j.id))).then(() => setSelected(new Set()))}
+            style={{ background: '#F59E0B' }}
+          >
+            Deactivate {activeSelected.length}
+          </Button>
+        )}
+      </BulkActionBar>
 
       {/* ── Status tabs + table ── */}
       <div>

@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Users, Search, CheckCircle2, Filter, X } from 'lucide-react'
+import { Users, CheckCircle2, UserPlus } from 'lucide-react'
 import { useAdminUsers, useAdminStats } from '../hooks/useAdmin'
-import { Empty, Badge, ExportButton } from '../shared/adminUI'
+import { Empty, Badge, ExportButton, StatCard } from '../shared/adminUI'
 import DataTable from '@/shared/components/data-display/DataTable'
+import FilterBar from '@/shared/components/data-display/FilterBar'
 import type { TableColumn } from '@/shared/types'
 import { useDebounce } from '@/shared/hooks/useDebounce'
 import { colors } from '@/design-system/tokens'
@@ -156,136 +157,94 @@ export default function CandidatesPage() {
   return (
     <section className="flex flex-col gap-6">
       {/* ── Page header ── */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 800, color: colors.text.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px', marginBottom: 4 }}>
-            Candidates
-          </h1>
-          <p className="text-sm" style={{ color: colors.text.muted }}>
-            Manage all aspirants registered on the platform.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color: colors.text.muted }} />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search by name, phone, or email…"
-              className="w-60 pl-8 pr-3 h-9 text-xs outline-none"
-              style={inputStyle}
-              onFocus={e => (e.currentTarget.style.border = `1px solid ${colors.brand.navy}`)}
-              onBlur={e => (e.currentTarget.style.border = '1px solid rgba(0,0,0,0.08)')}
-            />
-          </div>
-          <button
-            onClick={() => setShowFilters(f => !f)}
-            className="flex items-center gap-1.5 h-9 px-3 text-xs font-semibold transition-colors"
-            style={{
-              borderRadius: 10,
-              background: showFilters || hasActiveFilters ? colors.brand.navy : '#fff',
-              color: showFilters || hasActiveFilters ? '#fff' : colors.text.ink,
-              border: showFilters || hasActiveFilters ? 'none' : '1px solid rgba(0,0,0,0.08)',
-            }}
-          >
-            <Filter size={13} /> Filters
-            {hasActiveFilters && <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-white opacity-80" />}
-          </button>
-          {hasActiveFilters && (
-            <button
-              onClick={clearFilters}
-              className="flex items-center gap-1 h-9 px-3 text-xs font-semibold"
-              style={{ borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', background: '#fff', color: colors.text.muted }}
-            >
-              <X size={12} /> Clear
-            </button>
-          )}
-          <ExportButton rows={exportRows} filename="candidates.csv" />
-        </div>
+      <div>
+        <h1 style={{ fontSize: 20, fontWeight: 800, color: colors.text.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px', marginBottom: 4 }}>
+          Candidates
+        </h1>
+        <p className="text-sm" style={{ color: colors.text.muted }}>
+          Manage all aspirants registered on the platform.
+        </p>
       </div>
 
-      {/* ── Advanced filter panel ── */}
-      {showFilters && (
-        <div
-          style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '16px' }}
-          className="flex items-start gap-4 flex-wrap"
-        >
-          <div className="flex flex-col gap-1">
-            <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted }}>City</label>
-            <select
-              value={filterCity}
-              onChange={e => setFilterCity(e.target.value)}
-              className="h-8 text-xs px-2 outline-none min-w-[140px]"
-              style={inputStyle}
-            >
-              <option value="">All cities</option>
-              {cities.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted }}>Onboarding</label>
-            <select
-              value={filterOnboard}
-              onChange={e => setFilterOnboard(e.target.value as OnboardFilter)}
-              className="h-8 text-xs px-2 outline-none min-w-[140px]"
-              style={inputStyle}
-            >
-              <option value="all">All</option>
-              <option value="completed">Completed</option>
-              <option value="in_progress">In Progress</option>
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted }}>Account Status</label>
-            <select
-              value={filterStatus}
-              onChange={e => setFilterStatus(e.target.value as StatusFilter)}
-              className="h-8 text-xs px-2 outline-none min-w-[130px]"
-              style={inputStyle}
-            >
-              <option value="all">All</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive/Suspended</option>
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted }}>KRS Score Range</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="number" min={0} max={100} placeholder="Min"
-                value={filterScoreMin}
-                onChange={e => setFilterScoreMin(e.target.value)}
-                className="h-8 w-16 text-xs px-2 outline-none"
-                style={inputStyle}
-              />
-              <span className="text-xs" style={{ color: colors.text.muted }}>–</span>
-              <input
-                type="number" min={0} max={100} placeholder="Max"
-                value={filterScoreMax}
-                onChange={e => setFilterScoreMax(e.target.value)}
-                className="h-8 w-16 text-xs px-2 outline-none"
-                style={inputStyle}
-              />
-            </div>
-          </div>
-          <p className="text-xs self-end pb-1 ml-auto" style={{ color: colors.text.muted }}>
-            {filtered.length} of {users?.length ?? 0} candidates
-          </p>
+      {/* ── Filter bar ── */}
+      <FilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search by name, phone, or email…"
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters(f => !f)}
+        hasActiveFilters={!!hasActiveFilters}
+        onClearFilters={clearFilters}
+        resultCount={filtered.length}
+        totalCount={users?.length ?? 0}
+        resultLabel="candidates"
+        actions={<ExportButton rows={exportRows} filename="candidates.csv" />}
+      >
+        <div className="flex flex-col gap-1">
+          <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted }}>City</label>
+          <select
+            value={filterCity}
+            onChange={e => setFilterCity(e.target.value)}
+            className="h-8 text-xs px-2 outline-none min-w-[140px]"
+            style={inputStyle}
+          >
+            <option value="">All cities</option>
+            {cities.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
         </div>
-      )}
+        <div className="flex flex-col gap-1">
+          <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted }}>Onboarding</label>
+          <select
+            value={filterOnboard}
+            onChange={e => setFilterOnboard(e.target.value as OnboardFilter)}
+            className="h-8 text-xs px-2 outline-none min-w-[140px]"
+            style={inputStyle}
+          >
+            <option value="all">All</option>
+            <option value="completed">Completed</option>
+            <option value="in_progress">In Progress</option>
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted }}>Account Status</label>
+          <select
+            value={filterStatus}
+            onChange={e => setFilterStatus(e.target.value as StatusFilter)}
+            className="h-8 text-xs px-2 outline-none min-w-[130px]"
+            style={inputStyle}
+          >
+            <option value="all">All</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive/Suspended</option>
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted }}>KRS Score Range</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number" min={0} max={100} placeholder="Min"
+              value={filterScoreMin}
+              onChange={e => setFilterScoreMin(e.target.value)}
+              className="h-8 w-16 text-xs px-2 outline-none"
+              style={inputStyle}
+            />
+            <span className="text-xs" style={{ color: colors.text.muted }}>–</span>
+            <input
+              type="number" min={0} max={100} placeholder="Max"
+              value={filterScoreMax}
+              onChange={e => setFilterScoreMax(e.target.value)}
+              className="h-8 w-16 text-xs px-2 outline-none"
+              style={inputStyle}
+            />
+          </div>
+        </div>
+      </FilterBar>
 
       {/* ── Stat strip ── */}
       <div className="grid grid-cols-3 gap-4">
-        {[
-          { label: 'Total Candidates', value: stats?.total_aspirants ?? '—' },
-          { label: 'Onboarded',        value: stats?.completed_onboarding ?? '—' },
-          { label: 'New (7 days)',      value: stats?.new_users_last_7d ?? '—' },
-        ].map(({ label, value }) => (
-          <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '16px 20px' }}>
-            <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, marginBottom: 8 }}>{label}</p>
-            <p style={{ fontSize: 28, fontWeight: 800, color: colors.text.ink }}>{typeof value === 'number' ? value.toLocaleString() : value}</p>
-          </div>
-        ))}
+        <StatCard icon={Users} label="Total Candidates" value={stats?.total_aspirants ?? '—'} />
+        <StatCard icon={CheckCircle2} label="Onboarded" value={stats?.completed_onboarding ?? '—'} />
+        <StatCard icon={UserPlus} label="New (7 days)" value={stats?.new_users_last_7d ?? '—'} />
       </div>
 
       {/* ── Result meta ── */}

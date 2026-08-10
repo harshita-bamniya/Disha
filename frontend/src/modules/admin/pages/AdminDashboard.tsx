@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { analyticsApi } from '@/api/analytics'
 import { useAdminStats, useAdminActivity, useEmployerVerifications } from '../hooks/useAdmin'
-import { Spinner, Empty } from '../shared/adminUI'
+import { Spinner, Empty, StatCard } from '../shared/adminUI'
 import { useAuthStore } from '@/stores/authStore'
 import { cn } from '@/lib/utils'
 import type { TrendMetric } from '@/api/analytics'
@@ -79,35 +79,6 @@ function TrendChart({ metric, label }: { metric: TrendMetric; label: string }) {
       <p style={{ fontSize: 10, color: colors.text.muted, marginTop: 8 }}>
         {series.length > 0 ? `${series[0].date} → ${series[series.length - 1].date}` : 'last 30 days'}
       </p>
-    </div>
-  )
-}
-
-// ── Mini stat card (secondary row) ───────────────────────────────────────────
-function MiniStatCard({ icon: Icon, label, value, sub }: {
-  icon: React.ElementType; label: string; value: number | string; sub?: string
-}) {
-  return (
-    <div style={{
-      background: '#fff', borderRadius: 16,
-      border: '1px solid rgba(0,0,0,0.08)',
-      padding: '20px 22px',
-      transition: 'background 0.2s',
-    }}
-      onMouseOver={e => (e.currentTarget.style.background = '#EAECF0')}
-      onMouseOut={e => (e.currentTarget.style.background = '#fff')}
-    >
-      <div style={{
-        width: 40, height: 40, borderRadius: 12,
-        background: '#EAECF0',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        marginBottom: 16,
-      }}>
-        <Icon size={17} color={colors.text.ink} />
-      </div>
-      <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, marginBottom: 8 }}>{label}</p>
-      <p style={{ fontSize: 26, fontWeight: 800, color: colors.text.ink, lineHeight: 1 }}>{value}</p>
-      {sub && <p style={{ fontSize: 11, color: colors.text.muted, marginTop: 5 }}>{sub}</p>}
     </div>
   )
 }
@@ -202,9 +173,9 @@ function StatsRow({ stats, compact }: { stats: Record<string, number>; compact?:
   if (compact) {
     return (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-        <MiniStatCard icon={Users}     label="Total Aspirants" value={stats.total_aspirants}     sub={`+${stats.new_users_last_7d} this week`} />
-        <MiniStatCard icon={Briefcase} label="Active Jobs"     value={stats.active_job_postings} sub={`${stats.total_job_postings} total`} />
-        <MiniStatCard icon={FileText}  label="Applications"    value={stats.total_applications}  sub={`${stats.hired_count} hired`} />
+        <StatCard icon={Users}     label="Total Aspirants" value={stats.total_aspirants}     sub={`+${stats.new_users_last_7d} this week`} />
+        <StatCard icon={Briefcase} label="Active Jobs"     value={stats.active_job_postings} sub={`${stats.total_job_postings} total`} />
+        <StatCard icon={FileText}  label="Applications"    value={stats.total_applications}  sub={`${stats.hired_count} hired`} />
       </div>
     )
   }
@@ -212,10 +183,10 @@ function StatsRow({ stats, compact }: { stats: Record<string, number>; compact?:
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <KpiBanner stats={stats as unknown as Record<string, number | string>} />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
-        <MiniStatCard icon={CheckCircle2} label="Onboarding Done"    value={stats.completed_onboarding} sub={`${Math.round(stats.completed_onboarding / Math.max(stats.total_aspirants, 1) * 100)}% completion`} />
-        <MiniStatCard icon={FileText}     label="Applications"       value={stats.total_applications}   sub={`${stats.hired_count} hired`} />
-        <MiniStatCard icon={Award}        label="Hired"              value={stats.hired_count}          sub="Total placements" />
-        <MiniStatCard icon={Shield}       label="Approved Employers" value={stats.approved_employers}   sub={`${stats.total_employers - stats.approved_employers} not yet`} />
+        <StatCard icon={CheckCircle2} label="Onboarding Done"    value={stats.completed_onboarding} sub={`${Math.round(stats.completed_onboarding / Math.max(stats.total_aspirants, 1) * 100)}% completion`} />
+        <StatCard icon={FileText}     label="Applications"       value={stats.total_applications}   sub={`${stats.hired_count} hired`} />
+        <StatCard icon={Award}        label="Hired"              value={stats.hired_count}          sub="Total placements" />
+        <StatCard icon={Shield}       label="Approved Employers" value={stats.approved_employers}   sub={`${stats.total_employers - stats.approved_employers} not yet`} />
       </div>
     </div>
   )

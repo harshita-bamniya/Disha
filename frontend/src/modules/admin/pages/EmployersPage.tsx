@@ -1,9 +1,11 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Building2, Search, SlidersHorizontal, X } from 'lucide-react'
+import { Building2, Clock, ShieldCheck } from 'lucide-react'
 import { useAdminEmployers, useRevokeEmployer, useAdminStats } from '../hooks/useAdmin'
-import { Empty, Badge, ExportButton, downloadCSV } from '../shared/adminUI'
+import { Empty, Badge, ExportButton, downloadCSV, StatCard } from '../shared/adminUI'
 import DataTable from '@/shared/components/data-display/DataTable'
+import FilterBar from '@/shared/components/data-display/FilterBar'
+import BulkActionBar from '@/shared/components/data-display/BulkActionBar'
 import NavPill from '@/shared/components/navigation/NavPill'
 import Modal from '@/shared/components/overlays/Modal'
 import type { TableColumn } from '@/shared/types'
@@ -249,135 +251,65 @@ export default function EmployersPage() {
     <section style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
       {/* ── Page header ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-        <h1 style={{ fontSize: 20, fontWeight: 800, color: colors.text.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>
-          Employers
-        </h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ position: 'relative' }}>
-            <Search size={13} color={colors.text.muted} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Search name, contact, phone, city…"
-              style={{
-                ...inputStyle,
-                paddingLeft: 32, paddingRight: 12, height: 36, fontSize: 12, width: 240,
-                border: `0.5px solid ${search ? colors.brand.navy : '#E2E8F0'}`,
-                boxShadow: search ? `0 0 0 3px rgba(26,39,68,0.07)` : 'none',
-              }}
-            />
-          </div>
-          <button
-            onClick={() => setShowFilters(f => !f)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              height: 36, padding: '0 14px', borderRadius: 10, cursor: 'pointer',
-              border: `0.5px solid ${showFilters || hasActiveFilters ? colors.brand.navy : '#E2E8F0'}`,
-              background: showFilters || hasActiveFilters ? colors.brand.navy : '#fff',
-              color: showFilters || hasActiveFilters ? '#fff' : colors.text.ink,
-              fontSize: 12, fontWeight: 600, transition: 'all 0.15s',
-            }}
-          >
-            <SlidersHorizontal size={13} />
-            Filters
-            {hasActiveFilters && <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', display: 'inline-block' }} />}
-          </button>
-          {hasActiveFilters && (
-            <button
-              onClick={clearFilters}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 5,
-                height: 36, padding: '0 12px', borderRadius: 10, cursor: 'pointer',
-                border: '0.5px solid #E2E8F0', background: '#fff',
-                fontSize: 12, fontWeight: 600, color: colors.text.muted,
-              }}
-            >
-              <X size={11} /> Clear
-            </button>
-          )}
-        </div>
-      </div>
+      <h1 style={{ fontSize: 20, fontWeight: 800, color: colors.text.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>
+        Employers
+      </h1>
 
-      {/* ── Filter panel ── */}
-      {showFilters && (
-        <div style={{
-          background: '#fff', borderRadius: 16,
-          border: '1px solid rgba(0,0,0,0.08)',
-          padding: '16px 20px',
-          display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap',
-        }}>
-          {[
-            { label: 'Industry', value: filterIndustry, onChange: setFilterIndustry, options: industries, placeholder: 'All industries' },
-            { label: 'City',     value: filterCity,     onChange: setFilterCity,     options: cities,     placeholder: 'All cities' },
-          ].map(({ label, value, onChange, options, placeholder }) => (
-            <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <label style={{ fontSize: 10, fontWeight: 700, color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</label>
-              <select
-                value={value}
-                onChange={e => onChange(e.target.value)}
-                style={{ ...inputStyle, height: 34, fontSize: 12, padding: '0 10px', minWidth: 160 }}
-              >
-                <option value="">{placeholder}</option>
-                {options.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </div>
-          ))}
-          <p style={{ fontSize: 12, color: colors.text.muted, marginLeft: 'auto', alignSelf: 'center' }}>
-            {filtered.length} of {employers?.length ?? 0} employers
-          </p>
-        </div>
-      )}
+      {/* ── Filter bar ── */}
+      <FilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search name, contact, phone, city…"
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters(f => !f)}
+        hasActiveFilters={hasActiveFilters}
+        onClearFilters={clearFilters}
+        resultCount={filtered.length}
+        totalCount={employers?.length ?? 0}
+        resultLabel="employers"
+      >
+        {[
+          { label: 'Industry', value: filterIndustry, onChange: setFilterIndustry, options: industries, placeholder: 'All industries' },
+          { label: 'City',     value: filterCity,     onChange: setFilterCity,     options: cities,     placeholder: 'All cities' },
+        ].map(({ label, value, onChange, options, placeholder }) => (
+          <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            <label style={{ fontSize: 10, fontWeight: 700, color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</label>
+            <select
+              value={value}
+              onChange={e => onChange(e.target.value)}
+              style={{ ...inputStyle, height: 34, fontSize: 12, padding: '0 10px', minWidth: 160 }}
+            >
+              <option value="">{placeholder}</option>
+              {options.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
+        ))}
+      </FilterBar>
 
       {/* ── Stat cards ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
-        {[
-          { label: 'Awaiting KYC',       value: stats?.pending_employers  },
-          { label: 'Verified employers',  value: stats?.approved_employers },
-          { label: 'Total employers',     value: stats?.total_employers    },
-        ].map(({ label, value }) => (
-          <div key={label} style={{
-            background: '#fff', borderRadius: 16,
-            border: '1px solid rgba(0,0,0,0.08)',
-            padding: '20px 22px',
-            transition: 'background 0.2s',
-          }}
-            onMouseOver={e => (e.currentTarget.style.background = colors.surface.elevated)}
-            onMouseOut={e => (e.currentTarget.style.background = '#fff')}
-          >
-            <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, marginBottom: 8 }}>{label}</p>
-            <p style={{ fontSize: 30, fontWeight: 800, color: colors.text.ink, lineHeight: 1 }}>{value ?? '—'}</p>
-          </div>
-        ))}
+        <StatCard icon={Clock} label="Awaiting KYC" value={stats?.pending_employers ?? '—'} />
+        <StatCard icon={ShieldCheck} label="Verified employers" value={stats?.approved_employers ?? '—'} />
+        <StatCard icon={Building2} label="Total employers" value={stats?.total_employers ?? '—'} />
       </div>
 
       {/* ── Bulk action bar ── */}
-      {selected.size > 0 && (
-        <div style={{
-          background: colors.surface.bg, border: '1px solid rgba(0,0,0,0.08)',
-          borderRadius: 16, padding: '10px 16px',
-          display: 'flex', alignItems: 'center', gap: 10,
-        }}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: colors.brand.navy }}>{selected.size} selected</span>
-          <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-            <Button variant="outline" size="sm" onClick={handleBulkExport}>Export CSV</Button>
-            {approvedSelected.length > 0 && (
-              <Button
-                variant="danger"
-                size="sm"
-                loading={revoke.isPending}
-                onClick={() => {
-                  if (!window.confirm(`Revoke ${approvedSelected.length} approved employer(s)?`)) return
-                  Promise.all(approvedSelected.map(e => revoke.mutateAsync(e.id))).then(() => setSelected(new Set()))
-                }}
-              >
-                Revoke {approvedSelected.length} approved
-              </Button>
-            )}
-            <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>Clear</Button>
-          </div>
-        </div>
-      )}
+      <BulkActionBar count={selected.size} onClear={() => setSelected(new Set())}>
+        <Button variant="outline" size="sm" onClick={handleBulkExport}>Export CSV</Button>
+        {approvedSelected.length > 0 && (
+          <Button
+            variant="danger"
+            size="sm"
+            loading={revoke.isPending}
+            onClick={() => {
+              if (!window.confirm(`Revoke ${approvedSelected.length} approved employer(s)?`)) return
+              Promise.all(approvedSelected.map(e => revoke.mutateAsync(e.id))).then(() => setSelected(new Set()))
+            }}
+          >
+            Revoke {approvedSelected.length} approved
+          </Button>
+        )}
+      </BulkActionBar>
 
       {/* ── Table section ── */}
       <div>
