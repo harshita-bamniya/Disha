@@ -1,88 +1,14 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { useIsMobile } from '@/shared/hooks/useIsMobile'
-import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import {
-  LayoutDashboard, Users, Building2, Briefcase, FileText,
-  Compass, UserCog, KeyRound, Activity, IndianRupee, Award, Settings,
-  LogOut, PanelLeftClose, PanelLeftOpen, Clock, Search, Bot, BarChart2,
-  Plug, MonitorDot, Bell, HeadphonesIcon, ChevronDown, ChevronRight,
-  ShieldCheck, CreditCard, BarChart, Menu, X,
-} from 'lucide-react'
+import { Search, Clock } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
 import { useLogout } from '@/modules/auth/hooks/useAuth'
 import { adminApi } from '@/api/admin'
-import { cn } from '@/lib/utils'
 import { colors } from '@/design-system/tokens'
-
-// Sidebar-specific overlay tokens (white-on-dark values used only inside the navy sidebar)
-const SIDEBAR = {
-  hover:  colors.overlay.navy08,
-  active: colors.overlay.navy12,
-  muted:  'rgba(255,255,255,0.45)',
-  dim:    'rgba(255,255,255,0.25)',
-  border: colors.overlay.navy08,
-} as const
-
-type NavLeaf  = { label: string; path: string; icon: React.ElementType; roles?: string[] }
-type NavGroup = { groupLabel: string; icon: React.ElementType; basePath: string; children: NavLeaf[]; roles?: string[] }
-type NavItem  = NavLeaf | NavGroup
-const isGroup = (item: NavItem): item is NavGroup => 'children' in item
-
-const NAV: NavItem[] = [
-  { label: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
-  {
-    groupLabel: 'Employers', icon: Building2, basePath: '/admin/employers',
-    roles: ['admin', 'super_admin', 'verification_officer'],
-    children: [
-      { label: 'All Employers',      path: '/admin/employers',               icon: Building2 },
-      { label: 'KYC Queue',          path: '/admin/kyc',                     icon: FileText,    roles: ['admin', 'super_admin', 'verification_officer'] },
-      { label: 'Pending Approvals',  path: '/admin/employers?status=pending',icon: Clock,       roles: ['admin', 'super_admin', 'verification_officer'] },
-      { label: 'Verifications',      path: '/admin/employers?tab=documents', icon: ShieldCheck, roles: ['admin', 'super_admin', 'verification_officer'] },
-      { label: 'Employer Reports',   path: '/admin/reports/employers',       icon: BarChart,    roles: ['admin', 'super_admin', 'finance_manager'] },
-      { label: 'Subscriptions',      path: '/admin/subscriptions',           icon: CreditCard,  roles: ['admin', 'super_admin', 'finance_manager'] },
-    ],
-  },
-  {
-    groupLabel: 'Jobs', icon: Briefcase, basePath: '/admin/jobs',
-    roles: ['admin', 'super_admin', 'moderator'],
-    children: [{ label: 'All Jobs', path: '/admin/jobs', icon: Briefcase }],
-  },
-  {
-    groupLabel: 'Candidates', icon: Users, basePath: '/admin/candidates',
-    roles: ['admin', 'super_admin', 'moderator', 'support_executive'],
-    children: [{ label: 'All Candidates', path: '/admin/candidates', icon: Users }],
-  },
-  {
-    groupLabel: 'Support', icon: HeadphonesIcon, basePath: '/admin/support',
-    roles: ['admin', 'super_admin', 'support_executive'],
-    children: [{ label: 'Tickets', path: '/admin/support', icon: HeadphonesIcon }],
-  },
-  {
-    groupLabel: 'Reports', icon: BarChart2, basePath: '/admin/reports',
-    roles: ['admin', 'super_admin', 'finance_manager'],
-    children: [
-      { label: 'Overview',          path: '/admin/reports',              icon: BarChart2 },
-      { label: 'Employer Reports',  path: '/admin/reports/employers',    icon: Building2 },
-      { label: 'Job Reports',       path: '/admin/reports/jobs',         icon: Briefcase },
-      { label: 'Candidate Reports', path: '/admin/reports/candidates',   icon: Users },
-      { label: 'Financial',         path: '/admin/reports/financial',    icon: IndianRupee },
-    ],
-  },
-]
-
-const CONFIG_NAV: NavLeaf[] = [
-  { label: 'Career Tracks',  path: '/admin/career-tracks', icon: Compass },
-  { label: 'Notifications',  path: '/admin/notifications', icon: Bell,      roles: ['admin', 'super_admin'] },
-  { label: 'Sub-Admins',     path: '/admin/sub-admins',    icon: UserCog,   roles: ['super_admin'] },
-  { label: 'Roles',          path: '/admin/roles',         icon: KeyRound,  roles: ['super_admin'] },
-  { label: 'Audit Log',      path: '/admin/audit-log',     icon: Activity },
-  { label: 'Subscriptions',  path: '/admin/subscriptions', icon: Award },
-  { label: 'AI Config',      path: '/admin/ai-config',     icon: Bot,       roles: ['super_admin'] },
-  { label: 'Integrations',   path: '/admin/integrations',  icon: Plug,      roles: ['super_admin'] },
-  { label: 'System',         path: '/admin/system',        icon: MonitorDot,roles: ['super_admin'] },
-  { label: 'Settings',       path: '/admin/settings',      icon: Settings,  roles: ['super_admin'] },
-]
+import Sidebar from '@/shared/layouts/Sidebar'
+import { buildAdminNav } from '@/shared/config/navigation'
 
 // ── Global search ───────────────────────────────────────────────────────────────
 
@@ -148,107 +74,11 @@ function GlobalSearchBar() {
                 <p className="text-xs font-semibold text-gray-900 truncate">{r.title}</p>
                 {r.subtitle && <p className="text-[11px] text-gray-400 truncate">{r.subtitle}</p>}
               </div>
-              <span className="text-[10px] font-bold uppercase tracking-wide shrink-0" style={{ color: SIDEBAR.muted }}>
+              <span className="text-[10px] font-bold uppercase tracking-wide shrink-0" style={{ color: '#94A3B8' }}>
                 {TYPE_LABELS[r.type] ?? r.type}
               </span>
             </button>
           ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Nav leaf ────────────────────────────────────────────────────────────────────
-
-function NavLeafItem({ item, sidebarOpen }: { item: NavLeaf; sidebarOpen: boolean }) {
-  return (
-    <NavLink
-      to={item.path}
-      title={!sidebarOpen ? item.label : undefined}
-      end
-      className="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors"
-      style={({ isActive }) => isActive
-        ? { background: SIDEBAR.active, color: '#FFFFFF', fontWeight: 600 }
-        : { color: 'rgba(255,255,255,0.65)' }
-      }
-      onMouseOver={e => { const el = e.currentTarget; if (!el.style.background || el.style.background === '') el.style.background = SIDEBAR.hover }}
-      onMouseOut={e => { const el = e.currentTarget; if (el.style.background === SIDEBAR.hover) el.style.background = '' }}
-    >
-      <item.icon size={15} className="shrink-0" />
-      {sidebarOpen && <span className="flex-1 truncate">{item.label}</span>}
-    </NavLink>
-  )
-}
-
-// ── Nav group ───────────────────────────────────────────────────────────────────
-
-function NavGroupItem({ group, sidebarOpen, role }: { group: NavGroup; sidebarOpen: boolean; role: string }) {
-  const location  = useLocation()
-  const isActive  = location.pathname.startsWith(group.basePath)
-  const [expanded, setExpanded] = useState(isActive)
-
-  if (group.roles && !group.roles.includes(role)) return null
-  const visibleChildren = group.children.filter(c => !c.roles || c.roles.includes(role))
-  if (visibleChildren.length === 0) return null
-
-  if (!sidebarOpen) {
-    return (
-      <NavLink
-        to={group.basePath}
-        title={group.groupLabel}
-        className="flex items-center justify-center px-3 py-2.5 rounded-xl transition-colors"
-        style={isActive ? { background: SIDEBAR.active, color: '#FFFFFF' } : { color: 'rgba(255,255,255,0.65)' }}
-      >
-        <group.icon size={15} className="shrink-0" />
-      </NavLink>
-    )
-  }
-
-  return (
-    <div>
-      <button
-        onClick={() => setExpanded(o => !o)}
-        className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors"
-        style={isActive && !expanded
-          ? { background: SIDEBAR.active, color: '#FFFFFF', fontWeight: 600 }
-          : { color: 'rgba(255,255,255,0.65)' }
-        }
-        onMouseOver={e => { if (!(isActive && !expanded)) e.currentTarget.style.background = SIDEBAR.hover }}
-        onMouseOut={e => { if (!(isActive && !expanded)) e.currentTarget.style.background = '' }}
-      >
-        <group.icon size={15} className="shrink-0" />
-        <span className="flex-1 text-left truncate">{group.groupLabel}</span>
-        {expanded
-          ? <ChevronDown size={11} className="shrink-0" style={{ color: 'rgba(255,255,255,0.3)' }} />
-          : <ChevronRight size={11} className="shrink-0" style={{ color: 'rgba(255,255,255,0.3)' }} />
-        }
-      </button>
-      {expanded && (
-        <div className="ml-4 mt-0.5 flex flex-col gap-0.5 pl-3" style={{ borderLeft: `1px solid ${SIDEBAR.border}` }}>
-          {visibleChildren.map(child => {
-            const [childPath, childSearch] = child.path.split('?')
-            const isChildActive = childSearch
-              ? location.pathname === childPath && location.search === `?${childSearch}`
-              : location.pathname === childPath && !location.search
-            return (
-              <NavLink
-                key={child.path}
-                to={child.path}
-                end
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                style={isChildActive
-                  ? { background: SIDEBAR.active, color: '#FFFFFF', fontWeight: 600 }
-                  : { color: 'rgba(255,255,255,0.55)' }
-                }
-                onMouseOver={e => { if (!isChildActive) e.currentTarget.style.color = 'rgba(255,255,255,0.9)' }}
-                onMouseOut={e => { if (!isChildActive) e.currentTarget.style.color = 'rgba(255,255,255,0.55)' }}
-              >
-                <child.icon size={12} className="shrink-0" />
-                <span className="truncate">{child.label}</span>
-              </NavLink>
-            )
-          })}
         </div>
       )}
     </div>
@@ -261,145 +91,28 @@ export default function AdminLayout() {
   const user        = useAuthStore(s => s.user)
   const logout      = useLogout()
   const isMobile    = useIsMobile()
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [mobileOpen,  setMobileOpen]  = useState(false)
+  const navigate    = useNavigate()
+  const { pathname, search } = useLocation()
+  const [collapsed, setCollapsed] = useState(false)
   const role         = user?.role ?? ''
   const isSuperAdmin = role === 'super_admin'
-  const visibleConfig = CONFIG_NAV.filter(item => !item.roles || item.roles.includes(role))
 
   return (
     <div className="min-h-screen flex" style={{ background: colors.surface.bg }}>
 
-      {/* Mobile hamburger */}
-      {isMobile && (
-        <>
-          <button
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open menu"
-            style={{
-              position: 'fixed', top: 14, left: 14, zIndex: 1100,
-              width: 40, height: 40, borderRadius: 10,
-              background: colors.brand.navy, border: 'none', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 16px rgba(26,39,68,0.30)',
-              opacity: mobileOpen ? 0 : 1, pointerEvents: mobileOpen ? 'none' : 'auto',
-              transition: 'opacity 0.2s',
-            }}
-          >
-            <Menu size={17} color="white" />
-          </button>
-          {mobileOpen && (
-            <div
-              onClick={() => setMobileOpen(false)}
-              style={{ position: 'fixed', inset: 0, zIndex: 1099, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(2px)' }}
-            />
-          )}
-        </>
-      )}
-
-      {/* Sidebar */}
-      <aside
-        className={cn(
-          'flex flex-col z-40 transition-all duration-200 shrink-0',
-          isMobile ? 'fixed top-0 left-0 h-full w-56' : (sidebarOpen ? 'fixed top-0 left-0 h-full w-56' : 'fixed top-0 left-0 h-full w-16'),
-        )}
-        style={{
-          background: colors.brand.navy,
-          boxShadow: '4px 0 24px rgba(26,39,68,0.18)',
-          transform: isMobile ? (mobileOpen ? 'translateX(0)' : 'translateX(-100%)') : 'none',
-          transition: isMobile ? 'transform 0.28s cubic-bezier(0.4,0,0.2,1)' : 'width 0.2s',
-        }}
-      >
-        {/* Logo */}
-        <div
-          className="flex items-center gap-3 px-4 py-4 shrink-0"
-          style={{ borderBottom: `1px solid ${SIDEBAR.border}` }}
-        >
-          {sidebarOpen || isMobile ? (
-            <>
-              <span style={{ fontSize: 16, fontWeight: 800, color: '#fff', letterSpacing: '-0.3px' }}>BeginableAI</span>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.35)' }}>
-                  {isSuperAdmin ? 'Super Admin' : 'Admin'}
-                </span>
-              </div>
-              {isMobile && (
-                <button
-                  onClick={() => setMobileOpen(false)}
-                  style={{ width: 26, height: 26, borderRadius: 7, background: 'rgba(255,255,255,0.08)', border: `1px solid ${SIDEBAR.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
-                >
-                  <X size={13} color="rgba(255,255,255,0.6)" />
-                </button>
-              )}
-            </>
-          ) : (
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${SIDEBAR.border}` }}>
-              <span style={{ color: '#fff', fontWeight: 800, fontSize: 14 }}>B</span>
-            </div>
-          )}
-        </div>
-
-        {/* Nav */}
-        <nav className="flex-1 px-2 py-3 flex flex-col gap-0.5 overflow-y-auto">
-          {sidebarOpen && (
-            <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', padding: '4px 12px 6px' }}>
-              Operations
-            </p>
-          )}
-          {NAV.map((item, i) => {
-            if (isGroup(item)) return <NavGroupItem key={i} group={item} sidebarOpen={sidebarOpen || isMobile} role={role} />
-            const leaf = item as NavLeaf
-            if (leaf.roles && !leaf.roles.includes(role)) return null
-            return <NavLeafItem key={leaf.path} item={leaf} sidebarOpen={sidebarOpen || isMobile} />
-          })}
-
-          {visibleConfig.length > 0 && (
-            <>
-              {sidebarOpen || isMobile
-                ? <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.3)', padding: '16px 12px 6px' }}>
-                    Configuration
-                  </p>
-                : <div style={{ margin: '8px 12px', borderTop: `1px solid ${SIDEBAR.border}` }} />
-              }
-              {visibleConfig.map(item => (
-                <NavLeafItem key={item.path} item={item} sidebarOpen={sidebarOpen || isMobile} />
-              ))}
-            </>
-          )}
-        </nav>
-
-        {/* Footer */}
-        <div className="px-2 py-3 flex flex-col gap-1 shrink-0" style={{ borderTop: `1px solid ${SIDEBAR.border}` }}>
-          {!isMobile && (
-            <button
-              onClick={() => setSidebarOpen(o => !o)}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs transition-colors w-full"
-              style={{ color: 'rgba(255,255,255,0.4)' }}
-              onMouseOver={e => { e.currentTarget.style.background = SIDEBAR.hover; e.currentTarget.style.color = '#fff' }}
-              onMouseOut={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'rgba(255,255,255,0.4)' }}
-            >
-              {sidebarOpen ? <PanelLeftClose size={14} /> : <PanelLeftOpen size={14} />}
-              {sidebarOpen && <span>Collapse</span>}
-            </button>
-          )}
-          <button
-            onClick={() => logout.mutate()}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs transition-colors w-full font-semibold"
-            style={{ color: '#FCA5A5', background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.18)' }}
-            onMouseOver={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.18)' }}
-            onMouseOut={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.10)' }}
-          >
-            <LogOut size={14} />
-            {(sidebarOpen || isMobile) && <span>Log out</span>}
-          </button>
-        </div>
-      </aside>
+      <Sidebar
+        sections={buildAdminNav(role)}
+        pathname={pathname}
+        search={search}
+        brandBadge={isSuperAdmin ? 'Super Admin' : 'Admin'}
+        onNavigate={navigate}
+        onLogout={() => logout.mutate()}
+        collapsed={collapsed}
+        onToggleCollapse={() => setCollapsed(c => !c)}
+      />
 
       {/* Main content */}
-      <div
-        className={cn('flex-1 flex flex-col min-h-screen transition-all duration-200', isMobile ? 'ml-0' : (sidebarOpen ? 'ml-56' : 'ml-16'))}
-        style={isMobile ? { paddingTop: 68 } : {}}
-      >
+      <div className="flex-1 flex flex-col min-h-screen min-w-0">
         {/* Top bar */}
         <header
           className="sticky top-0 z-30 flex items-center justify-between gap-4 px-6 py-3"
@@ -408,6 +121,7 @@ export default function AdminLayout() {
             backdropFilter: 'blur(12px)',
             borderBottom: '0.5px solid rgba(0,0,0,0.07)',
             boxShadow: '0 1px 12px rgba(26,39,68,0.05)',
+            paddingLeft: isMobile ? 68 : 24,
           }}
         >
           <p style={{ fontSize: 12, color: '#94A3B8' }}>BeginablAI — platform administration</p>

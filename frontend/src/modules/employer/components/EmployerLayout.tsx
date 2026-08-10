@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Outlet, useNavigate } from 'react-router-dom'
 import EmployerSidebar from './EmployerSidebar'
 import { CommandBar } from './CommandBar'
-import { Menu, ShieldCheck, AlertCircle } from 'lucide-react'
+import { ShieldCheck, AlertCircle } from 'lucide-react'
 import { useIsMobile } from '@/shared/hooks/useIsMobile'
 import { colors, spacing, shadows } from '@/design-system/tokens'
 import NotificationBell from '@/components/NotificationBell'
@@ -19,7 +19,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function EmployerLayout() {
   const isMobile = useIsMobile()
-  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
   const navigate = useNavigate()
   const { data: dashboard } = useEmployerDashboard()
   const { data: perms }     = useEmployerPermissions()
@@ -32,45 +32,7 @@ export default function EmployerLayout() {
   return (
     <div style={{ minHeight: '100vh', background: colors.surface.bg, display: 'flex' }}>
 
-      {/* Desktop sidebar */}
-      {!isMobile && <EmployerSidebar />}
-
-      {/* Mobile: hamburger + drawer */}
-      {isMobile && (
-        <>
-          <button
-            onClick={() => setDrawerOpen(true)}
-            aria-label="Open menu"
-            style={{
-              position: 'fixed', top: 14, left: 14, zIndex: 1100,
-              width: 42, height: 42, borderRadius: 12,
-              background: colors.brand.navy, border: 'none', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 16px rgba(15,30,60,0.30)',
-              opacity: drawerOpen ? 0 : 1,
-              pointerEvents: drawerOpen ? 'none' : 'auto',
-              transition: 'opacity 0.2s',
-            }}
-          >
-            <Menu size={18} color="white" />
-          </button>
-
-          {drawerOpen && (
-            <div
-              onClick={() => setDrawerOpen(false)}
-              style={{ position: 'fixed', inset: 0, zIndex: 1099, background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(2px)' }}
-            />
-          )}
-
-          <div style={{
-            position: 'fixed', top: 0, left: 0, zIndex: 1100, height: '100vh',
-            transform: drawerOpen ? 'translateX(0)' : 'translateX(-100%)',
-            transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1)',
-          }}>
-            <EmployerSidebar onClose={() => setDrawerOpen(false)} />
-          </div>
-        </>
-      )}
+      <EmployerSidebar collapsed={collapsed} onToggleCollapse={() => setCollapsed(c => !c)} />
 
       {/* Main content column */}
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
