@@ -117,6 +117,7 @@ import { useOnboardingStatus } from '@/modules/onboarding/hooks/useOnboarding'
 import DashboardPage from '@/modules/dashboard/pages/DashboardPage'
 import DishaLanding from '@/pages/DishaLanding'
 import ProfilePage from '@/modules/profile/pages/ProfilePage'
+import AspLayout from '@/shared/layouts/AspLayout'
 import EmployerDashboardPage from '@/modules/employer/pages/EmployerDashboardPage'
 import EmployerLayout from '@/modules/employer/components/EmployerLayout'
 const EmployerJobsPage = lazy(() => import('@/modules/employer/pages/EmployerJobsPage'))
@@ -318,37 +319,7 @@ function App() {
           {/* Employer setup wizard — standalone, no sidebar */}
           <Route path="/app/employer/setup" element={<ProtectedRoute><Suspense fallback={<PageLoader />}><EmployerSetupWizardPage /></Suspense></ProtectedRoute>} />
 
-          {/* Protected dashboard — gated behind onboarding completion */}
-          <Route
-            path="/app/dashboard"
-            element={
-              <OnboardingGate>
-                <DashboardPage />
-              </OnboardingGate>
-            }
-          />
-
-          {/* Profile edit page */}
-          <Route
-            path="/app/profile"
-            element={
-              <OnboardingGate>
-                <ProfilePage />
-              </OnboardingGate>
-            }
-          />
-
-          {/* Security settings (2FA) — any authenticated role, no onboarding gate */}
-          <Route path="/app/security" element={<ProtectedRoute><SecuritySettingsPage /></ProtectedRoute>} />
-
           <Route path="/app/skills/report" element={<Navigate to="/app/profile" replace />} />
-
-          {/* MVP2: Resume Builder */}
-          <Route path="/app/resume" element={<OnboardingGate><Suspense fallback={<PageLoader />}><ResumeListPage /></Suspense></OnboardingGate>} />
-          <Route path="/app/resume/:resumeId" element={<OnboardingGate><Suspense fallback={<PageLoader />}><ResumeEditorPage /></Suspense></OnboardingGate>} />
-
-          {/* Phase 6: Resume Library (uploaded PDF/DOCX files for job applications) */}
-          <Route path="/app/resume-library" element={<OnboardingGate><Suspense fallback={<PageLoader />}><ResumeLibraryPage /></Suspense></OnboardingGate>} />
 
           {/* Old interview routes — redirect directly to setup (single hop) */}
           <Route path="/app/interview" element={<Navigate to="/app/interview/setup" replace />} />
@@ -357,36 +328,50 @@ function App() {
           <Route path="/app/mock-interview" element={<Navigate to="/app/interview/setup" replace />} />
           <Route path="/app/mock-interview/:jobId" element={<Navigate to="/app/interview/setup" replace />} />
 
-          {/* ── Production AI Interview Platform ── */}
+          {/* Full-screen AI interview flow — intentionally has no sidebar chrome */}
           <Route path="/app/interview/setup" element={<OnboardingGate><Suspense fallback={<PageLoader />}><InterviewSetupPage /></Suspense></OnboardingGate>} />
           <Route path="/app/interview/lobby/:sessionId" element={<OnboardingGate><Suspense fallback={<PageLoader />}><InterviewLobbyPage /></Suspense></OnboardingGate>} />
           <Route path="/app/interview/room/:sessionId" element={<OnboardingGate><Suspense fallback={<PageLoader />}><InterviewRoomPage /></Suspense></OnboardingGate>} />
-          <Route path="/app/interview/report/:sessionId" element={<OnboardingGate><Suspense fallback={<PageLoader />}><InterviewReportPage /></Suspense></OnboardingGate>} />
-          {/* Structured Interview with AI-adaptive questioning */}
-          <Route path="/app/interview/structured" element={<OnboardingGate><Suspense fallback={<PageLoader />}><StructuredInterviewPage /></Suspense></OnboardingGate>} />
 
-          {/* Phase 3: Job marketplace (aspirant) */}
-          <Route path="/app/jobs" element={<OnboardingGate><Suspense fallback={<PageLoader />}><JobsPage /></Suspense></OnboardingGate>} />
-          <Route path="/app/jobs/applications" element={<OnboardingGate><Suspense fallback={<PageLoader />}><MyApplicationsPage /></Suspense></OnboardingGate>} />
-          <Route path="/app/jobs/:jobId" element={<OnboardingGate><Suspense fallback={<PageLoader />}><JobDetailPage /></Suspense></OnboardingGate>} />
-          {/* Phase 7: ATS multi-step application wizard */}
-          <Route path="/app/jobs/:jobId/apply" element={<OnboardingGate><Suspense fallback={<PageLoader />}><ApplyPage /></Suspense></OnboardingGate>} />
+          {/* Aspirant portal — all pages share the sidebar via AspLayout */}
+          <Route element={<ProtectedRoute><AspLayout /></ProtectedRoute>}>
+            <Route path="/app/dashboard" element={<OnboardingGate><DashboardPage /></OnboardingGate>} />
+            <Route path="/app/profile" element={<OnboardingGate><ProfilePage /></OnboardingGate>} />
+            <Route path="/app/security" element={<SecuritySettingsPage />} />
 
+            {/* MVP2: Resume Builder */}
+            <Route path="/app/resume" element={<OnboardingGate><ResumeListPage /></OnboardingGate>} />
+            <Route path="/app/resume/:resumeId" element={<OnboardingGate><ResumeEditorPage /></OnboardingGate>} />
 
-          {/* Roadmap — 6-stage job-readiness system */}
-          <Route path="/app/roadmap" element={<OnboardingGate><Suspense fallback={<PageLoader />}><RoadmapPage /></Suspense></OnboardingGate>} />
-          <Route path="/app/roadmap/history" element={<OnboardingGate><Suspense fallback={<PageLoader />}><RoadmapHistoryPage /></Suspense></OnboardingGate>} />
-          <Route path="/app/quiz/:jobId/:moduleId" element={<OnboardingGate><Suspense fallback={<PageLoader />}><QuizPage /></Suspense></OnboardingGate>} />
+            {/* Phase 6: Resume Library (uploaded PDF/DOCX files for job applications) */}
+            <Route path="/app/resume-library" element={<OnboardingGate><ResumeLibraryPage /></OnboardingGate>} />
 
-          {/* Candidate support */}
-          <Route path="/app/support" element={<OnboardingGate><Suspense fallback={<PageLoader />}><CandidateSupportPage /></Suspense></OnboardingGate>} />
+            <Route path="/app/interview/report/:sessionId" element={<OnboardingGate><InterviewReportPage /></OnboardingGate>} />
+            {/* Structured Interview with AI-adaptive questioning */}
+            <Route path="/app/interview/structured" element={<OnboardingGate><StructuredInterviewPage /></OnboardingGate>} />
 
-          {/* MVP2: AI Counsellor */}
-          <Route path="/app/counsellor" element={<OnboardingGate><Suspense fallback={<PageLoader />}><CounsellorPage /></Suspense></OnboardingGate>} />
-          <Route path="/app/counsellor/:convId" element={<OnboardingGate><Suspense fallback={<PageLoader />}><CounsellorPage /></Suspense></OnboardingGate>} />
+            {/* Phase 3: Job marketplace (aspirant) */}
+            <Route path="/app/jobs" element={<OnboardingGate><JobsPage /></OnboardingGate>} />
+            <Route path="/app/jobs/applications" element={<OnboardingGate><MyApplicationsPage /></OnboardingGate>} />
+            <Route path="/app/jobs/:jobId" element={<OnboardingGate><JobDetailPage /></OnboardingGate>} />
+            {/* Phase 7: ATS multi-step application wizard */}
+            <Route path="/app/jobs/:jobId/apply" element={<OnboardingGate><ApplyPage /></OnboardingGate>} />
 
-          {/* Your Companion — emotional support companion */}
-          <Route path="/app/companion" element={<OnboardingGate><Suspense fallback={<PageLoader />}><CompanionPage /></Suspense></OnboardingGate>} />
+            {/* Roadmap — 6-stage job-readiness system */}
+            <Route path="/app/roadmap" element={<OnboardingGate><RoadmapPage /></OnboardingGate>} />
+            <Route path="/app/roadmap/history" element={<OnboardingGate><RoadmapHistoryPage /></OnboardingGate>} />
+            <Route path="/app/quiz/:jobId/:moduleId" element={<OnboardingGate><QuizPage /></OnboardingGate>} />
+
+            {/* Candidate support */}
+            <Route path="/app/support" element={<OnboardingGate><CandidateSupportPage /></OnboardingGate>} />
+
+            {/* MVP2: AI Counsellor */}
+            <Route path="/app/counsellor" element={<OnboardingGate><CounsellorPage /></OnboardingGate>} />
+            <Route path="/app/counsellor/:convId" element={<OnboardingGate><CounsellorPage /></OnboardingGate>} />
+
+            {/* Your Companion — emotional support companion */}
+            <Route path="/app/companion" element={<OnboardingGate><CompanionPage /></OnboardingGate>} />
+          </Route>
 
           {/* Admin portal — route-based, role-aware sidebar */}
           <Route

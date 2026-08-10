@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { jobPlanApi } from '@/api/jobPlan'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
-import AspLayout from '@/shared/layouts/AspLayout'
 import PageHeader from '@/shared/layouts/PageHeader'
 import { Map, ChevronRight, TrendingUp, Loader2, ArrowRight, Briefcase, Trash2 } from 'lucide-react'
 
@@ -43,7 +42,7 @@ export default function RoadmapHistoryPage() {
   const isEmpty = !isLoadingAny && jobPlans.length === 0
 
   return (
-    <AspLayout activePath="/app/roadmap/history">
+    <>
       <PageHeader
         title="My Roadmaps"
         icon={<Map size={14} color="#6366F1" />}
@@ -157,6 +156,6 @@ export default function RoadmapHistoryPage() {
           )}
         </main>
 
-    </AspLayout>
+    </>
   )
 }

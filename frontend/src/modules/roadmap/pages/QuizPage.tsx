@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { jobPlanApi, type QuizSubmitResponse } from '@/api/jobPlan'
-import AspLayout from '@/shared/layouts/AspLayout'
 import PageHeader from '@/shared/layouts/PageHeader'
 import { ArrowLeft, BookOpen, CheckCircle2, ExternalLink, Loader2, RotateCcw, Zap } from 'lucide-react'
 
@@ -48,7 +47,7 @@ export default function QuizPage() {
   const allAnswered = !!quiz && quiz.questions.every(q => !!answers[q.id])
 
   return (
-    <AspLayout activePath="/app/roadmap">
+    <>
       <PageHeader
         title={module ? `Quiz · ${module.skill}` : 'Quiz'}
         icon={<BookOpen size={14} color="#6366F1" />}
@@ -276,6 +275,6 @@ export default function QuizPage() {
           )}
         </main>
 
-    </AspLayout>
+    </>
   )
 }

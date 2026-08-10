@@ -4,7 +4,6 @@ import { useKrsDashboard, useLiveJobs, usePrepareJob, useUnprepareJob } from '..
 import { X, Zap, ArrowUpRight, Sparkles, ChevronRight, ClipboardList, Mail } from 'lucide-react'
 import { useOnboardingStatus } from '@/modules/onboarding/hooks/useOnboarding'
 import type { LiveJob } from '@/api/krs'
-import AspLayout from '@/shared/layouts/AspLayout'
 import PageHeader from '@/shared/layouts/PageHeader'
 import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors } from '@/design-system/tokens'
 import JobAnalysisDrawer from '@/components/JobAnalysisDrawer'
@@ -103,7 +102,7 @@ export default function DashboardPage() {
   const skillPct         = currentViewedJob?.skill_overlap ?? 0
 
   return (
-    <AspLayout activePath="/app/dashboard">
+    <>
       <PageHeader
         title="Dashboard"
         icon={<Sparkles size={15} color={NAVY} />}
@@ -328,6 +327,6 @@ export default function DashboardPage() {
         <ApplyModal jobId={applyJob.id} jobTitle={`${applyJob.title} · ${applyJob.company_name}`} onClose={() => setApplyJob(null)} />
       )}
 
-    </AspLayout>
+    </>
   )
 }

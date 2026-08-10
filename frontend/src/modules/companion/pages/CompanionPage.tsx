@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   companionApi, type MessageOut, type Mood, type TimelineEntry,
 } from '@/api/companion'
-import AspLayout from '@/shared/layouts/AspLayout'
 import PageHeader from '@/shared/layouts/PageHeader'
 import ChatBubble, { type ChatBubbleTheme } from '@/shared/components/ai/ChatBubble'
 import TypingIndicator from '@/shared/components/ai/TypingIndicator'
@@ -314,7 +313,7 @@ export default function CompanionPage() {
   }
 
   return (
-    <AspLayout activePath="/app/companion">
+    <>
       <PageHeader
         title="Your Companion"
         subtitle="Here to listen, remember, and walk with you"
@@ -455,6 +454,6 @@ export default function CompanionPage() {
           </div>
         </div>
 
-    </AspLayout>
+    </>
   )
 }

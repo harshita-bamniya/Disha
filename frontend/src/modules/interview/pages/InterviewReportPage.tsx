@@ -7,7 +7,6 @@ import {
   Target, Star, BookOpen, Calendar, ChevronDown, ChevronUp,
   Award, Briefcase, User, BarChart2, MapPin
 } from 'lucide-react'
-import AspLayout from '@/shared/layouts/AspLayout'
 import PageHeader from '@/shared/layouts/PageHeader'
 import Breadcrumb from '@/shared/components/navigation/Breadcrumb'
 import Tabs from '@/shared/components/navigation/Tabs'
@@ -260,9 +259,7 @@ export default function InterviewReportPage() {
   })
 
   if (isLoading) return (
-    <AspLayout activePath="/app/interview">
       <Spinner centered />
-    </AspLayout>
   )
 
   if (!feedback) return null
@@ -279,7 +276,7 @@ export default function InterviewReportPage() {
   ]
 
   return (
-    <AspLayout activePath="/app/interview">
+    <>
       <PageHeader
         title={report?.job_role ? `Interview Report — ${report.job_role}` : 'Interview Report'}
         back={
@@ -505,6 +502,6 @@ export default function InterviewReportPage() {
         )}
       </div>
 
-    </AspLayout>
+    </>
   )
 }

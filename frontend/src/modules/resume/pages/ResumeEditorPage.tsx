@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { resumeApi, type ResumeSection, type ResumeDetail } from '@/api/resume'
-import AspLayout from '@/shared/layouts/AspLayout'
 import PageHeader from '@/shared/layouts/PageHeader'
 import { ActivePrepBanner } from '@/components/ActivePrepBanner'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
@@ -723,11 +722,9 @@ export default function ResumeEditorPage() {
   }, [sections, resumeId, qc])
 
   if (isLoading) return (
-    <AspLayout activePath="/app/resume">
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: 28, height: 28, border: '3px solid #1A2744', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       </div>
-    </AspLayout>
   )
   if (!resume) return null
 
@@ -735,7 +732,7 @@ export default function ResumeEditorPage() {
   const availableTypes = ALL_SECTION_TYPES.filter(t => !existingTypes.has(t))
 
   return (
-    <AspLayout activePath="/app/resume">
+    <>
       <PageHeader
         title={resume.title}
         back={
@@ -940,7 +937,7 @@ export default function ResumeEditorPage() {
           }}
         />
       )}
-    </AspLayout>
+    </>
   )
 }
 

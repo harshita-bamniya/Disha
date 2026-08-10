@@ -4,7 +4,6 @@ import {
   Upload, FileText, Trash2, Download, Eye, Pencil, Check, X,
   AlertCircle, Loader2, FolderOpen, Sparkles,
 } from 'lucide-react'
-import AspLayout from '@/shared/layouts/AspLayout'
 import PageHeader from '@/shared/layouts/PageHeader'
 import { NAVY, INK, INK_SFT as INK_S, MUTED, CREAM, BORDER, colors } from '@/design-system/tokens'
 import { resumeLibraryApi, type ResumeFile } from '@/api/resumeLibrary'
@@ -283,7 +282,7 @@ export default function ResumeLibraryPage() {
   const items = data?.resumes ?? []
 
   return (
-    <AspLayout activePath="/app/resume-library">
+    <>
       <PageHeader
         title="Resume Library"
         subtitle="Upload and manage the resume files you attach to job applications."
@@ -397,6 +396,6 @@ export default function ResumeLibraryPage() {
         )}
       </main>
 
-    </AspLayout>
+    </>
   )
 }

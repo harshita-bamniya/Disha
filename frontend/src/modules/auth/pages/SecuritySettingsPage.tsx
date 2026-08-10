@@ -3,7 +3,6 @@ import TwoFactorSettings from '../components/TwoFactorSettings'
 import ChangePasswordCard from '../components/ChangePasswordCard'
 import { useAuthStore } from '@/stores/authStore'
 import { EMPLOYER_ROLES } from '@/types'
-import AspLayout from '@/shared/layouts/AspLayout'
 import PageHeader from '@/shared/layouts/PageHeader'
 import { colors } from '@/design-system/tokens'
 
@@ -38,9 +37,5 @@ export default function SecuritySettingsPage() {
     )
   }
 
-  return (
-    <AspLayout activePath="/app/security">
-      {pageContent}
-    </AspLayout>
-  )
+  return pageContent
 }

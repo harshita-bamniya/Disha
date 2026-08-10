@@ -10,7 +10,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { interviewApi, type SessionDetail, type SessionFeedback, type NextQuestionResult } from '@/api/interview'
-import AspLayout from '@/shared/layouts/AspLayout'
 import PageHeader from '@/shared/layouts/PageHeader'
 import {
   Brain, ChevronRight, CheckCircle2, Loader2, Send, RotateCcw,
@@ -176,7 +175,6 @@ export default function StructuredInterviewPage() {
   // ── SETUP ─────────────────────────────────────────────────────────────────────
   if (phase === 'setup') {
     return (
-      <AspLayout activePath="/app/interview/setup">
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 40 }}>
           <div style={{ width: '100%', maxWidth: 520 }}>
             <button onClick={() => navigate(-1)} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', fontSize: 13, marginBottom: 24 }}>
@@ -258,7 +256,6 @@ export default function StructuredInterviewPage() {
             </button>
           </div>
         </div>
-      </AspLayout>
     )
   }
 
@@ -270,7 +267,7 @@ export default function StructuredInterviewPage() {
       : null
 
     return (
-      <AspLayout activePath="/app/interview/setup">
+      <>
         <PageHeader
           title="AI-Adaptive Interview"
           icon={<Brain size={16} color="#3B82F6" />}
@@ -486,13 +483,13 @@ export default function StructuredInterviewPage() {
               </div>
             </div>
           </div>
-      </AspLayout>
+      </>
     )
   }
 
   // ── FEEDBACK ──────────────────────────────────────────────────────────────────
   return (
-    <AspLayout activePath="/app/interview/setup">
+    <>
       <PageHeader
         title="Interview Complete — AI Feedback"
         icon={<CheckCircle2 size={16} color="#22C55E" />}
@@ -647,6 +644,6 @@ export default function StructuredInterviewPage() {
             </div>
           ))}
         </main>
-    </AspLayout>
+    </>
   )
 }

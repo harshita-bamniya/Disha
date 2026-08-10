@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { counsellorApi, type ConversationSummary, type MessageOut, type CounsellorMemory } from '@/api/counsellor'
-import AspLayout from '@/shared/layouts/AspLayout'
 import PageHeader from '@/shared/layouts/PageHeader'
 import ChatBubble, { type ChatBubbleTheme } from '@/shared/components/ai/ChatBubble'
 import TypingIndicator from '@/shared/components/ai/TypingIndicator'
@@ -314,7 +313,7 @@ export default function CounsellorPage() {
   }
 
   return (
-    <AspLayout activePath="/app/counsellor">
+    <>
       <PageHeader
         title="BeginablAI Counsellor"
         subtitle="Your career guide — here whenever you need to talk"
@@ -638,6 +637,6 @@ export default function CounsellorPage() {
           </div>
         </div>
 
-    </AspLayout>
+    </>
   )
 }

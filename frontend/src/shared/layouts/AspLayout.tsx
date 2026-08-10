@@ -1,35 +1,19 @@
-import type { ReactNode } from 'react'
+import { Suspense } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
 import AppSidebar from '@/components/layout/AppSidebar'
 import { colors } from '@/design-system/tokens'
+import Spinner from '@/shared/components/feedback/Spinner'
 
-type NavPath =
-  | '/app/dashboard'
-  | '/app/profile'
-  | '/app/resume'
-  | '/app/resume-library'
-  | '/app/interview'
-  | '/app/mock-interview'
-  | '/app/interview/setup'
-  | '/app/counsellor'
-  | '/app/jobs'
-  | '/app/jobs/applications'
-  | '/app/roadmap'
-  | '/app/roadmap/history'
-  | '/app/companion'
-  | '/app/security'
-  | '/app/support'
+export default function AspLayout() {
+  const { pathname } = useLocation()
 
-interface AspLayoutProps {
-  activePath?: NavPath
-  children: ReactNode
-}
-
-export default function AspLayout({ activePath, children }: AspLayoutProps) {
   return (
     <div style={{ minHeight: '100vh', background: colors.surface.bg, display: 'flex' }}>
-      <AppSidebar activePath={activePath} />
+      <AppSidebar activePath={pathname} />
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        {children}
+        <Suspense fallback={<Spinner size="lg" />}>
+          <Outlet />
+        </Suspense>
       </div>
     </div>
   )

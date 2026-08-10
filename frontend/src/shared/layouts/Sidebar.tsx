@@ -12,11 +12,16 @@ const N12 = colors.border.medium
 const N40 = 'rgba(26,39,68,0.40)'
 const N60 = 'rgba(26,39,68,0.60)'
 
+/** Segment-boundary-aware prefix match — avoids "/app/resume" matching "/app/resume-library". */
+function isUnderPath(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`)
+}
+
 function isLeafActive(item: NavLeaf, pathname: string, search: string): boolean {
   const [p, q] = item.path.split('?')
   if (q) return pathname === p && search === `?${q}`
-  if (item.matchPrefix) return pathname.startsWith(item.matchPrefix)
-  if (item.exact === false) return pathname.startsWith(p)
+  if (item.matchPrefix) return isUnderPath(pathname, item.matchPrefix)
+  if (item.exact === false) return isUnderPath(pathname, p)
   return pathname === p
 }
 
@@ -61,7 +66,7 @@ function NavGroupRow({ group, pathname, search, collapsed, onNavigate }: {
   group: { label: string; icon: NavLeaf['icon']; basePath: string; children: NavLeaf[] }
   pathname: string; search: string; collapsed: boolean; onNavigate: (path: string) => void
 }) {
-  const isActive = pathname.startsWith(group.basePath)
+  const isActive = isUnderPath(pathname, group.basePath)
   const [expanded, setExpanded] = useState(isActive)
   const Icon = group.icon
 

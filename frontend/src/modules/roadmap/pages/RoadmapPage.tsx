@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import AspLayout from '@/shared/layouts/AspLayout'
 import PageHeader from '@/shared/layouts/PageHeader'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 import JobLearningPlanPanel from '../components/JobLearningPlanPanel'
@@ -41,7 +40,7 @@ export default function RoadmapPage() {
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null)
 
   return (
-    <AspLayout activePath="/app/roadmap">
+    <>
       <PageHeader
         title="My Roadmap"
         subtitle={activePrep ? 'Your AI job assistant' : undefined}
@@ -99,6 +98,6 @@ export default function RoadmapPage() {
           )}
         </div>
 
-    </AspLayout>
+    </>
   )
 }

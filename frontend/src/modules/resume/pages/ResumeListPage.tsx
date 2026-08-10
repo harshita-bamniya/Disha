@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { resumeApi } from '@/api/resume'
-import AspLayout from '@/shared/layouts/AspLayout'
 import PageHeader from '@/shared/layouts/PageHeader'
 import ResumeUploadModal from '@/modules/resume/components/ResumeUploadModal'
 import ScoreBreakdownCard from '@/modules/resume/components/ScoreBreakdownCard'
@@ -65,7 +64,7 @@ export default function ResumeListPage() {
   }
 
   return (
-    <AspLayout activePath="/app/resume">
+    <>
       <PageHeader
         title="Resume Builder"
         icon={<FileText size={14} color="#1A2744" />}
@@ -260,6 +259,6 @@ export default function ResumeListPage() {
       {showUpload && <ResumeUploadModal onClose={() => setShowUpload(false)} />}
 
       <style>{`.resume-card:hover { box-shadow: 0 16px 36px rgba(26,39,68,0.12); transform: translateY(-3px); }`}</style>
-    </AspLayout>
+    </>
   )
 }

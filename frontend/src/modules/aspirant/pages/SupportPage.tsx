@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, MessageSquare, X, Send, Clock, CheckCircle2, AlertCircle } from 'lucide-react'
 import { candidateSupportApi, type CreateTicketPayload, type TicketDetail } from '@/api/support'
 import { getApiError } from '@/api/client'
-import AspLayout from '@/shared/layouts/AspLayout'
 import PageHeader from '@/shared/layouts/PageHeader'
 import Button from '@/shared/components/primitives/Button'
 
@@ -211,7 +210,7 @@ export default function CandidateSupportPage() {
   const tickets = data?.items ?? []
 
   return (
-    <AspLayout activePath="/app/support">
+    <>
       <PageHeader
         title="Support"
         subtitle="Get help from the Disha team"
@@ -273,6 +272,6 @@ export default function CandidateSupportPage() {
         </div>
       )}
         </main>
-    </AspLayout>
+    </>
   )
 }

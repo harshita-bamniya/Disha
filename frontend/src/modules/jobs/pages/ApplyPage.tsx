@@ -13,7 +13,6 @@ import {
   AlertCircle, ArrowLeft, ArrowRight, Check,
   CheckCircle2, FileText, Loader2, Send, Upload, X,
 } from 'lucide-react'
-import AspLayout from '@/shared/layouts/AspLayout'
 import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors } from '@/design-system/tokens'
 import { applicationsApi, type AnswerIn, type FormSectionOut, type QuestionOut } from '@/api/applications'
 import { resumeLibraryApi, type ResumeFile } from '@/api/resumeLibrary'
@@ -787,8 +786,7 @@ export default function ApplyPage() {
   const isLoading = eligLoading || (!!elig?.eligible && formLoading)
 
   return (
-    <AspLayout activePath="/app/jobs">
-      <main style={{ flex: 1, padding: '32px 24px', maxWidth: 680, margin: '0 auto', width: '100%' }}>
+    <main style={{ flex: 1, padding: '32px 24px', maxWidth: 680, margin: '0 auto', width: '100%' }}>
 
         {/* loading */}
         {isLoading && (
@@ -958,7 +956,5 @@ export default function ApplyPage() {
           </div>
         )}
       </main>
-
-    </AspLayout>
   )
 }

@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { User } from 'lucide-react'
 import { onboardingApi } from '@/api/onboarding'
-import AspLayout from '@/shared/layouts/AspLayout'
 import PageHeader from '@/shared/layouts/PageHeader'
 import { PROFILE_KEY } from '../components/profileConstants'
 import { KrsPanel } from '../components/KrsPanel'
@@ -28,7 +27,7 @@ export default function ProfilePage() {
     setOpenSection(prev => (prev === section ? null : section))
 
   return (
-    <AspLayout activePath="/app/profile">
+    <>
       <PageHeader
         title="My Profile"
         subtitle="Every update improves your KRS score & job matches"
@@ -105,6 +104,6 @@ export default function ProfilePage() {
         )}
       </main>
       <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }`}</style>
-    </AspLayout>
+    </>
   )
 }

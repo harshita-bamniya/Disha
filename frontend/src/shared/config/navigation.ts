@@ -44,7 +44,7 @@ export function buildAspirantNav(): NavSection[] {
       label: 'Navigation',
       items: [
         { label: 'Dashboard', path: '/app/dashboard', icon: LayoutDashboard },
-        { label: 'Jobs', path: '/app/jobs', icon: Briefcase },
+        { label: 'Jobs', path: '/app/jobs', icon: Briefcase, matchPrefix: '/app/jobs' },
         { label: 'My Roadmap', path: '/app/roadmap/history', icon: Map, matchPrefix: '/app/roadmap' },
         { label: 'My Applications', path: '/app/jobs/applications', icon: FileText },
         { label: 'Your Companion', path: '/app/companion', icon: Heart },
@@ -53,10 +53,10 @@ export function buildAspirantNav(): NavSection[] {
     {
       label: 'Tools',
       items: [
-        { label: 'Resume Builder', path: '/app/resume', icon: FileText },
+        { label: 'Resume Builder', path: '/app/resume', icon: FileText, matchPrefix: '/app/resume' },
         { label: 'Resume Library', path: '/app/resume-library', icon: FolderOpen },
-        { label: 'AI Interview', path: '/app/interview/setup', icon: MessageSquare },
-        { label: 'AI Counsellor', path: '/app/counsellor', icon: Brain },
+        { label: 'AI Interview', path: '/app/interview/setup', icon: MessageSquare, matchPrefix: '/app/interview' },
+        { label: 'AI Counsellor', path: '/app/counsellor', icon: Brain, matchPrefix: '/app/counsellor' },
       ],
     },
     {

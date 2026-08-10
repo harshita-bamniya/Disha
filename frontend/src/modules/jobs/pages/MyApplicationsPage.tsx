@@ -5,7 +5,6 @@ import {
   ArrowUpRight, Clock, AlertTriangle, FileText, ChevronDown, ChevronUp,
   ListChecks, Hourglass, Star, TrendingUp, Download, Gift, PenLine, Mic,
 } from 'lucide-react'
-import AspLayout from '@/shared/layouts/AspLayout'
 import PageHeader from '@/shared/layouts/PageHeader'
 import Button from '@/shared/components/primitives/Button'
 import EmptyState from '@/shared/components/feedback/EmptyState'
@@ -561,7 +560,7 @@ export default function MyApplicationsPage() {
   ]
 
   return (
-    <AspLayout activePath="/app/jobs/applications">
+    <>
       <PageHeader
         title="Application Pipeline"
         subtitle="Track every application from submission to offer"
@@ -663,6 +662,6 @@ export default function MyApplicationsPage() {
           </div>
         </div>
 
-    </AspLayout>
+    </>
   )
 }

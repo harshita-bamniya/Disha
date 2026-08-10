@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { MapPin, Wifi, Briefcase, Target, Sparkles, Mic, Check, IndianRupee, ArrowUpRight } from 'lucide-react'
-import AspLayout from '@/shared/layouts/AspLayout'
 import PageHeader from '@/shared/layouts/PageHeader'
 import Breadcrumb from '@/shared/components/navigation/Breadcrumb'
 import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors } from '@/design-system/tokens'
@@ -69,21 +68,17 @@ export default function JobDetailPage() {
 
   if (isLoading) {
     return (
-      <AspLayout activePath="/app/jobs">
         <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ width: 28, height: 28, border: `2px solid ${NAVY}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
         </main>
-      </AspLayout>
     )
   }
 
   if (isError || !job) {
     return (
-      <AspLayout activePath="/app/jobs">
         <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#DC2626', fontSize: 14 }}>
           Job not found or no longer active.
         </main>
-      </AspLayout>
     )
   }
 
@@ -91,7 +86,7 @@ export default function JobDetailPage() {
   const overlap = job.skill_overlap_pct ?? 0
 
   return (
-    <AspLayout activePath="/app/jobs">
+    <>
       <PageHeader
         title={job.title}
         icon={<Briefcase size={13} color={NAVY} />}
@@ -227,7 +222,7 @@ export default function JobDetailPage() {
             {/* ══ CONTENT CARD ══ */}
             <div style={{
               background: '#fff',
-              borderRadius: (showApplyForm && !applied) ? '0 0 18px 18px' : '0 0 18px 18px',
+              borderRadius: '0 0 18px 18px',
               border: `1px solid ${BORDER}`, borderTop: 'none',
               overflow: 'hidden',
             }}>
@@ -381,6 +376,6 @@ export default function JobDetailPage() {
           </div>
         </div>
 
-    </AspLayout>
+    </>
   )
 }

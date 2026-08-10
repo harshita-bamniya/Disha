@@ -6,7 +6,6 @@ import {
   IndianRupee, X, ArrowUpRight,
 } from 'lucide-react'
 import Pagination from '@/shared/components/navigation/Pagination'
-import AspLayout from '@/shared/layouts/AspLayout'
 import PageHeader from '@/shared/layouts/PageHeader'
 import Button from '@/shared/components/primitives/Button'
 import Breadcrumb from '@/shared/components/navigation/Breadcrumb'
@@ -288,7 +287,7 @@ export default function JobsPage() {
   }
 
   return (
-    <AspLayout activePath="/app/jobs">
+    <>
       <PageHeader
         title="Job Opportunities"
         subtitle="Ranked by your BeginAI profile match score"
@@ -431,6 +430,6 @@ export default function JobsPage() {
             )}
           </main>
         </div>
-    </AspLayout>
+    </>
   )
 }
