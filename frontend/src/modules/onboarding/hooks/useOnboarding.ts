@@ -4,6 +4,7 @@ import { onboardingApi } from '@/api/onboarding'
 
 export const ONBOARDING_STATUS_KEY = ['onboarding', 'status']
 export const ONBOARDING_OPTIONS_KEY = ['onboarding', 'options']
+export const ONBOARDING_PROFILE_KEY = ['onboarding', 'profile']
 
 export function useOnboardingOptions() {
   return useQuery({
@@ -19,6 +20,13 @@ export function useOnboardingStatus() {
     queryKey: ONBOARDING_STATUS_KEY,
     queryFn: onboardingApi.getStatus,
     staleTime: 0,
+  })
+}
+
+export function useOnboardingProfile() {
+  return useQuery({
+    queryKey: ONBOARDING_PROFILE_KEY,
+    queryFn: onboardingApi.getProfile,
   })
 }
 
@@ -42,7 +50,7 @@ function useStepMutation(
       // ProfileCompletionCard reads — without this, completing e.g. Skills
       // still shows "Add skills" unchecked until a hard page reload, because
       // that query was never told the underlying data changed.
-      queryClient.invalidateQueries({ queryKey: ['onboarding', 'profile'] })
+      queryClient.invalidateQueries({ queryKey: ONBOARDING_PROFILE_KEY })
       queryClient.invalidateQueries({ queryKey: ['krs', 'dashboard'] })
       // For 'done' steps the component handles its own navigation
       // (e.g. Step7 shows the InsightCard first), so we skip here.

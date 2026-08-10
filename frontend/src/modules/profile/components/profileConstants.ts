@@ -1,6 +1,7 @@
 import { User, GraduationCap, ClipboardList, Briefcase, Zap, Target, Brain, FileText, type LucideIcon } from 'lucide-react'
+import { ONBOARDING_PROFILE_KEY } from '@/modules/onboarding/hooks/useOnboarding'
 
-export const PROFILE_KEY = ['onboarding', 'profile'] as const
+export const PROFILE_KEY = ONBOARDING_PROFILE_KEY
 
 export const SALARY_OPTIONS = [
   { label: 'Up to ₹5 LPA', min: 0,  max: 5   },

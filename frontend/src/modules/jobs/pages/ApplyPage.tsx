@@ -8,7 +8,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   AlertCircle, ArrowLeft, ArrowRight, Check,
   CheckCircle2, FileText, Loader2, Send, Upload, X,
@@ -17,7 +17,8 @@ import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors } from '@/design-syste
 import { applicationsApi, type AnswerIn, type FormSectionOut, type QuestionOut } from '@/api/applications'
 import { resumeLibraryApi, type ResumeFile } from '@/api/resumeLibrary'
 import { useAuthStore } from '@/stores/authStore'
-import { apiClient } from '@/api/client'
+import { useOnboardingProfile } from '@/modules/onboarding/hooks/useOnboarding'
+import { useJobEligibility, useApplyFormConfig, useResumeLibrary } from '../hooks/useApplyFlow'
 
 const INK_S    = INK_SFT
 const CREAM_DK = colors.surface.elevated
@@ -616,45 +617,24 @@ export default function ApplyPage() {
   const draftId = useRef<string | null>(null)
 
   // pre-fill contact info from auth store + profile
+  const { data: onboardingProfile } = useOnboardingProfile()
   useEffect(() => {
-    apiClient.get('/onboarding/profile').then(r => {
-      const p = r.data
-      setContactInfo({
-        full_name: p.full_name ?? '',
-        email: user?.email ?? '',
-        phone: user?.phone ?? '',
-        city: p.city ?? '',
-      })
-    }).catch(() => {
-      setContactInfo({
-        full_name: '',
-        email: user?.email ?? '',
-        phone: user?.phone ?? '',
-        city: '',
-      })
+    setContactInfo({
+      full_name: onboardingProfile?.full_name ?? '',
+      email: user?.email ?? '',
+      phone: user?.phone ?? '',
+      city: onboardingProfile?.city ?? '',
     })
-  }, [user])
+  }, [onboardingProfile, user])
 
   // eligibility check
-  const { data: elig, isLoading: eligLoading } = useQuery({
-    queryKey: ['eligibility', jobId],
-    queryFn: () => applicationsApi.checkEligibility(jobId!),
-    enabled: !!jobId,
-  })
+  const { data: elig, isLoading: eligLoading } = useJobEligibility(jobId)
 
   // published form for this job
-  const { data: form, isLoading: formLoading } = useQuery({
-    queryKey: ['apply-form', jobId],
-    queryFn: () => applicationsApi.getForm(jobId!).catch(() => null),
-    enabled: !!jobId && !!elig?.eligible,
-  })
+  const { data: form, isLoading: formLoading } = useApplyFormConfig(jobId, !!elig?.eligible)
 
   // resume library
-  const { data: libraryData, isLoading: libraryLoading } = useQuery({
-    queryKey: ['resume-library'],
-    queryFn: resumeLibraryApi.list,
-    enabled: !!elig?.eligible,
-  })
+  const { data: libraryData, isLoading: libraryLoading } = useResumeLibrary(!!elig?.eligible)
 
   // sync library into local state (so we can append after inline upload)
   useEffect(() => {

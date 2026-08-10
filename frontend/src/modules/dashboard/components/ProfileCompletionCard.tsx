@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
 import { CheckCircle2, Circle, ChevronRight, Sparkles } from 'lucide-react'
 import { onboardingApi } from '@/api/onboarding'
+import { useOnboardingProfile } from '@/modules/onboarding/hooks/useOnboarding'
 
 interface RecommendedStep {
   label: string
@@ -26,7 +26,7 @@ function computeSteps(profile: Awaited<ReturnType<typeof onboardingApi.getProfil
  * the KRS score and tailored job matches is what nudges completion, not a gate. */
 export default function ProfileCompletionCard() {
   const navigate = useNavigate()
-  const { data: profile } = useQuery({ queryKey: ['onboarding', 'profile'], queryFn: onboardingApi.getProfile })
+  const { data: profile } = useOnboardingProfile()
   const steps = computeSteps(profile)
 
   if (steps.length === 0) return null

@@ -1,9 +1,7 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
 import { User } from 'lucide-react'
-import { onboardingApi } from '@/api/onboarding'
+import { useOnboardingProfile } from '@/modules/onboarding/hooks/useOnboarding'
 import PageHeader from '@/shared/layouts/PageHeader'
-import { PROFILE_KEY } from '../components/profileConstants'
 import { KrsPanel } from '../components/KrsPanel'
 import { PersonalSection } from '../components/PersonalSection'
 import { EducationSection } from '../components/EducationSection'
@@ -18,10 +16,7 @@ type SectionKey = 'personal' | 'education' | 'upsc' | 'work' | 'skills' | 'prefe
 export default function ProfilePage() {
   const [openSection, setOpenSection] = useState<SectionKey | null>(null)
 
-  const { data: profile, isLoading, error } = useQuery({
-    queryKey: [...PROFILE_KEY],
-    queryFn: onboardingApi.getProfile,
-  })
+  const { data: profile, isLoading, error } = useOnboardingProfile()
 
   const toggle = (section: SectionKey) =>
     setOpenSection(prev => (prev === section ? null : section))

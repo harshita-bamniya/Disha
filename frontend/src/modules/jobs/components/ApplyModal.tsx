@@ -5,7 +5,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   AlertCircle, ArrowLeft, ArrowRight, Check,
   CheckCircle2, FileText, Loader2, Send, Upload, X,
@@ -13,7 +13,8 @@ import {
 import { applicationsApi, type AnswerIn, type FormSectionOut, type QuestionOut } from '@/api/applications'
 import { resumeLibraryApi, type ResumeFile } from '@/api/resumeLibrary'
 import { useAuthStore } from '@/stores/authStore'
-import { apiClient } from '@/api/client'
+import { useOnboardingProfile } from '@/modules/onboarding/hooks/useOnboarding'
+import { useJobEligibility, useApplyFormConfig, useResumeLibrary } from '../hooks/useApplyFlow'
 
 import { NAVY, INK, INK_SFT as INK_S, MUTED, BORDER, colors } from '@/design-system/tokens'
 const CREAM_DK = colors.surface.elevated
@@ -581,34 +582,24 @@ export default function ApplyModal({ jobId, jobTitle, onClose }: ApplyModalProps
   }, [onClose])
 
   // pre-fill contact info
+  const { data: onboardingProfile } = useOnboardingProfile()
   useEffect(() => {
-    apiClient.get('/onboarding/profile').then(r => {
-      const p = r.data
-      setContactInfo({ full_name: p.full_name ?? '', email: user?.email ?? '', phone: user?.phone ?? '', city: p.city ?? '' })
-    }).catch(() => {
-      setContactInfo({ full_name: '', email: user?.email ?? '', phone: user?.phone ?? '', city: '' })
+    setContactInfo({
+      full_name: onboardingProfile?.full_name ?? '',
+      email: user?.email ?? '',
+      phone: user?.phone ?? '',
+      city: onboardingProfile?.city ?? '',
     })
-  }, [user])
+  }, [onboardingProfile, user])
 
   // eligibility
-  const { data: elig, isLoading: eligLoading } = useQuery({
-    queryKey: ['eligibility', jobId],
-    queryFn: () => applicationsApi.checkEligibility(jobId),
-  })
+  const { data: elig, isLoading: eligLoading } = useJobEligibility(jobId)
 
   // form
-  const { data: form, isLoading: formLoading } = useQuery({
-    queryKey: ['apply-form', jobId],
-    queryFn: () => applicationsApi.getForm(jobId).catch(() => null),
-    enabled: !!elig?.eligible,
-  })
+  const { data: form, isLoading: formLoading } = useApplyFormConfig(jobId, !!elig?.eligible)
 
   // resume library
-  const { data: libraryData, isLoading: libraryLoading } = useQuery({
-    queryKey: ['resume-library'],
-    queryFn: resumeLibraryApi.list,
-    enabled: !!elig?.eligible,
-  })
+  const { data: libraryData, isLoading: libraryLoading } = useResumeLibrary(!!elig?.eligible)
 
   useEffect(() => {
     if (libraryData?.resumes) setResumeFiles(libraryData.resumes)
