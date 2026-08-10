@@ -333,11 +333,15 @@ function App() {
           <Route path="/app/interview/lobby/:sessionId" element={<OnboardingGate><Suspense fallback={<PageLoader />}><InterviewLobbyPage /></Suspense></OnboardingGate>} />
           <Route path="/app/interview/room/:sessionId" element={<OnboardingGate><Suspense fallback={<PageLoader />}><InterviewRoomPage /></Suspense></OnboardingGate>} />
 
+          {/* Security settings — reachable by both aspirant and employer roles;
+              builds its own sidebar shell per role, so it stays outside both
+              AspLayout's and EmployerLayout's route trees. */}
+          <Route path="/app/security" element={<ProtectedRoute><SecuritySettingsPage /></ProtectedRoute>} />
+
           {/* Aspirant portal — all pages share the sidebar via AspLayout */}
           <Route element={<ProtectedRoute><AspLayout /></ProtectedRoute>}>
             <Route path="/app/dashboard" element={<OnboardingGate><DashboardPage /></OnboardingGate>} />
             <Route path="/app/profile" element={<OnboardingGate><ProfilePage /></OnboardingGate>} />
-            <Route path="/app/security" element={<SecuritySettingsPage />} />
 
             {/* MVP2: Resume Builder */}
             <Route path="/app/resume" element={<OnboardingGate><ResumeListPage /></OnboardingGate>} />
