@@ -1,6 +1,7 @@
 ﻿import { IndianRupee, Award, TrendingUp, AlertCircle } from 'lucide-react'
 import { useBillingOverview, useSubscriptionPlansAdmin } from '../hooks/useAdmin'
-import { Spinner, Empty, Breadcrumb, formatPaise } from '../shared/adminUI'
+import { Spinner, Empty, Breadcrumb } from '../shared/adminUI'
+import { formatPaise } from '@/shared/utils/format'
 import { cn } from '@/lib/utils'
 import { colors } from '@/design-system/tokens'
 

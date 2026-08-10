@@ -10,6 +10,7 @@ import PageHeader from '@/shared/layouts/PageHeader'
 import Button from '@/shared/components/primitives/Button'
 import Breadcrumb from '@/shared/components/navigation/Breadcrumb'
 import { SkeletonCard } from '@/shared/components/feedback/Skeleton'
+import SharedEmptyState from '@/shared/components/feedback/EmptyState'
 import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors } from '@/design-system/tokens'
 import { getJobs, type JobListItem } from '@/api/matching'
 import { jobPlanApi } from '@/api/jobPlan'
@@ -221,37 +222,29 @@ function FilterRow({ label, active, onClick }: { label: string; active: boolean;
 // ── EmptyState ─────────────────────────────────────────────────────────────────
 function EmptyState({ hasFilters }: { hasFilters: boolean }) {
   return (
-    <div style={{
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', padding: '60px 24px', textAlign: 'center',
-      background: '#fff', borderRadius: 14, border: `1px solid ${BORDER}`,
-    }}>
-      <div style={{
-        width: 52, height: 52, borderRadius: 14, background: CREAM_DK,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14,
-      }}>
-        <Briefcase size={22} color={NAVY} />
-      </div>
-      <h3 style={{ fontSize: 15, fontWeight: 700, color: INK, margin: '0 0 6px' }}>
-        {hasFilters ? 'No jobs match these filters' : 'No jobs available yet'}
-      </h3>
-      {!hasFilters && (
-        <div style={{
-          display: 'flex', alignItems: 'flex-start', gap: 10,
-          background: CREAM, border: `1px solid ${BORDER}`, borderRadius: 10,
-          padding: '12px 16px', marginTop: 10, maxWidth: 400, textAlign: 'left',
-        }}>
-          <AlertCircle size={15} color={NAVY} style={{ marginTop: 1, flexShrink: 0 }} />
-          <p style={{ fontSize: 12.5, color: INK_S, margin: 0, lineHeight: 1.55 }}>
-            Jobs are only shown after an employer account is approved by an admin.
-          </p>
-        </div>
-      )}
-      {hasFilters && (
-        <p style={{ fontSize: 13, color: MUTED, margin: '4px 0 0' }}>
-          Try clearing your filters to see all available positions.
-        </p>
-      )}
+    <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${BORDER}` }}>
+      <SharedEmptyState
+        icon={<Briefcase size={22} color={NAVY} />}
+        title={hasFilters ? 'No jobs match these filters' : 'No jobs available yet'}
+        action={
+          hasFilters ? (
+            <p style={{ fontSize: 13, color: MUTED, margin: 0 }}>
+              Try clearing your filters to see all available positions.
+            </p>
+          ) : (
+            <div style={{
+              display: 'flex', alignItems: 'flex-start', gap: 10,
+              background: CREAM, border: `1px solid ${BORDER}`, borderRadius: 10,
+              padding: '12px 16px', maxWidth: 400, textAlign: 'left',
+            }}>
+              <AlertCircle size={15} color={NAVY} style={{ marginTop: 1, flexShrink: 0 }} />
+              <p style={{ fontSize: 12.5, color: INK_S, margin: 0, lineHeight: 1.55 }}>
+                Jobs are only shown after an employer account is approved by an admin.
+              </p>
+            </div>
+          )
+        }
+      />
     </div>
   )
 }

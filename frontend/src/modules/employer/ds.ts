@@ -111,12 +111,6 @@ export function statusDot(key: string) {
   return { color: s.color, label: s.label }
 }
 
-/** Format date as "12 Jul 2026" */
-export function fmtDate(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
 /** Format date as "12 Jul" (short) */
 export function fmtDateShort(iso: string | null | undefined): string {
   if (!iso) return '—'
@@ -136,8 +130,3 @@ export function fmtNum(n: number | null | undefined, fallback = '—'): string {
   return String(n)
 }
 
-/** Initials from name */
-export function initials(name: string | null | undefined): string {
-  if (!name) return '?'
-  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
-}

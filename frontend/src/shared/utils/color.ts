@@ -17,7 +17,8 @@ export function avatarColors(name: string): [string, string] {
 }
 
 /** Get initials from a full name (e.g. "Rahul Sharma" → "RS") */
-export function initials(name: string, maxChars = 2): string {
+export function initials(name: string | null | undefined, maxChars = 2, fallback = '?'): string {
+  if (!name) return fallback
   return name
     .trim()
     .split(/\s+/)

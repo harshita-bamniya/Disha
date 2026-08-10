@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, MessageSquare, X, Send, Clock, CheckCircle2, AlertCircle } from 'lucide-react'
+import { Plus, MessageSquare, Send, Clock, CheckCircle2, AlertCircle } from 'lucide-react'
 import { candidateSupportApi, type CreateTicketPayload, type TicketDetail } from '@/api/support'
 import { getApiError } from '@/api/client'
 import PageHeader from '@/shared/layouts/PageHeader'
 import Button from '@/shared/components/primitives/Button'
+import Modal from '@/shared/components/overlays/Modal'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -43,64 +44,13 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
   })
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 520, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#0F172A' }}>New Support Ticket</h2>
-          <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} color="#64748B" /></button>
-        </div>
-
-        {error && <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#DC2626' }}>{error}</div>}
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>Subject *</label>
-            <input
-              value={form.subject}
-              onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
-              placeholder="Briefly describe your issue"
-              style={{ width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 14, color: '#0F172A', outline: 'none', boxSizing: 'border-box' }}
-            />
-          </div>
-
-          <div style={{ display: 'flex', gap: 12 }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>Category</label>
-              <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                style={{ width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 14, color: '#0F172A', outline: 'none', background: '#fff' }}>
-                <option value="general">General</option>
-                <option value="technical">Technical</option>
-                <option value="account">Account</option>
-                <option value="jobs">Jobs / Applications</option>
-                <option value="interview">Interview</option>
-                <option value="roadmap">Roadmap</option>
-              </select>
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>Priority</label>
-              <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}
-                style={{ width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 14, color: '#0F172A', outline: 'none', background: '#fff' }}>
-                <option value="low">Low</option>
-                <option value="normal">Normal</option>
-                <option value="high">High</option>
-                <option value="urgent">Urgent</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>Description</label>
-            <textarea
-              value={form.body}
-              onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
-              placeholder="Provide details about your issue…"
-              rows={4}
-              style={{ width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 14, color: '#0F172A', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
-            />
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', gap: 10, marginTop: 20, justifyContent: 'flex-end' }}>
+    <Modal
+      open
+      onClose={onClose}
+      title="New Support Ticket"
+      width={520}
+      footer={
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
           <Button
             size="sm"
@@ -111,8 +61,58 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
             Submit Ticket
           </Button>
         </div>
+      }
+    >
+      {error && <div style={{ background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: 8, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#DC2626' }}>{error}</div>}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>Subject *</label>
+          <input
+            value={form.subject}
+            onChange={e => setForm(f => ({ ...f, subject: e.target.value }))}
+            placeholder="Briefly describe your issue"
+            style={{ width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 14, color: '#0F172A', outline: 'none', boxSizing: 'border-box' }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>Category</label>
+            <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+              style={{ width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 14, color: '#0F172A', outline: 'none', background: '#fff' }}>
+              <option value="general">General</option>
+              <option value="technical">Technical</option>
+              <option value="account">Account</option>
+              <option value="jobs">Jobs / Applications</option>
+              <option value="interview">Interview</option>
+              <option value="roadmap">Roadmap</option>
+            </select>
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>Priority</label>
+            <select value={form.priority} onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}
+              style={{ width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 14, color: '#0F172A', outline: 'none', background: '#fff' }}>
+              <option value="low">Low</option>
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>Description</label>
+          <textarea
+            value={form.body}
+            onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
+            placeholder="Provide details about your issue…"
+            rows={4}
+            style={{ width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 8, fontSize: 14, color: '#0F172A', outline: 'none', resize: 'vertical', boxSizing: 'border-box' }}
+          />
+        </div>
       </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -139,41 +139,22 @@ function TicketThread({ ticketId, reporterId, onClose }: { ticketId: string; rep
   const ticket = data as TicketDetail | undefined
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 600, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
-        <div style={{ padding: '18px 22px', borderBottom: '1px solid rgba(37,99,235,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <div>
-            <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#0F172A' }}>{ticket?.subject ?? '…'}</p>
-            {ticket && (
-              <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: `${statusColor(ticket.status)}18`, color: statusColor(ticket.status) }}>{ticket.status}</span>
-                <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: `${priorityColor(ticket.priority)}18`, color: priorityColor(ticket.priority) }}>{ticket.priority}</span>
-              </div>
-            )}
+    <Modal
+      open
+      onClose={onClose}
+      title={ticket?.subject ?? '…'}
+      width={600}
+      header={
+        ticket && (
+          <div style={{ display: 'flex', gap: 8, padding: '0 24px 14px' }}>
+            <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: `${statusColor(ticket.status)}18`, color: statusColor(ticket.status) }}>{ticket.status}</span>
+            <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: `${priorityColor(ticket.priority)}18`, color: priorityColor(ticket.priority) }}>{ticket.priority}</span>
           </div>
-          <button onClick={onClose} aria-label="Close" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} color="#64748B" /></button>
-        </div>
-
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 22px', display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {isLoading && <p style={{ color: '#94A3B8', fontSize: 14 }}>Loading…</p>}
-          {ticket?.body && (
-            <div style={{ background: '#F8FAFC', borderRadius: 10, padding: '12px 14px' }}>
-              <p style={{ margin: 0, fontSize: 13, color: '#475569', whiteSpace: 'pre-wrap' }}>{ticket.body}</p>
-            </div>
-          )}
-          {ticket?.messages.map(m => (
-            <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: m.sender_id === (reporterId ?? ticket.reporter_id) ? 'flex-end' : 'flex-start' }}>
-              <div style={{ maxWidth: '80%', background: m.sender_id === (reporterId ?? ticket.reporter_id) ? '#EEF4FF' : '#F1F5F9', borderRadius: 10, padding: '10px 14px' }}>
-                <p style={{ margin: '0 0 4px', fontSize: 11, fontWeight: 600, color: '#64748B' }}>{m.sender_name ?? 'Support'}</p>
-                <p style={{ margin: 0, fontSize: 13, color: '#0F172A', whiteSpace: 'pre-wrap' }}>{m.body}</p>
-              </div>
-              <p style={{ margin: '3px 0 0', fontSize: 11, color: '#94A3B8' }}>{fmtDate(m.created_at)}</p>
-            </div>
-          ))}
-        </div>
-
-        {ticket && ticket.status !== 'closed' && ticket.status !== 'resolved' && (
-          <div style={{ padding: '14px 22px', borderTop: '1px solid rgba(37,99,235,0.08)', display: 'flex', gap: 10, flexShrink: 0 }}>
+        )
+      }
+      footer={
+        ticket && ticket.status !== 'closed' && ticket.status !== 'resolved' && (
+          <div style={{ display: 'flex', gap: 10 }}>
             <textarea
               value={msg}
               onChange={e => setMsg(e.target.value)}
@@ -189,9 +170,27 @@ function TicketThread({ ticketId, reporterId, onClose }: { ticketId: string; rep
               <Send size={16} />
             </button>
           </div>
-        )}
+        )
+      }
+    >
+      {isLoading && <p style={{ color: '#94A3B8', fontSize: 14 }}>Loading…</p>}
+      {ticket?.body && (
+        <div style={{ background: '#F8FAFC', borderRadius: 10, padding: '12px 14px', marginBottom: 14 }}>
+          <p style={{ margin: 0, fontSize: 13, color: '#475569', whiteSpace: 'pre-wrap' }}>{ticket.body}</p>
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {ticket?.messages.map(m => (
+          <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: m.sender_id === (reporterId ?? ticket.reporter_id) ? 'flex-end' : 'flex-start' }}>
+            <div style={{ maxWidth: '80%', background: m.sender_id === (reporterId ?? ticket.reporter_id) ? '#EEF4FF' : '#F1F5F9', borderRadius: 10, padding: '10px 14px' }}>
+              <p style={{ margin: '0 0 4px', fontSize: 11, fontWeight: 600, color: '#64748B' }}>{m.sender_name ?? 'Support'}</p>
+              <p style={{ margin: 0, fontSize: 13, color: '#0F172A', whiteSpace: 'pre-wrap' }}>{m.body}</p>
+            </div>
+            <p style={{ margin: '3px 0 0', fontSize: 11, color: '#94A3B8' }}>{fmtDate(m.created_at)}</p>
+          </div>
+        ))}
       </div>
-    </div>
+    </Modal>
   )
 }
 

@@ -11,6 +11,7 @@ import type { SubAdminEntry, RoleEntry } from '@/api/admin'
 import { getApiError } from '@/api/client'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/authStore'
+import Badge from '@/shared/components/data-display/Badge'
 
 const PLATFORM_ROLE_NAMES = new Set([
   'super_admin', 'admin', 'moderator', 'verification_officer', 'finance_manager', 'support_executive',
@@ -27,17 +28,10 @@ function Avatar({ name, email }: { name: string | null; email: string | null }) 
   )
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const cls: Record<string, string> = {
-    active: 'bg-green-100 text-green-700',
-    suspended: 'bg-amber-100 text-amber-700',
-    banned: 'bg-red-100 text-red-700',
-  }
-  return (
-    <span className={cn('px-2 py-0.5 rounded-full text-[11px] font-semibold capitalize', cls[status] ?? 'bg-gray-100 text-gray-500')}>
-      {status}
-    </span>
-  )
+const STATUS_BADGE_COLOR: Record<string, 'green' | 'amber' | 'red'> = {
+  active: 'green',
+  suspended: 'amber',
+  banned: 'red',
 }
 
 function RoleBadge({ role }: { role: string }) {
@@ -474,7 +468,7 @@ export default function SubAdminManagement() {
                         </select>
                       )}
                     </td>
-                    <td className="px-4 py-3"><StatusBadge status={a.status} /></td>
+                    <td className="px-4 py-3"><Badge color={STATUS_BADGE_COLOR[a.status] ?? 'gray'} className="capitalize">{a.status}</Badge></td>
                     <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
                       {a.last_login_at ? new Date(a.last_login_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' }) : '—'}
                     </td>

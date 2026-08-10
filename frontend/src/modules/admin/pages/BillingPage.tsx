@@ -1,6 +1,7 @@
 ﻿import { IndianRupee, Award } from 'lucide-react'
 import { useBillingOverview } from '../hooks/useAdmin'
-import { Spinner, Empty, formatPaise } from '../shared/adminUI'
+import { Spinner, Empty } from '../shared/adminUI'
+import { formatPaise } from '@/shared/utils/format'
 import { cn } from '@/lib/utils'
 import { colors } from '@/design-system/tokens'
 
