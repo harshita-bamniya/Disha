@@ -17,7 +17,6 @@ from app.models.mvp3 import (  # noqa: F401
     PromptTemplate,
     PlatformSetting, FeatureFlag,
     UserEvent,
-    OAuthProvider,
     CandidateNote, CandidateRating, CandidateInterviewFeedback,
 )
 from app.models.roadmap import (  # noqa: F401

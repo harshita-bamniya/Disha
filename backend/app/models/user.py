@@ -81,7 +81,7 @@ class User(Base):
     phone_verified = Column(Boolean, default=False, nullable=False)
     email_verified = Column(Boolean, default=False, nullable=False)
     preferred_language = Column(Enum("en", "hi", name="language_enum"), default="hi", nullable=False)
-    role_id = Column(UUID(as_uuid=True), ForeignKey("roles.id"), nullable=True, index=True)
+    role_id = Column(UUID(as_uuid=True), ForeignKey("roles.id"), nullable=False, index=True)
     is_active = Column(Boolean, default=True, nullable=False, index=True)
     last_login_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

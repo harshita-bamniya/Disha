@@ -2196,9 +2196,11 @@ def list_pipeline_templates(current_user, db: Session):
     from app.models.mvp3 import CompanyPipelineTemplate
     from app.modules.matching.schemas import PipelineTemplateOut, PipelineTemplateStage
     ep = _get_employer_profile_approved(current_user, db)
+    if not ep.company_id:
+        return []
     rows = (
         db.query(CompanyPipelineTemplate)
-        .filter(CompanyPipelineTemplate.company_id == ep.id)
+        .filter(CompanyPipelineTemplate.company_id == ep.company_id)
         .order_by(CompanyPipelineTemplate.created_at)
         .all()
     )
@@ -2213,11 +2215,13 @@ def create_pipeline_template(payload, current_user, db: Session):
     from app.models.mvp3 import CompanyPipelineTemplate, CUSTOMISABLE_STAGE_KEYS
     from app.modules.matching.schemas import PipelineTemplateOut, PipelineTemplateStage
     ep = _get_employer_profile_approved(current_user, db)
+    if not ep.company_id:
+        raise BadRequestException("Employer is not associated with a company")
     for s in payload.stages:
         if s.stage_key not in CUSTOMISABLE_STAGE_KEYS:
             raise BadRequestException(f"Invalid stage_key: {s.stage_key}")
     tmpl = CompanyPipelineTemplate(
-        company_id=ep.id,
+        company_id=ep.company_id,
         name=payload.name,
         stages=[s.dict() for s in payload.stages],
         created_by=current_user.id,
@@ -2234,7 +2238,7 @@ def delete_pipeline_template(template_id: str, current_user, db: Session):
     ep = _get_employer_profile_approved(current_user, db)
     tmpl = db.query(CompanyPipelineTemplate).filter(
         CompanyPipelineTemplate.id == template_id,
-        CompanyPipelineTemplate.company_id == ep.id,
+        CompanyPipelineTemplate.company_id == ep.company_id,
     ).first()
     if not tmpl:
         raise NotFoundException("Template not found")
@@ -2249,7 +2253,7 @@ def apply_template_to_job(job_id: str, template_id: str, current_user, db: Sessi
     ep, _ = _get_job_for_employer(job_id, current_user, db)
     tmpl = db.query(CompanyPipelineTemplate).filter(
         CompanyPipelineTemplate.id == template_id,
-        CompanyPipelineTemplate.company_id == ep.id,
+        CompanyPipelineTemplate.company_id == ep.company_id,
     ).first()
     if not tmpl:
         raise NotFoundException("Template not found")

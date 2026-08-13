@@ -233,7 +233,6 @@ class KnockoutRule(Base):
     tag_name            = Column(String(100), nullable=True)
     advance_stage_id    = Column(UUID(as_uuid=True), ForeignKey("job_pipeline_stages.id", ondelete="SET NULL"),
                                  nullable=True)
-    email_template_id   = Column(UUID(as_uuid=True), nullable=True)
     priority            = Column(Integer, nullable=False, default=0)
     created_at          = Column(DateTime(timezone=True), server_default=func.now())
 

@@ -24,7 +24,7 @@ class EmployerVerification(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     employer_id = Column(UUID(as_uuid=True), ForeignKey("employer_profiles.id", ondelete="CASCADE"), nullable=False, index=True)
-    status = Column(String(20), nullable=False, default="pending", index=True)
+    status = Column(String(20), nullable=False, default="requested", index=True)
     reviewer_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     reviewer_notes = Column(Text, nullable=True)
     rejection_reason = Column(Text, nullable=True)

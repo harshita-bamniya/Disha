@@ -485,25 +485,6 @@ class EmployerTask(Base):
 # OAUTH PROVIDERS — Reserved for Phase 3 Google/LinkedIn login
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class OAuthProvider(Base):
-    """OAuth identity links (Google, LinkedIn). Schema reserved — not active in Phase 3 MVP."""
-    __tablename__ = "oauth_providers"
-
-    id           = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
-    user_id      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    provider     = Column(String(30), nullable=False)      # "google" | "linkedin"
-    provider_uid = Column(String(255), nullable=False)
-    access_token_hint = Column(String(20), nullable=True)  # last 4 chars only — for display
-    created_at   = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at   = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-    user         = relationship("User")
-
-    __table_args__ = (
-        UniqueConstraint("provider", "provider_uid", name="uq_oauth_provider_uid"),
-        CheckConstraint("provider IN ('google','linkedin')", name="ck_oauth_provider"),
-    )
-
 
 class GoogleCalendarToken(Base):
     """Stores Google Calendar OAuth2 tokens per employer user.
@@ -542,7 +523,7 @@ class CompanyPipelineTemplate(Base):
     __tablename__ = "company_pipeline_templates"
 
     id         = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
-    company_id = Column(UUID(as_uuid=True), ForeignKey("employer_profiles.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
     name       = Column(String(100), nullable=False)
     # [{stage_key, display_name, color, position, is_visible}]
     stages     = Column(JSONB, nullable=False, default=list)
@@ -550,7 +531,7 @@ class CompanyPipelineTemplate(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    company    = relationship("EmployerProfile", foreign_keys=[company_id])
+    company    = relationship("Company", foreign_keys=[company_id])
     creator    = relationship("User", foreign_keys=[created_by])
 
 

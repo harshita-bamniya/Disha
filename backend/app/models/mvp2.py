@@ -334,7 +334,7 @@ class SessionResponse(Base):
 
 
 class InterviewFeedback(Base):
-    __tablename__ = "interview_feedback"
+    __tablename__ = "mock_interview_feedback"
 
     id                = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
     session_id        = Column(UUID(as_uuid=True), ForeignKey("interview_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
