@@ -56,17 +56,10 @@ ASPIRANTS = [
         "open_to_relocation": True,
         "expected_salary_min": 6,
         "expected_salary_max": 12,
-        # Step 7: Psychological Assessment
-        "psych": {
-            "burnout_score": 30,
-            "confidence_index": 65,
-            "financial_pressure_score": 40,
-            "risk_tolerance": "medium",
-            "motivation_type": "intrinsic",
-            "identity_attachment": "high",
-            "support_system": "strong",
-            "disha_insight": "You have a strong sense of purpose and are in a good mental space to push forward. Your moderate financial pressure keeps you focused without overwhelming you.",
-        },
+        "disha_insight": "You have a strong sense of purpose and are in a good mental space to push forward. Your moderate financial pressure keeps you focused without overwhelming you.",
+        "weekly_study_hours": 10,
+        # One-time learning setup (formerly Step 7)
+        "psych": {"burnout_score": 30, "confidence_index": 65},
     },
     {
         "email": "aspirant2@disha.test",
@@ -104,16 +97,12 @@ ASPIRANTS = [
         "open_to_relocation": True,
         "expected_salary_min": 7,
         "expected_salary_max": 14,
-        # Step 7
+        "disha_insight": "Two mains attempts show real grit. The moderate burnout you're feeling is normal — channel the financial pressure as fuel, not fear.",
+        "weekly_study_hours": 8,
+        # One-time learning setup (formerly Step 7)
         "psych": {
             "burnout_score": 55,
             "confidence_index": 50,
-            "financial_pressure_score": 60,
-            "risk_tolerance": "low",
-            "motivation_type": "mixed",
-            "identity_attachment": "high",
-            "support_system": "moderate",
-            "disha_insight": "Two mains attempts show real grit. The moderate burnout you're feeling is normal — channel the financial pressure as fuel, not fear.",
         },
     },
     {
@@ -152,16 +141,12 @@ ASPIRANTS = [
         "open_to_relocation": True,
         "expected_salary_min": 12,
         "expected_salary_max": 20,
-        # Step 7
+        "disha_insight": "Your technical background is a huge strategic advantage. Low pressure and high confidence — you're in an ideal position to prepare systematically without anxiety.",
+        "weekly_study_hours": 15,
+        # One-time learning setup (formerly Step 7)
         "psych": {
             "burnout_score": 20,
             "confidence_index": 75,
-            "financial_pressure_score": 25,
-            "risk_tolerance": "high",
-            "motivation_type": "extrinsic",
-            "identity_attachment": "medium",
-            "support_system": "strong",
-            "disha_insight": "Your technical background is a huge strategic advantage. Low pressure and high confidence — you're in an ideal position to prepare systematically without anxiety.",
         },
     },
     {
@@ -200,16 +185,12 @@ ASPIRANTS = [
         "open_to_relocation": False,
         "expected_salary_min": 5,
         "expected_salary_max": 10,
-        # Step 7
+        "disha_insight": "Fresh start, clear goals — you have everything ahead of you. Your strong support system will be key in the initial tough months of preparation.",
+        "weekly_study_hours": 6,
+        # One-time learning setup (formerly Step 7)
         "psych": {
             "burnout_score": 15,
             "confidence_index": 60,
-            "financial_pressure_score": 50,
-            "risk_tolerance": "low",
-            "motivation_type": "intrinsic",
-            "identity_attachment": "medium",
-            "support_system": "strong",
-            "disha_insight": "Fresh start, clear goals — you have everything ahead of you. Your strong support system will be key in the initial tough months of preparation.",
         },
     },
     {
@@ -248,16 +229,12 @@ ASPIRANTS = [
         "open_to_relocation": True,
         "expected_salary_min": 8,
         "expected_salary_max": 18,
-        # Step 7
+        "disha_insight": "Three mains attempts is an incredible journey — don't let the fatigue define you. The burnout is real and needs attention. Consider structured breaks alongside focused preparation.",
+        "weekly_study_hours": 5,
+        # One-time learning setup (formerly Step 7)
         "psych": {
             "burnout_score": 70,
             "confidence_index": 40,
-            "financial_pressure_score": 75,
-            "risk_tolerance": "medium",
-            "motivation_type": "mixed",
-            "identity_attachment": "high",
-            "support_system": "moderate",
-            "disha_insight": "Three mains attempts is an incredible journey — don't let the fatigue define you. The burnout is real and needs attention. Consider structured breaks alongside focused preparation.",
         },
     },
 ]
@@ -377,7 +354,7 @@ def main():
 
             profile = AspirantProfile(
                 user_id=user.id,
-                current_step=7,
+                current_step=6,
                 is_completed=True,
                 **data,
             )

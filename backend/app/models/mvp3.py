@@ -408,6 +408,9 @@ NOTIFICATION_TYPES = (
     "offer_accepted", "offer_declined",
     # Admin broadcast announcements (S5)
     "announcement",
+    # AI Interviewer predictive-validity flywheel — asks a candidate what
+    # happened with the role they practiced for, ~2 weeks after the interview
+    "interview_outcome_request",
 )
 
 

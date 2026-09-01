@@ -17,7 +17,6 @@ function computeSteps(profile: Awaited<ReturnType<typeof onboardingApi.getProfil
     { label: 'Add work experience', step: 4, done: profile.has_work_experience !== null },
     { label: 'Add skills', step: 5, done: (profile.skills ?? []).length > 0 },
     { label: 'Set career preferences', step: 6, done: (profile.preferred_sectors ?? []).length > 0 },
-    { label: 'Complete psychology assessment', step: 7, done: !!profile.motivation_type },
   ]
 }
 

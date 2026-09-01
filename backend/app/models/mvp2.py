@@ -271,13 +271,17 @@ class QuestionBank(Base):
     language             = Column(String(10), default="en")
     is_active            = Column(Boolean, default=True, nullable=False)
     created_at           = Column(DateTime(timezone=True), server_default=func.now())
+    # Panel simulation — which interviewer persona asks this question, if any
+    # (legacy static bank rows and non-panel sessions leave both null)
+    panelist_name        = Column(String(60), nullable=True)
+    panelist_role        = Column(String(60), nullable=True)
 
     career_track         = relationship("CareerTrack", foreign_keys=[career_track_id])
     responses            = relationship("SessionResponse", back_populates="question")
 
     __table_args__ = (
         CheckConstraint(
-            "question_type IN ('behavioral','situational','technical','hr','case')",
+            "question_type IN ('behavioral','situational','technical','hr','case','system_design')",
             name="ck_question_type"
         ),
         CheckConstraint("difficulty IN ('easy','medium','hard')", name="ck_question_difficulty"),
@@ -302,6 +306,9 @@ class InterviewSession(Base):
     job_description      = Column(Text, nullable=True)
     blueprint            = Column(JSONB, nullable=True)
     job_readiness_report = Column(JSONB, nullable=True)
+    # Predictive-validity flywheel — set once the "how did it go" follow-up
+    # notification has been sent, so the daily scanner task doesn't re-send it
+    outcome_requested_at = Column(DateTime(timezone=True), nullable=True)
 
     user            = relationship("User")
     career_track    = relationship("CareerTrack", foreign_keys=[career_track_id])
@@ -324,6 +331,11 @@ class SessionResponse(Base):
     response_time_sec     = Column(Integer, default=0)
     sequence_num          = Column(Integer, nullable=False)
     submitted_at          = Column(DateTime(timezone=True), server_default=func.now())
+    # True when this response answers a follow-up/challenge question rather
+    # than an original question_banks question — a follow-up has no
+    # question_id (it isn't a bank row), so "already probed this topic" can't
+    # be derived from question_id like it can for original questions.
+    is_followup           = Column(Boolean, default=False, nullable=False, server_default="false")
     # For AI-generated dynamic questions (no FK needed)
     dynamic_question_text = Column(Text, nullable=True)
     dynamic_question_type = Column(String(50), nullable=True)
@@ -348,10 +360,68 @@ class InterviewFeedback(Base):
     strengths         = Column(JSONB, server_default="'[]'")
     improvements      = Column(JSONB, server_default="'[]'")
     rewritten_answer  = Column(Text, nullable=True)
+    is_fallback       = Column(Boolean, default=False, nullable=False, server_default="false")
+    evidence_quote    = Column(Text, nullable=True)
+    # Multi-judge adversarial scoring — independent skeptic/domain-specialist
+    # passes alongside the primary generalist score, e.g.
+    # {"generalist": 7, "skeptic": 4, "domain_specialist": 6}
+    judge_scores            = Column(JSONB, nullable=True)
+    judge_disagreement_note = Column(Text, nullable=True)
     created_at        = Column(DateTime(timezone=True), server_default=func.now())
 
     session           = relationship("InterviewSession", back_populates="feedback")
     response          = relationship("SessionResponse", back_populates="feedback")
+
+
+class InterviewOutcome(Base):
+    """Predictive-validity flywheel: what actually happened after the interview
+    the candidate practiced for, self-reported (opt-in, asked ~2 weeks later)."""
+    __tablename__ = "interview_outcomes"
+
+    id            = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    session_id    = Column(UUID(as_uuid=True), ForeignKey("interview_sessions.id", ondelete="CASCADE"), nullable=False, unique=True)
+    user_id       = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    outcome       = Column(String(30), nullable=False)
+    notes         = Column(Text, nullable=True)
+    reported_at   = Column(DateTime(timezone=True), server_default=func.now())
+
+    session       = relationship("InterviewSession")
+
+    __table_args__ = (
+        CheckConstraint(
+            "outcome IN ('interview_scheduled','offer_received','rejected','no_response','did_not_apply')",
+            name="ck_interview_outcome",
+        ),
+    )
+
+
+class InterviewHumanReview(Base):
+    """Human-calibration dashboard: a staff member's blind score on a sampled
+    session, tracked against the AI's own readiness score/recommendation to
+    measure agreement rate over time."""
+    __tablename__ = "interview_human_reviews"
+
+    id                     = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    session_id             = Column(UUID(as_uuid=True), ForeignKey("interview_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    reviewer_user_id       = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    human_readiness_score  = Column(Integer, nullable=False)
+    human_recommendation   = Column(String(20), nullable=False)
+    notes                  = Column(Text, nullable=True)
+    created_at             = Column(DateTime(timezone=True), server_default=func.now())
+
+    session       = relationship("InterviewSession")
+    reviewer      = relationship("User", foreign_keys=[reviewer_user_id])
+
+    __table_args__ = (
+        CheckConstraint(
+            "human_recommendation IN ('Strong Hire','Hire','Maybe','No Hire')",
+            name="ck_human_review_recommendation",
+        ),
+        CheckConstraint(
+            "human_readiness_score >= 0 AND human_readiness_score <= 100",
+            name="ck_human_review_score_range",
+        ),
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -370,10 +440,11 @@ class Conversation(Base):
     # skill_learning context fields
     skill_focus      = Column(String(200), nullable=True)   # e.g. "Policy Research"
     job_context      = Column(JSONB, nullable=True)          # {job_id, job_title, company, sector}
-    # mock_interview context fields
+    # Unused since the 'mock_interview' context_type was retired (the structured
+    # interview module at InterviewSession/InterviewFeedback is the one canonical
+    # interview data model now) — column kept nullable rather than dropped since
+    # no code writes to it anymore.
     interview_config = Column(JSONB, nullable=True)
-    # {persona_name, persona_role, interview_type, job_id, job_title, company, sector,
-    #  total_questions, status: "in_progress"|"completed"}
     created_at    = Column(DateTime(timezone=True), server_default=func.now())
     updated_at    = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -382,7 +453,7 @@ class Conversation(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "context_type IN ('career','emotional','learning','resume','general','skill_learning','mock_interview','job_roadmap')",
+            "context_type IN ('career','emotional','learning','resume','general','skill_learning','job_roadmap','career_coaching')",
             name="ck_conv_context_type"
         ),
         CheckConstraint("status IN ('active','archived')", name="ck_conv_status"),

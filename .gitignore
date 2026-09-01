@@ -44,3 +44,6 @@ backend/uploads/
 # Celery beat's scheduling state — local runtime DB, not source
 backend/celerybeat-schedule
 user_credentials.md
+
+# Generated eval output — real LLM responses from evals/*.py runs, not source
+backend/evals/output/

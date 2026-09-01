@@ -386,10 +386,13 @@
 }
 
 /* ── Global keyframes (available to all pages via inline style references) ─── */
-@keyframes spin    { to { transform: rotate(360deg) } }
-@keyframes fadeIn  { from { opacity: 0 } to { opacity: 1 } }
-@keyframes pulse   { 0%, 100% { opacity: 1 } 50% { opacity: .45 } }
-@keyframes shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
-@keyframes rowIn   { from { opacity: 0; transform: translateX(-12px) } to { opacity: 1; transform: translateX(0) } }
-@keyframes popIn   { from { opacity: 0; transform: scale(0.88) translateY(14px) } to { opacity: 1; transform: scale(1) translateY(0) } }
-@keyframes slideUp { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: translateY(0) } }
+@keyframes spin      { to { transform: rotate(360deg) } }
+@keyframes fadeIn    { from { opacity: 0 } to { opacity: 1 } }
+@keyframes pulse     { 0%, 100% { opacity: 1 } 50% { opacity: .45 } }
+@keyframes shimmer   { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
+@keyframes rowIn     { from { opacity: 0; transform: translateX(-12px) } to { opacity: 1; transform: translateX(0) } }
+@keyframes popIn     { from { opacity: 0; transform: scale(0.88) translateY(14px) } to { opacity: 1; transform: scale(1) translateY(0) } }
+@keyframes slideUp   { from { opacity: 0; transform: translateY(12px) } to { opacity: 1; transform: translateY(0) } }
+@keyframes orb-float { 0%,100% { transform: translateY(0) } 50% { transform: translateY(-5px) } }
+@keyframes orb-pulse { 0% { transform: scale(1); opacity: 0.55 } 100% { transform: scale(1.7); opacity: 0 } }
+@keyframes btn-glow  { 0%,100% { box-shadow: 0 0 0 0 rgba(26,39,68,0.32), 0 4px 14px rgba(26,39,68,0.14) } 50% { box-shadow: 0 0 0 7px rgba(26,39,68,0), 0 4px 14px rgba(26,39,68,0.14) } }

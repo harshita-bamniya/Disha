@@ -14,10 +14,6 @@ GENDER_ENUM = Enum("male", "female", "other", "prefer_not_to_say", name="gender_
 QUALIFICATION_ENUM = Enum("graduate", "post_graduate", "doctorate", "diploma", "other", name="qualification_enum")
 UPSC_EXAM_ENUM = Enum("cse", "capf", "cds", "ies", "cms", "state_pcs", "other", name="upsc_exam_enum")
 UPSC_STAGE_ENUM = Enum("none", "prelims", "mains", "interview", name="upsc_stage_enum")
-RISK_TOLERANCE_ENUM = Enum("low", "medium", "high", name="risk_tolerance_enum")
-MOTIVATION_TYPE_ENUM = Enum("intrinsic", "extrinsic", "mixed", name="motivation_type_enum")
-IDENTITY_ATTACHMENT_ENUM = Enum("low", "medium", "high", name="identity_attachment_enum")
-SUPPORT_SYSTEM_ENUM = Enum("strong", "moderate", "weak", name="support_system_enum")
 COMPANY_SIZE_ENUM = Enum(
     "1-10", "11-50", "51-200", "201-500", "501-1000", "1000+",
     name="company_size_enum",
@@ -223,6 +219,21 @@ class TwoFactorCredential(Base):
     user = relationship("User", back_populates="two_factor_credential")
 
 
+class SkillTaxonomy(Base):
+    """Every skill name the platform recognizes as valid — seeded from the
+    curated onboarding list plus skills already used in job postings/career
+    tracks, and grown over time as new custom skills pass ESCO/LLM validation
+    (see onboarding/skill_validation.py). True uniqueness is enforced by a
+    case-insensitive functional index on lower(name), created in the
+    migration — not by this column alone."""
+    __tablename__ = "skill_taxonomy"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(100), nullable=False, index=True)
+    source = Column(String(20), nullable=False, default="curated")  # curated | platform | esco | llm
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class AspirantProfile(Base):
     __tablename__ = "aspirant_profiles"
 
@@ -270,6 +281,16 @@ class AspirantProfile(Base):
     # ── Completion tracking ───────────────────────────────────────────────────
     current_step = Column(Integer, nullable=False, default=1)
     is_completed = Column(Boolean, nullable=False, default=False, index=True)
+    disha_insight = Column(Text, nullable=True)  # Groq-generated welcome message, set on Step 6 completion
+
+    # ── Learning setup (one-time, asked before first roadmap/plan generation) ─
+    weekly_study_hours = Column(Integer, nullable=True)
+    target_completion_date = Column(Date, nullable=True)
+    skill_proficiency = Column(JSONB, nullable=True)  # dict[str, "beginner"|"intermediate"|"advanced"]
+    # Both actually change the generated plan — see jobs/plan_generator.py's
+    # PLAN_PROMPT "LEARNING FORMAT RULES" / "LEARNING CHALLENGE RULES".
+    preferred_learning_format = Column(String(20), nullable=True)  # video | reading | hands_on | mixed
+    learning_challenge = Column(String(30), nullable=True)  # motivation | understanding_concepts | getting_started | applying_practically
 
     # ── Active Prep Job (MVP2) ────────────────────────────────────────────────
     # The single job the user is currently focusing all tools toward.
@@ -288,25 +309,17 @@ class AspirantProfile(Base):
 
 
 class PsychologicalAssessment(Base):
-    """Step 7 of onboarding — captures psychological state for KRS R-score."""
+    """Captures burnout/confidence for KRS R-score and job-plan pacing/tone.
+    Collected once, up front of the first roadmap/learning-plan generation —
+    not during registration."""
     __tablename__ = "psychological_assessments"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
 
-    # Numeric scores (0-100) — derived from option selections in Step 7
+    # Numeric scores (0-100) — derived from option selections
     burnout_score = Column(Integer, nullable=False)             # 0=fresh, 100=burnt out
     confidence_index = Column(Integer, nullable=False)          # 0=very anxious, 100=very confident
-    financial_pressure_score = Column(Integer, nullable=False)  # 0=no rush, 100=urgent
-
-    # Enum dimensions
-    risk_tolerance = Column(RISK_TOLERANCE_ENUM, nullable=False)
-    motivation_type = Column(MOTIVATION_TYPE_ENUM, nullable=False)
-    identity_attachment = Column(IDENTITY_ATTACHMENT_ENUM, nullable=False)
-    support_system = Column(SUPPORT_SYSTEM_ENUM, nullable=False)
-
-    # Groq-generated personalized first message
-    disha_insight = Column(Text, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

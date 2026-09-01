@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useKrsDashboard, useLiveJobs, usePrepareJob, useUnprepareJob } from '../hooks/useKrs'
-import { X, Zap, ArrowUpRight, Sparkles, ChevronRight, ClipboardList, Mail } from 'lucide-react'
+import { X, ArrowUpRight, Sparkles, ChevronRight, ClipboardList, Mail } from 'lucide-react'
 import { useOnboardingStatus } from '@/modules/onboarding/hooks/useOnboarding'
 import type { LiveJob } from '@/api/krs'
 import PageHeader from '@/shared/layouts/PageHeader'
@@ -93,13 +93,10 @@ export default function DashboardPage() {
     } finally { setTailoringResumeJobId(null) }
   }
 
-  const recommendedJobs  = [...(liveJobs ?? [])].sort((a, b) => b.match_score - a.match_score).slice(0, 10)
-  const totalJobPages    = Math.max(1, Math.ceil(recommendedJobs.length / JOBS_PER_PAGE))
-  const safeJobPage      = Math.min(jobPage, totalJobPages - 1)
-  const pageJobs         = recommendedJobs.slice(safeJobPage * JOBS_PER_PAGE, safeJobPage * JOBS_PER_PAGE + JOBS_PER_PAGE)
-  const currentViewedJob = recommendedJobs[safeJobPage] ?? null
-  const topGaps          = (currentViewedJob?.skills_to_develop ?? []).slice(0, 5)
-  const skillPct         = currentViewedJob?.skill_overlap ?? 0
+  const recommendedJobs = [...(liveJobs ?? [])].sort((a, b) => b.match_score - a.match_score).slice(0, 10)
+  const totalJobPages   = Math.max(1, Math.ceil(recommendedJobs.length / JOBS_PER_PAGE))
+  const safeJobPage     = Math.min(jobPage, totalJobPages - 1)
+  const pageJobs        = recommendedJobs.slice(safeJobPage * JOBS_PER_PAGE, safeJobPage * JOBS_PER_PAGE + JOBS_PER_PAGE)
 
   return (
     <>
@@ -178,8 +175,8 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {/* Jobs grid */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, maxWidth: 1020, margin: '0 auto', width: '100%' }}>
+            {/* Jobs carousel */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, maxWidth: 760, margin: '0 auto', width: '100%' }}>
 
               {/* Left arrow */}
               {!jobsLoading && pageJobs.length > 0 && (
@@ -193,103 +190,48 @@ export default function DashboardPage() {
                 </button>
               )}
 
-              {/* Inner grid: spotlight + gap analysis */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,620px) 280px', gap: 20, alignItems: 'start', flex: 1, minWidth: 0 }}>
-
-                {/* Left column */}
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14 }}>
-                    <p style={{ fontSize: 15, fontWeight: 700, color: INK, margin: 0 }}>Top matches for you</p>
-                    {!jobsLoading && recommendedJobs.length > 0 && <span style={{ fontSize: 12, color: MUTED }}>{recommendedJobs.length} roles found</span>}
-                  </div>
-
-                  {tailorResumeError && <div style={{ background: colors.state.dangerBg, border: '1px solid #FECACA', borderRadius: 12, padding: '10px 14px', color: colors.state.danger, fontSize: 12, marginBottom: 14 }}>{tailorResumeError}</div>}
-
-                  {jobsLoading && (
-                    <div style={{ borderRadius: 18, overflow: 'hidden', border: `1px solid ${BORDER}` }}>
-                      <div style={{ height: 90, background: ELEVATED, animation: 'pulse 1.5s infinite' }} />
-                      <div style={{ height: 260, background: 'white', padding: 22 }}>
-                        {[40, 70, 50].map((w, i) => <div key={i} style={{ height: i === 1 ? 16 : 10, background: CREAM, borderRadius: 6, marginBottom: 12, width: `${w}%`, animation: 'pulse 1.5s infinite' }} />)}
-                      </div>
-                    </div>
-                  )}
-
-                  {!jobsLoading && pageJobs.map(job => (
-                    <JobSpotlight key={job.id} job={job}
-                      onOpen={() => setSelectedJob(job)}
-                      onApply={() => setApplyJob(job)}
-                      onPrepare={() => handlePrepare(job)}
-                      onGenerateResume={() => handleGenerateResume(job)}
-                      onViewRoadmap={() => handleViewRoadmap(job)}
-                      roadmapStatus={roadmapStatusByJobId[job.id]}
-                      onMockInterview={() => handleMockInterview(job)}
-                      onOpenResume={() => handleTailoredResume(job)}
-                      isPreparing={preparingJobId === job.id}
-                      isApplied={appliedJobIds.has(job.id)}
-                      isTailoringResume={tailoringResumeJobId === job.id}
-                    />
-                  ))}
-
-                  {!jobsLoading && recommendedJobs.length === 0 && (
-                    <EmptyState
-                      icon={<ClipboardList size={24} />}
-                      title="No openings yet"
-                      description="Employers are posting roles — check back soon."
-                    />
-                  )}
+              {/* Single card column */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14 }}>
+                  <p style={{ fontSize: 15, fontWeight: 700, color: INK, margin: 0 }}>Top matches for you</p>
+                  {!jobsLoading && recommendedJobs.length > 0 && <span style={{ fontSize: 12, color: MUTED }}>{recommendedJobs.length} roles found</span>}
                 </div>
 
-                {/* Right sidebar — gap analysis */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, position: 'sticky', top: 0, marginTop: 36 }}>
-                  <div style={{ background: 'white', border: `1px solid ${BORDER}`, borderRadius: 18, padding: '20px', boxShadow: '0 4px 16px rgba(15,23,42,0.04)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 4 }}>
-                      <div style={{ width: 26, height: 26, borderRadius: 8, flexShrink: 0, background: NAVY, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Zap size={13} color="white" />
-                      </div>
-                      <p style={{ fontSize: 14, fontWeight: 700, color: INK, margin: 0 }}>Your gap analysis</p>
-                    </div>
-                    <p style={{ fontSize: 11.5, color: MUTED, margin: '6px 0 18px' }}>
-                      {currentViewedJob ? `Based on: ${currentViewedJob.title}` : 'Based on your top job matches'}
-                    </p>
-                    <div style={{ paddingBottom: 18, borderBottom: `1px solid ${BORDER}`, marginBottom: 18 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 9 }}>
-                        <span style={{ fontSize: 11.5, fontWeight: 600, color: MUTED }}>Skill coverage</span>
-                        <span style={{ fontSize: 17, fontWeight: 700, color: skillPct >= 60 ? colors.state.success : skillPct >= 30 ? colors.state.warning : colors.state.danger }}>{skillPct}%</span>
-                      </div>
-                      <div style={{ height: 6, borderRadius: 6, background: ELEVATED, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', borderRadius: 6, width: `${skillPct}%`, background: skillPct >= 60 ? colors.state.success : skillPct >= 30 ? colors.state.warning : colors.state.danger, transition: 'width 1s ease' }} />
-                      </div>
-                      <p style={{ fontSize: 11, color: MUTED, marginTop: 9, lineHeight: 1.5 }}>
-                        {skillPct >= 60 ? 'Strong alignment with job requirements' : skillPct >= 30 ? 'Growing — add a few more skills' : 'Complete your profile to improve this'}
-                      </p>
-                    </div>
-                    {topGaps.length > 0 && (
-                      <div style={{ marginBottom: 18 }}>
-                        <p style={{ fontSize: 11.5, fontWeight: 700, color: INK, marginBottom: 2 }}>Priority skills to build</p>
-                        <p style={{ fontSize: 10.5, color: MUTED, marginBottom: 12 }}>Appear most in jobs you're matched to</p>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          {topGaps.map((sk, i) => (
-                            <div key={sk} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 9px', borderRadius: 10, background: i === 0 ? ELEVATED : 'transparent' }}>
-                              <span style={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0, background: i === 0 ? NAVY : 'rgba(0,0,0,0.05)', color: i === 0 ? 'white' : MUTED, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>{i + 1}</span>
-                              <span style={{ fontSize: 12.5, fontWeight: 600, color: i === 0 ? INK : INK_SFT, flex: 1, textTransform: 'capitalize' }}>{sk}</span>
-                              {i === 0 && <span style={{ fontSize: 9.5, fontWeight: 700, color: NAVY }}>TOP GAP</span>}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    <button
-                      onClick={() => { if (currentViewedJob) setSkillGapJob(currentViewedJob) }}
-                      aria-label="View full skill report"
-                      style={{ width: '100%', background: ELEVATED, border: `1px solid ${BORDER}`, borderRadius: 11, padding: '11px 0', fontSize: 12.5, fontWeight: 700, color: INK, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, transition: 'background 0.18s' }}
-                      onMouseOver={e => { e.currentTarget.style.background = 'rgba(26,39,68,0.1)' }}
-                      onMouseOut={e => { e.currentTarget.style.background = ELEVATED }}
-                    >
-                      Full skill report <ArrowUpRight size={13} />
-                    </button>
-                  </div>
-                </div>
+                {tailorResumeError && <div style={{ background: colors.state.dangerBg, border: '1px solid #FECACA', borderRadius: 12, padding: '10px 14px', color: colors.state.danger, fontSize: 12, marginBottom: 14 }}>{tailorResumeError}</div>}
 
+                {jobsLoading && (
+                  <div style={{ borderRadius: 18, overflow: 'hidden', border: `1px solid ${BORDER}` }}>
+                    <div style={{ height: 90, background: ELEVATED, animation: 'pulse 1.5s infinite' }} />
+                    <div style={{ height: 260, background: 'white', padding: 22 }}>
+                      {[40, 70, 50].map((w, i) => <div key={i} style={{ height: i === 1 ? 16 : 10, background: CREAM, borderRadius: 6, marginBottom: 12, width: `${w}%`, animation: 'pulse 1.5s infinite' }} />)}
+                    </div>
+                  </div>
+                )}
+
+                {!jobsLoading && pageJobs.map(job => (
+                  <JobSpotlight key={job.id} job={job}
+                    onOpen={() => setSelectedJob(job)}
+                    onApply={() => setApplyJob(job)}
+                    onPrepare={() => handlePrepare(job)}
+                    onGenerateResume={() => handleGenerateResume(job)}
+                    onViewRoadmap={() => handleViewRoadmap(job)}
+                    roadmapStatus={roadmapStatusByJobId[job.id]}
+                    onMockInterview={() => handleMockInterview(job)}
+                    onOpenResume={() => handleTailoredResume(job)}
+                    onOpenSkillReport={() => setSkillGapJob(job)}
+                    isPreparing={preparingJobId === job.id}
+                    isApplied={appliedJobIds.has(job.id)}
+                    isTailoringResume={tailoringResumeJobId === job.id}
+                  />
+                ))}
+
+                {!jobsLoading && recommendedJobs.length === 0 && (
+                  <EmptyState
+                    icon={<ClipboardList size={24} />}
+                    title="No openings yet"
+                    description="Employers are posting roles — check back soon."
+                  />
+                )}
               </div>
 
               {/* Right arrow */}

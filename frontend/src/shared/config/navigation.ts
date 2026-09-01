@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
 import {
-  LayoutDashboard, Briefcase, Map, FileText, Heart, FolderOpen,
+  LayoutDashboard, Briefcase, Map, FileText, Heart,
   MessageSquare, Brain, HelpCircle, ShieldCheck,
   BarChart3, CalendarDays, Building2, Users2,
   Users, CalendarCheck2, Star, Share2, CreditCard, FileSignature,
@@ -53,8 +53,7 @@ export function buildAspirantNav(): NavSection[] {
     {
       label: 'Tools',
       items: [
-        { label: 'Resume Builder', path: '/app/resume', icon: FileText, matchPrefix: '/app/resume' },
-        { label: 'Resume Library', path: '/app/resume-library', icon: FolderOpen },
+        { label: 'Resume', path: '/app/resume', icon: FileText, matchPrefix: '/app/resume' },
         { label: 'AI Interview', path: '/app/interview/setup', icon: MessageSquare, matchPrefix: '/app/interview' },
         { label: 'AI Counsellor', path: '/app/counsellor', icon: Brain, matchPrefix: '/app/counsellor' },
       ],
@@ -223,6 +222,7 @@ export function buildAdminNav(role: string): NavSection[] {
     { label: 'Sub-Admins', path: '/admin/sub-admins', icon: UserCog, roles: ['super_admin'] },
     { label: 'Roles', path: '/admin/roles', icon: KeyRound, roles: ['super_admin'] },
     { label: 'Audit Log', path: '/admin/audit-log', icon: Activity },
+    { label: 'AI Interviewer Calibration', path: '/admin/interview-calibration', icon: Brain },
     { label: 'Subscriptions', path: '/admin/subscriptions', icon: Award },
     { label: 'AI Config', path: '/admin/ai-config', icon: Bot, roles: ['super_admin'] },
     { label: 'Integrations', path: '/admin/integrations', icon: Plug, roles: ['super_admin'] },

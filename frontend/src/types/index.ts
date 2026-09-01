@@ -40,14 +40,12 @@ export type Qualification = 'graduate' | 'post_graduate' | 'doctorate' | 'diplom
 export type UpscExam = 'cse' | 'capf' | 'cds' | 'ies' | 'cms' | 'state_pcs' | 'other'
 export type UpscStage = 'none' | 'prelims' | 'mains' | 'interview'
 
-// Step 7 — Psychological Assessment
+// Learning setup — one-time, asked before first roadmap/plan generation
 export type BurnoutLevel = 'fresh' | 'somewhat_tired' | 'exhausted' | 'burnt_out'
 export type ConfidenceLevel = 'very_confident' | 'reasonably_confident' | 'somewhat_unsure' | 'very_anxious'
-export type FinancialPressure = 'no_rush' | 'some_pressure' | 'significant_pressure' | 'urgent'
-export type RiskTolerance = 'low' | 'medium' | 'high'
-export type MotivationType = 'intrinsic' | 'extrinsic' | 'mixed'
-export type IdentityAttachment = 'low' | 'medium' | 'high'
-export type SupportSystem = 'strong' | 'moderate' | 'weak'
+export type SkillProficiency = 'beginner' | 'intermediate' | 'advanced'
+export type LearningFormat = 'video' | 'reading' | 'hands_on' | 'mixed'
+export type LearningChallenge = 'motivation' | 'understanding_concepts' | 'getting_started' | 'applying_practically'
 
 export interface OnboardingStatus {
   current_step: number

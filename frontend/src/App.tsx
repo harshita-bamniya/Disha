@@ -112,7 +112,6 @@ import Step3UpscJourney from '@/modules/onboarding/pages/Step3UpscJourney'
 import Step4WorkExperience from '@/modules/onboarding/pages/Step4WorkExperience'
 import Step5Skills from '@/modules/onboarding/pages/Step5Skills'
 import Step6Preferences from '@/modules/onboarding/pages/Step6Preferences'
-import Step7Psychology from '@/modules/onboarding/pages/Step7Psychology'
 import { useOnboardingStatus } from '@/modules/onboarding/hooks/useOnboarding'
 import DashboardPage from '@/modules/dashboard/pages/DashboardPage'
 import DishaLanding from '@/pages/DishaLanding'
@@ -155,6 +154,7 @@ const CareerTracksPage       = lazy(() => import('@/modules/admin/pages/CareerTr
 const SubAdminsPage          = lazy(() => import('@/modules/admin/pages/SubAdminsPage'))
 const RolesPage              = lazy(() => import('@/modules/admin/pages/RolesPage'))
 const AuditLogPage           = lazy(() => import('@/modules/admin/pages/AuditLogPage'))
+const InterviewCalibrationPage = lazy(() => import('@/modules/admin/pages/InterviewCalibrationPage'))
 const BillingPage            = lazy(() => import('@/modules/admin/pages/BillingPage'))
 const SubscriptionsPage      = lazy(() => import('@/modules/admin/pages/SubscriptionsPage'))
 const PlatformSettingsPage   = lazy(() => import('@/modules/admin/pages/PlatformSettingsPage'))
@@ -182,17 +182,16 @@ const ApplyPage             = lazy(() => import('@/modules/jobs/pages/ApplyPage'
 const FormBuilderPage       = lazy(() => import('@/modules/employer/pages/FormBuilderPage'))
 
 // MVP2 lazy pages
-const ResumeListPage        = lazy(() => import('@/modules/resume/pages/ResumeListPage'))
-const ResumeLibraryPage     = lazy(() => import('@/modules/resume/pages/ResumeLibraryPage'))
+const ResumeHubPage         = lazy(() => import('@/modules/resume/pages/ResumeHubPage'))
 const ResumeEditorPage      = lazy(() => import('@/modules/resume/pages/ResumeEditorPage'))
 const CounsellorPage        = lazy(() => import('@/modules/counsellor/pages/CounsellorPage'))
-const MockInterviewPage       = lazy(() => import('@/modules/interview/pages/MockInterviewPage'))
-const StructuredInterviewPage = lazy(() => import('@/modules/interview/pages/StructuredInterviewPage'))
 const InterviewSetupPage      = lazy(() => import('@/modules/interview/pages/InterviewSetupPage'))
 const InterviewLobbyPage      = lazy(() => import('@/modules/interview/pages/InterviewLobbyPage'))
 const InterviewRoomPage       = lazy(() => import('@/modules/interview/pages/InterviewRoomPage'))
 const InterviewReportPage     = lazy(() => import('@/modules/interview/pages/InterviewReportPage'))
+const InterviewHomePage       = lazy(() => import('@/modules/interview/pages/InterviewHomePage'))
 const RoadmapPage             = lazy(() => import('@/modules/roadmap/pages/RoadmapPage'))
+const LearningSetupPage       = lazy(() => import('@/modules/roadmap/pages/LearningSetupPage'))
 const RoadmapHistoryPage      = lazy(() => import('@/modules/roadmap/pages/RoadmapHistoryPage'))
 const QuizPage                = lazy(() => import('@/modules/roadmap/pages/QuizPage'))
 const CompanionPage           = lazy(() => import('@/modules/companion/pages/CompanionPage'))
@@ -290,7 +289,6 @@ function App() {
           <Route path="/app/onboarding/step/4" element={<ProtectedRoute><Step4WorkExperience /></ProtectedRoute>} />
           <Route path="/app/onboarding/step/5" element={<ProtectedRoute><Step5Skills /></ProtectedRoute>} />
           <Route path="/app/onboarding/step/6" element={<ProtectedRoute><Step6Preferences /></ProtectedRoute>} />
-          <Route path="/app/onboarding/step/7" element={<ProtectedRoute><Step7Psychology /></ProtectedRoute>} />
           {/* Redirect bare /app/onboarding to step 1 */}
           <Route path="/app/onboarding" element={<Navigate to="/app/onboarding/step/1" replace />} />
 
@@ -343,16 +341,13 @@ function App() {
             <Route path="/app/dashboard" element={<OnboardingGate><DashboardPage /></OnboardingGate>} />
             <Route path="/app/profile" element={<OnboardingGate><ProfilePage /></OnboardingGate>} />
 
-            {/* MVP2: Resume Builder */}
-            <Route path="/app/resume" element={<OnboardingGate><ResumeListPage /></OnboardingGate>} />
+            {/* Resume: unified hub — build/edit structured resumes + manage uploaded files */}
+            <Route path="/app/resume" element={<OnboardingGate><ResumeHubPage /></OnboardingGate>} />
             <Route path="/app/resume/:resumeId" element={<OnboardingGate><ResumeEditorPage /></OnboardingGate>} />
-
-            {/* Phase 6: Resume Library (uploaded PDF/DOCX files for job applications) */}
-            <Route path="/app/resume-library" element={<OnboardingGate><ResumeLibraryPage /></OnboardingGate>} />
+            <Route path="/app/resume-library" element={<Navigate to="/app/resume" replace />} />
 
             <Route path="/app/interview/report/:sessionId" element={<OnboardingGate><InterviewReportPage /></OnboardingGate>} />
-            {/* Structured Interview with AI-adaptive questioning */}
-            <Route path="/app/interview/structured" element={<OnboardingGate><StructuredInterviewPage /></OnboardingGate>} />
+            <Route path="/app/interview/history" element={<OnboardingGate><InterviewHomePage /></OnboardingGate>} />
 
             {/* Phase 3: Job marketplace (aspirant) */}
             <Route path="/app/jobs" element={<OnboardingGate><JobsPage /></OnboardingGate>} />
@@ -363,6 +358,7 @@ function App() {
 
             {/* Roadmap — 6-stage job-readiness system */}
             <Route path="/app/roadmap" element={<OnboardingGate><RoadmapPage /></OnboardingGate>} />
+            <Route path="/app/learning-setup" element={<OnboardingGate><LearningSetupPage /></OnboardingGate>} />
             <Route path="/app/roadmap/history" element={<OnboardingGate><RoadmapHistoryPage /></OnboardingGate>} />
             <Route path="/app/quiz/:jobId/:moduleId" element={<OnboardingGate><QuizPage /></OnboardingGate>} />
 
@@ -423,6 +419,7 @@ function App() {
             <Route path="sub-admins"       element={<RoleRoute roles={['super_admin']}><Suspense fallback={<PageLoader />}><SubAdminsPage /></Suspense></RoleRoute>} />
             <Route path="roles"            element={<RoleRoute roles={['super_admin']}><Suspense fallback={<PageLoader />}><RolesPage /></Suspense></RoleRoute>} />
             <Route path="audit-log"        element={<Suspense fallback={<PageLoader />}><AuditLogPage /></Suspense>} />
+            <Route path="interview-calibration" element={<Suspense fallback={<PageLoader />}><InterviewCalibrationPage /></Suspense>} />
             <Route path="billing"          element={<Suspense fallback={<PageLoader />}><BillingPage /></Suspense>} />
             <Route path="subscriptions"    element={<Suspense fallback={<PageLoader />}><SubscriptionsPage /></Suspense>} />
             <Route path="notifications"    element={<RoleRoute roles={['admin', 'super_admin']}><Suspense fallback={<PageLoader />}><NotificationsPage /></Suspense></RoleRoute>} />

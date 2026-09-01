@@ -1,5 +1,6 @@
 import logging
 
+import sentry_sdk
 from celery import Celery
 from celery.schedules import crontab
 
@@ -66,6 +67,19 @@ celery_app.conf.update(
         "job-match-digest": {
             "task": "app.tasks.worker.send_job_match_digest",
             "schedule": crontab(hour=8, minute=0),
+        },
+        # Predictive-validity flywheel: ask candidates 2 weeks after a
+        # role-specific interview what actually happened. Daily 9am IST.
+        "interview-outcome-requests": {
+            "task": "app.tasks.worker.send_interview_outcome_requests",
+            "schedule": crontab(hour=9, minute=0),
+        },
+        # Job-plan resources are resolved to a real URL once, at generation
+        # time, and never re-checked — a video taken down or an article moved
+        # would silently 404 for the user. Daily 10am IST.
+        "check-plan-resource-links": {
+            "task": "app.tasks.worker.check_plan_resource_links",
+            "schedule": crontab(hour=10, minute=0),
         },
     },
 )
@@ -148,7 +162,7 @@ def embed_job(self, job_id: str) -> None:
 def embed_profile(self, user_id: str) -> None:
     """Compute and store profile embedding for a user's KRS score."""
     from app.database import SessionLocal
-    from app.models.user import AspirantProfile, KrsScore, PsychologicalAssessment
+    from app.models.user import AspirantProfile, KrsScore
     from app.modules.recommendations import embedder
 
     db = SessionLocal()
@@ -158,15 +172,12 @@ def embed_profile(self, user_id: str) -> None:
             logger.warning("[EMBED_PROFILE] Profile not found for user=%s", user_id)
             return
 
-        psych = db.query(PsychologicalAssessment).filter(
-            PsychologicalAssessment.user_id == user_id
-        ).first()
         krs = db.query(KrsScore).filter(KrsScore.user_id == user_id).first()
         if not krs:
             logger.warning("[EMBED_PROFILE] KRS record not found for user=%s", user_id)
             return
 
-        text = embedder.build_user_text(profile, psych)
+        text = embedder.build_user_text(profile)
         vec = embedder.embed(text)
         if vec:
             krs.profile_embedding = vec
@@ -418,6 +429,140 @@ def send_deadline_reminders() -> dict:
         logger.error("[DEADLINE_REMINDER] Failed: %s", exc)
         db.rollback()
         return {"sent": sent, "error": str(exc)}
+    finally:
+        db.close()
+
+
+@celery_app.task(name="app.tasks.worker.send_interview_outcome_requests")
+def send_interview_outcome_requests() -> dict:
+    """Predictive-validity flywheel: ~2 weeks after a role-specific interview
+    completes, ask the candidate what actually happened with that role. A
+    daily scanner (like send_deadline_reminders above) rather than a one-off
+    countdown task — simpler to reason about and survives a worker restart
+    without losing track of which sessions still need asking.
+
+    Sent once per session (outcome_requested_at is stamped after sending),
+    regardless of whether the candidate ever answers.
+    """
+    from datetime import datetime, timedelta, timezone
+    from app.database import SessionLocal
+    from app.models.mvp2 import InterviewSession
+    from app.modules.inbox.service import create_notification
+
+    FOLLOW_UP_DELAY_DAYS = 14
+
+    db = SessionLocal()
+    sent = 0
+    try:
+        cutoff = datetime.now(timezone.utc) - timedelta(days=FOLLOW_UP_DELAY_DAYS)
+        sessions = (
+            db.query(InterviewSession)
+            .filter(
+                InterviewSession.status == "completed",
+                InterviewSession.job_readiness_report != None,
+                InterviewSession.completed_at != None,
+                InterviewSession.completed_at <= cutoff,
+                InterviewSession.outcome_requested_at == None,
+            )
+            .all()
+        )
+        for session in sessions:
+            create_notification(
+                db, session.user_id, "interview_outcome_request",
+                f"How did your {session.job_role or 'interview'} search go?",
+                "You practiced for this role two weeks ago — let us know what happened. "
+                "It takes 10 seconds and helps us make the AI interviewer more accurate for everyone.",
+                f"/app/interview/report/{session.id}?ask_outcome=1",
+            )
+            session.outcome_requested_at = datetime.now(timezone.utc)
+            sent += 1
+        db.commit()
+        logger.info("[INTERVIEW_OUTCOME_REQUEST] Sent %d requests", sent)
+        return {"sent": sent}
+    except Exception as exc:
+        logger.error("[INTERVIEW_OUTCOME_REQUEST] Failed: %s", exc)
+        db.rollback()
+        return {"sent": sent, "error": str(exc)}
+    finally:
+        db.close()
+
+
+@celery_app.task(name="app.tasks.worker.check_plan_resource_links")
+def check_plan_resource_links() -> dict:
+    """Link-health check for job-specific learning plan resources.
+
+    Resource URLs (yt-dlp/DDG-resolved at generation time, or the LLM's
+    site-search fallback) are never re-verified afterward — a video taken
+    down or an article moved would silently 404 for the user with no signal
+    anywhere. HEAD-checks each ready plan's resource URLs and reports a
+    summary via logging + Sentry. Detection and visibility only this pass —
+    auto-flagging a dead link in the UI is a separate, larger feature.
+
+    Bounded to MAX_RESOURCES_PER_RUN per run (global task_time_limit is 180s)
+    — coverage isn't exhaustive on any single run, but this runs daily and
+    checks oldest-updated plans first, so nothing goes permanently unchecked.
+    """
+    import httpx
+    from app.database import SessionLocal
+    from app.models.job_plan import JobLearningPlan
+
+    MAX_RESOURCES_PER_RUN = 150
+
+    db = SessionLocal()
+    checked = 0
+    dead = 0
+    dead_urls: list[dict] = []
+    capped = False
+    try:
+        plans = (
+            db.query(JobLearningPlan)
+            .filter(JobLearningPlan.status == "ready")
+            .order_by(JobLearningPlan.updated_at.asc())
+            .all()
+        )
+        with httpx.Client(timeout=6.0, follow_redirects=True) as client:
+            for plan in plans:
+                for module in (plan.plan or {}).get("modules", []):
+                    for res in module.get("resources", []):
+                        if checked >= MAX_RESOURCES_PER_RUN:
+                            capped = True
+                            break
+                        url = res.get("url")
+                        if not url:
+                            continue
+                        checked += 1
+                        try:
+                            resp = client.head(url)
+                            # Some sites (notably YouTube) don't support HEAD
+                            # cleanly — only a clear 404/410 counts as dead;
+                            # anything else (405, redirects already followed,
+                            # even a 403) is too ambiguous to flag automatically.
+                            if resp.status_code in (404, 410):
+                                dead += 1
+                                dead_urls.append({
+                                    "plan_id": str(plan.id),
+                                    "resource_id": res.get("id"),
+                                    "url": url,
+                                })
+                        except httpx.HTTPError as exc:
+                            logger.warning("[LINK_HEALTH] request failed for %s: %s", url, exc)
+                    if capped:
+                        break
+                if capped:
+                    break
+
+        if capped:
+            logger.info("[LINK_HEALTH] hit the %d-resource cap for this run — remaining plans covered on a later run", MAX_RESOURCES_PER_RUN)
+        logger.info("[LINK_HEALTH] checked=%d dead=%d", checked, dead)
+        if dead:
+            sentry_sdk.capture_message(
+                f"[LINK_HEALTH] {dead}/{checked} job-plan resource links appear dead (404/410)",
+                level="warning",
+            )
+        return {"checked": checked, "dead": dead, "dead_urls": dead_urls, "capped": capped}
+    except Exception as exc:
+        logger.error("[LINK_HEALTH] Failed: %s", exc)
+        return {"checked": checked, "dead": dead, "error": str(exc)}
     finally:
         db.close()
 
