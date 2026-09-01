@@ -11,6 +11,13 @@ from app.core.rbac import require_admin, require_permission, require_super_admin
 from app.database import get_db
 from app.models.user import User
 from app.modules.admin import service
+from app.modules.interview import calibration_service
+from app.modules.interview.schemas import (
+    CalibrationStatsOut,
+    OutcomeCorrelationOut,
+    ReviewableSessionOut,
+    SubmitHumanReviewRequest,
+)
 from app.modules.admin.schemas import (
     AdminActivityItem,
     AdminApplicationEntry,
@@ -754,3 +761,49 @@ def add_ticket_message(
     admin: User = Depends(require_admin),
 ):
     return service.add_ticket_message(ticket_id, req, str(admin.id), db)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# AI Interviewer — human-calibration dashboard & predictive-validity view
+# (Phase 7 moonshots: does the AI's score agree with a human, and does a
+# higher readiness tier actually track with a better real-world outcome?)
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.get("/interview-calibration/sample", response_model=list[ReviewableSessionOut])
+def sample_interview_sessions_for_review(
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return calibration_service.sample_sessions_for_review(limit, db)
+
+
+@router.post("/interview-calibration/{session_id}/review", response_model=MessageResponse)
+def submit_interview_human_review(
+    session_id: str,
+    req: SubmitHumanReviewRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    try:
+        return calibration_service.submit_human_review(
+            session_id, admin, req.human_readiness_score, req.human_recommendation, req.notes, db,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/interview-calibration/stats", response_model=CalibrationStatsOut)
+def get_interview_calibration_stats(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return calibration_service.get_calibration_stats(db)
+
+
+@router.get("/interview-calibration/outcome-correlation", response_model=OutcomeCorrelationOut)
+def get_interview_outcome_correlation(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    return calibration_service.get_outcome_correlation(db)

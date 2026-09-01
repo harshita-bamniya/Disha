@@ -91,12 +91,6 @@ export interface AspirantCareerPreferences {
 export interface AspirantPsychProfile {
   burnout_score: number
   confidence_index: number
-  financial_pressure_score: number
-  risk_tolerance: string
-  motivation_type: string
-  identity_attachment: string
-  support_system: string
-  disha_insight: string | null
 }
 
 export interface AspirantKrsDetail {
@@ -128,6 +122,7 @@ export interface AspirantDetailResponse {
   state: string | null
   is_completed: boolean
   current_step: number
+  disha_insight: string | null
   education: AspirantEducation | null
   upsc_journey: AspirantUpscJourney | null
   work_experience: AspirantWorkExperience | null
@@ -867,6 +862,19 @@ export const adminApi = {
 
   getCandidateSupport: (userId: string) =>
     apiClient.get<TicketListResponse>(`/admin/candidates/${userId}/support`).then(r => r.data),
+
+  // ── AI Interviewer calibration (Phase 7) ──────────────────────────────────────
+  sampleInterviewSessionsForReview: (limit = 10) =>
+    apiClient.get<ReviewableSession[]>('/admin/interview-calibration/sample', { params: { limit } }).then(r => r.data),
+
+  submitInterviewHumanReview: (sessionId: string, payload: SubmitHumanReviewPayload) =>
+    apiClient.post<{ message: string }>(`/admin/interview-calibration/${sessionId}/review`, payload).then(r => r.data),
+
+  getInterviewCalibrationStats: () =>
+    apiClient.get<CalibrationStats>('/admin/interview-calibration/stats').then(r => r.data),
+
+  getInterviewOutcomeCorrelation: () =>
+    apiClient.get<OutcomeCorrelation>('/admin/interview-calibration/outcome-correlation').then(r => r.data),
 }
 
 // ── Support ticket types ──────────────────────────────────────────────────────
@@ -940,5 +948,48 @@ export interface UpdateTicketPayload {
 export interface AddMessagePayload {
   body: string
   is_internal?: boolean
+}
+
+// ── AI Interviewer calibration (Phase 7) ────────────────────────────────────
+
+export interface ReviewableSession {
+  session_id: string
+  job_role: string | null
+  experience_level: string | null
+  completed_at: string | null
+  transcript: { question: string; response: string }[]
+}
+
+export interface SubmitHumanReviewPayload {
+  human_readiness_score: number
+  human_recommendation: string
+  notes?: string
+}
+
+export interface HumanReviewEntry {
+  session_id: string
+  ai_readiness_score: number | null
+  ai_recommendation: string | null
+  human_readiness_score: number
+  human_recommendation: string
+  agree: boolean
+  reviewed_at: string
+}
+
+export interface CalibrationStats {
+  total_reviews: number
+  agreement_rate: number | null
+  reviews: HumanReviewEntry[]
+}
+
+export interface OutcomeCorrelationRow {
+  hiring_recommendation: string
+  total: number
+  outcomes: Record<string, number>
+}
+
+export interface OutcomeCorrelation {
+  total_outcomes_reported: number
+  by_recommendation: OutcomeCorrelationRow[]
 }
 

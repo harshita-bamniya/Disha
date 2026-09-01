@@ -460,6 +460,7 @@ def get_aspirant_detail(user_id: str, db: Session) -> AspirantDetailResponse:
         state=profile.state if profile else None,
         is_completed=profile.is_completed if profile else False,
         current_step=profile.current_step if profile else 1,
+        disha_insight=profile.disha_insight if profile else None,
         education=AspirantEducation(
             highest_qualification=profile.highest_qualification,
             degree=profile.degree,
@@ -491,12 +492,6 @@ def get_aspirant_detail(user_id: str, db: Session) -> AspirantDetailResponse:
         psychological_profile=AspirantPsychProfile(
             burnout_score=psych.burnout_score,
             confidence_index=psych.confidence_index,
-            financial_pressure_score=psych.financial_pressure_score,
-            risk_tolerance=psych.risk_tolerance,
-            motivation_type=psych.motivation_type,
-            identity_attachment=psych.identity_attachment,
-            support_system=psych.support_system,
-            disha_insight=psych.disha_insight,
         ) if psych else None,
         krs=AspirantKrsDetail(
             k_score=krs.k_score,

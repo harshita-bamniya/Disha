@@ -15,6 +15,22 @@ interface TranscriptEntry {
   timestamp: Date
   isFollowUp?: boolean
   questionType?: string | null
+  panelistName?: string | null
+  panelistRole?: string | null
+}
+
+interface Panelist {
+  name: string
+  role: string
+}
+
+// Panel simulation: each persona gets a distinct pitch/rate via the Web Speech
+// API so they read as different people, not just a name label on the same
+// voice — cheap to do (no new TTS infra) but genuinely changes how it sounds.
+const PANELIST_VOICE: Record<string, { pitch: number; rate: number }> = {
+  'Hiring Manager':    { pitch: 1.08, rate: 0.95 },
+  'Technical Lead':    { pitch: 0.88, rate: 0.98 },
+  'Future Teammate':   { pitch: 1.15, rate: 1.05 },
 }
 
 // ── Hooks ─────────────────────────────────────────────────────────────────────
@@ -139,14 +155,14 @@ function useAISpeech() {
   const enabledRef = useRef(enabled)
   enabledRef.current = enabled
 
-  const speak = useCallback((text: string, onEnd?: () => void) => {
+  const speak = useCallback((text: string, onEnd?: () => void, voiceOpts?: { pitch?: number; rate?: number }) => {
     if (!enabledRef.current || !window.speechSynthesis) {
       onEnd?.()
       return
     }
     window.speechSynthesis.cancel()
     const utt = new SpeechSynthesisUtterance(text)
-    utt.rate = 0.95; utt.pitch = 1; utt.volume = 1
+    utt.rate = voiceOpts?.rate ?? 0.95; utt.pitch = voiceOpts?.pitch ?? 1; utt.volume = 1
     const voices = window.speechSynthesis.getVoices()
     const preferred = voices.find(v => v.name.includes('Google') || v.name.includes('Microsoft') || v.lang === 'en-US')
     if (preferred) utt.voice = preferred
@@ -191,6 +207,62 @@ function InterviewTimer({ startTime }: { startTime: number }) {
   return <span>{m}:{s}</span>
 }
 
+// Per-question countdown for session_type === 'timed'. `deadline` is an
+// absolute timestamp (responseStartTime + limit) so it resets naturally on
+// every new question and survives re-renders without drifting.
+const QUESTION_TIME_LIMIT_SEC = 90
+
+function PerQuestionCountdown({ deadline, onExpire }: { deadline: number; onExpire: () => void }) {
+  const [remaining, setRemaining] = useState(() => Math.max(0, Math.ceil((deadline - Date.now()) / 1000)))
+  const firedRef = useRef(false)
+
+  useEffect(() => {
+    firedRef.current = false
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000))
+      setRemaining(left)
+      if (left <= 0 && !firedRef.current) {
+        firedRef.current = true
+        onExpire()
+      }
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [deadline]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const m = Math.floor(remaining / 60).toString().padStart(2, '0')
+  const s = (remaining % 60).toString().padStart(2, '0')
+  const low = remaining <= 15
+  return (
+    <div
+      role="timer"
+      aria-label={`Time remaining for this question: ${m}:${s}`}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 800,
+        fontFamily: 'monospace', color: low ? '#F87171' : 'rgba(255,255,255,0.55)',
+        padding: '4px 10px', borderRadius: 20,
+        background: low ? 'rgba(239,68,68,0.12)' : 'rgba(255,255,255,0.05)',
+        border: `1px solid ${low ? 'rgba(239,68,68,0.25)' : 'rgba(255,255,255,0.08)'}`,
+      }}
+    >
+      <Clock size={12} />
+      <span>{m}:{s}</span>
+    </div>
+  )
+}
+
+// Ticks from its own mount time — mounted exactly when the real completeSession
+// request starts, so this reflects actual elapsed wait time, not a scripted estimate.
+function AnalyzingElapsed() {
+  const [seconds, setSeconds] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => setSeconds(s => s + 1), 1000)
+    return () => clearInterval(id)
+  }, [])
+  return <span>{seconds}s</span>
+}
+
 // ── AI Video Tile ─────────────────────────────────────────────────────────────
 
 // Bar heights give a natural voice waveform shape rather than uniform bars
@@ -206,7 +278,7 @@ const SPEAKING_BARS = [
   { delay: 0.10, height: [4, 20] },
 ]
 
-function AIVideoTile({ state, questionText }: { state: 'idle' | 'thinking' | 'speaking'; questionText: string }) {
+function AIVideoTile({ state, questionText, panelist }: { state: 'idle' | 'thinking' | 'speaking'; questionText: string; panelist?: Panelist | null }) {
   return (
     <div style={{
       flex: 1, borderRadius: 16, overflow: 'hidden', position: 'relative',
@@ -358,7 +430,9 @@ function AIVideoTile({ state, questionText }: { state: 'idle' | 'thinking' | 'sp
         display: 'flex', alignItems: 'center', gap: 6, backdropFilter: 'blur(8px)',
       }}>
         <div style={{ width: 6, height: 6, borderRadius: '50%', background: state === 'idle' ? '#64748B' : '#10B981', flexShrink: 0 }} />
-        <span style={{ fontSize: 11, color: 'white', fontWeight: 700 }}>Alex · AI Interviewer</span>
+        <span style={{ fontSize: 11, color: 'white', fontWeight: 700 }}>
+          {panelist ? `${panelist.name} · ${panelist.role}` : 'Alex · AI Interviewer'}
+        </span>
       </div>
     </div>
   )
@@ -462,6 +536,17 @@ function UserVideoTile({
 
 const MIN_ANSWER_CHARS = 30
 
+// ── Live assessment helpers (ported from the retired StructuredInterviewPage) ──
+const SCORE_COLOR = (s: number) => s >= 7 ? '#34D399' : s >= 5 ? '#FBBF24' : '#F87171'
+const SCORE_LABEL = (s: number) => s >= 8 ? 'Strong' : s >= 6 ? 'Good' : s >= 4 ? 'Developing' : 'Needs Work'
+
+interface ResponseLogEntry {
+  questionText: string
+  score: number
+  note: string
+  isFollowUp: boolean
+}
+
 export default function InterviewRoomPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
@@ -479,6 +564,16 @@ export default function InterviewRoomPage() {
   const [responseStartTime, setResponseStartTime] = useState(Date.now())
   const [waitingForNext, setWaitingForNext] = useState(false)
   const [showTextarea, setShowTextarea] = useState(false)
+  const [responseLog, setResponseLog] = useState<ResponseLogEntry[]>([])
+  const [pendingRetry, setPendingRetry] = useState<{ respId: string; questionText: string } | null>(null)
+  const [currentPanelist, setCurrentPanelist] = useState<Panelist | null>(null)
+  // Both persist across a follow-up (which has no question_id/question_type
+  // of its own — it inherits the topic of the question it's probing) so the
+  // submit payload can still report them accurately. Without this, a
+  // follow-up's own question_type was silently lost on submit, which broke
+  // already_probed and panelist inheritance for a second-level follow-up.
+  const [currentQuestionType, setCurrentQuestionType] = useState<string | null>(null)
+  const [currentIsFollowUp, setCurrentIsFollowUp] = useState(false)
 
   const transcriptRef = useRef<HTMLDivElement>(null)
   const initDoneRef = useRef(false)
@@ -495,12 +590,20 @@ export default function InterviewRoomPage() {
   const userLang = 'en-US' // TODO: derive from user.preferred_language once exposed
   const voice = useVoiceInput(onVoiceResult, userLang)
 
-  // Keep latest voice/aiSpeech methods in refs so the session-init effect
-  // never captures stale closures even if hook identities change
+  // Keep latest voice/aiSpeech/camera state in refs so any deferred callback
+  // (a resumed session's initial fetch, a speech onEnd handler) never acts on
+  // a stale render's values even if hook identities change.
   const voiceRef = useRef(voice)
   voiceRef.current = voice
   const aiSpeechRef = useRef(aiSpeech)
   aiSpeechRef.current = aiSpeech
+  const cameraRef = useRef(camera)
+  cameraRef.current = camera
+  // fetchNext is memoized on [sessionId] only, so any state it reads must go
+  // through a ref (same reasoning as voice/aiSpeech/camera above) or it'd
+  // read a stale value from whichever render first created the callback.
+  const currentQuestionTypeRef = useRef(currentQuestionType)
+  currentQuestionTypeRef.current = currentQuestionType
 
   const { data: session, isLoading } = useQuery({
     queryKey: ['interview-session', sessionId],
@@ -508,19 +611,125 @@ export default function InterviewRoomPage() {
     enabled: !!sessionId,
   })
 
+  // A completed session has nothing left to do in the room — send the
+  // candidate straight to their report instead of re-rendering a dead room.
+  useEffect(() => {
+    if (session?.status === 'completed') {
+      navigate(`/app/interview/report/${sessionId}`, { replace: true })
+    }
+  }, [session?.status, sessionId, navigate])
+
+  // Fetches the adaptive next action for a just-submitted response and
+  // applies it to the transcript/state. Shared by the submit flow, the
+  // resume-on-refresh flow, and the manual retry button — always uses refs
+  // for speak/voice/camera so a deferred onEnd callback never fires against
+  // a stale render.
+  const fetchNext = useCallback(async (respId: string, answeredQuestionText: string) => {
+    setPendingRetry(null)
+    setWaitingForNext(true)
+    setAiState('thinking')
+
+    try {
+      const next = await interviewApi.getNextQuestion(sessionId!, respId)
+      setWaitingForNext(false)
+      setResponseLog(log => [...log, {
+        questionText: answeredQuestionText,
+        score: next.provisional_score,
+        note: next.coaching_note,
+        isFollowUp: next.action !== 'next_question',
+      }])
+
+      if (next.session_complete || !next.question) {
+        setSessionDone(true)
+        const doneText = "That concludes our interview. Thank you for your time and thoughtful answers. I'll now generate your detailed Job Readiness Report."
+        setTranscript(t => [...t, { role: 'ai', text: doneText, timestamp: new Date() }])
+        setQuestionText(doneText)
+        setAiState('speaking')
+        aiSpeechRef.current.speak(doneText, () => setAiState('idle'))
+        return
+      }
+
+      const nextText = next.question.text
+      const nextQData: InterviewQuestion | null = next.question.id
+        ? { id: next.question.id, question_text: nextText, question_type: next.question.question_type ?? null, difficulty: next.question.difficulty ?? null, language: 'en', career_track_id: null, is_dynamic: true }
+        : null
+      const panelist: Panelist | null = next.question.panelist_name && next.question.panelist_role
+        ? { name: next.question.panelist_name, role: next.question.panelist_role }
+        : null
+
+      const isFollowUp = next.action !== 'next_question'
+      setTranscript(t => [...t, {
+        role: 'ai', text: nextText, timestamp: new Date(),
+        isFollowUp,
+        questionType: nextQData?.question_type ?? (isFollowUp ? currentQuestionTypeRef.current ?? undefined : undefined),
+        panelistName: panelist?.name, panelistRole: panelist?.role,
+      }])
+      setQuestionText(nextText)
+      setCurrentQuestion(nextQData)
+      setCurrentPanelist(panelist)
+      setCurrentIsFollowUp(isFollowUp)
+      if (!isFollowUp) setCurrentQuestionType(nextQData?.question_type ?? null)
+      setQuestionIdx(i => i + 1)
+      setResponseStartTime(Date.now())
+      setAiState('speaking')
+
+      aiSpeechRef.current.speak(nextText, () => {
+        setAiState('idle')
+        if (cameraRef.current.micOn && !cameraRef.current.error) voiceRef.current.start()
+      }, panelist ? PANELIST_VOICE[panelist.role] : undefined)
+    } catch {
+      setWaitingForNext(false)
+      setAiState('idle')
+      setPendingRetry({ respId, questionText: answeredQuestionText })
+    }
+  }, [sessionId])
+
   // Runs once when session data first arrives. Uses refs for speak/voice so it
   // never depends on hook identity — avoids stale-closure ESLint trap.
   useEffect(() => {
-    if (!session || initDoneRef.current) return
+    if (!session || initDoneRef.current || session.status === 'completed') return
     initDoneRef.current = true
 
     interviewApi.startSession(sessionId!).catch(() => {})
 
-    const greeting = session.blueprint?.opening_greeting
+    // Resume: rebuild the transcript from what's already been submitted
+    // instead of restarting the interview from question 1. Historical
+    // entries won't carry a provisional_score/coaching_note — that decision
+    // was never persisted — only turns answered from here on populate the
+    // Live Assessment sidebar.
+    if (session.responses && session.responses.length > 0) {
+      const sorted = [...session.responses].sort((a, b) => a.sequence_num - b.sequence_num)
+      const rebuilt: TranscriptEntry[] = []
+      sorted.forEach(r => {
+        rebuilt.push({ role: 'ai', text: r.question_text, timestamp: new Date(), questionType: r.question_type ?? undefined })
+        rebuilt.push({ role: 'candidate', text: r.response_text, timestamp: new Date() })
+      })
+      setTranscript(rebuilt)
+      setAnsweredCount(sorted.length)
+      setQuestionIdx(sorted.length)
+      setResponseStartTime(Date.now())
+
+      const last = sorted[sorted.length - 1]
+      // So fetchNext's ref-read of currentQuestionType is correct even on a
+      // resume-after-refresh, if the last-answered question was itself a
+      // follow-up and the next decision needs to keep inheriting its topic.
+      setCurrentQuestionType(last.question_type ?? null)
+      fetchNext(last.id, last.question_text)
+      return
+    }
+
+    const greeting = session.blueprint?.panel_intro
+      ? `${session.blueprint.opening_greeting || `Welcome! I'm Alex, your host for today's ${session.job_role || 'interview'}.`} ${session.blueprint.panel_intro}`
+      : session.blueprint?.opening_greeting
       || `Welcome! I'm Alex, your AI interviewer for the ${session.job_role || 'interview'} today. Let's get started.`
     const iceBreaker = session.blueprint?.ice_breaker_question
     const firstQText = iceBreaker || session.questions?.[0]?.question_text || 'Tell me about yourself and your background.'
     const firstQData = !iceBreaker ? (session.questions?.[0] ?? null) : null
+    // The ice breaker is Alex's own opening question (host, not a panelist);
+    // only a "real" first question inherits a panelist persona.
+    const firstPanelist: Panelist | null = !iceBreaker && firstQData?.panelist_name && firstQData?.panelist_role
+      ? { name: firstQData.panelist_name, role: firstQData.panelist_role }
+      : null
 
     setAiState('speaking')
     setTranscript([{ role: 'ai', text: greeting, timestamp: new Date() }])
@@ -529,16 +738,22 @@ export default function InterviewRoomPage() {
     aiSpeechRef.current.speak(greeting, () => {
       setTranscript(t => {
         if (t.some(e => e.role === 'ai' && e.text === firstQText)) return t
-        return [...t, { role: 'ai', text: firstQText, timestamp: new Date(), questionType: firstQData?.question_type }]
+        return [...t, {
+          role: 'ai', text: firstQText, timestamp: new Date(), questionType: firstQData?.question_type,
+          panelistName: firstPanelist?.name, panelistRole: firstPanelist?.role,
+        }]
       })
       setQuestionText(firstQText)
       setCurrentQuestion(firstQData)
+      setCurrentPanelist(firstPanelist)
+      setCurrentQuestionType(firstQData?.question_type ?? null)
+      setCurrentIsFollowUp(false)
       setResponseStartTime(Date.now())
 
       aiSpeechRef.current.speak(firstQText, () => {
         setAiState('idle')
         voiceRef.current.start()
-      })
+      }, firstPanelist ? PANELIST_VOICE[firstPanelist.role] : undefined)
     })
   }, [session, sessionId]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -554,12 +769,14 @@ export default function InterviewRoomPage() {
       return interviewApi.submitResponse(sessionId!, {
         question_id: currentQuestion?.id ?? undefined,
         question_text: questionText,
-        question_type: currentQuestion?.question_type ?? undefined,
+        question_type: currentQuestion?.question_type ?? currentQuestionType ?? undefined,
         response_text: answer.trim(),
         response_time_sec: elapsed,
+        is_followup: currentIsFollowUp,
       })
     },
     onSuccess: async (result) => {
+      const answeredQuestionText = questionText
       setTranscript(t => [...t, { role: 'candidate', text: answer.trim(), timestamp: new Date() }])
       setAnswer('')
       voice.stop()
@@ -569,47 +786,7 @@ export default function InterviewRoomPage() {
       setWaitingForNext(true)
       setAiState('thinking')
 
-      // Small pause so the thinking indicator is visible before the API call resolves
-      await new Promise(r => setTimeout(r, 800))
-
-      try {
-        const next = await interviewApi.getNextQuestion(sessionId!, respId)
-        setWaitingForNext(false)
-
-        if (next.session_complete || !next.question) {
-          setSessionDone(true)
-          const doneText = "That concludes our interview. Thank you for your time and thoughtful answers. I'll now generate your detailed Job Readiness Report."
-          setTranscript(t => [...t, { role: 'ai', text: doneText, timestamp: new Date() }])
-          setQuestionText(doneText)
-          setAiState('speaking')
-          aiSpeech.speak(doneText, () => setAiState('idle'))
-          return
-        }
-
-        const nextText = next.question.text
-        const nextQData: InterviewQuestion | null = next.question.id
-          ? { id: next.question.id, question_text: nextText, question_type: next.question.question_type ?? null, difficulty: next.question.difficulty ?? null, language: 'en', career_track_id: null, is_dynamic: true }
-          : null
-
-        setTranscript(t => [...t, {
-          role: 'ai', text: nextText, timestamp: new Date(),
-          isFollowUp: next.action !== 'next_question',
-          questionType: nextQData?.question_type,
-        }])
-        setQuestionText(nextText)
-        setCurrentQuestion(nextQData)
-        setQuestionIdx(i => i + 1)
-        setResponseStartTime(Date.now())
-        setAiState('speaking')
-
-        aiSpeech.speak(nextText, () => {
-          setAiState('idle')
-          if (camera.micOn && !camera.error) voice.start()
-        })
-      } catch {
-        setWaitingForNext(false)
-        setAiState('idle')
-      }
+      await fetchNext(respId, answeredQuestionText)
     },
   })
 
@@ -624,11 +801,13 @@ export default function InterviewRoomPage() {
     onSettled: () => setCompleting(false),
   })
 
-  if (isLoading || !session) return (
+  if (isLoading || !session || session.status === 'completed') return (
     <div style={{ minHeight: '100vh', background: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ textAlign: 'center' }}>
         <div style={{ width: 40, height: 40, border: '3px solid rgba(255,255,255,0.15)', borderTopColor: '#818CF8', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 16px' }} />
-        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Joining interview...</p>
+        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>
+          {session?.status === 'completed' ? 'Opening your report...' : 'Joining interview...'}
+        </p>
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
@@ -637,16 +816,13 @@ export default function InterviewRoomPage() {
   if (completing) return (
     <div style={{ minHeight: '100vh', background: '#0F172A', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 48, marginBottom: 20 }}>🧠</div>
+        <div style={{ fontSize: 48, marginBottom: 20, animation: 'pulse-scale 1.6s ease-in-out infinite' }}>🧠</div>
         <p style={{ fontSize: 18, fontWeight: 800, color: 'white', marginBottom: 8 }}>Analyzing your performance...</p>
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 24 }}>Generating your Job Readiness Report. ~10 seconds.</p>
-        <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-          {['Evaluating answers', 'Scoring competencies', 'Building roadmap'].map((t, i) => (
-            <div key={t} style={{ padding: '5px 12px', borderRadius: 20, fontSize: 11, background: 'rgba(99,102,241,0.15)', color: '#818CF8', border: '1px solid rgba(99,102,241,0.2)', animation: `fade-in 0.4s ease ${i * 0.3}s both` }}>{t}</div>
-          ))}
-        </div>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
+          Generating your Job Readiness Report — <AnalyzingElapsed /> elapsed
+        </p>
       </div>
-      <style>{`@keyframes fade-in { from { opacity:0;transform:translateY(6px) } to { opacity:1;transform:none } }`}</style>
+      <style>{`@keyframes pulse-scale { 0%,100% { transform:scale(1); opacity:0.85 } 50% { transform:scale(1.08); opacity:1 } }`}</style>
     </div>
   )
 
@@ -710,6 +886,26 @@ export default function InterviewRoomPage() {
         </div>
       )}
 
+      {/* ── Next-question failure banner ── */}
+      {pendingRetry && (
+        <div role="alert" style={{ background: '#7C2D12', padding: '8px 20px', fontSize: 12, color: '#FED7AA', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <AlertTriangle size={13} />
+          <span style={{ flex: 1 }}>Couldn't get the next question — your answer was saved.</span>
+          <button
+            onClick={() => fetchNext(pendingRetry.respId, pendingRetry.questionText)}
+            style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 6, padding: '4px 10px', color: 'white', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+          >
+            Retry
+          </button>
+          <button
+            onClick={() => completeMutation.mutate()}
+            style={{ background: 'none', border: 'none', color: '#FED7AA', fontSize: 11, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}
+          >
+            End interview instead
+          </button>
+        </div>
+      )}
+
       {/* ── Main layout ── */}
       <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 272px', overflow: 'hidden', minHeight: 0 }}>
 
@@ -717,7 +913,7 @@ export default function InterviewRoomPage() {
 
           {/* ── Video tiles ── */}
           <div style={{ display: 'flex', gap: 12, height: '42%', flexShrink: 0 }}>
-            <AIVideoTile state={aiState} questionText={questionText} />
+            <AIVideoTile state={aiState} questionText={questionText} panelist={currentPanelist} />
             <UserVideoTile
               videoRef={camera.videoRef}
               camOn={camera.camOn}
@@ -753,8 +949,11 @@ export default function InterviewRoomPage() {
                 <div style={{ maxWidth: '70%' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
                     <span style={{ fontSize: 10, fontWeight: 700, color: entry.role === 'ai' ? '#818CF8' : '#34D399' }}>
-                      {entry.role === 'ai' ? 'Alex' : 'You'}
+                      {entry.role === 'ai' ? (entry.panelistName || 'Alex') : 'You'}
                     </span>
+                    {entry.role === 'ai' && entry.panelistRole && (
+                      <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)' }}>· {entry.panelistRole}</span>
+                    )}
                     {entry.isFollowUp && (
                       <span style={{ fontSize: 9, padding: '1px 5px', borderRadius: 8, background: 'rgba(251,191,36,0.15)', color: '#FBBF24', fontWeight: 700 }}>Follow-up</span>
                     )}
@@ -809,6 +1008,18 @@ export default function InterviewRoomPage() {
                   <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.75)', lineHeight: 1.5, fontStyle: 'italic' }}>
                     "{answer}"
                   </p>
+                </div>
+              )}
+
+              {/* Per-question countdown — only for timed sessions; resets every new question */}
+              {session.session_type === 'timed' && !waitingForNext && !submitMutation.isPending && (
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
+                  <PerQuestionCountdown
+                    deadline={responseStartTime + QUESTION_TIME_LIMIT_SEC * 1000}
+                    onExpire={() => {
+                      if (!waitingForNext && !submitMutation.isPending && !sessionDone) submitMutation.mutate()
+                    }}
+                  />
                 </div>
               )}
 
@@ -1017,6 +1228,43 @@ export default function InterviewRoomPage() {
               </div>
               <div style={{ height: 5, background: 'rgba(255,255,255,0.08)', borderRadius: 5, overflow: 'hidden' }}>
                 <div style={{ width: `${progress}%`, height: '100%', background: 'linear-gradient(90deg,#6366F1,#10B981)', borderRadius: 5, transition: 'width 0.6s' }} />
+              </div>
+            </>
+          )}
+
+          {responseLog.length > 0 && (
+            <>
+              <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '14px 0' }} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <h3 style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
+                  Live Assessment
+                </h3>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#818CF8' }}>
+                  Avg {(responseLog.reduce((s, r) => s + r.score, 0) / responseLog.length).toFixed(1)}/10
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {responseLog.map((r, i) => (
+                  <div key={i} style={{
+                    padding: '8px 10px', borderRadius: 8,
+                    background: 'rgba(255,255,255,0.03)',
+                    border: `1px solid ${SCORE_COLOR(r.score)}30`,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.35)' }}>
+                        {r.isFollowUp ? '↩ Follow-up' : `Q${i + 1}`}
+                      </span>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: SCORE_COLOR(r.score) }}>
+                        {r.score}/10 · {SCORE_LABEL(r.score)}
+                      </span>
+                    </div>
+                    {r.note && (
+                      <p style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.45)', margin: 0, lineHeight: 1.4, fontStyle: 'italic' }}>
+                        {r.note}
+                      </p>
+                    )}
+                  </div>
+                ))}
               </div>
             </>
           )}

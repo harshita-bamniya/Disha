@@ -25,6 +25,12 @@ You will receive:
 - The interview type (hr/technical/stress)
 - How many questions remain
 - The question topic/skill being assessed
+- Optionally, recent conversation history from earlier in this same interview
+
+If recent history is provided, use it: don't ask a follow-up that's effectively already been
+asked, and if the candidate's current answer plainly repeats or contradicts something they said
+earlier, you may probe that naturally as your follow-up — phrase it as a normal curious question,
+not an accusation.
 
 Evaluate the response and return a JSON decision with this exact structure:
 {
@@ -62,6 +68,7 @@ async def decide_next_action(
     questions_remaining: int,
     skill_topic: str | None = None,
     already_probed: bool = False,
+    recent_history: str | None = None,
 ) -> dict:
     """
     Returns decision dict. Falls back to next_question on any AI failure.
@@ -72,11 +79,16 @@ async def decide_next_action(
     if already_probed or questions_remaining <= 1:
         return _fast_next(question_text, response_text)
 
+    history_section = (
+        f"\nRECENT CONVERSATION HISTORY (earlier in this same interview):\n{recent_history}\n"
+        if recent_history else ""
+    )
+
     user_msg = f"""INTERVIEW TYPE: {interview_type}
 SKILL/TOPIC: {skill_topic or 'General'}
 QUESTIONS REMAINING: {questions_remaining}
 ALREADY PROBED THIS QUESTION: {already_probed}
-
+{history_section}
 QUESTION ASKED:
 {question_text}
 
@@ -102,6 +114,19 @@ Evaluate and return your decision JSON."""
         # Validate required keys
         if "action" not in decision or decision["action"] not in ("follow_up", "challenge", "next_question"):
             raise ValueError("Invalid action")
+
+        # Defensive clamp — never trust an unvalidated numeric score from the LLM.
+        try:
+            decision["provisional_score"] = max(1, min(10, int(float(decision.get("provisional_score", 5)))))
+        except (TypeError, ValueError):
+            decision["provisional_score"] = 5
+        signals = decision.get("score_signals")
+        if isinstance(signals, dict):
+            for key, val in list(signals.items()):
+                try:
+                    signals[key] = max(1, min(10, int(float(val))))
+                except (TypeError, ValueError):
+                    signals[key] = 5
 
         return decision
 

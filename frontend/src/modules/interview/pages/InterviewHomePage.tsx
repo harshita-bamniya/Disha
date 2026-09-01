@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { interviewApi } from '@/api/interview'
-import AspLayout from '@/shared/layouts/AspLayout'
 import PageHeader from '@/shared/layouts/PageHeader'
 import { ActivePrepBanner } from '@/components/ActivePrepBanner'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
@@ -51,9 +50,9 @@ export default function InterviewHomePage() {
   const recentSessions = sessions?.slice(0, 5) ?? []
 
   return (
-    <AspLayout activePath="/app/interview/setup">
+    <>
       <PageHeader
-        title="Mock Interview"
+        title="Interview History"
         icon={<MessageSquare size={16} color="#2D6A4F" />}
       />
 
@@ -145,7 +144,7 @@ export default function InterviewHomePage() {
                       return (
                         <div
                           key={s.id}
-                          onClick={() => navigate(`/app/interview/sessions/${s.id}`)}
+                          onClick={() => navigate(s.status === 'completed' ? `/app/interview/report/${s.id}` : `/app/interview/room/${s.id}`)}
                           style={{
                             background: 'white', borderRadius: 12, padding: '12px 16px',
                             border: '1.5px solid rgba(226,232,240,0.8)', cursor: 'pointer',
@@ -239,11 +238,37 @@ export default function InterviewHomePage() {
                       ))}
                     </>
                   )}
+
+                  {performance.by_skill.length > 0 && (
+                    <>
+                      <div style={{ height: 1, background: 'rgba(226,232,240,0.6)', margin: '14px 0' }} />
+                      <h4 style={{ fontSize: 11, fontWeight: 700, color: '#64748B', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        Skill Breakdown
+                      </h4>
+                      {performance.by_skill.map(({ skill, avg_score, attempts }) => (
+                        <div key={skill} style={{ marginBottom: 10 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <span style={{ fontSize: 11, color: '#64748B' }}>
+                              {skill} <span style={{ color: '#CBD5E1' }}>· {attempts}x</span>
+                            </span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: avg_score < 6 ? '#DC2626' : '#0F172A' }}>{avg_score.toFixed(1)}</span>
+                          </div>
+                          <div style={{ height: 5, background: 'rgba(45,106,79,0.1)', borderRadius: 5 }}>
+                            <div style={{
+                              width: `${(avg_score / 10) * 100}%`, height: '100%',
+                              background: avg_score < 6 ? '#DC2626' : '#2563EB',
+                              borderRadius: 5, transition: 'width 0.8s ease',
+                            }} />
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
                 </div>
               )}
             </div>
           </div>
         </main>
-    </AspLayout>
+    </>
   )
 }

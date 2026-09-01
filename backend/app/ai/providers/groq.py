@@ -14,7 +14,11 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-DEFAULT_MODEL = "llama-3.3-70b-versatile"
+DEFAULT_MODEL = "openai/gpt-oss-120b"
+# Cheaper/faster tier for low-stakes, easily-fallback-covered generation (blueprint
+# scaffolding, question drafting) — full DEFAULT_MODEL effort is reserved for
+# per-answer scoring and the readiness verdict, where mistakes actually cost trust.
+LIGHT_MODEL = "openai/gpt-oss-20b"
 
 MAX_RETRIES = 3
 # Only worth retrying within a request's lifetime — a short per-minute throttle.
@@ -49,9 +53,20 @@ class AIMessage:
 class GroqProvider:
     """Thin async wrapper around the Groq API."""
 
-    def __init__(self, model: str = DEFAULT_MODEL):
+    def __init__(self, model: str = DEFAULT_MODEL, reasoning_effort: str | None = None):
         self.model = model
+        # The gpt-oss family reasons before answering, and those reasoning
+        # tokens are drawn from the same max_tokens budget as the actual
+        # content — on a smaller model asked for a long JSON response, that
+        # reasoning can consume the whole budget and leave `content` empty.
+        # "low" keeps reasoning cheap without needing a bigger max_tokens.
+        self.reasoning_effort = reasoning_effort
         self.settings = get_settings()
+
+    def _apply_reasoning_effort(self, payload: dict) -> dict:
+        if self.reasoning_effort:
+            payload["reasoning_effort"] = self.reasoning_effort
+        return payload
 
     def _headers(self) -> dict:
         return {
@@ -72,12 +87,12 @@ class GroqProvider:
         if not self.settings.groq_api_key:
             raise RuntimeError("GROQ_API_KEY is not configured.")
 
-        payload = {
+        payload = self._apply_reasoning_effort({
             "model": self.model,
             "messages": self._build_messages(system, messages),
             "max_tokens": max_tokens,
             "temperature": temperature,
-        }
+        })
 
         async with httpx.AsyncClient(timeout=60.0) as client:
             for attempt in range(MAX_RETRIES + 1):
@@ -123,13 +138,13 @@ class GroqProvider:
         if not self.settings.groq_api_key:
             raise RuntimeError("GROQ_API_KEY is not configured.")
 
-        payload = {
+        payload = self._apply_reasoning_effort({
             "model": self.model,
             "messages": self._build_messages(system, messages),
             "max_tokens": max_tokens,
             "temperature": temperature,
             "stream": True,
-        }
+        })
 
         async with httpx.AsyncClient(timeout=120.0) as client:
             # Retry 429s same as complete() — a brief per-minute throttle shouldn't

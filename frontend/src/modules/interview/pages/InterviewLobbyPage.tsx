@@ -208,6 +208,34 @@ export default function InterviewLobbyPage() {
             </p>
           </div>
 
+          {/* Panel simulation — who's actually on the panel today */}
+          {blueprint?.panel && blueprint.panel.length > 0 && (
+            <div>
+              <h3 style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
+                Today's Panel
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {blueprint.panel.map((p, i) => (
+                  <div key={i} style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    background: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: '8px 12px',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                  }}>
+                    <div style={{
+                      width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+                      background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: 'white',
+                    }}>{p.name.charAt(0)}</div>
+                    <div>
+                      <div style={{ fontSize: 12.5, fontWeight: 700, color: 'white' }}>{p.name}</div>
+                      <div style={{ fontSize: 10.5, color: 'rgba(255,255,255,0.45)' }}>{p.role}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Blueprint / skills */}
           {blueprint && (
             <div>

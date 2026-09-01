@@ -9,6 +9,8 @@ export interface InterviewQuestion {
   career_track_id: string | null
   skill_assessed?: string | null
   is_dynamic?: boolean
+  panelist_name?: string | null
+  panelist_role?: string | null
 }
 
 export interface SessionSummary {
@@ -27,6 +29,11 @@ export interface SessionSummary {
   blueprint?: InterviewBlueprint | null
 }
 
+export interface PanelMember {
+  name: string
+  role: string
+}
+
 export interface InterviewBlueprint {
   skills_to_assess: string[]
   question_breakdown: Record<string, number>
@@ -35,10 +42,21 @@ export interface InterviewBlueprint {
   interview_style: string
   opening_greeting: string
   ice_breaker_question: string
+  panel?: PanelMember[]
+  panel_intro?: string
+}
+
+export interface SubmittedResponse {
+  id: string
+  question_text: string
+  question_type: string | null
+  response_text: string
+  sequence_num: number
 }
 
 export interface SessionDetail extends SessionSummary {
   questions: InterviewQuestion[]
+  responses: SubmittedResponse[]
 }
 
 export interface RoadmapStep {
@@ -64,6 +82,11 @@ export interface JobReadinessReport {
   candidate_summary: string
   roadmap: RoadmapStep[]
   readiness_message: string
+  consistency_notes: string[]
+  confidence_note: string | null
+  pacing_notes: string[]
+  integrity_notes: string[]
+  error?: boolean
 }
 
 export interface FeedbackItem {
@@ -82,6 +105,10 @@ export interface FeedbackItem {
   strengths: string[]
   improvements: string[]
   rewritten_answer: string | null
+  is_fallback: boolean
+  evidence_quote: string | null
+  judge_scores?: Record<string, number> | null
+  judge_disagreement_note?: string | null
 }
 
 export interface SessionFeedback {
@@ -89,6 +116,23 @@ export interface SessionFeedback {
   overall_avg: number
   feedback_items: FeedbackItem[]
   job_readiness_report: JobReadinessReport | null
+  weak_skills: string[]
+  outcome_reported: boolean
+  reported_outcome: string | null
+}
+
+export const OUTCOME_OPTIONS: { value: string; label: string }[] = [
+  { value: 'offer_received', label: 'Got an offer' },
+  { value: 'interview_scheduled', label: 'Got an interview' },
+  { value: 'rejected', label: 'Applied, got rejected' },
+  { value: 'no_response', label: 'Applied, no response yet' },
+  { value: 'did_not_apply', label: "Haven't applied yet" },
+]
+
+export interface SkillPerformance {
+  skill: string
+  avg_score: number
+  attempts: number
 }
 
 export interface PerformanceStats {
@@ -100,6 +144,7 @@ export interface PerformanceStats {
   avg_impact: number
   best_session_score: number
   sessions_by_type: Record<string, number>
+  by_skill: SkillPerformance[]
 }
 
 export interface NextQuestionResult {
@@ -111,6 +156,8 @@ export interface NextQuestionResult {
     question_type?: string
     difficulty?: string
     original_question_id?: string
+    panelist_name?: string | null
+    panelist_role?: string | null
   } | null
   provisional_score: number
   coaching_note: string
@@ -150,6 +197,7 @@ export const interviewApi = {
     question_type?: string
     response_text: string
     response_time_sec?: number
+    is_followup?: boolean
   }) => apiClient.post<{ response_id: string; sequence_num: number }>(
     `/interview/sessions/${sessionId}/respond`, data
   ).then(r => r.data),
@@ -165,6 +213,12 @@ export const interviewApi = {
   getFeedback: (sessionId: string) =>
     apiClient.get<SessionFeedback>(`/interview/sessions/${sessionId}/feedback`).then(r => r.data),
 
+  regenerateReport: (sessionId: string) =>
+    apiClient.post<SessionFeedback>(`/interview/sessions/${sessionId}/regenerate-report`).then(r => r.data),
+
   getPerformance: () =>
     apiClient.get<PerformanceStats>('/interview/performance').then(r => r.data),
+
+  submitOutcome: (sessionId: string, data: { outcome: string; notes?: string }) =>
+    apiClient.post<{ message: string }>(`/interview/sessions/${sessionId}/outcome`, data).then(r => r.data),
 }

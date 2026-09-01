@@ -93,57 +93,6 @@ Start by asking: "What's the one thing you're most stuck on in your job search r
 
 NEVER give generic advice like "network more" without a specific action. Every suggestion must have a clear next step the user can do today or this week."""
 
-_MOCK_INTERVIEW_SYSTEM = """You are {persona_name}, {persona_role} at {company}.
-
-You are conducting a {interview_type} interview for the {job_title} position ({sector} sector).
-
-CANDIDATE BACKGROUND (use this to personalise your questions and reactions — do NOT read this out):
-{candidate_context}
-
-STRICT RULES:
-- You are a HUMAN interviewer, not an AI. Never reveal you are AI. Stay in character completely.
-- Ask ONE question at a time. Wait for the candidate's answer before continuing.
-- React naturally to answers: "That's interesting.", "Could you elaborate on that?", "Got it, noted."
-- After their answer, give a brief natural reaction, then transition to the next question.
-- Keep track of what has been covered. Aim for {total_questions} questions total.
-- After the final question say: "That's all from my side. Do you have any questions for me?" then wrap up naturally.
-- Keep your tone {tone}.
-- Reference the candidate's UPSC background naturally when it's relevant (e.g. "Given your preparation years, how do you think that analytical discipline translates to...").
-
-INTERVIEW FOCUS:
-- Role: {job_title} at {company}
-- Key skills to probe: {key_skills}
-- Interview type: {interview_type}
-
-START: Greet the candidate by acknowledging their background briefly (1 sentence), mention the role, and ask your first question."""
-
-_INTERVIEW_TYPES = {
-    "hr": {
-        "label": "HR Screening",
-        "persona_name": "Priya Sharma",
-        "persona_role": "Senior HR Manager",
-        "tone": "warm, professional, and encouraging",
-        "total_questions": 8,
-        "focus": "cultural fit, motivation, background, salary expectations, career goals",
-    },
-    "technical": {
-        "label": "Technical Round",
-        "persona_name": "Arjun Mehta",
-        "persona_role": "Senior Technical Lead",
-        "tone": "precise, probing, and focused on depth",
-        "total_questions": 8,
-        "focus": "domain knowledge, problem-solving, past project experience, technical depth",
-    },
-    "stress": {
-        "label": "Stress Interview",
-        "persona_name": "Meera Iyer",
-        "persona_role": "Director of Operations",
-        "tone": "direct, challenging, and intentionally pushing back on every answer",
-        "total_questions": 7,
-        "focus": "pressure handling, decision-making under ambiguity, resilience, self-awareness",
-    },
-}
-
 
 def _score_label(score: int | None) -> str:
     """Convert numeric score to qualitative label — avoids leaking raw numbers to AI."""
@@ -341,25 +290,8 @@ async def handle_message(
     user_context = _build_user_context(user, db)
     lang = user.preferred_language or "en"
 
-    # Mock interview — AI plays a human interviewer persona
-    if conversation.context_type == "mock_interview" and conversation.interview_config:
-        cfg = conversation.interview_config
-        itype = _INTERVIEW_TYPES.get(cfg.get("interview_type", "hr"), _INTERVIEW_TYPES["hr"])
-        system_prompt = _MOCK_INTERVIEW_SYSTEM.format(
-            persona_name=itype["persona_name"],
-            persona_role=itype["persona_role"],
-            company=cfg.get("company", "the company"),
-            interview_type=itype["label"],
-            job_title=cfg.get("job_title", "the role"),
-            sector=cfg.get("sector", "general"),
-            total_questions=itype["total_questions"],
-            tone=itype["tone"],
-            key_skills=", ".join(cfg.get("key_skills", [])) or "relevant domain skills",
-            candidate_context=user_context,
-        )
-
     # Career coaching — tactical job-search advisor
-    elif conversation.context_type == "career_coaching":
+    if conversation.context_type == "career_coaching":
         system_prompt = _CAREER_COACHING_SYSTEM.format(user_context=user_context)
 
     # Job roadmap Q&A — docked in the Roadmap page, scoped to one specific job's prep

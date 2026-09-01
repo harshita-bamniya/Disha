@@ -77,6 +77,7 @@ function useDeviceCheck() {
 
 // ── Step 1: Role ───────────────────────────────────────────────────────────────
 function Step1Role({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const isCustom = value !== '' && !ROLES.some(role => role.value === value)
   return (
     <div>
       <h2 style={S.stepTitle}>What role are you interviewing for?</h2>
@@ -99,6 +100,26 @@ function Step1Role({ value, onChange }: { value: string; onChange: (v: string) =
             </button>
           )
         })}
+      </div>
+
+      <div style={{ marginTop: 18 }}>
+        <label style={S.label}>Not on the list? Type any role</label>
+        <input
+          type="text"
+          value={isCustom ? value : ''}
+          onChange={e => onChange(e.target.value)}
+          placeholder="e.g. Site Reliability Engineer, Growth Marketer, Quant Trader…"
+          style={{
+            width: '100%', padding: '12px 14px', borderRadius: 11,
+            border: isCustom ? `2px solid ${NAVY}` : `1.5px solid ${CREAM_DK}`,
+            background: isCustom ? 'rgba(26,39,68,0.05)' : WHITE,
+            fontSize: 13, color: INK, outline: 'none', boxSizing: 'border-box',
+            fontFamily: 'system-ui, sans-serif',
+          }}
+        />
+        <p style={{ fontSize: 11, color: MUTED, marginTop: 6 }}>
+          The AI will build a custom competency matrix for roles outside the list above.
+        </p>
       </div>
     </div>
   )
@@ -463,6 +484,19 @@ export default function InterviewSetupPage() {
             </div>
           </div>
         )}
+
+        <div style={{ marginTop: jobContext ? 14 : 'auto', paddingTop: jobContext ? 0 : 24, position: 'relative' }}>
+          <button
+            onClick={() => navigate('/app/interview/history')}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+              fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.5)',
+              display: 'flex', alignItems: 'center', gap: 5,
+            }}
+          >
+            View past interviews →
+          </button>
+        </div>
       </div>
 
       {/* ── right panel ── */}

@@ -57,7 +57,6 @@ def create_conversation(
     db: Session = Depends(get_db),
 ):
     job_ctx = None
-    interview_cfg = None
     title = None
 
     if body.context_type == "skill_learning" and body.skill_focus:
@@ -68,20 +67,6 @@ def create_conversation(
             "sector":    body.sector,
         }
         title = f"{body.skill_focus} — {body.job_title or 'Job Prep'}"
-
-    elif body.context_type == "mock_interview":
-        itype_labels = {"hr": "HR Screening", "technical": "Technical Round", "stress": "Stress Interview"}
-        itype = body.interview_type or "hr"
-        interview_cfg = {
-            "interview_type": itype,
-            "job_id":         body.job_id,
-            "job_title":      body.job_title or "Unknown Role",
-            "company":        body.company or "the company",
-            "sector":         body.sector or "general",
-            "key_skills":     body.key_skills or [],
-            "status":         "in_progress",
-        }
-        title = f"{itype_labels.get(itype, 'Interview')} — {body.job_title or 'Role'}"
 
     elif body.context_type == "career_coaching":
         title = "Career Coaching Session"
@@ -128,7 +113,6 @@ def create_conversation(
         status="active",
         skill_focus=body.skill_focus if body.context_type == "skill_learning" else None,
         job_context=job_ctx,
-        interview_config=interview_cfg,
     )
     db.add(conv)
     db.commit()
@@ -142,7 +126,6 @@ def create_conversation(
         message_count=conv.message_count,
         skill_focus=conv.skill_focus,
         job_context=conv.job_context,
-        interview_config=conv.interview_config,
         created_at=conv.created_at,
         updated_at=conv.updated_at,
     )
@@ -309,19 +292,21 @@ def get_prep_checklist(
     and what's still outstanding.
     """
     from sqlalchemy import cast, String
-    from app.models.mvp2 import LessonCompletion, Resume as ResumeModel
+    from app.models.mvp2 import InterviewSession, LessonCompletion, Resume as ResumeModel
     from app.models.user import AspirantProfile, JobPosting
 
     profile = db.query(AspirantProfile).filter(AspirantProfile.user_id == user.id).first()
     job = db.query(JobPosting).filter(JobPosting.id == job_id).first()
 
-    # Mock interview done for this job?
+    # Mock interview done — checked against the real interview module
+    # (InterviewSession), not the retired counsellor mock_interview persona.
+    # InterviewSession has no job_id FK (job_role is free text), so this is
+    # "has the user completed any interview" rather than job-specific.
     interview_done = (
-        db.query(Conversation)
+        db.query(InterviewSession)
         .filter(
-            Conversation.user_id == user.id,
-            Conversation.context_type == "mock_interview",
-            cast(Conversation.interview_config["job_id"], String) == str(job_id),
+            InterviewSession.user_id == user.id,
+            InterviewSession.status == "completed",
         )
         .first()
     ) is not None
@@ -357,7 +342,7 @@ def get_prep_checklist(
             {
                 "item": "Do a mock interview",
                 "done": interview_done,
-                "cta": f"/app/mock-interview/{job_id}",
+                "cta": "/app/interview/setup",
                 "cta_label": "Start Mock Interview",
             },
             {
@@ -385,23 +370,87 @@ def get_nudge(
 ):
     """
     Return a proactive nudge message if the user has been inactive for 5+ days,
-    or hasn't done a mock interview / skill session in a while.
+    or hasn't done a mock interview / skill session in a while. Also checks for
+    a specific skill the user is stuck on (failed a job-plan quiz repeatedly)
+    or a job-specific plan with no progress in a while — these are checked
+    first since they reference something concrete, not just "come back".
     Returns null when no nudge is warranted.
     """
     from datetime import datetime, timezone, timedelta
-    from app.models.mvp2 import UserStreak, LessonCompletion
+    from app.models.mvp2 import InterviewSession, UserStreak, LessonCompletion
+    from app.models.job_plan import JobLearningPlan
+    from app.models.roadmap import UserSkillCompetence
 
     now = datetime.now(timezone.utc)
     five_days_ago = now - timedelta(days=5)
 
-    # Check last mock interview conversation
+    def _is_older(dt, threshold):
+        if dt is None:
+            return True
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt < threshold
+
+    nudge = None
+
+    job_plans = (
+        db.query(JobLearningPlan)
+        .filter(JobLearningPlan.user_id == user.id, JobLearningPlan.status == "ready")
+        .all()
+    )
+
+    # Most specific: a named skill the user has failed a job-plan quiz on more
+    # than once (per UserSkillCompetence, the same tracker quiz submissions now
+    # write to) — nudge toward that skill by name, not a generic "come back".
+    for jp in job_plans:
+        jp_progress = jp.progress or {}
+        for module in (jp.plan or {}).get("modules", []):
+            quiz_entry = jp_progress.get(f"quiz_{module.get('id')}")
+            skill = (module.get("skill") or "").strip()
+            if not quiz_entry or quiz_entry.get("passed") or not skill:
+                continue
+            comp = (
+                db.query(UserSkillCompetence)
+                .filter(UserSkillCompetence.user_id == user.id, UserSkillCompetence.skill_text == skill.lower().strip())
+                .first()
+            )
+            if comp and comp.attempts >= 2 and comp.quiz_score_avg < 70:
+                nudge = {
+                    "type": "skill_struggle",
+                    "message": f"You've missed the {skill} quiz a couple of times now — want to go over it together before trying again?",
+                    "cta": f"Review {skill}",
+                    "cta_path": f"/app/jobs/{jp.job_id}",
+                }
+                break
+        if nudge:
+            break
+
+    # No progress on an in-progress job plan in 5+ days.
+    if not nudge:
+        for jp in job_plans:
+            resources = [r for m in (jp.plan or {}).get("modules", []) for r in m.get("resources", [])]
+            if not resources or not _is_older(jp.updated_at, five_days_ago):
+                continue
+            done_count = sum(1 for r in resources if (jp.progress or {}).get(r["id"], {}).get("done"))
+            if done_count < len(resources):
+                job_title = (jp.plan or {}).get("job_title", "your learning plan")
+                nudge = {
+                    "type": "stale_plan",
+                    "message": f"Your plan for {job_title} hasn't moved in a while — {done_count}/{len(resources)} resources done. Pick up where you left off?",
+                    "cta": "Resume Plan",
+                    "cta_path": f"/app/jobs/{jp.job_id}",
+                }
+                break
+
+    if nudge:
+        return nudge
+
+    # Check last mock interview — the real interview module (InterviewSession),
+    # not the retired counsellor mock_interview persona.
     last_interview = (
-        db.query(Conversation)
-        .filter(
-            Conversation.user_id == user.id,
-            Conversation.context_type == "mock_interview",
-        )
-        .order_by(Conversation.updated_at.desc())
+        db.query(InterviewSession)
+        .filter(InterviewSession.user_id == user.id)
+        .order_by(InterviewSession.created_at.desc())
         .first()
     )
 
@@ -416,21 +465,12 @@ def get_nudge(
     # Check streak
     streak = db.query(UserStreak).filter(UserStreak.user_id == user.id).first()
 
-    nudge = None
-
-    def _is_older(dt, threshold):
-        if dt is None:
-            return True
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt < threshold
-
-    if not last_interview or _is_older(last_interview.updated_at, five_days_ago):
+    if not last_interview or _is_older(last_interview.created_at, five_days_ago):
         nudge = {
             "type": "interview",
             "message": "You haven't practiced a mock interview in 5+ days. Even a quick 10-minute session keeps your confidence sharp.",
             "cta": "Start Mock Interview",
-            "cta_path": "/app/mock-interview",
+            "cta_path": "/app/interview/setup",
         }
     elif last_lesson and _is_older(last_lesson.completed_at, five_days_ago):
         nudge = {
@@ -498,23 +538,3 @@ def delete_memory(
     db.commit()
 
 
-@router.get("/conversations/{conv_id}/interview-report")
-async def get_interview_report(
-    conv_id: str,
-    user: User = Depends(get_current_aspirant),
-    db: Session = Depends(get_db),
-):
-    """Generate and return a scorecard for a completed mock interview."""
-    conv = (
-        db.query(Conversation)
-        .filter(Conversation.id == conv_id, Conversation.user_id == user.id)
-        .first()
-    )
-    if not conv:
-        raise HTTPException(status_code=404, detail="Conversation not found.")
-    if conv.context_type != "mock_interview":
-        raise HTTPException(status_code=400, detail="Not a mock interview conversation.")
-
-    from app.modules.counsellor.interview_report import generate_report
-    report = await generate_report(conv_id, db)
-    return report

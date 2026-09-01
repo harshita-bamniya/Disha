@@ -39,12 +39,6 @@ class AspirantCareerPreferences(BaseModel):
 class AspirantPsychProfile(BaseModel):
     burnout_score: int
     confidence_index: int
-    financial_pressure_score: int
-    risk_tolerance: str
-    motivation_type: str
-    identity_attachment: str
-    support_system: str
-    disha_insight: Optional[str] = None
 
 
 class AspirantKrsDetail(BaseModel):
@@ -82,6 +76,7 @@ class AspirantDetailResponse(BaseModel):
     # Onboarding status
     is_completed: bool
     current_step: int
+    disha_insight: Optional[str] = None
 
     # Sub-sections (None when not yet filled)
     education: Optional[AspirantEducation] = None

@@ -9,7 +9,7 @@ from app.modules.interview import service
 from app.modules.interview.schemas import (
     CreateSessionRequest, PerformanceResponse,
     SessionDetail, SessionFeedbackResponse, SessionSummary,
-    SubmitResponseRequest, QuestionOut,
+    SubmitResponseRequest, QuestionOut, SubmitOutcomeRequest,
 )
 
 router = APIRouter(prefix="/interview", tags=["Mock Interview"])
@@ -108,6 +108,20 @@ async def complete_session(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/sessions/{session_id}/regenerate-report", response_model=SessionFeedbackResponse)
+async def regenerate_report(
+    session_id: str,
+    user: User = Depends(get_current_aspirant),
+    db: Session = Depends(get_db),
+):
+    """Retry a failed Job Readiness Report (e.g. after a transient LLM
+    quota exhaustion clears) — refuses if the session already has a real one."""
+    try:
+        return await service.regenerate_readiness_report(session_id, user, db)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.get("/sessions/{session_id}/feedback", response_model=SessionFeedbackResponse)
 def get_feedback(
     session_id: str,
@@ -126,3 +140,18 @@ def get_performance(
     db: Session = Depends(get_db),
 ):
     return service.get_performance(user, db)
+
+
+@router.post("/sessions/{session_id}/outcome")
+def submit_outcome(
+    session_id: str,
+    body: SubmitOutcomeRequest,
+    user: User = Depends(get_current_aspirant),
+    db: Session = Depends(get_db),
+):
+    """Predictive-validity flywheel: candidate self-reports what happened
+    after the interview they practiced for (opt-in)."""
+    try:
+        return service.submit_outcome(session_id, body.outcome, body.notes, user, db)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

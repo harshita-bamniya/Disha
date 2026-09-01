@@ -1,11 +1,11 @@
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { interviewApi, type JobReadinessReport, type FeedbackItem } from '@/api/interview'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { interviewApi, OUTCOME_OPTIONS, type JobReadinessReport, type FeedbackItem } from '@/api/interview'
 import { useState } from 'react'
 import {
   CheckCircle, TrendingUp, RotateCcw, AlertTriangle,
   Target, Star, BookOpen, Calendar, ChevronDown, ChevronUp,
-  Award, Briefcase, User, BarChart2, MapPin
+  Award, Briefcase, User, BarChart2, MapPin, Clock, ShieldAlert, MessageCircleQuestion
 } from 'lucide-react'
 import PageHeader from '@/shared/layouts/PageHeader'
 import Breadcrumb from '@/shared/components/navigation/Breadcrumb'
@@ -137,6 +137,7 @@ function FeedbackCard({ item, index }: { item: FeedbackItem; index: number }) {
           <div style={{ display: 'flex', gap: 6 }}>
             {item.question_type && <span style={{ fontSize: 10, color: '#6366F1', background: '#EEF2FF', padding: '1px 6px', borderRadius: 10, fontWeight: 600, textTransform: 'capitalize' }}>{item.question_type}</span>}
             {item.skill_assessed && <span style={{ fontSize: 10, color: '#64748B', background: '#F1F5F9', padding: '1px 6px', borderRadius: 10, fontWeight: 600 }}>{item.skill_assessed}</span>}
+            {item.is_fallback && <span style={{ fontSize: 10, color: '#B45309', background: '#FEF3C7', padding: '1px 6px', borderRadius: 10, fontWeight: 600 }}>AI scoring unavailable</span>}
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -165,6 +166,20 @@ function FeedbackCard({ item, index }: { item: FeedbackItem; index: number }) {
               )
             })}
           </div>
+
+          {item.judge_disagreement_note && (
+            <div style={{ background: '#FFFBEB', border: '1px solid rgba(217,119,6,0.2)', borderRadius: 8, padding: '10px 12px', marginBottom: 12 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#D97706', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Scoring confidence — judges disagreed</div>
+              <p style={{ fontSize: 12, color: '#92400E', lineHeight: 1.6, margin: 0 }}>{item.judge_disagreement_note}</p>
+            </div>
+          )}
+
+          {item.evidence_quote && (
+            <div style={{ background: '#FAF5FF', border: '1px solid rgba(139,92,246,0.15)', borderRadius: 8, padding: '10px 12px', marginBottom: 12 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#8B5CF6', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>What earned this score</div>
+              <p style={{ fontSize: 12, color: '#5B21B6', lineHeight: 1.6, margin: 0, fontStyle: 'italic' }}>"{item.evidence_quote}"</p>
+            </div>
+          )}
 
           {item.original_response && (
             <div style={{ background: '#F8FAFC', borderRadius: 8, padding: '10px 12px', marginBottom: 12 }}>
@@ -245,17 +260,106 @@ function RoadmapTimeline({ steps }: { steps: JobReadinessReport['roadmap'] }) {
   )
 }
 
+// ── Practice-next Card ────────────────────────────────────────────────────────
+
+function PracticeNextCard({ skills, navigate }: { skills: string[]; navigate: (path: string) => void }) {
+  return (
+    <div style={{ background: 'white', borderRadius: 18, padding: '22px 24px', border: '1.5px solid rgba(99,102,241,0.2)', gridColumn: '1 / -1' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <Target size={16} color="#6366F1" />
+        <h2 style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>Practice Before Your Next Interview</h2>
+      </div>
+      <p style={{ fontSize: 13, color: '#64748B', lineHeight: 1.6, marginBottom: 14 }}>
+        These came up weakest across your interviews so far — your next mock interview will already lean into them, but a head start helps.
+      </p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+        {skills.map(skill => (
+          <span key={skill} style={{ fontSize: 12, fontWeight: 700, color: '#4338CA', background: '#EEF2FF', padding: '5px 12px', borderRadius: 20 }}>
+            {skill}
+          </span>
+        ))}
+      </div>
+      <button
+        onClick={() => navigate('/app/roadmap')}
+        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6366F1', fontWeight: 700, fontSize: 13, padding: 0 }}
+      >
+        View your learning plan →
+      </button>
+    </div>
+  )
+}
+
+// ── Outcome Survey (predictive-validity flywheel) ────────────────────────────
+
+function OutcomeSurveyCard({ sessionId, reportedOutcome }: { sessionId: string; reportedOutcome: string | null }) {
+  const queryClient = useQueryClient()
+  const [selected, setSelected] = useState<string | null>(null)
+
+  const submitMutation = useMutation({
+    mutationFn: (outcome: string) => interviewApi.submitOutcome(sessionId, { outcome }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['session-feedback', sessionId] }),
+  })
+
+  if (reportedOutcome) {
+    const label = OUTCOME_OPTIONS.find(o => o.value === reportedOutcome)?.label ?? reportedOutcome
+    return (
+      <div style={{ background: 'white', borderRadius: 18, padding: '16px 22px', border: '1.5px solid rgba(226,232,240,0.8)', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <CheckCircle size={16} color="#10B981" />
+        <span style={{ fontSize: 13, color: '#374151' }}>Thanks for letting us know — you reported: <strong>{label}</strong></span>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ background: 'white', borderRadius: 18, padding: '18px 22px', border: '1.5px solid rgba(99,102,241,0.2)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <MessageCircleQuestion size={16} color="#6366F1" />
+        <h2 style={{ fontSize: 13.5, fontWeight: 800, color: '#0F172A' }}>How did the real interview go?</h2>
+      </div>
+      <p style={{ fontSize: 12, color: '#64748B', marginBottom: 12, lineHeight: 1.6 }}>
+        If you've applied for this role, let us know what happened — it helps us check that this score actually predicts real outcomes.
+      </p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        {OUTCOME_OPTIONS.map(opt => (
+          <button
+            key={opt.value}
+            onClick={() => { setSelected(opt.value); submitMutation.mutate(opt.value) }}
+            disabled={submitMutation.isPending}
+            style={{
+              fontSize: 12, fontWeight: 700, padding: '7px 14px', borderRadius: 20, cursor: 'pointer',
+              border: '1.5px solid rgba(99,102,241,0.25)',
+              background: selected === opt.value ? '#EEF2FF' : 'white',
+              color: '#4338CA',
+              opacity: submitMutation.isPending && selected !== opt.value ? 0.5 : 1,
+            }}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function InterviewReportPage() {
   const { sessionId } = useParams<{ sessionId: string }>()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<'report' | 'answers' | 'roadmap'>('report')
 
   const { data: feedback, isLoading } = useQuery({
     queryKey: ['session-feedback', sessionId],
     queryFn: () => interviewApi.getFeedback(sessionId!),
     enabled: !!sessionId,
+  })
+
+  const regenerateMutation = useMutation({
+    mutationFn: () => interviewApi.regenerateReport(sessionId!),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['session-feedback', sessionId], updated)
+    },
   })
 
   if (isLoading) return (
@@ -265,7 +369,14 @@ export default function InterviewReportPage() {
   if (!feedback) return null
 
   const report = feedback.job_readiness_report
-  const hasReport = !!report
+  // Audit finding (2026-08-24): a degraded report (the LLM call failed after
+  // retry, or hit a rate limit past the fallback provider too) used to render
+  // as if it were real — "0% readiness, No Hire" presented as the candidate's
+  // actual assessment, no error state. Treat report.error the same as "no
+  // report" here, so it falls through to the honest per-answer-average hero
+  // and the report tab explains what actually happened.
+  const reportErrored = !!report?.error
+  const hasReport = !!report && !reportErrored
   const overallAvg = feedback.overall_avg
   const overallColor = overallAvg >= 8 ? '#10B981' : overallAvg >= 6 ? '#F59E0B' : '#EF4444'
 
@@ -293,9 +404,14 @@ export default function InterviewReportPage() {
           ]} />
         }
         actions={
-          <Button variant="outline" size="sm" onClick={() => navigate('/app/interview/setup')}>
-            <RotateCcw size={12} style={{ marginRight: 4 }} /> New Interview
-          </Button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button variant="outline" size="sm" onClick={() => navigate('/app/interview/history')}>
+              View All Sessions
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => navigate('/app/interview/setup')}>
+              <RotateCcw size={12} style={{ marginRight: 4 }} /> New Interview
+            </Button>
+          </div>
         }
       />
 
@@ -309,6 +425,11 @@ export default function InterviewReportPage() {
                 <div style={{ textAlign: 'center', marginTop: 4 }}>
                   <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 4 }}>Job Readiness</div>
                   <HiringBadge rec={report.hiring_recommendation} />
+                  {report.confidence_note && (
+                    <p style={{ fontSize: 10.5, color: '#FCD34D', lineHeight: 1.5, marginTop: 8, maxWidth: 180 }}>
+                      ⚠ {report.confidence_note}
+                    </p>
+                  )}
                 </div>
               </div>
               <div>
@@ -366,6 +487,12 @@ export default function InterviewReportPage() {
       {/* Content */}
       <div style={{ maxWidth: 900, margin: '0 auto', padding: '28px 28px' }}>
 
+        {hasReport && (
+          <div style={{ marginBottom: 20 }}>
+            <OutcomeSurveyCard sessionId={sessionId!} reportedOutcome={feedback.reported_outcome} />
+          </div>
+        )}
+
         {/* ── Report Tab ─────────────────────────────────────────────────────── */}
         {activeTab === 'report' && hasReport && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
@@ -415,6 +542,51 @@ export default function InterviewReportPage() {
               ))}
             </div>
 
+            {report.consistency_notes?.length > 0 && (
+              <div style={{ background: 'white', borderRadius: 18, padding: '22px 24px', border: '1.5px solid rgba(139,92,246,0.25)', gridColumn: '1 / -1' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                  <AlertTriangle size={16} color="#8B5CF6" />
+                  <h2 style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>Consistency Check</h2>
+                </div>
+                {report.consistency_notes.map((s, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 10, alignItems: 'flex-start' }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#8B5CF6', flexShrink: 0, marginTop: 5 }} />
+                    <span style={{ fontSize: 13, color: '#374151', lineHeight: 1.5 }}>{s}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {report.pacing_notes?.length > 0 && (
+              <div style={{ background: 'white', borderRadius: 18, padding: '22px 24px', border: '1.5px solid rgba(59,130,246,0.25)', gridColumn: '1 / -1' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                  <Clock size={16} color="#3B82F6" />
+                  <h2 style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>Pacing</h2>
+                </div>
+                {report.pacing_notes.map((s, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 10, alignItems: 'flex-start' }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#3B82F6', flexShrink: 0, marginTop: 5 }} />
+                    <span style={{ fontSize: 13, color: '#374151', lineHeight: 1.5 }}>{s}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {report.integrity_notes?.length > 0 && (
+              <div style={{ background: 'white', borderRadius: 18, padding: '22px 24px', border: '1.5px solid rgba(220,38,38,0.25)', gridColumn: '1 / -1' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                  <ShieldAlert size={16} color="#DC2626" />
+                  <h2 style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>Integrity Flags</h2>
+                </div>
+                {report.integrity_notes.map((s, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 10, alignItems: 'flex-start' }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#DC2626', flexShrink: 0, marginTop: 5 }} />
+                    <span style={{ fontSize: 13, color: '#374151', lineHeight: 1.5 }}>{s}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Candidate summary */}
             <div style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.04), rgba(139,92,246,0.04))', borderRadius: 18, padding: '22px 24px', border: '1.5px solid rgba(99,102,241,0.15)', gridColumn: '1 / -1' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
@@ -436,17 +608,55 @@ export default function InterviewReportPage() {
                 {report.hiring_recommendation_reason}
               </p>
             </div>
+
+            {feedback.weak_skills.length > 0 && (
+              <PracticeNextCard skills={feedback.weak_skills} navigate={navigate} />
+            )}
           </div>
         )}
 
         {activeTab === 'report' && !hasReport && (
-          <div style={{ background: 'white', borderRadius: 18, padding: '32px', textAlign: 'center', border: '1.5px solid rgba(226,232,240,0.8)' }}>
-            <p style={{ color: '#64748B', fontSize: 14 }}>
-              Full Job Readiness Report is only available for role-specific interviews.<br />
-              <button onClick={() => navigate('/app/interview/setup')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6366F1', fontWeight: 700, fontSize: 14 }}>
-                Start a targeted interview →
-              </button>
-            </p>
+          <div>
+            <div style={{ background: reportErrored ? '#FEF2F2' : 'white', borderRadius: 18, padding: '32px', textAlign: 'center', border: reportErrored ? '1.5px solid #FECACA' : '1.5px solid rgba(226,232,240,0.8)', marginBottom: feedback.weak_skills.length > 0 ? 20 : 0 }}>
+              {reportErrored ? (
+                <>
+                  <AlertTriangle size={22} color="#DC2626" style={{ marginBottom: 10 }} />
+                  <p style={{ color: '#7F1D1D', fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
+                    We couldn't generate your Job Readiness Report
+                  </p>
+                  <p style={{ color: '#991B1B', fontSize: 13, marginBottom: 14 }}>
+                    This is a technical failure, not your actual score — the average per-answer score above is real. This is usually temporary (a busy AI service) — try again, or start a new interview instead.
+                  </p>
+                  <div style={{ display: 'flex', gap: 16, justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => regenerateMutation.mutate()}
+                      disabled={regenerateMutation.isPending}
+                      style={{ background: '#DC2626', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: regenerateMutation.isPending ? 'default' : 'pointer', color: 'white', fontWeight: 700, fontSize: 13, opacity: regenerateMutation.isPending ? 0.7 : 1 }}
+                    >
+                      {regenerateMutation.isPending ? 'Retrying…' : 'Try again'}
+                    </button>
+                    <button onClick={() => navigate('/app/interview/setup')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626', fontWeight: 700, fontSize: 14 }}>
+                      Start a new interview →
+                    </button>
+                  </div>
+                  {regenerateMutation.isError && (
+                    <p style={{ color: '#991B1B', fontSize: 12, marginTop: 10 }}>
+                      Still couldn't generate it — give it a bit longer and try again.
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p style={{ color: '#64748B', fontSize: 14 }}>
+                  Full Job Readiness Report is only available for role-specific interviews.<br />
+                  <button onClick={() => navigate('/app/interview/setup')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6366F1', fontWeight: 700, fontSize: 14 }}>
+                    Start a targeted interview →
+                  </button>
+                </p>
+              )}
+            </div>
+            {feedback.weak_skills.length > 0 && (
+              <PracticeNextCard skills={feedback.weak_skills} navigate={navigate} />
+            )}
           </div>
         )}
 

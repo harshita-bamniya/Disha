@@ -3,6 +3,7 @@ import { adminApi } from '@/api/admin'
 import type {
   AnnouncementCreatePayload, AnnouncementStatus,
   CareerTrackCreatePayload, CareerTrackUpdatePayload, EmployerStatus, SubAdminCreatePayload,
+  SubmitHumanReviewPayload,
 } from '@/api/admin'
 
 const STATS_KEY              = ['admin', 'stats']
@@ -540,5 +541,39 @@ export function useUserNotifications(userId: string | null) {
     queryFn: () => adminApi.getUserNotifications(userId!),
     enabled: !!userId,
     staleTime: 30_000,
+  })
+}
+
+// ── AI Interviewer calibration (Phase 7) ────────────────────────────────────
+
+export function useReviewableInterviewSessions(limit = 10) {
+  return useQuery({
+    queryKey: ['admin', 'interview-calibration', 'sample', limit],
+    queryFn: () => adminApi.sampleInterviewSessionsForReview(limit),
+  })
+}
+
+export function useSubmitInterviewHumanReview() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ sessionId, payload }: { sessionId: string; payload: SubmitHumanReviewPayload }) =>
+      adminApi.submitInterviewHumanReview(sessionId, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'interview-calibration'] })
+    },
+  })
+}
+
+export function useInterviewCalibrationStats() {
+  return useQuery({
+    queryKey: ['admin', 'interview-calibration', 'stats'],
+    queryFn: adminApi.getInterviewCalibrationStats,
+  })
+}
+
+export function useInterviewOutcomeCorrelation() {
+  return useQuery({
+    queryKey: ['admin', 'interview-calibration', 'outcome-correlation'],
+    queryFn: adminApi.getInterviewOutcomeCorrelation,
   })
 }

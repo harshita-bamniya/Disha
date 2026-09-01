@@ -141,6 +141,50 @@ ROLE_COMPETENCIES: dict[str, list[dict]] = {
     ],
 }
 
+# ─── Panel simulation ───────────────────────────────────────────────────────
+# A real onsite loop isn't one generalist interviewer — it's 2-3 distinct
+# people, each testing a different competency with a different style. This
+# maps question_type onto a fixed persona rather than asking the LLM to
+# invent one per question, which would drift in name/identity across
+# questions within the same session.
+
+PANEL_PERSONAS = {
+    "hiring_manager": {"name": "Priya Nair", "role": "Hiring Manager"},
+    "technical_lead": {"name": "Arjun Mehta", "role": "Technical Lead"},
+    "future_peer": {"name": "Zara Khan", "role": "Future Teammate"},
+}
+
+_QUESTION_TYPE_TO_PANELIST = {
+    "behavioral": "hiring_manager",
+    "hr": "hiring_manager",
+    "technical": "technical_lead",
+    "system_design": "technical_lead",
+    "situational": "future_peer",
+    "case": "future_peer",
+}
+
+
+def panelist_for_question_type(question_type: str | None) -> dict | None:
+    """Deterministic question_type -> panelist mapping, so the same style of
+    question always comes from the same persona within a session."""
+    key = _QUESTION_TYPE_TO_PANELIST.get((question_type or "").lower())
+    return PANEL_PERSONAS.get(key) if key else None
+
+
+def _with_panel_intro(blueprint: dict, job_role: str) -> dict:
+    """Computed deterministically from PANEL_PERSONAS rather than asked of the
+    LLM — guarantees the same three names/roles every session instead of the
+    model inventing slightly different ones each time."""
+    hm, tl, fp = PANEL_PERSONAS["hiring_manager"], PANEL_PERSONAS["technical_lead"], PANEL_PERSONAS["future_peer"]
+    blueprint["panel"] = [hm, tl, fp]
+    blueprint["panel_intro"] = (
+        f"Today's panel for this {job_role} interview: {hm['name']} ({hm['role']}) will cover culture "
+        f"and behavioral fit, {tl['name']} ({tl['role']}) will go deep on technical questions, and "
+        f"{fp['name']} ({fp['role']}) will explore how you'd handle real day-to-day situations."
+    )
+    return blueprint
+
+
 _DEFAULT_COMPETENCIES = [
     {"skill": "Technical Knowledge", "weight": 25},
     {"skill": "Problem Solving", "weight": 25},
@@ -153,11 +197,91 @@ def get_competencies(job_role: str) -> list[dict]:
     return ROLE_COMPETENCIES.get(job_role, _DEFAULT_COMPETENCIES)
 
 
+_COMPETENCY_GEN_SYSTEM = """You are a Senior Hiring Manager building a competency matrix for a job role \
+that isn't in a standard taxonomy — the candidate typed it in free-text.
+
+Generate 6-8 competencies that a real interview panel would assess for this exact role. Weights must
+be integers that sum to 100.
+
+Return ONLY valid JSON:
+{
+  "competencies": [
+    {"skill": "<specific, named competency — not a vague catch-all>", "weight": <integer>},
+    ...
+  ]
+}"""
+
+
+async def generate_dynamic_competencies(job_role: str) -> list[dict]:
+    """LLM-generated competency matrix for a role that isn't in ROLE_COMPETENCIES
+    (i.e. the candidate free-typed a role instead of picking from the picklist).
+
+    Falls back to _DEFAULT_COMPETENCIES on any failure — a generic-but-present
+    matrix beats a broken interview.
+    """
+    try:
+        from app.ai.providers import create_provider
+        from app.ai.providers.groq import LIGHT_MODEL
+        provider = create_provider(model=LIGHT_MODEL, reasoning_effort="low")
+        result = await provider.complete(
+            system=_COMPETENCY_GEN_SYSTEM,
+            messages=[{"role": "user", "content": f"Job Role: {job_role}\n\nGenerate the competency matrix."}],
+            max_tokens=500,
+            temperature=0.4,
+        )
+        raw = _strip_json(result.content)
+        parsed = json.loads(raw)
+        competencies = parsed.get("competencies")
+        if isinstance(competencies, list) and competencies and all(
+            isinstance(c, dict) and c.get("skill") and isinstance(c.get("weight"), (int, float))
+            for c in competencies
+        ):
+            return competencies
+        raise ValueError("Malformed competency matrix from LLM")
+    except Exception as exc:
+        logger.warning("[DYNAMIC_ENGINE] Competency generation failed for role=%r: %s", job_role, exc)
+        return _DEFAULT_COMPETENCIES
+
+
+async def resolve_competencies(job_role: str) -> list[dict]:
+    """Single source of truth for a session's competency matrix: known roles use
+    the fixed taxonomy, novel (free-typed) roles get an LLM-generated one.
+    """
+    if job_role in ROLE_COMPETENCIES:
+        return ROLE_COMPETENCIES[job_role]
+    return await generate_dynamic_competencies(job_role)
+
+
+def _canonicalize_skill(name: str, canonical_names: list[str]) -> str:
+    """Snap a free-text skill name onto the role's fixed competency taxonomy
+    when it's an exact match once case/whitespace differences are ignored.
+
+    Prompts are told to use only the canonical names, but a model can still
+    drift — this is the defense-in-depth backstop, not the primary fix. It's
+    deliberately a plain exact-match snap, not fuzzy/embedding matching:
+    the goal is convergence for genuinely-the-same name, not guessing at
+    genuinely-different ones.
+    """
+    if not name:
+        return name
+    norm = name.strip().casefold()
+    for canonical in canonical_names:
+        if canonical.strip().casefold() == norm:
+            return canonical
+    return name
+
+
 # ─── Prompts ──────────────────────────────────────────────────────────────────
 
 _BLUEPRINT_SYSTEM = """You are a Senior Technical Interviewer and Hiring Manager with 15 years experience.
 
 Given a job role, experience level, and optional job description, generate a structured interview blueprint.
+
+CRITICAL: "skills_to_assess" MUST be chosen only from the "Canonical Skills" list provided in the
+user message, using the exact spelling given. Do not invent new skill names, rephrase them, or
+split one canonical skill into several — this list is the fixed taxonomy this role is always
+assessed against, so consistent naming across every interview for this role matters more than
+covering every nuance of the job description.
 
 Return ONLY valid JSON:
 {
@@ -199,7 +323,14 @@ Rules:
 - Questions should feel like a real interview, not a quiz
 - Mix behavioral (STAR format expected) with technical
 - Never repeat similar questions
-- Each question should assess a different competency"""
+- Each question should assess a different competency
+- CRITICAL: "skill_assessed" MUST be exactly one of the strings listed under "Skills to Assess"
+  below, spelled exactly as given — never invent a new name or rephrase one, even if a question
+  only partially touches that skill. Consistent naming across sessions matters more than precision.
+- If a "Candidate Background" section is provided and names a specific project, employer, or tool,
+  make at least one question reference it by name (e.g. "You used <tool> on <project> — walk me
+  through that decision"). Only reference things actually present in that background — never
+  fabricate a specific that isn't there."""
 
 _READINESS_SYSTEM = """You are a strict, unbiased Senior Hiring Manager generating a post-interview assessment.
 Your job is to give ACCURATE scores — not encouraging ones. Candidates need to know the truth.
@@ -248,14 +379,18 @@ Return ONLY valid JSON — no commentary, no markdown:
       "resource_type": "project" | "course" | "practice" | "reading"
     }
   ],
-  "readiness_message": "Direct 2-sentence message to the candidate. Honest, not sugarcoated."
+  "readiness_message": "Direct 2-sentence message to the candidate. Honest, not sugarcoated.",
+  "consistency_notes": ["specific contradiction or near-verbatim repeat found across the transcript, quoting both instances, e.g. 'In Q2 you said X; in Q4 you said Y — these conflict'", ...]
 }
 
 Rules:
 - Roadmap must have 4–6 entries targeting actual gaps found in the answers.
 - skill_scores must cover every competency listed under Expected Competencies.
 - Strengths and gaps must reference specific things said (or not said) in the answers.
-- Do NOT inflate scores to be kind. A weak answer is a weak answer."""
+- Do NOT inflate scores to be kind. A weak answer is a weak answer.
+- consistency_notes: read the full transcript for contradictions (e.g. stated years of experience,
+  technologies used, or team size that don't match between two answers) or answers that just repeat
+  an earlier answer. Return an empty list if you find none — do not invent one that isn't really there."""
 
 
 async def generate_blueprint(
@@ -265,6 +400,7 @@ async def generate_blueprint(
     total_questions: int,
     candidate_context: str | None = None,
     prior_weak_areas: list[str] | None = None,
+    competencies: list[dict] | None = None,
 ) -> dict:
     """Generate an interview blueprint for a given role and experience level."""
     candidate_section = (
@@ -277,16 +413,19 @@ async def generate_blueprint(
         + ", ".join(prior_weak_areas) + "\n"
         if prior_weak_areas else ""
     )
+    canonical_names = [c["skill"] for c in (competencies or get_competencies(job_role))]
     user_msg = f"""Job Role: {job_role}
 Experience Level: {experience_level}
 Total Questions Planned: {total_questions}
 Job Description: {job_description or 'Not provided'}
+Canonical Skills (skills_to_assess must be chosen only from this list, exact spelling): {", ".join(canonical_names)}
 {candidate_section}{weak_section}
 Generate the interview blueprint."""
 
     try:
         from app.ai.providers import create_provider
-        provider = create_provider()
+        from app.ai.providers.groq import LIGHT_MODEL
+        provider = create_provider(model=LIGHT_MODEL, reasoning_effort="low")
         result = await provider.complete(
             system=_BLUEPRINT_SYSTEM,
             messages=[{"role": "user", "content": user_msg}],
@@ -294,7 +433,12 @@ Generate the interview blueprint."""
             temperature=0.4,
         )
         raw = _strip_json(result.content)
-        return json.loads(raw)
+        blueprint = json.loads(raw)
+        if isinstance(blueprint.get("skills_to_assess"), list):
+            blueprint["skills_to_assess"] = [
+                _canonicalize_skill(s, canonical_names) for s in blueprint["skills_to_assess"]
+            ]
+        return _with_panel_intro(blueprint, job_role)
     except Exception as exc:
         logger.warning("[DYNAMIC_ENGINE] Blueprint generation failed: %s", exc)
         return _default_blueprint(job_role, experience_level)
@@ -305,25 +449,35 @@ async def generate_questions(
     experience_level: str,
     blueprint: dict,
     count: int,
+    competencies: list[dict] | None = None,
+    candidate_context: str | None = None,
 ) -> list[dict]:
     """Generate dynamic, role-specific interview questions."""
+    canonical_names = [c["skill"] for c in (competencies or get_competencies(job_role))]
     skills_focus = ", ".join(blueprint.get("skills_to_assess", [])[:6])
     breakdown = blueprint.get("question_breakdown", {})
     breakdown_str = ", ".join(f"{k}: {v}" for k, v in breakdown.items())
+    candidate_section = (
+        f"\nCandidate Background (weave at least one question that references a specific "
+        f"named project, employer, or tool from this background, if present — never invent "
+        f"specifics that aren't actually in it):\n{candidate_context}\n"
+        if candidate_context else ""
+    )
 
     user_msg = f"""Job Role: {job_role}
 Experience Level: {experience_level}
 Skills to Assess: {skills_focus}
 Question Breakdown: {breakdown_str}
 Focus Areas: {", ".join(blueprint.get("focus_areas", []))}
-
+{candidate_section}
 Generate exactly {count} questions."""
 
     prompt = _QUESTIONS_SYSTEM.replace("{count}", str(count))
 
     try:
         from app.ai.providers import create_provider
-        provider = create_provider()
+        from app.ai.providers.groq import LIGHT_MODEL
+        provider = create_provider(model=LIGHT_MODEL, reasoning_effort="low")
         result = await provider.complete(
             system=prompt,
             messages=[{"role": "user", "content": user_msg}],
@@ -333,6 +487,9 @@ Generate exactly {count} questions."""
         raw = _strip_json(result.content)
         questions = json.loads(raw)
         if isinstance(questions, list):
+            for q in questions[:count]:
+                if isinstance(q, dict) and q.get("skill_assessed"):
+                    q["skill_assessed"] = _canonicalize_skill(q["skill_assessed"], canonical_names)
             return questions[:count]
         return _fallback_questions(job_role, count)
     except Exception as exc:
@@ -346,6 +503,7 @@ async def generate_job_readiness_report(
     competencies: list[dict],
     transcript: list[dict],
     total_questions_planned: int = 0,
+    temperature: float = 0.3,
 ) -> dict:
     """Generate a comprehensive job readiness report from interview transcript.
 
@@ -379,24 +537,44 @@ Interview Transcript:
 IMPORTANT: Apply the completeness cap rule from your instructions if {completion_pct}% < 70%.
 Generate the job readiness report based strictly on what was actually demonstrated above."""
 
-    try:
-        from app.ai.providers import create_provider
-        provider = create_provider()
+    # Audit finding (2026-08-24): this was the one LLM call site in the whole
+    # feature missing reasoning_effort="low" — every other call (competencies,
+    # blueprint, questions, judges) already sets it specifically because a
+    # gpt-oss reasoning model can burn its whole max_tokens budget on reasoning
+    # before writing the actual JSON. This schema is the largest of any call
+    # site (skill_scores per competency, a 4-6 entry roadmap, several string
+    # lists), so it was also the most exposed to exactly that failure mode —
+    # confirmed live: truncated/malformed JSON on ~83% of test completions.
+    from app.ai.providers import create_provider
+    # Deliberately keep the full DEFAULT_MODEL here (unlike the lighter-tier
+    # calls elsewhere) — this is the one score a candidate treats as the
+    # verdict. Only reasoning_effort changes, to fix the truncation above.
+    provider = create_provider(reasoning_effort="low")
+
+    async def _attempt() -> dict:
         result = await provider.complete(
             system=_READINESS_SYSTEM,
             messages=[{"role": "user", "content": user_msg}],
-            max_tokens=2000,
-            temperature=0.3,
+            max_tokens=3000,
+            temperature=temperature,
         )
         raw = _strip_json(result.content)
-        report = json.loads(raw)
+        return json.loads(raw)
+
+    try:
+        try:
+            report = await _attempt()
+        except Exception as first_exc:
+            logger.warning("[DYNAMIC_ENGINE] Readiness report attempt 1 failed: %s — retrying once", first_exc)
+            report = await _attempt()
+        report = _enforce_completeness_cap(report, completion_pct)
         report["job_role"] = job_role
         report["experience_level"] = experience_level
         report["competencies"] = competencies
         return report
     except Exception as exc:
-        logger.warning("[DYNAMIC_ENGINE] Readiness report failed: %s", exc)
-        return _default_readiness_report(job_role, competencies)
+        logger.warning("[DYNAMIC_ENGINE] Readiness report failed after retry: %s", exc)
+        return _default_readiness_report(job_role, experience_level, competencies)
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -408,8 +586,61 @@ def _strip_json(text: str) -> str:
     return text.strip()
 
 
+_REC_ORDER = ["No Hire", "Maybe", "Hire", "Strong Hire"]
+
+
+def _enforce_completeness_cap(report: dict, completion_pct: float) -> dict:
+    """Code-level enforcement of the completeness rule the prompt only *asks*
+    the model to follow, and a defensive clamp on every numeric field.
+
+    The prompt tells the model to cap overall_readiness_score when completion
+    is low, but nothing previously checked the model actually did that — an
+    LLM-stated rule is not a guarantee. This mirrors the clamp-and-validate
+    pattern feedback_ai.parse_feedback_response already applies to per-answer
+    scores.
+    """
+    cap = 45 if completion_pct < 50 else 60 if completion_pct < 70 else None
+
+    numeric_fields = (
+        "overall_readiness_score", "technical_readiness_score",
+        "communication_score", "confidence_score",
+    )
+    for key in numeric_fields:
+        val = report.get(key)
+        if isinstance(val, (int, float)):
+            val = max(0, min(100, val))
+            if key == "overall_readiness_score" and cap is not None:
+                val = min(val, cap)
+            report[key] = val
+
+    if isinstance(report.get("skill_scores"), dict):
+        report["skill_scores"] = {
+            k: max(0, min(100, v)) for k, v in report["skill_scores"].items()
+            if isinstance(v, (int, float))
+        }
+
+    score = report.get("overall_readiness_score")
+    if isinstance(score, (int, float)):
+        max_allowed_rec = "No Hire" if score <= 45 else "Maybe" if score <= 65 else None
+        current_rec = report.get("hiring_recommendation")
+        # Normalize before matching — an LLM returning a differently-cased or
+        # whitespace-padded label shouldn't silently escape the downgrade.
+        normalized = current_rec.strip().casefold() if isinstance(current_rec, str) else ""
+        rec_by_normalized = {r.casefold(): r for r in _REC_ORDER}
+        matched_rec = rec_by_normalized.get(normalized)
+        if max_allowed_rec is not None and matched_rec is not None:
+            if _REC_ORDER.index(matched_rec) > _REC_ORDER.index(max_allowed_rec):
+                report["hiring_recommendation"] = max_allowed_rec
+        elif max_allowed_rec is not None and matched_rec is None and current_rec:
+            # Unrecognized label entirely — fail closed to the strictest
+            # allowed tier rather than leaving an unvalidated string in place.
+            report["hiring_recommendation"] = max_allowed_rec
+
+    return report
+
+
 def _default_blueprint(job_role: str, experience_level: str) -> dict:
-    return {
+    return _with_panel_intro({
         "skills_to_assess": [c["skill"] for c in get_competencies(job_role)[:6]],
         "question_breakdown": {"behavioral": 2, "technical": 4, "situational": 2, "hr": 2},
         "difficulty_ramp": "start_easy_increase",
@@ -417,7 +648,7 @@ def _default_blueprint(job_role: str, experience_level: str) -> dict:
         "interview_style": "conversational",
         "opening_greeting": f"Welcome! I'm your AI interviewer for the {job_role} position. I'm excited to learn about your experience and skills today.",
         "ice_breaker_question": "To get us started, could you walk me through your background and what drew you to the field of " + job_role + "?",
-    }
+    }, job_role)
 
 
 def _fallback_questions(job_role: str, count: int) -> list[dict]:
@@ -461,11 +692,12 @@ def _fallback_questions(job_role: str, count: int) -> list[dict]:
     return (base * ((count // len(base)) + 1))[:count]
 
 
-def _default_readiness_report(job_role: str, competencies: list[dict]) -> dict:
+def _default_readiness_report(job_role: str, experience_level: str, competencies: list[dict]) -> dict:
     """Fallback used only when the AI call fails. Uses 0 scores, not 60, so
     we don't mislead the candidate with false averages."""
     return {
         "job_role": job_role,
+        "experience_level": experience_level,
         "overall_readiness_score": 0,
         "technical_readiness_score": 0,
         "communication_score": 0,
@@ -478,6 +710,7 @@ def _default_readiness_report(job_role: str, competencies: list[dict]) -> dict:
         "candidate_summary": "Report generation failed. Manual review required.",
         "roadmap": [],
         "readiness_message": "We couldn't generate your report due to a technical issue. Please try again.",
+        "consistency_notes": [],
         "competencies": competencies,
         "error": True,
     }
