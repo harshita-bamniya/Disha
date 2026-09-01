@@ -6,8 +6,14 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import NotFoundException
 from app.models.user import (
-    AspirantProfile, CareerTrack, EmployerProfile, JobPosting,
-    KrsScore, PsychologicalAssessment, User, UserCareerSelection,
+    AspirantProfile,
+    CareerTrack,
+    EmployerProfile,
+    JobPosting,
+    KrsScore,
+    PsychologicalAssessment,
+    User,
+    UserCareerSelection,
 )
 from app.modules.admin.schemas import (
     AdminStatsResponse,

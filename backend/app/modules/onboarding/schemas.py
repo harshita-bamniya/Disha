@@ -1,6 +1,7 @@
-from pydantic import BaseModel, field_validator, model_validator
-from typing import Literal
 import re
+from typing import Literal
+
+from pydantic import BaseModel, field_validator, model_validator
 
 INDIAN_STATES = [
     "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
@@ -79,7 +80,7 @@ class PersonalInfoRequest(BaseModel):
     @classmethod
     def validate_state(cls, v: str) -> str:
         if v not in INDIAN_STATES:
-            raise ValueError(f"Invalid state. Must be one of the valid Indian states/UTs.")
+            raise ValueError("Invalid state. Must be one of the valid Indian states/UTs.")
         return v
 
 

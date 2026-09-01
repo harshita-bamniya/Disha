@@ -5,7 +5,7 @@ Match score (0-100) = 0.60 * skill_overlap + 0.40 * krs_fit
 - skill_overlap: % of track's required_skills the aspirant has (Jaccard-style)
 - krs_fit:       how well the aspirant's K score meets the track's min_k_score
 """
-from app.models.user import AspirantProfile, CareerTrack, KrsScore
+from app.models.user import AspirantProfile, CareerTrack
 
 
 def _skill_overlap_pct(user_skills: set[str], required: list[str]) -> int:

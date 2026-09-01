@@ -6,20 +6,36 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.core.exceptions import (
-    AuthException, BadRequestException, ConflictException,
-    OtpExpiredException, OtpInvalidException,
+    AuthException,
+    BadRequestException,
+    ConflictException,
+    OtpExpiredException,
+    OtpInvalidException,
 )
 from app.core.security import (
-    generate_otp, generate_raw_refresh_token,
-    hash_otp, hash_password, hash_token,
-    verify_otp, verify_password,
-    create_access_token, create_refresh_token,
-    decode_refresh_token,
+    create_access_token,
+    generate_otp,
+    generate_raw_refresh_token,
+    hash_otp,
+    hash_password,
+    hash_token,
+    verify_otp,
+    verify_password,
 )
-from app.models.user import AuditLog, EmployerProfile, OtpVerification, RefreshToken, Role, User
+from app.models.user import (
+    AuditLog,
+    EmployerProfile,
+    OtpVerification,
+    RefreshToken,
+    Role,
+    User,
+)
 from app.modules.auth.schemas import (
-    EmployerProfileResponse, EmployerRegisterResponse,
-    MessageResponse, TokenResponse, UserResponse,
+    EmployerProfileResponse,
+    EmployerRegisterResponse,
+    MessageResponse,
+    TokenResponse,
+    UserResponse,
 )
 
 settings = get_settings()
@@ -37,7 +53,6 @@ def _issue_token_pair(user: User, db: Session, request: Request | None = None) -
     access_token = create_access_token(payload)
 
     raw_refresh = generate_raw_refresh_token()
-    refresh_jwt = create_refresh_token({"sub": str(user.id)})
 
     db_token = RefreshToken(
         user_id=user.id,

@@ -7,6 +7,8 @@ ignore = [
     "S106",   # Same
     "B008",   # Do not perform function calls in default arguments — FastAPI pattern
     "N802",   # Function name should be lowercase — some FastAPI patterns
+    "E711",   # Comparison to None — SQLAlchemy filter columns need `== None`, `is None` breaks the query
+    "E712",   # Comparison to True/False — same reason, idiomatic in `.filter(Model.col == True)`
 ]
 exclude = ["alembic/"]
 

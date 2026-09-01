@@ -105,7 +105,7 @@ def create_career_track(
     try:
         return service.create_career_track(body, db)
     except ValueError as e:
-        raise HTTPException(status_code=409, detail=str(e))
+        raise HTTPException(status_code=409, detail=str(e)) from e
 
 
 @router.put("/career-tracks/{track_id}", response_model=CareerTrackAdminEntry)

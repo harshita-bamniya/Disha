@@ -43,7 +43,7 @@ def get_track(
     try:
         return service.get_track_detail(slug, current_user, db)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.post("/tracks/{track_id}/select", response_model=SelectionResponse)
@@ -56,7 +56,7 @@ def select_track(
     try:
         return service.select_track(track_id, current_user, db)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.delete("/tracks/{track_id}/select", response_model=SelectionResponse)
@@ -69,4 +69,4 @@ def deselect_track(
     try:
         return service.deselect_track(track_id, current_user, db)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e

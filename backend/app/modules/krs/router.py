@@ -5,7 +5,12 @@ from app.core.rbac import get_current_verified_user
 from app.database import get_db
 from app.models.user import User
 from app.modules.krs import service
-from app.modules.krs.schemas import KrsDashboardResponse, KrsScoreResponse, LiveJobResponse, PrepareJobResponse
+from app.modules.krs.schemas import (
+    KrsDashboardResponse,
+    KrsScoreResponse,
+    LiveJobResponse,
+    PrepareJobResponse,
+)
 
 router = APIRouter(prefix="/krs", tags=["KRS Intelligence"])
 
@@ -18,7 +23,7 @@ def get_dashboard(
     try:
         return service.get_dashboard(current_user, db)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/jobs", response_model=list[LiveJobResponse])
@@ -49,7 +54,7 @@ def prepare_job(
     try:
         return service.prepare_job(current_user, job_id, db)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.delete("/jobs/{job_id}/prepare", response_model=PrepareJobResponse, status_code=200)
@@ -77,4 +82,4 @@ def recompute(
             composite=krs.composite,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e

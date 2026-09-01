@@ -2,12 +2,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.modules.auth.router import router as auth_router
-from app.modules.onboarding.router import router as onboarding_router
-from app.modules.krs.router import router as krs_router
-from app.modules.jobs.router import router as jobs_router
 from app.modules.admin.router import router as admin_router
+from app.modules.auth.router import router as auth_router
 from app.modules.careers.router import router as careers_router
+from app.modules.jobs.router import router as jobs_router
+from app.modules.krs.router import router as krs_router
+from app.modules.onboarding.router import router as onboarding_router
 
 settings = get_settings()
 

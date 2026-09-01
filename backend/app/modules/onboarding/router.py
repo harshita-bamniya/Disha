@@ -6,9 +6,16 @@ from app.database import get_db
 from app.models.user import User
 from app.modules.onboarding import service
 from app.modules.onboarding.schemas import (
-    EducationRequest, OnboardingStatusResponse, PersonalInfoRequest,
-    PreferencesRequest, ProfileResponse, PsychologicalAssessmentRequest, SkillsRequest,
-    StepSavedResponse, UpscJourneyRequest, WorkExperienceRequest,
+    EducationRequest,
+    OnboardingStatusResponse,
+    PersonalInfoRequest,
+    PreferencesRequest,
+    ProfileResponse,
+    PsychologicalAssessmentRequest,
+    SkillsRequest,
+    StepSavedResponse,
+    UpscJourneyRequest,
+    WorkExperienceRequest,
 )
 
 router = APIRouter(prefix="/onboarding", tags=["Onboarding"])

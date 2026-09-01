@@ -1,13 +1,29 @@
 import logging
 from datetime import datetime, timezone
+
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.models.user import AspirantProfile, CareerMatch, CareerTrack, EmployerProfile, JobPosting, KrsScore, PsychologicalAssessment, User, UserCareerSelection, UserJobPreparation
+from app.models.user import (
+    AspirantProfile,
+    CareerMatch,
+    CareerTrack,
+    EmployerProfile,
+    JobPosting,
+    KrsScore,
+    PsychologicalAssessment,
+    User,
+    UserCareerSelection,
+    UserJobPreparation,
+)
 from app.modules.krs import matching, scoring
 from app.modules.krs.schemas import (
-    CareerMatchResponse, CareerTrackResponse,
-    KrsDashboardResponse, KrsScoreResponse, LiveJobResponse, PrepareJobResponse,
+    CareerMatchResponse,
+    CareerTrackResponse,
+    KrsDashboardResponse,
+    KrsScoreResponse,
+    LiveJobResponse,
+    PrepareJobResponse,
 )
 from app.modules.recommendations import embedder
 
@@ -128,10 +144,6 @@ def get_dashboard(user: User, db: Session) -> KrsDashboardResponse:
         .filter(UserCareerSelection.user_id == user.id)
         .all()
     )
-    # Build a lookup of pre-computed match scores (may not exist for all tracks)
-    match_score_map = {
-        str(m.track_id): (m.match_score, m.skill_overlap) for m in matches_db
-    }
     # Include ALL career matches, not just top-3, for selected track lookup
     all_matches_db = db.query(CareerMatch).filter(CareerMatch.user_id == user.id).all()
     full_match_map = {
@@ -306,7 +318,7 @@ def prepare_job(user: User, job_id: str, db: Session) -> PrepareJobResponse:
 
 def unprepare_job(user: User, job_id: str, db: Session) -> PrepareJobResponse:
     """Remove a job from the preparation list."""
-    deleted = db.query(UserJobPreparation).filter(
+    db.query(UserJobPreparation).filter(
         UserJobPreparation.user_id == user.id,
         UserJobPreparation.job_id == job_id,
     ).delete()

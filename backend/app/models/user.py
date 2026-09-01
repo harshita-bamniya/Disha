@@ -1,13 +1,23 @@
 import uuid
 from datetime import datetime, timezone
+
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
-    Boolean, Column, Date, DateTime, Enum, ForeignKey,
-    Integer, String, Text, UniqueConstraint
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID, INET, JSONB
+from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from pgvector.sqlalchemy import Vector
+
 from app.database import Base
 
 GENDER_ENUM = Enum("male", "female", "other", "prefer_not_to_say", name="gender_enum")

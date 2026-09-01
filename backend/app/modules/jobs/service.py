@@ -1,13 +1,15 @@
 import logging
 import threading
 from datetime import datetime, timezone
+
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import AuthException, BadRequestException
 from app.database import SessionLocal
 from app.models.user import EmployerProfile, JobPosting, User
 from app.modules.jobs.schemas import (
-    EmployerDashboardResponse, JobPostingRequest,
+    EmployerDashboardResponse,
+    JobPostingRequest,
     JobPostingResponse,
 )
 from app.modules.recommendations import embedder

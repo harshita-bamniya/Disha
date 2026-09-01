@@ -21,8 +21,8 @@ def get_current_user(
     token = credentials.credentials
     try:
         payload = decode_access_token(token)
-    except JWTError:
-        raise InvalidTokenException()
+    except JWTError as e:
+        raise InvalidTokenException() from e
 
     user_id: str | None = payload.get("sub")
     if not user_id:

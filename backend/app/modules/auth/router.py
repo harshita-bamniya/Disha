@@ -6,11 +6,18 @@ from app.database import get_db
 from app.models.user import User
 from app.modules.auth import service
 from app.modules.auth.schemas import (
-    EmployerRegisterRequest, EmployerRegisterResponse,
-    ForgotPasswordRequest, ResetPasswordRequest,
-    LoginRequest, MessageResponse, RefreshRequest,
-    RegisterRequest, SendOtpRequest, TokenResponse,
-    UserResponse, VerifyPhoneRequest,
+    EmployerRegisterRequest,
+    EmployerRegisterResponse,
+    ForgotPasswordRequest,
+    LoginRequest,
+    MessageResponse,
+    RefreshRequest,
+    RegisterRequest,
+    ResetPasswordRequest,
+    SendOtpRequest,
+    TokenResponse,
+    UserResponse,
+    VerifyPhoneRequest,
 )
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
