@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from redis import Redis
 from sqlalchemy.orm import Session
 
@@ -7,8 +7,9 @@ from app.database import get_db, get_redis
 from app.models.user import User
 from app.modules.onboarding import service
 from app.modules.onboarding.schemas import (
-    EducationRequest, INDIAN_STATES, OnboardingStatusResponse, PersonalInfoRequest,
-    PreferencesRequest, ProfileResponse, PsychologicalAssessmentRequest, SkillsRequest,
+    EducationRequest, INDIAN_STATES, LearningSetupRequest, OnboardingStatusResponse, PersonalInfoRequest,
+    PreferencesRequest, ProfileResponse, SKILL_CATEGORIES, SkillsRequest,
+    SkillValidateRequest, SkillValidateResponse,
     StepSavedResponse, UpscJourneyRequest, VALID_SECTORS, VALID_SKILLS, WorkExperienceRequest,
 )
 
@@ -31,9 +32,32 @@ def get_options():
     """
     return {
         "skills": sorted(VALID_SKILLS),
+        "skill_categories": {cat: sorted(skills) for cat, skills in SKILL_CATEGORIES.items()},
         "sectors": sorted(VALID_SECTORS),
         "states": INDIAN_STATES,
     }
+
+
+@router.get("/skills/suggest", tags=["Onboarding"])
+def suggest_skills(
+    q: str = Query(..., min_length=1, max_length=60),
+    current_user: User = Depends(get_current_verified_user),
+    db: Session = Depends(get_db),
+):
+    """Autocomplete for the Step 5 custom-skill input."""
+    return {"suggestions": service.suggest_skills(q, db)}
+
+
+@router.post("/skills/validate", response_model=SkillValidateResponse, tags=["Onboarding"])
+async def validate_skill(
+    body: SkillValidateRequest,
+    current_user: User = Depends(get_current_verified_user),
+    db: Session = Depends(get_db),
+):
+    """Checks a typed custom skill (ESCO, then our own LLM as fallback)
+    before it's added to the user's profile or skill_taxonomy."""
+    canonical = await service.validate_skill(body.skill, db)
+    return SkillValidateResponse(valid=canonical is not None, canonical_name=canonical)
 
 
 @router.get("/profile", response_model=ProfileResponse)
@@ -113,24 +137,24 @@ def save_skills(
 
 
 @router.put("/preferences", response_model=StepSavedResponse)
-def save_preferences(
+async def save_preferences(
     body: PreferencesRequest,
     current_user: User = Depends(get_current_verified_user),
     db: Session = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ):
-    result = service.save_preferences(current_user, body, db)
+    result = await service.save_preferences(current_user, body, db)
     _bust_krs_cache(current_user.id, redis)
     return result
 
 
-@router.put("/psychology", response_model=StepSavedResponse)
-async def save_psychology(
-    body: PsychologicalAssessmentRequest,
+@router.put("/learning-setup", response_model=StepSavedResponse)
+def save_learning_setup(
+    body: LearningSetupRequest,
     current_user: User = Depends(get_current_verified_user),
     db: Session = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ):
-    result = await service.save_psychology(current_user, body, db)
+    result = service.save_learning_setup(current_user, body, db)
     _bust_krs_cache(current_user.id, redis)
     return result

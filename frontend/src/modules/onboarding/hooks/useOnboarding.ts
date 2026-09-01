@@ -65,16 +65,31 @@ function useStepMutation(
 
 export const useOnboardingSteps = () => ({
   // Step 1 is the only mandatory step — completing it unlocks the dashboard
-  // (OnboardingGate only checks current_step >= 2). Steps 2-7 walk through
+  // (OnboardingGate only checks current_step >= 2). Steps 2-6 walk through
   // sequentially right after, same as LinkedIn/Indeed-style progressive
   // profile wizards — each one is still skippable (see SkipLink in each page),
   // and a user can also just navigate to the dashboard directly at any point
-  // since the gate doesn't force them back.
+  // since the gate doesn't force them back. Step 6 (preferences) completes
+  // registration — Step6Preferences handles its own navigation afterward
+  // (it shows the BeginablAI insight card first), so nextStep is 'done' here.
   personal:       useStepMutation(onboardingApi.savePersonal, 2),
   education:      useStepMutation(onboardingApi.saveEducation, 3),
   upscJourney:    useStepMutation(onboardingApi.saveUpscJourney, 4),
   workExperience: useStepMutation(onboardingApi.saveWorkExperience, 5),
   skills:         useStepMutation(onboardingApi.saveSkills, 6),
-  preferences:    useStepMutation(onboardingApi.savePreferences, 7),
-  psychology:     useStepMutation(onboardingApi.savePsychology, 'done'),
+  preferences:    useStepMutation(onboardingApi.savePreferences, 'done'),
 })
+
+/** One-time learning setup — asked before a user's first roadmap/job-plan
+ * generation, not during registration. Lives outside useOnboardingSteps
+ * since it isn't part of the numbered onboarding stepper. */
+export function useSaveLearningSetup() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: onboardingApi.saveLearningSetup,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ONBOARDING_PROFILE_KEY })
+      queryClient.invalidateQueries({ queryKey: ['krs', 'dashboard'] })
+    },
+  })
+}

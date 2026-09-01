@@ -12,25 +12,38 @@ INDIAN_STATES = [
     "Delhi", "Jammu and Kashmir", "Ladakh", "Lakshadweep", "Puducherry",
 ]
 
-VALID_SKILLS = {
-    # Core analytical / research
-    "Analytical Reasoning", "Research & Analysis", "Data Interpretation",
-    "Data Analysis", "Policy Research",
-    # Communication & delivery
-    "Report Writing", "Essay Writing", "Public Speaking",
-    # Leadership & operations
-    "Leadership", "Management", "Project Management", "Strategic Planning",
-    # Domain knowledge
-    "Economics", "Public Administration", "Polity & Governance",
-    "Ethics & Integrity", "International Relations", "Law & Legal Knowledge",
-    "Stakeholder Engagement",
-    # Proficiency
-    "Communication", "English Proficiency", "Hindi Proficiency", "Computer Skills",
-    # UPSC subject knowledge
-    "Science & Technology", "Current Affairs", "History", "Geography", "Environment",
-    # Sector-specific
-    "Teaching & Training", "Budget & Finance",
+# Grouped for display (Step 5 renders one section per category). jobs/schemas.py
+# keeps its own flat VALID_SKILLS in sync with the union of these — see the
+# note there. compute_k_score/compute_r_score/compute_s_score don't care about
+# category, only the flat set below, derived once at import time.
+SKILL_CATEGORIES: dict[str, list[str]] = {
+    "Analytical & Research": [
+        "Analytical Reasoning", "Research & Analysis", "Data Interpretation",
+        "Data Analysis", "Policy Research",
+    ],
+    "Communication": [
+        "Report Writing", "Essay Writing", "Public Speaking", "Communication",
+    ],
+    "Leadership & Operations": [
+        "Leadership", "Management", "Project Management", "Strategic Planning",
+    ],
+    "Domain Knowledge": [
+        "Economics", "Public Administration", "Polity & Governance",
+        "Ethics & Integrity", "International Relations", "Law & Legal Knowledge",
+        "Stakeholder Engagement",
+    ],
+    "Proficiency": [
+        "English Proficiency", "Hindi Proficiency", "Computer Skills",
+    ],
+    "UPSC Subject Knowledge": [
+        "Science & Technology", "Current Affairs", "History", "Geography", "Environment",
+    ],
+    "Sector-Specific": [
+        "Teaching & Training", "Budget & Finance",
+    ],
 }
+
+VALID_SKILLS: set[str] = {s for skills in SKILL_CATEGORIES.values() for s in skills}
 
 VALID_SECTORS = {
     "Government & Civil Services", "Public Sector Undertakings (PSU)",
@@ -167,11 +180,28 @@ class SkillsRequest(BaseModel):
             raise ValueError("Select at least 1 skill")
         if len(v) > 10:
             raise ValueError("Select at most 10 skills")
-        cleaned = []
+        # Case-insensitive lookup so a custom entry that happens to match a
+        # canonical skill (different casing) collapses onto the canonical
+        # spelling instead of creating a near-duplicate.
+        canonical_by_lower = {s.lower(): s for s in VALID_SKILLS}
+        cleaned: list[str] = []
+        seen_lower: set[str] = set()
         for skill in v:
             s = skill.strip()
-            if s not in VALID_SKILLS:
-                raise ValueError(f"'{s}' is not a valid skill option")
+            lower = s.lower()
+            if lower in canonical_by_lower:
+                s = canonical_by_lower[lower]
+            else:
+                # Custom skill, not in the curated list — gap/S-score matching
+                # already works on arbitrary skill text via embeddings
+                # (krs/skill_gap.py, krs/scoring.py), so this is safe to accept.
+                if not (2 <= len(s) <= 60):
+                    raise ValueError(f"'{s}' must be between 2 and 60 characters")
+                if not re.search(r"[A-Za-z]", s):
+                    raise ValueError(f"'{s}' must contain at least one letter")
+            if lower in seen_lower:
+                continue
+            seen_lower.add(lower)
             cleaned.append(s)
         return cleaned
 
@@ -215,17 +245,45 @@ class PreferencesRequest(BaseModel):
         return v
 
 
-# ── Step 7: Psychological Assessment ─────────────────────────────────────────
+# ── Learning setup (one-time, asked before first roadmap/plan generation) ────
 
-class PsychologicalAssessmentRequest(BaseModel):
-    # Each field uses a named option; the service converts to numeric scores
+class LearningSetupRequest(BaseModel):
+    # Each level uses a named option; the service converts to numeric scores
     burnout_level: Literal["fresh", "somewhat_tired", "exhausted", "burnt_out"]
     confidence_level: Literal["very_confident", "reasonably_confident", "somewhat_unsure", "very_anxious"]
-    financial_pressure: Literal["no_rush", "some_pressure", "significant_pressure", "urgent"]
-    risk_tolerance: Literal["low", "medium", "high"]
-    motivation_type: Literal["intrinsic", "extrinsic", "mixed"]
-    identity_attachment: Literal["low", "medium", "high"]
-    support_system: Literal["strong", "moderate", "weak"]
+    weekly_study_hours: int
+    target_completion_date: str | None = None  # YYYY-MM-DD
+    skill_proficiency: dict[str, Literal["beginner", "intermediate", "advanced"]] = {}
+    # Both change the actual generated plan — see plan_generator.py's PLAN_PROMPT.
+    preferred_learning_format: Literal["video", "reading", "hands_on", "mixed"]
+    learning_challenge: Literal["motivation", "understanding_concepts", "getting_started", "applying_practically"]
+
+    @field_validator("weekly_study_hours")
+    @classmethod
+    def validate_weekly_hours(cls, v: int) -> int:
+        if v < 1 or v > 80:
+            raise ValueError("Weekly study hours must be between 1 and 80")
+        return v
+
+    @field_validator("target_completion_date")
+    @classmethod
+    def validate_target_date(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", v):
+            raise ValueError("Target completion date must be in YYYY-MM-DD format")
+        return v
+
+
+# ── Skill validation (custom entries not already in skill_taxonomy) ──────────
+
+class SkillValidateRequest(BaseModel):
+    skill: str
+
+
+class SkillValidateResponse(BaseModel):
+    valid: bool
+    canonical_name: str | None = None
 
 
 # ── Response schemas ─────────────────────────────────────────────────────────
@@ -282,9 +340,13 @@ class ProfileResponse(BaseModel):
     open_to_relocation: bool | None = None
     expected_salary_min: int | None = None
     expected_salary_max: int | None = None
-
-    # Psychology (read-only — re-takes go through /onboarding/psychology)
-    motivation_type: str | None = None
-    risk_tolerance: str | None = None
-    support_system: str | None = None
     disha_insight: str | None = None
+
+    # Learning setup — one-time, asked before first roadmap/plan generation
+    # (read-only here; re-takes go through PUT /onboarding/learning-setup)
+    has_learning_setup: bool = False
+    weekly_study_hours: int | None = None
+    target_completion_date: str | None = None
+    skill_proficiency: dict[str, str] = {}
+    preferred_learning_format: str | None = None
+    learning_challenge: str | None = None

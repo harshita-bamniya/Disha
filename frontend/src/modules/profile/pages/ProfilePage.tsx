@@ -9,9 +9,9 @@ import { UpscSection } from '../components/UpscSection'
 import { WorkSection } from '../components/WorkSection'
 import { SkillsSection } from '../components/SkillsSection'
 import { PreferencesSection } from '../components/PreferencesSection'
-import { MindsetSection } from '../components/MindsetSection'
+import { LearningSetupSection } from '../components/LearningSetupSection'
 
-type SectionKey = 'personal' | 'education' | 'upsc' | 'work' | 'skills' | 'preferences' | 'mindset'
+type SectionKey = 'personal' | 'education' | 'upsc' | 'work' | 'skills' | 'preferences' | 'learningSetup'
 
 export default function ProfilePage() {
   const [openSection, setOpenSection] = useState<SectionKey | null>(null)
@@ -92,8 +92,8 @@ export default function ProfilePage() {
             <div style={{ gridColumn: openSection === 'preferences'  ? '1 / -1' : undefined }}>
               <PreferencesSection profile={profile} open={openSection === 'preferences'}  onToggle={() => toggle('preferences')} />
             </div>
-            <div style={{ gridColumn: openSection === 'mindset'      ? '1 / -1' : undefined }}>
-              <MindsetSection     profile={profile} open={openSection === 'mindset'}      onToggle={() => toggle('mindset')} />
+            <div style={{ gridColumn: openSection === 'learningSetup' ? '1 / -1' : undefined }}>
+              <LearningSetupSection profile={profile} open={openSection === 'learningSetup'} onToggle={() => toggle('learningSetup')} />
             </div>
           </div>
         )}

@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { LogOut, CheckCircle2, User, GraduationCap, ClipboardList, Briefcase, Zap, Target, Brain, ChevronLeft } from 'lucide-react'
+import { LogOut, CheckCircle2, User, GraduationCap, ClipboardList, Briefcase, Zap, Target, ChevronLeft } from 'lucide-react'
 import { useLogout } from '@/modules/auth/hooks/useAuth'
 
 const N = {
@@ -38,11 +38,6 @@ const STEPS = [
     label: 'Preferences',
     icon: Target,
     desc: 'Job type, location, and salary expectations.',
-  },
-  {
-    label: 'Mindset',
-    icon: Brain,
-    desc: 'Your goals and what drives you.',
   },
 ]
 

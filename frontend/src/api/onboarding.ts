@@ -1,8 +1,7 @@
 import { apiClient } from './client'
 import type {
   OnboardingStatus, StepSavedResponse, Gender, Qualification, UpscExam, UpscStage,
-  BurnoutLevel, ConfidenceLevel, FinancialPressure, RiskTolerance, MotivationType,
-  IdentityAttachment, SupportSystem,
+  BurnoutLevel, ConfidenceLevel, SkillProficiency, LearningFormat, LearningChallenge,
 } from '@/types'
 
 export interface PersonalPayload {
@@ -49,14 +48,14 @@ export interface PreferencesPayload {
   expected_salary_max: number
 }
 
-export interface PsychologyPayload {
+export interface LearningSetupPayload {
   burnout_level: BurnoutLevel
   confidence_level: ConfidenceLevel
-  financial_pressure: FinancialPressure
-  risk_tolerance: RiskTolerance
-  motivation_type: MotivationType
-  identity_attachment: IdentityAttachment
-  support_system: SupportSystem
+  weekly_study_hours: number
+  target_completion_date?: string
+  skill_proficiency: Record<string, SkillProficiency>
+  preferred_learning_format: LearningFormat
+  learning_challenge: LearningChallenge
 }
 
 export interface ProfileData {
@@ -86,14 +85,18 @@ export interface ProfileData {
   open_to_relocation: boolean | null
   expected_salary_min: number | null
   expected_salary_max: number | null
-  motivation_type: string | null
-  risk_tolerance: string | null
-  support_system: string | null
   disha_insight: string | null
+  has_learning_setup: boolean
+  weekly_study_hours: number | null
+  target_completion_date: string | null
+  skill_proficiency: Record<string, string>
+  preferred_learning_format: string | null
+  learning_challenge: string | null
 }
 
 export interface OnboardingOptions {
   skills: string[]
+  skill_categories: Record<string, string[]>
   sectors: string[]
   states: string[]
 }
@@ -101,6 +104,12 @@ export interface OnboardingOptions {
 export const onboardingApi = {
   getOptions: () =>
     apiClient.get<OnboardingOptions>('/onboarding/options').then(r => r.data),
+
+  suggestSkills: (q: string) =>
+    apiClient.get<{ suggestions: string[] }>('/onboarding/skills/suggest', { params: { q } }).then(r => r.data.suggestions),
+
+  validateSkill: (skill: string) =>
+    apiClient.post<{ valid: boolean; canonical_name: string | null }>('/onboarding/skills/validate', { skill }).then(r => r.data),
 
   getStatus: () =>
     apiClient.get<OnboardingStatus>('/onboarding/status').then((r) => r.data),
@@ -126,6 +135,6 @@ export const onboardingApi = {
   savePreferences: (data: PreferencesPayload) =>
     apiClient.put<StepSavedResponse>('/onboarding/preferences', data).then((r) => r.data),
 
-  savePsychology: (data: PsychologyPayload) =>
-    apiClient.put<StepSavedResponse>('/onboarding/psychology', data).then((r) => r.data),
+  saveLearningSetup: (data: LearningSetupPayload) =>
+    apiClient.put<StepSavedResponse>('/onboarding/learning-setup', data).then((r) => r.data),
 }

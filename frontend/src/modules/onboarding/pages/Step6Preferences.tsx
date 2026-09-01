@@ -8,6 +8,31 @@ import { cn } from '@/lib/utils'
 import { useOnboardingSteps } from '../hooks/useOnboarding'
 import { getApiError } from '@/api/client'
 
+// ── BeginablAI Insight card shown after successful submission ──────────────────────
+
+function InsightCard({ insight, onContinue }: { insight: string; onContinue: () => void }) {
+  return (
+    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shrink-0">
+            <span className="text-white font-bold text-sm">D</span>
+          </div>
+          <span className="text-sm font-semibold text-primary">BeginablAI says</span>
+        </div>
+        <p className="text-gray-700 text-sm leading-relaxed italic">"{insight}"</p>
+      </div>
+
+      <div className="text-center">
+        <p className="text-sm text-gray-500 mb-4">Your profile is complete. Your KRS score and career matches are being calculated.</p>
+        <Button onClick={onContinue} fullWidth size="lg">
+          Go to my dashboard →
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 const SECTORS = [
   'Government & Civil Services', 'Public Sector Undertakings (PSU)',
   'Management Consulting', 'Education & Training', 'NGO & Social Sector',
@@ -31,6 +56,7 @@ export default function Step6Preferences() {
   const [locations, setLocations] = useState<string[]>([])
   const [salary, setSalary] = useState<{ min: number; max: number } | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [insight, setInsight] = useState<string | null>(null)
   const { preferences } = useOnboardingSteps()
   const navigate = useNavigate()
 
@@ -68,16 +94,39 @@ export default function Step6Preferences() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!validate()) return
-    preferences.mutate({
-      preferred_sectors: Array.from(selectedSectors),
-      preferred_locations: openToRelocation ? [] : locations,
-      open_to_relocation: openToRelocation!,
-      expected_salary_min: salary!.min,
-      expected_salary_max: salary!.max,
-    })
+    preferences.mutate(
+      {
+        preferred_sectors: Array.from(selectedSectors),
+        preferred_locations: openToRelocation ? [] : locations,
+        open_to_relocation: openToRelocation!,
+        expected_salary_min: salary!.min,
+        expected_salary_max: salary!.max,
+      },
+      {
+        onSuccess: (data) => {
+          if (data.disha_insight) {
+            setInsight(data.disha_insight)
+          } else {
+            navigate('/app/dashboard')
+          }
+        },
+      },
+    )
   }
 
   const serverError = preferences.error ? getApiError(preferences.error) : null
+
+  if (insight) {
+    return (
+      <OnboardingLayout
+        currentStep={6}
+        title="BeginablAI has heard you"
+        subtitle="Here's what we see in your story so far."
+      >
+        <InsightCard insight={insight} onContinue={() => navigate('/app/dashboard')} />
+      </OnboardingLayout>
+    )
+  }
 
   return (
     <OnboardingLayout
@@ -234,13 +283,13 @@ export default function Step6Preferences() {
         <div className="flex items-center gap-3 mt-2">
           <button
             type="button"
-            onClick={() => navigate('/app/onboarding/step/7')}
+            onClick={() => navigate('/app/dashboard')}
             className="text-sm font-medium text-gray-500 hover:text-primary transition-colors px-2 py-2 whitespace-nowrap"
           >
             Skip for now
           </button>
           <Button type="submit" fullWidth size="lg" loading={preferences.isPending}>
-            Continue →
+            {preferences.isPending ? 'BeginablAI is listening…' : 'Complete Registration →'}
           </Button>
         </div>
       </form>

@@ -1,4 +1,4 @@
-import { User, GraduationCap, ClipboardList, Briefcase, Zap, Target, Brain, FileText, type LucideIcon } from 'lucide-react'
+import { User, GraduationCap, ClipboardList, Briefcase, Zap, Target, Compass, FileText, type LucideIcon } from 'lucide-react'
 import { ONBOARDING_PROFILE_KEY } from '@/modules/onboarding/hooks/useOnboarding'
 
 export const PROFILE_KEY = ONBOARDING_PROFILE_KEY
@@ -18,6 +18,6 @@ export const SECTION_META: Record<string, { Icon: LucideIcon; color: string; bg:
   'Work Experience':    { Icon: Briefcase,     color: '#1A2744', bg: 'rgba(26,39,68,0.07)' },
   'Skills':             { Icon: Zap,           color: '#1A2744', bg: 'rgba(26,39,68,0.07)' },
   'Career Preferences': { Icon: Target,        color: '#1A2744', bg: 'rgba(26,39,68,0.07)' },
-  'Mindset Assessment': { Icon: Brain,         color: '#1A2744', bg: 'rgba(26,39,68,0.07)' },
+  'Learning Setup':     { Icon: Compass,       color: '#1A2744', bg: 'rgba(26,39,68,0.07)' },
   'fallback':           { Icon: FileText,      color: '#3B82F6', bg: 'rgba(59,130,246,0.08)' },
 }

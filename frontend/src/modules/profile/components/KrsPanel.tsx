@@ -19,7 +19,7 @@ const KRS_TILES = [
     bg: '#F5F3FF',
     border: 'rgba(124,58,237,0.12)',
     what: 'Your psychological preparedness for private sector work culture.',
-    improve: 'Complete the Mindset Assessment section.',
+    improve: 'Complete the Learning Setup section.',
     score: (d: any) => d?.krs?.r_score ?? 0,
   },
   {
