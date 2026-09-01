@@ -344,7 +344,16 @@ export default function JobDetailPage() {
                       <p style={{ fontSize: 11, color: MUTED, margin: 0, lineHeight: 1.5 }}>AI interviewer roleplay with a detailed scorecard.</p>
                     </div>
                     <button
-                      onClick={() => navigate(`/app/mock-interview/${job.id}`)}
+                      onClick={() => navigate('/app/interview/setup', {
+                        state: {
+                          jobContext: {
+                            job_title: job.title,
+                            company_name: job.company_name,
+                            required_skills: job.required_skills,
+                            skills_to_develop: [],
+                          },
+                        },
+                      })}
                       style={{
                         height: 30, borderRadius: 8, border: `1px solid ${BORDER}`,
                         background: '#fff', fontSize: 11, fontWeight: 700, color: INK,

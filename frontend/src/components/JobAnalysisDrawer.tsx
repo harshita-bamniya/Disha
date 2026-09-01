@@ -62,16 +62,16 @@ export default function JobAnalysisDrawer({ job, kScore, onClose, onRemove, onAp
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
             <div style={{
               width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
-              background: 'linear-gradient(135deg, #818CF8, #6366F1)',
+              background: 'linear-gradient(135deg, #60A5FA, #2563EB)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               color: 'white', fontWeight: 700, fontSize: 16,
             }}>{job.company_name.charAt(0).toUpperCase()}</div>
             <div style={{ minWidth: 0 }}>
-              <p style={{ fontSize: 16, fontWeight: 700, color: '#111827', margin: 0 }}>
+              <p style={{ fontSize: 16, fontWeight: 700, color: '#1E3A5F', margin: 0 }}>
                 {job.title}
               </p>
-              <p style={{ fontSize: 12.5, color: '#9CA3AF', margin: '3px 0 0' }}>
-                at <strong style={{ color: '#4B5563' }}>{job.company_name}</strong>
+              <p style={{ fontSize: 12.5, color: '#94A3B8', margin: '3px 0 0' }}>
+                at <strong style={{ color: '#475569' }}>{job.company_name}</strong>
               </p>
             </div>
           </div>
@@ -80,14 +80,14 @@ export default function JobAnalysisDrawer({ job, kScore, onClose, onRemove, onAp
           <div style={{ flexShrink: 0, textAlign: 'center' }}>
             <svg width={56} height={56} viewBox="0 0 56 56">
               <circle cx={28} cy={28} r={23} fill="none" stroke="#F1F5F9" strokeWidth={5} />
-              <circle cx={28} cy={28} r={23} fill="none" stroke="#6366F1" strokeWidth={5}
+              <circle cx={28} cy={28} r={23} fill="none" stroke="#2563EB" strokeWidth={5}
                 strokeDasharray={`${2 * Math.PI * 23}`}
                 strokeDashoffset={`${2 * Math.PI * 23 * (1 - readyPct / 100)}`}
                 strokeLinecap="round"
                 transform="rotate(-90 28 28)"
                 style={{ transition: 'stroke-dashoffset 0.6s ease' }}
               />
-              <text x={28} y={32} textAnchor="middle" fill="#111827" fontSize={12} fontWeight={700}>{readyPct}%</text>
+              <text x={28} y={32} textAnchor="middle" fill="#1E3A5F" fontSize={12} fontWeight={700}>{readyPct}%</text>
             </svg>
           </div>
         </div>
@@ -110,7 +110,7 @@ export default function JobAnalysisDrawer({ job, kScore, onClose, onRemove, onAp
                 <div style={{ height: 12, width: '70%', background: '#F1F5F9', borderRadius: 6, animation: 'pulse 1.3s ease-in-out infinite' }} />
               </div>
             ) : (
-              <p style={{ fontSize: 13, color: '#4B5563', lineHeight: 1.7, margin: 0 }}>
+              <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.7, margin: 0 }}>
                 {aiSummary ?? (aiError
                   ? `You have ${haveCount} of the ${total} required skills (${readyPct}% ready). Couldn't generate a detailed analysis right now — please try again in a moment.`
                   : '')}
@@ -121,8 +121,8 @@ export default function JobAnalysisDrawer({ job, kScore, onClose, onRemove, onAp
           {/* Required skills */}
           <div style={{ paddingTop: 18, borderTop: '1px solid #F1F5F9' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <ListChecks size={14} color="#6366F1" />
-              <p style={{ fontSize: 12.5, fontWeight: 700, color: '#111827', margin: 0 }}>Skills this role asks for ({total})</p>
+              <ListChecks size={14} color="#2563EB" />
+              <p style={{ fontSize: 12.5, fontWeight: 700, color: '#1E3A5F', margin: 0 }}>Skills this role asks for ({total})</p>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {job.required_skills.map(sk => {
@@ -130,8 +130,8 @@ export default function JobAnalysisDrawer({ job, kScore, onClose, onRemove, onAp
                 return (
                   <span key={sk} style={{
                     padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600,
-                    background: has ? '#ECFDF5' : '#F0F4FF',
-                    color: has ? '#059669' : '#4F46E5',
+                    background: has ? '#ECFDF5' : '#EFF6FF',
+                    color: has ? '#059669' : '#2563EB',
                   }}>{has ? '✓ ' : '+ '}{sk}</span>
                 )
               })}
@@ -144,11 +144,11 @@ export default function JobAnalysisDrawer({ job, kScore, onClose, onRemove, onAp
             <div style={{ paddingRight: 20, borderRight: '1px solid #F1F5F9' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                 <CheckCircle2 size={14} color="#16A34A" />
-                <p style={{ fontSize: 12.5, fontWeight: 700, color: '#111827', margin: 0 }}>Skills you have</p>
+                <p style={{ fontSize: 12.5, fontWeight: 700, color: '#1E3A5F', margin: 0 }}>Skills you have</p>
                 <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: '#16A34A' }}>{haveCount}/{total}</span>
               </div>
               {job.skills_you_have.length === 0 ? (
-                <p style={{ fontSize: 12, color: '#9CA3AF', padding: '8px 0' }}>None of the required skills yet.</p>
+                <p style={{ fontSize: 12, color: '#94A3B8', padding: '8px 0' }}>None of the required skills yet.</p>
               ) : (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                   {job.skills_you_have.map(sk => (
@@ -161,9 +161,9 @@ export default function JobAnalysisDrawer({ job, kScore, onClose, onRemove, onAp
             {/* Skills you don't have */}
             <div style={{ paddingLeft: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                <X size={14} color="#6366F1" />
-                <p style={{ fontSize: 12.5, fontWeight: 700, color: '#111827', margin: 0 }}>Skills you don't have</p>
-                <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: '#4F46E5' }}>{gapCount}/{total}</span>
+                <X size={14} color="#2563EB" />
+                <p style={{ fontSize: 12.5, fontWeight: 700, color: '#1E3A5F', margin: 0 }}>Skills you don't have</p>
+                <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: '#2563EB' }}>{gapCount}/{total}</span>
               </div>
               {job.skills_to_develop.length === 0 ? (
                 <div style={{ padding: '8px 0' }}>
@@ -173,7 +173,7 @@ export default function JobAnalysisDrawer({ job, kScore, onClose, onRemove, onAp
               ) : (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                   {job.skills_to_develop.map(sk => (
-                    <span key={sk} style={{ padding: '4px 10px', background: '#F0F4FF', borderRadius: 20, fontSize: 10, fontWeight: 600, color: '#4F46E5' }}>+ {sk}</span>
+                    <span key={sk} style={{ padding: '4px 10px', background: '#EFF6FF', borderRadius: 20, fontSize: 10, fontWeight: 600, color: '#2563EB' }}>+ {sk}</span>
                   ))}
                 </div>
               )}
@@ -186,15 +186,15 @@ export default function JobAnalysisDrawer({ job, kScore, onClose, onRemove, onAp
           {onRemove && (
             <button onClick={onRemove} style={{
               display: 'flex', alignItems: 'center', gap: 6, height: 42, padding: '0 16px', borderRadius: 11,
-              border: '1.5px solid #E2E8F0', background: 'white', fontSize: 12, fontWeight: 600, color: '#6B7280', cursor: 'pointer', transition: 'all 0.2s',
+              border: '1.5px solid #E2E8F0', background: 'white', fontSize: 12, fontWeight: 600, color: '#475569', cursor: 'pointer', transition: 'all 0.2s',
             }}
               onMouseOver={e => { e.currentTarget.style.borderColor = '#FCA5A5'; e.currentTarget.style.color = '#DC2626' }}
-              onMouseOut={e => { e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.color = '#6B7280' }}
+              onMouseOut={e => { e.currentTarget.style.borderColor = '#E2E8F0'; e.currentTarget.style.color = '#475569' }}
             ><X size={13} /> Remove</button>
           )}
           <button onClick={onClose} style={{
             height: 42, padding: '0 18px', borderRadius: 11,
-            border: '1.5px solid #E2E8F0', background: 'white', fontSize: 13, fontWeight: 600, color: '#6B7280', cursor: 'pointer', transition: 'all 0.2s',
+            border: '1.5px solid #E2E8F0', background: 'white', fontSize: 13, fontWeight: 600, color: '#475569', cursor: 'pointer', transition: 'all 0.2s',
           }}
             onMouseOver={e => { e.currentTarget.style.background = '#F8FAFC' }}
             onMouseOut={e => { e.currentTarget.style.background = 'white' }}

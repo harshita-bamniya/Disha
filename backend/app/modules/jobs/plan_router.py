@@ -4,8 +4,8 @@ from __future__ import annotations
 import logging
 import re
 from datetime import datetime, timezone
-from difflib import SequenceMatcher
 
+import sentry_sdk
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -16,8 +16,9 @@ from app.models.user import AspirantProfile, JobPosting, KrsScore, Psychological
 from app.modules.jobs.plan_generator import (
     count_article_resources, count_youtube_resources,
     enrich_plan_with_real_videos, generate_job_plan, generate_module_quiz,
-    is_plan_stale, redact_quiz_answers,
+    generate_remedial_resource, is_plan_stale, redact_quiz_answers,
 )
+from app.modules.krs.skill_gap import compute_gap
 
 logger = logging.getLogger(__name__)
 
@@ -28,31 +29,48 @@ def _tokenize(skill: str) -> set[str]:
     return set(re.split(r"[\s\-/,]+", skill.lower().strip())) - {""}
 
 
-def _skill_covered(required: str, user_skill_set: set[str], user_tokens: list[set[str]]) -> bool:
-    """Return True if the user already has this skill under any reasonable form.
+def _quiz_xp_awardable(passed: bool, already_passed: bool) -> bool:
+    """XP for a module quiz is awarded on the first pass only — resubmitting
+    an already-passed quiz shouldn't be a free XP farm."""
+    return passed and not already_passed
 
-    Checks in order (cheapest first):
-    1. Exact normalized match ("python" == "python")
-    2. Token overlap: ≥ 60 % of the required skill's tokens appear in any single
-       user skill ("Python 3" covers "Python"; "Data Analysis" covers "Data Analytics" partially)
-    3. Fuzzy similarity ≥ 0.82 via SequenceMatcher ("MS Excel" ~ "Microsoft Excel")
-    """
-    norm = required.lower().strip()
-    if norm in user_skill_set:
-        return True
 
-    req_tokens = _tokenize(required)
-    if req_tokens:
-        for ut in user_tokens:
-            overlap = len(req_tokens & ut) / len(req_tokens)
-            if overlap >= 0.6:
-                return True
+def _resource_xp_awardable(done: bool, was_done: bool) -> bool:
+    """XP for a resource is awarded on the first mark-done only — toggling
+    done/undone/done again shouldn't be a free XP farm."""
+    return done and not was_done
 
-    for us in user_skill_set:
-        if SequenceMatcher(None, norm, us).ratio() >= 0.82:
-            return True
 
-    return False
+REGENERATE_COOLDOWN_SECONDS = 60
+
+
+def _redis():
+    import redis as redis_lib
+    from app.config import get_settings
+    return redis_lib.from_url(get_settings().redis_url, decode_responses=True)
+
+
+def _check_and_set_regenerate_cooldown(user_id, job_id) -> int | None:
+    """Atomically claims a short-TTL Redis key for this (user, job) pair.
+    Returns None if the caller may proceed (and the cooldown is now set), or
+    the number of seconds remaining if a generation was already triggered
+    too recently. A full generate/regenerate is one 8000-token LLM call plus
+    a burst of scraping calls — nothing else stops it being spammed, and the
+    atomic SET NX also closes a TOCTOU race the "already generating" DB check
+    alone doesn't: two near-simultaneous requests could both read the plan as
+    not-yet-"generating" and both spawn a background task.
+    Fails open (allows the request) if Redis itself is unreachable — a cache
+    outage shouldn't block plan generation."""
+    key = f"plan:regen_cooldown:{user_id}:{job_id}"
+    try:
+        r = _redis()
+        if r.set(key, "1", nx=True, ex=REGENERATE_COOLDOWN_SECONDS):
+            return None
+        ttl = r.ttl(key)
+        return ttl if ttl and ttl > 0 else REGENERATE_COOLDOWN_SECONDS
+    except Exception as exc:
+        logger.warning("Regenerate cooldown check failed (failing open): %s", exc)
+        return None
 
 
 def _get_job_or_404(job_id: str, db: Session) -> JobPosting:
@@ -67,6 +85,57 @@ def _get_plan(user_id, job_id, db: Session) -> JobLearningPlan | None:
         db.query(JobLearningPlan)
         .filter(JobLearningPlan.user_id == user_id, JobLearningPlan.job_id == job_id)
         .first()
+    )
+
+
+def _summarize_interaction_history(
+    old_modules: list[dict], progress: dict
+) -> tuple[str | None, set[str]]:
+    """Summarize a prior plan's progress into a short prompt block for
+    regeneration, plus the set of skills that passed their quiz (so the
+    caller can exclude them from the regenerated gap list instead of
+    silently rebuilding a module for a skill that's already mastered)."""
+    mastered_lines: list[str] = []
+    failed_lines: list[str] = []
+    rejected_video_lines: list[str] = []
+    passed_skills: set[str] = set()
+
+    for module in old_modules:
+        skill = module.get("skill", "")
+        module_id = module.get("id", "")
+        quiz_entry = progress.get(f"quiz_{module_id}")
+        if quiz_entry:
+            if quiz_entry.get("passed"):
+                passed_skills.add(skill.lower().strip())
+                mastered_lines.append(f"- {skill}: quiz passed ({quiz_entry.get('score_pct')}%) — mastered.")
+            else:
+                prior_titles = ", ".join(r.get("title", "") for r in module.get("resources", []) if r.get("title"))
+                failed_lines.append(
+                    f"- {skill}: quiz failed ({quiz_entry.get('score_pct')}%). "
+                    f"Previously tried: {prior_titles or 'n/a'}."
+                )
+
+        for res in module.get("resources", []):
+            rating = (progress.get(res.get("id"), {}) or {}).get("video_rating", {})
+            if rating.get("rating") == "not_relevant":
+                rejected_video_lines.append(f"- {skill}: marked \"{res.get('title', 'a resource')}\" as not relevant.")
+
+    lines = [*mastered_lines, *failed_lines, *rejected_video_lines]
+    if not lines:
+        return None, passed_skills
+    return "\n".join(lines), passed_skills
+
+
+def _is_skill_mastered(gap_skill: str, passed_skill_tokens: list[set[str]]) -> bool:
+    """Token-overlap check (same threshold as _skill_covered) so a mastered skill
+    like 'SQL' still matches a gap-list entry phrased slightly differently."""
+    gap_tokens = _tokenize(gap_skill)
+    if not gap_tokens:
+        return False
+    return any(
+        len(gap_tokens & pt) / len(gap_tokens) >= 0.6
+        for pt in passed_skill_tokens
+        if pt
     )
 
 
@@ -156,24 +225,61 @@ async def generate_plan(
     """
     job = _get_job_or_404(job_id, db)
 
+    # Check this first, before claiming the cooldown below — a duplicate
+    # click while a generation is already in flight should still get the
+    # friendly "poll for status" response, not a cooldown error.
+    existing_plan = _get_plan(user.id, job_id, db)
+    if existing_plan and existing_plan.status == "generating":
+        return {"plan_id": str(existing_plan.id), "status": "generating", "message": "Plan generation already in progress. Poll GET /jobs/{job_id}/learning-plan."}
+
+    cooldown_remaining = _check_and_set_regenerate_cooldown(str(user.id), job_id)
+    if cooldown_remaining is not None:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Please wait {cooldown_remaining}s before regenerating this plan again.",
+        )
+
     profile = db.query(AspirantProfile).filter(AspirantProfile.user_id == user.id).first()
     krs = db.query(KrsScore).filter(KrsScore.user_id == user.id).first()
     psych = db.query(PsychologicalAssessment).filter(PsychologicalAssessment.user_id == user.id).first()
 
     user_skills: list[str] = profile.skills or [] if profile else []
+    skill_proficiency: dict[str, str] = profile.skill_proficiency or {} if profile else {}
 
-    # Compute gap skills: required - user has (fuzzy-matched)
+    # Compute gap skills using the same semantic engine the generic roadmap
+    # uses — was previously a separate token/fuzzy matcher here, a silent
+    # source of disagreement between the two features' gap lists.
     required: list[str] = job.required_skills or []
-    user_skill_set = {s.lower().strip() for s in user_skills}
-    user_tokens = [_tokenize(s) for s in user_skills]
-    gap_skills = [s for s in required if not _skill_covered(s, user_skill_set, user_tokens)]
+    have_skills, gap_skills, _ = compute_gap(user_skills, required, db)
+
+    # A skill the user rated "beginner" in the one-time learning setup should
+    # still get foundational content rather than being treated as fully covered.
+    def _is_beginner_rated(required_skill: str) -> bool:
+        matched = next((s for s in user_skills if s.lower().strip() == required_skill.lower().strip()), None)
+        return bool(matched and skill_proficiency.get(matched) == "beginner")
+
+    beginner_downgrades = [s for s in have_skills if _is_beginner_rated(s)]
+    if beginner_downgrades:
+        gap_skills = [*gap_skills, *beginner_downgrades]
+
+    # Upsert plan row — re-use the row already fetched above (the "generating"
+    # check re-queried it before, wastefully, and raced the cooldown claim).
+    plan = existing_plan
+
+    # Regeneration: summarize what's already been tried (completed modules,
+    # failed-quiz skills, rejected video ratings) from the plan being replaced,
+    # instead of rebuilding from the same snapshot inputs as the first generation.
+    interaction_history: str | None = None
+    if plan and plan.status == "ready" and plan.plan:
+        interaction_history, passed_skills = _summarize_interaction_history(
+            plan.plan.get("modules", []), plan.progress or {}
+        )
+        if passed_skills:
+            passed_tokens = [_tokenize(s) for s in passed_skills]
+            gap_skills = [s for s in gap_skills if not _is_skill_mastered(s, passed_tokens)]
+
     gaps_will_be_grouped = len(gap_skills) > 7
 
-    # Upsert plan row
-    plan = _get_plan(user.id, job_id, db)
-    if plan and plan.status == "generating":
-        # Already in flight — don't spawn a second task that would race to overwrite the result.
-        return {"plan_id": str(plan.id), "status": "generating", "message": "Plan generation already in progress. Poll GET /jobs/{job_id}/learning-plan."}
     if plan:
         # Regenerate: reset to generating state
         plan.status = "generating"
@@ -221,12 +327,16 @@ async def generate_plan(
         "optional_subject": profile.optional_subject if profile else None,
         # Career preferences
         "preferred_sectors": profile.preferred_sectors if profile else None,
+        # One-time learning setup — changes resource split, ordering, and
+        # project_deliverable framing in the generated plan (see PLAN_PROMPT).
+        "preferred_learning_format": profile.preferred_learning_format if profile else None,
+        "learning_challenge": profile.learning_challenge if profile else None,
     }
 
     class _Cancelled(Exception):
         pass
 
-    async def _bg(pid=plan_id, js=job_snapshot, us=user_skills, gs=gap_skills, uc=user_context_snapshot, jid=job_id):
+    async def _bg(pid=plan_id, js=job_snapshot, us=user_skills, gs=gap_skills, uc=user_context_snapshot, jid=job_id, ih=interaction_history):
         from app.database import SessionLocal
         bg_db = SessionLocal()
 
@@ -272,6 +382,9 @@ async def generate_plan(
                     years_preparing=uc.get("years_preparing"),
                     optional_subject=uc.get("optional_subject"),
                     preferred_sectors=uc.get("preferred_sectors"),
+                    preferred_learning_format=uc.get("preferred_learning_format"),
+                    learning_challenge=uc.get("learning_challenge"),
+                    interaction_history=ih,
                 )
 
                 if not _still_generating():
@@ -308,6 +421,11 @@ async def generate_plan(
                 logger.info("Plan generation %s cancelled by user.", pid)
             except Exception as exc:
                 logger.error("Plan gen failed %s: %s", pid, exc, exc_info=True)
+                # Runs inside a background task — nothing propagates this to
+                # a request cycle for Sentry's FastAPI integration to catch,
+                # so without this it fails silently into a DB column no one
+                # is watching.
+                sentry_sdk.capture_exception(exc)
                 bg_plan = bg_db.query(JobLearningPlan).filter(JobLearningPlan.id == pid).first()
                 if bg_plan:
                     bg_plan.status = "failed"
@@ -398,7 +516,7 @@ async def generate_module_quiz_endpoint(
 
 
 @router.post("/{job_id}/learning-plan/modules/{module_id}/quiz/submit")
-def submit_quiz(
+async def submit_quiz(
     job_id: str,
     module_id: str,
     body: dict,
@@ -435,6 +553,7 @@ def submit_quiz(
 
     score_pct = round((correct_count / len(questions)) * 100)
     passed = score_pct >= 70
+    already_passed = bool((plan.progress or {}).get(f"quiz_{module_id}", {}).get("passed"))
 
     progress = dict(plan.progress or {})
     progress[f"quiz_{module_id}"] = {
@@ -444,6 +563,47 @@ def submit_quiz(
     }
     plan.progress = progress
     db.commit()
+
+    # Feed the result into the same skill-competence tracker the mock-interview
+    # path updates, so a quiz result actually moves the needle on the user's
+    # demonstrated skill mastery instead of only living in this response.
+    try:
+        from app.modules.roadmap.service import update_skill_competence
+        update_skill_competence(
+            user_id=str(user.id),
+            skill_text=module.get("skill", ""),
+            quiz_score=float(score_pct),
+            exercise_score=None,
+            db=db,
+        )
+    except Exception as exc:
+        logger.warning("Skill competence update failed for module %s: %s", module_id, exc, exc_info=True)
+
+    if _quiz_xp_awardable(passed, already_passed):
+        try:
+            from app.modules.xp.service import award_xp
+            award_xp(user.id, "exercise_score_80", ref_id=module_id,
+                     note=f"Passed quiz: {module.get('skill', '')}", db=db)
+            db.commit()
+        except Exception as exc:
+            logger.warning("XP award failed for module %s quiz pass: %s", module_id, exc, exc_info=True)
+
+        # Write the mastered skill onto the user's actual profile — through the
+        # same validation path Step 5 uses — so it's visible everywhere else
+        # (KRS score, other job plans, the generic roadmap), not just here.
+        try:
+            skill_name = module.get("skill", "").strip()
+            profile = db.query(AspirantProfile).filter(AspirantProfile.user_id == user.id).first()
+            if skill_name and profile:
+                existing = {s.lower().strip() for s in (profile.skills or [])}
+                if skill_name.lower().strip() not in existing:
+                    from app.modules.onboarding.skill_validation import validate_and_register_skill
+                    canonical = await validate_and_register_skill(skill_name, db)
+                    if canonical and canonical.lower().strip() not in existing:
+                        profile.skills = [*(profile.skills or []), canonical]
+                        db.commit()
+        except Exception as exc:
+            logger.warning("Profile skill writeback failed for module %s: %s", module_id, exc, exc_info=True)
 
     retry_guidance: dict | None = None
     if not passed:
@@ -458,6 +618,38 @@ def submit_quiz(
             {"id": res.get("id"), "title": res.get("title"), "type": res.get("type"), "url": res.get("url")}
             for res in module.get("resources", [])
         ]
+
+        # On a failing score, generate one remedial resource targeting exactly what
+        # was missed instead of letting the user silently move on — a different
+        # angle than the module's existing resources.
+        remedial_resource: dict | None = None
+        try:
+            job = _get_job_or_404(job_id, db)
+            remedial_resource = await generate_remedial_resource(
+                job_title=plan.plan.get("job_title", "this role"),
+                sector=job.sector or "",
+                skill=module.get("skill", ""),
+                why_important=module.get("why_important", ""),
+                missed_explanations=missed_explanations,
+                resource_id=f"{module_id}-res-remedial-{len(module.get('resources', [])) + 1}",
+            )
+        except Exception as exc:
+            logger.error("Remedial resource generation failed for module %s: %s", module_id, exc, exc_info=True)
+
+        if remedial_resource:
+            # Reassign plan.plan (new dict) so SQLAlchemy detects the JSONB change.
+            new_modules = [
+                {**m, "resources": [*m.get("resources", []), remedial_resource]} if m.get("id") == module_id else m
+                for m in plan.plan.get("modules", [])
+            ]
+            plan.plan = {**plan.plan, "modules": new_modules}
+            db.commit()
+            resources_to_revisit.append({
+                "id": remedial_resource.get("id"),
+                "title": remedial_resource.get("title"),
+                "type": remedial_resource.get("type"),
+                "url": remedial_resource.get("url"),
+            })
 
         retry_guidance = {
             "wrong_count": wrong_count,
@@ -499,8 +691,20 @@ def update_progress(
 
     if "done" in body:
         done = bool(body["done"])
+        was_done = bool(entry.get("done"))
         entry["done"] = done
         entry["done_at"] = datetime.now(timezone.utc).isoformat() if done else None
+
+        if _resource_xp_awardable(done, was_done):
+            # award_xp() already fires on generic-roadmap stage completion but was
+            # never wired up here — the job-specific plan most users actually
+            # touch gave zero XP.
+            try:
+                from app.modules.xp.service import award_xp
+                award_xp(user.id, "lesson_complete", ref_id=resource_id,
+                         note="Completed a job-plan resource", db=db)
+            except Exception as exc:
+                logger.warning("XP award failed for resource %s: %s", resource_id, exc, exc_info=True)
 
     video_id: str | None = body.get("video_id")
     video_rating: str | None = body.get("video_rating")

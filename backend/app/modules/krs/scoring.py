@@ -15,8 +15,11 @@ K score (max raw 123 → /123×100):
 
 R score:
   Without psych — max raw 95  → /95×100
-  With psych    — max raw 160 → /160×100
-  Uses ALL 7 mindset fields (previous engine ignored 5 of them).
+  With psych    — max raw 125 → /125×100
+  Psych contribution is confidence + burnout only — the other 5 fields
+  formerly collected at registration (financial pressure, risk tolerance,
+  motivation type, identity attachment, support system) were removed after
+  the 2026-08-25 audit found no traced effect on anything downstream.
 
 S score (fully dynamic):
   Anchors = required_skills from all active JobPostings (real market demand)
@@ -97,19 +100,13 @@ def compute_k_score(profile: AspirantProfile) -> int:
 
 def compute_r_score(profile: AspirantProfile, psych=None) -> int:
     """
-    Readiness score: education + work experience + skill breadth + psychological profile.
+    Readiness score: education + work experience + skill breadth + confidence/burnout.
 
     Without psych → max raw 95  → normalised /95×100
-    With psych    → max raw 160 → normalised /160×100
+    With psych    → max raw 125 → normalised /125×100
 
-    All 7 mindset-assessment fields are used:
-      confidence_index        → up to 18 pts (direct transition confidence)
-      burnout_score           → up to 12 pts (lower burnout = more energy)
-      risk_tolerance          → up to  8 pts (high = willing to leap)
-      motivation_type         → up to  6 pts (extrinsic = aligned with private sector)
-      identity_attachment     → up to  8 pts (low = mentally moved on)
-      support_system          → up to  5 pts (strong = backing for the change)
-      financial_pressure_score→ up to  8 pts (some pressure = motivating sweet spot)
+      confidence_index → up to 18 pts (direct transition confidence)
+      burnout_score     → up to 12 pts (lower burnout = more energy)
     """
     raw = 0.0
 
@@ -136,24 +133,7 @@ def compute_r_score(profile: AspirantProfile, psych=None) -> int:
     # Low burnout = more capacity to make the leap (0-100 → 0-12 pts, inverted)
     raw += ((100 - psych.burnout_score) / 100) * 12
 
-    # Risk tolerance: high risk appetite = more likely to commit to the transition
-    raw += {"low": 0, "medium": 5, "high": 8}.get(psych.risk_tolerance or "medium", 5)
-
-    # Motivation: extrinsic (salary/recognition) is most aligned with private sector norms
-    raw += {"intrinsic": 4, "extrinsic": 6, "mixed": 5}.get(psych.motivation_type or "mixed", 5)
-
-    # Identity attachment: low = mentally moved on from UPSC identity = more ready
-    raw += {"low": 8, "medium": 4, "high": 0}.get(psych.identity_attachment or "medium", 4)
-
-    # Support system: family/friend backing eases the transition significantly
-    raw += {"strong": 5, "moderate": 3, "weak": 0}.get(psych.support_system or "moderate", 3)
-
-    # Financial pressure: some pressure motivates; urgency or none reduces decision quality
-    # Stored values: no_rush=10, some_pressure=35, significant=65, urgent=90
-    pressure_pts = {10: 3, 35: 8, 65: 5, 90: 2}
-    raw += pressure_pts.get(psych.financial_pressure_score, 4)
-
-    return _clamp(raw / 160 * 100)
+    return _clamp(raw / 125 * 100)
 
 
 # ── S score ───────────────────────────────────────────────────────────────────

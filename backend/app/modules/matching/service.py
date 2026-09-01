@@ -706,9 +706,6 @@ def get_job_pipeline(
             psych_out = CandidatePsychProfile(
                 burnout_score=psych.burnout_score,
                 confidence_index=psych.confidence_index,
-                financial_pressure_score=psych.financial_pressure_score,
-                risk_tolerance=psych.risk_tolerance,
-                motivation_type=psych.motivation_type,
             )
 
         history = [

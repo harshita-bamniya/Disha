@@ -13,6 +13,8 @@ import re
 import urllib.parse
 from typing import Any, Awaitable, Callable
 
+import sentry_sdk
+
 from app.ai.article_search import resolve_article_url
 from app.ai.providers import create_provider
 from app.ai.youtube_search import search_youtube
@@ -30,6 +32,8 @@ def _plan_cache_key(
     k_score: int | None = None,
     burnout_score: int | None = None,
     confidence_score: int | None = None,
+    preferred_learning_format: str | None = None,
+    learning_challenge: str | None = None,
 ) -> str:
     # Bucket continuous scores into bands so minor fluctuations don't bust the cache
     # while still separating meaningfully different profiles.
@@ -50,6 +54,8 @@ def _plan_cache_key(
         _band(k_score),
         _band(burnout_score),
         _band(confidence_score),
+        preferred_learning_format or "x",
+        learning_challenge or "x",
     ])
     return "plan:cache:" + hashlib.sha256(payload.encode()).hexdigest()[:24]
 
@@ -78,7 +84,7 @@ Skills Required by Employer: {required_skills}
 
 User's Current Skills: {user_skills}
 Identified Skill Gaps: {gap_skills}
-
+{interaction_history_block}
 CANDIDATE PROFILE:
 - Knowledge Readiness (K-score): {k_score_label} ({k_score}/100)
 - Readiness to Switch (R-score): {r_score_label} ({r_score}/100)
@@ -86,6 +92,8 @@ CANDIDATE PROFILE:
 - Burnout Level: {burnout_label} ({burnout_score}/100)
 - Confidence in Transition: {confidence_label} ({confidence_score}/100)
 - Work Experience: {work_experience}
+- Preferred Learning Format: {learning_format_label}
+- Biggest Learning Challenge: {learning_challenge_label}
 
 UPSC BACKGROUND (use this to recognise what knowledge the candidate already has):
 - Exam: {upsc_exam_label}
@@ -104,6 +112,18 @@ BURNOUT RULES (based on burnout score above):
 CONFIDENCE RULES (based on confidence score above):
 - Score < 65 (Low confidence): start every why_important sentence by naming a concrete UPSC skill they already have that transfers (e.g. "Your UPSC essay writing directly applies here because..."); end the why_important with one small, achievable first step; use warm and encouraging tone throughout
 - Score ≥ 65 (High confidence): why_important should be direct and outcome-focused; highlight business impact of the skill rather than reassurance
+
+LEARNING FORMAT RULES (based on preferred format above — this sets the video/article SPLIT; total resource count is still set by the burnout rule below):
+- Prefers videos: at least two-thirds of each module's resources must be type "youtube"; only include an "article" resource if the module's total count is more than 1
+- Prefers reading/articles: at least two-thirds of each module's resources must be type "article"; only include a "youtube" resource if the module's total count is more than 1
+- Prefers hands-on practice: split resources evenly between "youtube"/"article", but every resource's search_query and description must point at something build-along (include words like "practice", "exercise", "walkthrough", or "hands-on" where natural), and project_deliverable must be more substantial than the default — a real mini-build, not a reading recap
+- Mixed / no strong preference: split resources as evenly as possible between "youtube" and "article"
+
+LEARNING CHALLENGE RULES (based on biggest challenge above):
+- Staying motivated/consistent: project_deliverable must be phrased as 2-3 small numbered sub-steps (not one big task) so progress is visible early; why_important should open with the nearest, smallest win, not the long-term outcome
+- Understanding concepts deeply: regardless of the burnout/K-score resource tier, prefer resources explicitly aimed at beginners or explainers ("explained", "for beginners", "fundamentals"); project_deliverable must restate the core concept in one plain sentence before stating the task
+- Not knowing where to start: order each module's resources from most foundational to most applied — the FIRST resource listed must be the most basic entry point available for that skill
+- Applying knowledge practically: project_deliverable must be a specific, realistic mini-deliverable tied to {job_title}'s actual day-to-day responsibilities (not a generic exercise); prefer resources with "tutorial", "walkthrough", or "example" in their framing
 
 Generate a learning roadmap JSON exactly matching this schema:
 {{
@@ -160,11 +180,12 @@ Rules:
 - Create 4-7 modules covering ALL identified skill gaps, ordered by priority (1 = most critical for getting the job)
 - If there are more gap skills than modules allow, group closely related skills into a single module (e.g. "SQL & Data Analysis", "Written Communication & Report Writing") — never silently omit a gap skill; every gap must appear in at least one module's skill name or resources
 - Each module must include a project_deliverable: a concrete, completable mini-project that proves mastery (not just "read about X")
-- Resource count per module is determined by the burnout score above:
-    - High burnout (score ≥ 70): exactly 2 resources (1 YouTube + 1 article) — keep it light
-    - Moderate burnout (40–69): exactly 3 resources (2 YouTube + 1 article) — standard load
-    - Low burnout (score < 40) AND K-score ≥ 50: exactly 4 resources (2 YouTube + 2 article) — go deeper
-    - Low burnout (score < 40) AND K-score < 50: exactly 3 resources (2 YouTube + 1 article)
+- Resource COUNT per module is determined by the burnout score above:
+    - High burnout (score ≥ 70): exactly 2 resources — keep it light
+    - Moderate burnout (40–69): exactly 3 resources — standard load
+    - Low burnout (score < 40) AND K-score ≥ 50: exactly 4 resources — go deeper
+    - Low burnout (score < 40) AND K-score < 50: exactly 3 resources
+  The video/article SPLIT of that count is set by the LEARNING FORMAT RULES above, not by burnout.
 - YouTube search_query MUST be specific: always include the skill AND the job/sector context (e.g. "{sector} {job_title} <skill> tutorial" not just "<skill> tutorial")
 - YouTube URLs must be https://www.youtube.com/results?search_query=<url-encoded-search-query>
 - Article URL must be a DIRECT link to a real page (GeeksforGeeks.org, Investopedia.com, docs.python.org, hbr.org, towardsdatascience.com, etc.) — never a Google/YouTube search page
@@ -213,6 +234,43 @@ Rules:
 - 6-8 questions total, covering all the resource topics listed above between them, 4 options each, exactly one correct per question
 - Questions must be specific to "{skill}" in the context of {job_title} — not generic
 - Keep every string SHORT and concise
+- Return ONLY the JSON object, nothing else
+"""
+
+
+REMEDIAL_SYSTEM_PROMPT = """\
+You are BeginablAI's career learning planner. A learner just failed a quiz on one
+skill module. Generate ONE additional learning resource that targets exactly what
+they got wrong, from a different angle than a standard intro resource.
+Return ONLY valid JSON — no markdown fences, no commentary."""
+
+REMEDIAL_PROMPT = """\
+Job Title: {job_title}
+Sector: {sector}
+Skill: {skill}
+Why this skill matters for the job: {why_important}
+
+The learner just failed this module's quiz. Here's what they got wrong:
+{missed_summary}
+
+Generate ONE resource (youtube video or article) that specifically re-teaches the
+concepts above from a different angle than a typical first-pass intro — assume
+they already tried a beginner resource once and it didn't stick.
+
+Return JSON exactly matching this schema:
+{{
+  "type": "youtube" | "article",
+  "title": "<descriptive title>",
+  "channel_or_source": "<real channel or publisher>",
+  "search_query": "<specific search query including the skill and job context>",
+  "duration_minutes": <int>,
+  "description": "<one sentence: what this resource clarifies that the learner missed>"
+}}
+
+Rules:
+- Must be a REAL channel/publisher, not invented
+- search_query must include the skill name and "{job_title}" or "{sector}" context
+- description must directly reference what the learner got wrong, not be generic
 - Return ONLY the JSON object, nothing else
 """
 
@@ -418,15 +476,24 @@ async def generate_job_plan(
     years_preparing: int | None = None,
     optional_subject: str | None = None,
     preferred_sectors: list[str] | None = None,
+    preferred_learning_format: str | None = None,
+    learning_challenge: str | None = None,
+    interaction_history: str | None = None,
 ) -> dict[str, Any]:
     """Call Groq and return the structured learning plan dict.
 
     When job_id is provided, the raw LLM output (before video enrichment)
     is cached in Redis for 7 days to avoid redundant generation for the
-    same job + gap-skill combination.
+    same job + gap-skill combination. Caching is skipped when interaction_history
+    is set (a regeneration informed by this user's own progress) since that
+    context is user-specific and shouldn't be reused across users or served
+    stale to the same user on a later regeneration.
     """
     # ── Cache lookup ──────────────────────────────────────────────────────────
-    cache_key = _plan_cache_key(job_id, gap_skills, k_score, burnout_score, confidence_score) if job_id else None
+    cache_key = (
+        _plan_cache_key(job_id, gap_skills, k_score, burnout_score, confidence_score, preferred_learning_format, learning_challenge)
+        if job_id and not interaction_history else None
+    )
     if cache_key:
         try:
             cached = _redis().get(cache_key)
@@ -451,6 +518,31 @@ async def generate_job_plan(
         "none": "No attempt yet", "prelims": "Cleared Prelims",
         "mains": "Cleared Mains", "interview": "Appeared in Interview",
     }
+    _FORMAT_LABELS = {
+        "video": "Prefers video content",
+        "reading": "Prefers reading/articles",
+        "hands_on": "Prefers hands-on practice/building",
+        "mixed": "No strong preference — mix of formats",
+    }
+    _CHALLENGE_LABELS = {
+        "motivation": "Staying motivated/consistent",
+        "understanding_concepts": "Understanding concepts deeply",
+        "getting_started": "Not knowing where to start",
+        "applying_practically": "Applying knowledge practically",
+    }
+
+    interaction_history_block = ""
+    if interaction_history:
+        interaction_history_block = (
+            "\nWHAT'S ALREADY BEEN TRIED (this is a regeneration — use this to avoid "
+            "repeating what's already covered):\n"
+            f"{interaction_history}\n\n"
+            "CONCRETE RULES for regeneration:\n"
+            "- Skills marked \"mastered\" above must NOT get a new module — they're done.\n"
+            "- Skills marked \"failed quiz\" must be reprioritized near the top (priority "
+            "1-2) and use a different resource angle (different channels/sources or "
+            "resource types) than what's listed as already tried.\n"
+        )
 
     prompt = PLAN_PROMPT.format(
         job_title=job_title,
@@ -460,6 +552,7 @@ async def generate_job_plan(
         required_skills=", ".join(required_skills) if required_skills else "Not specified",
         user_skills=", ".join(user_skills) if user_skills else "None listed",
         gap_skills=", ".join(gap_skills) if gap_skills else "No gaps identified",
+        interaction_history_block=interaction_history_block,
         k_score=k_score if k_score is not None else "N/A",
         k_score_label=_score_label(k_score),
         r_score=r_score if r_score is not None else "N/A",
@@ -476,6 +569,8 @@ async def generate_job_plan(
         years_preparing_label=f"{years_preparing} year(s)" if years_preparing else "Not specified",
         optional_subject_label=optional_subject or "Not specified",
         preferred_sectors_label=", ".join(preferred_sectors) if preferred_sectors else "Not specified",
+        learning_format_label=_FORMAT_LABELS.get(preferred_learning_format or "", "No strong preference — mix of formats"),
+        learning_challenge_label=_CHALLENGE_LABELS.get(learning_challenge or "", "Not specified"),
     )
 
     msg = await _groq.complete(
@@ -592,11 +687,45 @@ def redact_quiz_answers(plan: dict[str, Any] | None) -> dict[str, Any] | None:
     return redacted
 
 
-async def enrich_plan_with_real_videos(
-    plan: dict[str, Any],
-    on_progress: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
-) -> dict[str, Any]:
-    """Enrich all resources with real URLs resolved at generation time.
+class _EnrichmentCircuitBreaker:
+    """Tracks consecutive resolution failures per resource type within one
+    enrichment pass. yt-dlp and the DDG-backed article search are unofficial,
+    scrape-based tools — when one breaks (network block, markup change), it
+    breaks for every remaining call in the pass, not just one. Without this,
+    a plan with 7 modules would retry the same doomed call up to ~28 times,
+    inflating generation latency during exactly the outage where the user is
+    already getting a degraded result. After a few consecutive failures for
+    a type, stop attempting live resolution for the rest of this pass and
+    keep the LLM-set fallback URL instead."""
+
+    THRESHOLD = 3
+
+    def __init__(self) -> None:
+        self._consecutive_failures: dict[str, int] = {}
+        self._tripped: set[str] = set()
+
+    def is_open(self, res_type: str) -> bool:
+        return res_type in self._tripped
+
+    def record(self, res_type: str, success: bool) -> None:
+        if success:
+            self._consecutive_failures[res_type] = 0
+            return
+        count = self._consecutive_failures.get(res_type, 0) + 1
+        self._consecutive_failures[res_type] = count
+        if count >= self.THRESHOLD and res_type not in self._tripped:
+            self._tripped.add(res_type)
+            logger.warning(
+                "[PLAN_ENRICH] %d consecutive %s resolution failures — "
+                "skipping live resolution for the rest of this pass",
+                count, res_type,
+            )
+
+
+async def _enrich_resource(
+    res: dict[str, Any], breaker: "_EnrichmentCircuitBreaker | None" = None
+) -> tuple[bool, str | None]:
+    """Resolve one resource's real URL in place. Returns (resolved, found_title).
 
     YouTube → searches for real video candidates (up to 2), attaches
               video_options + recommended_video_id, keeps fallback search URL.
@@ -605,40 +734,70 @@ async def enrich_plan_with_real_videos(
               Falls back to the site-specific search URL already set by
               _build_article_url if live resolution fails.
 
+    `breaker` is optional — omitted for the single-resource remedial-resource
+    path, where there's no batch of calls to protect and a fresh breaker would
+    never trip on just one attempt anyway.
+    """
+    res_type = res.get("type", "")
+    query = res.get("search_query") or res.get("title") or ""
+    if not query:
+        return False, None
+
+    breaker = breaker or _EnrichmentCircuitBreaker()
+    breaker_key = "youtube" if res_type == "youtube" else "article"
+    if breaker.is_open(breaker_key):
+        return False, None
+
+    if res_type == "youtube":
+        candidates = await search_youtube(query, n=2)
+        if candidates:
+            res["video_options"] = candidates
+            res["recommended_video_id"] = candidates[0]["video_id"]
+            res["url"] = candidates[0]["url"]
+            if not res.get("duration_minutes"):
+                res["duration_minutes"] = candidates[0]["duration_minutes"]
+            breaker.record(breaker_key, success=True)
+            return True, candidates[0]["title"]
+        breaker.record(breaker_key, success=False)
+        return False, None
+
+    elif res_type in ("article", "course"):
+        source = res.get("channel_or_source") or ""
+        real_url = await resolve_article_url(query, source)
+        if real_url:
+            res["url"] = real_url
+            breaker.record(breaker_key, success=True)
+            return True, res.get("title")
+        breaker.record(breaker_key, success=False)
+        # If resolution fails, _build_article_url already set a
+        # site-specific search URL — keep it as the fallback.
+        return False, None
+
+    return False, None
+
+
+async def enrich_plan_with_real_videos(
+    plan: dict[str, Any],
+    on_progress: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
+) -> dict[str, Any]:
+    """Enrich all resources with real URLs resolved at generation time.
+
     If `on_progress` is given, it's awaited after every resource with a live
     snapshot: {"resources_done": int, "resources_total": int, "current_skill": str,
     "last_found": str | None}.
     """
     total = count_youtube_resources(plan) + count_article_resources(plan)
     done = 0
+    resolved = 0
+    breaker = _EnrichmentCircuitBreaker()
     for module in plan.get("modules", []):
         for res in module.get("resources", []):
-            res_type = res.get("type", "")
-            query = res.get("search_query") or res.get("title") or ""
-            found_title: str | None = None
-
-            if res_type == "youtube":
-                if query:
-                    candidates = await search_youtube(query, n=2)
-                    if candidates:
-                        res["video_options"] = candidates
-                        res["recommended_video_id"] = candidates[0]["video_id"]
-                        res["url"] = candidates[0]["url"]
-                        if not res.get("duration_minutes"):
-                            res["duration_minutes"] = candidates[0]["duration_minutes"]
-                        found_title = candidates[0]["title"]
-
-            elif res_type in ("article", "course"):
-                if query:
-                    source = res.get("channel_or_source") or ""
-                    real_url = await resolve_article_url(query, source)
-                    if real_url:
-                        res["url"] = real_url
-                        found_title = res.get("title")
-                    # If resolution fails, _build_article_url already set a
-                    # site-specific search URL — keep it as the fallback.
-            else:
+            if res.get("type") not in ("youtube", "article", "course"):
                 continue  # skip unknown types; don't count in progress
+
+            was_resolved, found_title = await _enrich_resource(res, breaker)
+            if was_resolved:
+                resolved += 1
 
             done += 1
             if on_progress:
@@ -648,4 +807,55 @@ async def enrich_plan_with_real_videos(
                     "current_skill": module.get("skill"),
                     "last_found": found_title,
                 })
+
+    failed = total - resolved
+    logger.info("[PLAN_ENRICH] resolved=%d/%d failed=%d", resolved, total, failed)
+    if total > 0 and failed / total > 0.5:
+        sentry_sdk.capture_message(
+            f"[PLAN_ENRICH] high resolution failure rate: {failed}/{total} resources "
+            "failed to resolve a real URL — yt-dlp/DDG scraping may be broken",
+            level="warning",
+        )
     return plan
+
+
+async def generate_remedial_resource(
+    job_title: str,
+    sector: str,
+    skill: str,
+    why_important: str,
+    missed_explanations: list[str],
+    resource_id: str,
+) -> dict[str, Any]:
+    """Generate one follow-up resource after a failed module quiz — targeting
+    what the learner actually got wrong, from a different angle than the
+    module's existing resources, rather than letting them silently move on."""
+    missed_summary = (
+        "\n".join(f"- {m}" for m in missed_explanations)
+        if missed_explanations
+        else "General understanding of the topic."
+    )
+    prompt = REMEDIAL_PROMPT.format(
+        job_title=job_title,
+        sector=sector,
+        skill=skill,
+        why_important=why_important,
+        missed_summary=missed_summary,
+    )
+
+    msg = await _groq.complete(
+        system=REMEDIAL_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=1000,
+        temperature=0.4,
+    )
+
+    resource = _extract_json(msg.content)
+    resource["id"] = resource_id
+    if resource.get("type") == "youtube" and resource.get("search_query"):
+        resource["url"] = f"https://www.youtube.com/results?search_query={_url_encode(resource['search_query'])}"
+    elif resource.get("type") in ("article", "course"):
+        resource["url"] = _build_article_url(resource)
+
+    await _enrich_resource(resource)
+    return resource

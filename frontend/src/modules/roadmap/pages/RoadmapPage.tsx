@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PageHeader from '@/shared/layouts/PageHeader'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
+import { useOnboardingProfile } from '@/modules/onboarding/hooks/useOnboarding'
 import JobLearningPlanPanel from '../components/JobLearningPlanPanel'
+import LearningSetupForm from '../components/LearningSetupForm'
 import RoadmapCounsellorPanel from '../components/RoadmapCounsellorPanel'
 import { Map, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react'
 
@@ -36,8 +38,10 @@ function GeneratePrompt() {
 export default function RoadmapPage() {
   // useActivePrepJob reads from persisted Zustand store instantly (no network lag)
   const { activePrep, isLoading: prepLoading } = useActivePrepJob()
+  const { data: profile, isLoading: profileLoading } = useOnboardingProfile()
   const navigate = useNavigate()
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null)
+  const needsLearningSetup = !!activePrep && !profileLoading && profile?.has_learning_setup === false
 
   return (
     <>
@@ -73,7 +77,13 @@ export default function RoadmapPage() {
 
             {!prepLoading && !activePrep && <GeneratePrompt />}
 
-            {!prepLoading && activePrep && (
+            {!prepLoading && needsLearningSetup && (
+              <div style={{ maxWidth: 620 }}>
+                <LearningSetupForm onDone={() => {}} />
+              </div>
+            )}
+
+            {!prepLoading && activePrep && !needsLearningSetup && (
               <div style={{ maxWidth: 760 }}>
                 <JobLearningPlanPanel
                   roadmap={{ gap_skills: [], active_prep_job_id: String(activePrep.job_id), active_prep_job_title: activePrep.job_title, active_prep_job_company: activePrep.company_name } as any}
@@ -86,7 +96,7 @@ export default function RoadmapPage() {
             )}
           </main>
 
-          {!prepLoading && activePrep && (
+          {!prepLoading && activePrep && !needsLearningSetup && (
             <RoadmapCounsellorPanel
               jobId={String(activePrep.job_id)}
               jobTitle={activePrep.job_title}

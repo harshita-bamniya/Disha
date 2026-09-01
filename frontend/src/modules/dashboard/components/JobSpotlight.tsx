@@ -15,6 +15,7 @@ export interface JobSpotlightProps {
   roadmapStatus?: 'generating' | 'ready' | 'failed'
   onMockInterview: () => void
   onOpenResume: () => void
+  onOpenSkillReport?: () => void
   isPreparing?: boolean
   isApplied?: boolean
   isTailoringResume?: boolean
@@ -22,7 +23,8 @@ export interface JobSpotlightProps {
 
 export function JobSpotlight({
   job, onOpen, onApply, onPrepare, onGenerateResume, onViewRoadmap,
-  roadmapStatus, onMockInterview, onOpenResume, isPreparing, isApplied, isTailoringResume,
+  roadmapStatus, onMockInterview, onOpenResume, onOpenSkillReport,
+  isPreparing, isApplied, isTailoringResume,
 }: JobSpotlightProps) {
   const salary = formatSalary(job.salary_min, job.salary_max)
   const [hov, setHov] = useState(false)
@@ -164,15 +166,14 @@ export function JobSpotlight({
       {/* Apply CTA */}
       <div style={{ padding: '14px 20px' }}>
         {isApplied ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 4px' }}>
-            <div style={{ width: 28, height: 28, borderRadius: '50%', flexShrink: 0, background: '#ECFDF5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <CheckCircle2 size={14} color="#16A34A" />
-            </div>
-            <div>
-              <p style={{ fontSize: 12.5, fontWeight: 700, color: INK, margin: 0 }}>Application submitted</p>
-              <p style={{ fontSize: 11, color: MUTED, margin: '1px 0 0' }}>You'll be notified when the employer responds.</p>
-            </div>
-          </div>
+          <button disabled aria-label="Already applied" style={{
+            width: '100%', height: 44, borderRadius: 10,
+            background: 'white', color: NAVY, border: `1.5px solid ${BORDER}`,
+            fontSize: 13, fontWeight: 700, cursor: 'default',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+          }}>
+            <CheckCircle2 size={13} color="#16A34A" /> Applied
+          </button>
         ) : (
           <button onClick={onApply} style={{
             width: '100%', height: 44, borderRadius: 10,
@@ -189,8 +190,27 @@ export function JobSpotlight({
         )}
       </div>
 
-      {/* Skill gap modal */}
-      {false && <Target size={0} />}{/* keep import */}
+      {/* Skill analysis animated button */}
+      {onOpenSkillReport && (
+        <div style={{ padding: '0 20px 16px' }}>
+          <button
+            onClick={onOpenSkillReport}
+            aria-label="View skill gap analysis"
+            style={{
+              width: '100%', height: 42, borderRadius: 10,
+              background: 'transparent', border: `1.5px solid ${NAVY}`,
+              color: NAVY, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+              animation: 'orb-float 3.5s ease-in-out infinite, btn-glow 2.2s ease-in-out infinite',
+            }}
+          >
+            <TrendingUp size={14} />
+            View Skill Analysis
+          </button>
+        </div>
+      )}
+
+      {false && <Target size={0} />}
     </div>
   )
 }

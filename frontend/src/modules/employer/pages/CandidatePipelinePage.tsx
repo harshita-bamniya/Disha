@@ -499,9 +499,6 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
             <Section icon={<Brain size={13}/>} title="Psychological Profile">
               <ScoreBar label="Confidence" score={candidate.psych.confidence_index} color="#059669"/>
               <ScoreBar label="Burnout Level" score={candidate.psych.burnout_score} color="#EF4444"/>
-              <ScoreBar label="Financial Pressure" score={candidate.psych.financial_pressure_score} color="#D97706"/>
-              {candidate.psych.risk_tolerance&&<InfoRow label="Risk Tolerance" value={candidate.psych.risk_tolerance.replace(/_/g,' ')}/>}
-              {candidate.psych.motivation_type&&<InfoRow label="Motivation Type" value={candidate.psych.motivation_type.replace(/_/g,' ')}/>}
             </Section>
           )}
 

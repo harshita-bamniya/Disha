@@ -65,9 +65,6 @@ export interface ApplicationDetailOut extends ApplicationOut {
 export interface CandidatePsychProfile {
   burnout_score: number | null
   confidence_index: number | null
-  financial_pressure_score: number | null
-  risk_tolerance: string | null
-  motivation_type: string | null
 }
 
 export interface CandidateOut {

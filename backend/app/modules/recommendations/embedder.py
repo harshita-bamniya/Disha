@@ -104,7 +104,7 @@ def build_job_text(job) -> str:
     return " ".join(parts)
 
 
-def build_user_text(profile, psych=None) -> str:
+def build_user_text(profile) -> str:
     """
     Convert structured aspirant profile data into a natural-language paragraph
     that captures UPSC background, education, work experience, skills, and preferences.
@@ -159,24 +159,5 @@ def build_user_text(profile, psych=None) -> str:
     sectors = profile.preferred_sectors or []
     if sectors:
         parts.append(f"Interested in: {', '.join(sectors[:4])}.")
-
-    # Psychological layer (optional — adds nuance to the embedding)
-    if psych:
-        if psych.motivation_type:
-            label = {
-                "intrinsic": "driven by personal satisfaction and meaningful work",
-                "extrinsic": "motivated by recognition, salary, and career impact",
-                "mixed": "motivated by both purpose and external recognition",
-            }.get(psych.motivation_type, psych.motivation_type)
-            parts.append(f"Motivation: {label}.")
-        if psych.risk_tolerance:
-            label = {
-                "low": "prefers stability and predictability",
-                "medium": "open to calculated risks",
-                "high": "willing to take bold career moves",
-            }.get(psych.risk_tolerance, psych.risk_tolerance)
-            parts.append(f"Risk appetite: {label}.")
-        if psych.support_system:
-            parts.append(f"Support system: {psych.support_system}.")
 
     return " ".join(parts)

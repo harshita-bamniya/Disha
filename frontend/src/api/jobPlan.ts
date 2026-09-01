@@ -83,14 +83,16 @@ export interface PlanModule {
   _scheduleEnd?: number
 }
 
-/** Attach day-range schedule to each module based on estimated_hours.
- *  Assumes STUDY_HOURS_PER_DAY hours of study per day. */
-const STUDY_HOURS_PER_DAY = 2
+/** Attach day-range schedule to each module based on estimated_hours and the
+ *  user's own weekly_study_hours (from the one-time learning setup) — falls
+ *  back to a 2 hrs/day assumption only if that hasn't been set yet. */
+const DEFAULT_HOURS_PER_DAY = 2
 
-export function attachSchedule(modules: PlanModule[]): PlanModule[] {
+export function attachSchedule(modules: PlanModule[], weeklyStudyHours?: number | null): PlanModule[] {
+  const hoursPerDay = weeklyStudyHours ? weeklyStudyHours / 7 : DEFAULT_HOURS_PER_DAY
   let day = 1
   return modules.map(mod => {
-    const days = Math.max(1, Math.ceil((mod.estimated_hours || 2) / STUDY_HOURS_PER_DAY))
+    const days = Math.max(1, Math.ceil((mod.estimated_hours || 2) / hoursPerDay))
     const start = day
     const end = day + days - 1
     day = end + 1

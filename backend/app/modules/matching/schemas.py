@@ -85,9 +85,6 @@ class ApplicationDetailOut(ApplicationOut):
 class CandidatePsychProfile(BaseModel):
     burnout_score: Optional[int] = None
     confidence_index: Optional[int] = None
-    financial_pressure_score: Optional[int] = None
-    risk_tolerance: Optional[str] = None
-    motivation_type: Optional[str] = None
 
 
 class CandidateOut(BaseModel):

@@ -601,7 +601,15 @@ def update_skill_competence(
         rec = UserSkillCompetence(user_id=user_id, skill_text=norm)
         db.add(rec)
 
-    n = rec.attempts
+    # Bug fix (2026-08-24, confirmed 100% reproducible on every interview
+    # completion): a freshly-constructed row's numeric columns are still
+    # Python None here — the Column `default=` only applies at flush/insert
+    # time, not to the in-memory object before that — so `rec.attempts`
+    # (and the two score-avg fields below) must be coalesced explicitly
+    # rather than trusted, or the very first score for a brand-new skill
+    # crashes with `float * NoneType` and silently aborts the whole
+    # per-session competence-update batch (caught by a broad except upstream).
+    n = rec.attempts or 0
 
     if quiz_score is not None:
         old = rec.quiz_score_avg or 0.0
@@ -612,8 +620,8 @@ def update_skill_competence(
 
     rec.attempts = n + 1
     rec.competence_score = (
-        (rec.quiz_score_avg * 0.4) +
-        (rec.exercise_score_avg * 0.4) +
+        ((rec.quiz_score_avg or 0.0) * 0.4) +
+        ((rec.exercise_score_avg or 0.0) * 0.4) +
         min(rec.attempts, 10) * 2  # consistency bonus, max 20
     )
     rec.competence_score = min(100.0, rec.competence_score)

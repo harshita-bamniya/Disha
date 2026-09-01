@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { attachSchedule, jobPlanApi, type GenerationDetail, type GenerationStep, type PlanModule, type PlanResource, type QuizProgress, type VideoRating } from '@/api/jobPlan'
 import type { RoadmapOut } from '@/api/roadmap'
+import { useOnboardingProfile } from '@/modules/onboarding/hooks/useOnboarding'
 
 interface Props {
   roadmap: RoadmapOut
@@ -761,6 +762,33 @@ export default function JobLearningPlanPanel({ activeJobId, activeJobTitle, acti
     },
   })
 
+  // Values needed by the auto-scroll effect below — computed unconditionally (with
+  // optional chaining) so the hook order never changes across the early-return
+  // render states (loading/not_generated/generating/failed) vs. the "ready" state.
+  const { data: profile } = useOnboardingProfile()
+  const plan = data?.status === 'ready' ? data.plan : undefined
+  const progress = data?.progress ?? {}
+  const scheduledModules = plan
+    ? attachSchedule([...plan.modules].sort((a, b) => a.priority - b.priority), profile?.weekly_study_hours)
+    : []
+  const { done, pct } = totalProgress(plan?.modules ?? [], progress)
+
+  // First module that isn't 100% complete — shown only when the user has started the plan.
+  const anyDone = done > 0
+  const currentModule = anyDone && pct < 100
+    ? scheduledModules.find(m => moduleProgress(m, progress) < 100)
+    : null
+
+  // Auto-scroll to the current module on first render (not when a skill is already highlighted).
+  useEffect(() => {
+    if (!currentModule || highlightSkill) return
+    const el = document.getElementById(`job-module-${skillKey(currentModule.skill)}`)
+    if (el) {
+      const t = setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150)
+      return () => clearTimeout(t)
+    }
+  }, [currentModule?.id, highlightSkill])
+
   // ── Render states ────────────────────────────────────────────────────────────
 
   if (isLoading) {
@@ -871,33 +899,17 @@ export default function JobLearningPlanPanel({ activeJobId, activeJobTitle, acti
     )
   }
 
-  // Ready
-  const plan = data.plan!
-  const progress = data.progress ?? {}
-  const scheduledModules = attachSchedule([...plan.modules].sort((a, b) => a.priority - b.priority))
+  // Ready — plan/progress/scheduledModules/done/pct/currentModule already computed above
+  // (before the early returns, to keep hook order stable). No hooks are called below this
+  // point, so this guard is a safe plain early return, not a hook-order hazard.
+  if (!plan) return null
   const totalDays = scheduledModules.at(-1)?._scheduleEnd ?? 0
-  const { done, total, pct } = totalProgress(plan.modules, progress)
+  const total = scheduledModules.flatMap(m => m.resources).length
 
   const skillKeyFilter = highlightSkill ? skillKey(highlightSkill) : null
   const matchingModule = skillKeyFilter
     ? scheduledModules.find(m => skillKey(m.skill) === skillKeyFilter)
     : null
-
-  // First module that isn't 100% complete — shown only when the user has started the plan.
-  const anyDone = done > 0
-  const currentModule = anyDone && pct < 100
-    ? scheduledModules.find(m => moduleProgress(m, progress) < 100)
-    : null
-
-  // Auto-scroll to the current module on first render (not when a skill is already highlighted).
-  useEffect(() => {
-    if (!currentModule || highlightSkill) return
-    const el = document.getElementById(`job-module-${skillKey(currentModule.skill)}`)
-    if (el) {
-      const t = setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150)
-      return () => clearTimeout(t)
-    }
-  }, [currentModule?.id, highlightSkill])
 
   if (onlyMatching) {
     return (

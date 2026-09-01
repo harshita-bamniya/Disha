@@ -39,10 +39,10 @@ function RadarChart({ scores }: { scores: { label: string; value: number; color:
         />
       ))}
       {scores.map((_, i) => { const p = pointAt(i, maxR); return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#E2E8F0" strokeWidth={1} /> })}
-      <polygon points={toPolyPoints(scores.map(s => s.value))} fill="rgba(99,102,241,0.12)" stroke="#6366F1" strokeWidth={1.5} strokeLinejoin="round" />
+      <polygon points={toPolyPoints(scores.map(s => s.value))} fill="rgba(37,99,235,0.10)" stroke="#2563EB" strokeWidth={1.5} strokeLinejoin="round" />
       {scores.map((s, i) => {
         const p = pointAt(i, (s.value / 100) * maxR)
-        return <circle key={i} cx={p.x} cy={p.y} r={4} fill="#6366F1" />
+        return <circle key={i} cx={p.x} cy={p.y} r={4} fill="#2563EB" />
       })}
       {scores.map((s, i) => {
         const p = pointAt(i, maxR + 20)
@@ -68,17 +68,17 @@ function CompositeRing({ value, run }: { value: number; run: boolean }) {
       <div style={{ position: 'relative', width: size, height: size }}>
         <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
           <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#F1F5F9" strokeWidth={9} />
-          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#6366F1" strokeWidth={9}
+          <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="#2563EB" strokeWidth={9}
             strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
             style={{ transition: 'stroke-dasharray 1.6s cubic-bezier(0.34,1.1,0.64,1)' }}
           />
         </svg>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontSize: 32, fontWeight: 700, color: '#111827', lineHeight: 1 }}>{counted > 0 ? counted : value}</span>
-          <span style={{ fontSize: 10, fontWeight: 600, color: '#9CA3AF', marginTop: 2 }}>/100</span>
+          <span style={{ fontSize: 32, fontWeight: 700, color: '#1E3A5F', lineHeight: 1 }}>{counted > 0 ? counted : value}</span>
+          <span style={{ fontSize: 10, fontWeight: 600, color: '#94A3B8', marginTop: 2 }}>/100</span>
         </div>
       </div>
-      <span style={{ fontSize: 11, fontWeight: 700, color: '#6366F1', background: '#EEF2FF', padding: '3px 14px', borderRadius: 20 }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: '#2563EB', background: '#EFF6FF', padding: '3px 14px', borderRadius: 20 }}>
         {label}
       </span>
     </div>
@@ -104,8 +104,8 @@ function ScoreBar({ label, value, color, icon, desc, run }: {
             {icon}
           </div>
           <div>
-            <p style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{label}</p>
-            <p style={{ fontSize: 11, color: '#9CA3AF' }}>{desc}</p>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#1E3A5F' }}>{label}</p>
+            <p style={{ fontSize: 11, color: '#94A3B8' }}>{desc}</p>
           </div>
         </div>
         <span style={{ fontSize: 20, fontWeight: 700, color }}>{counted > 0 ? counted : value}</span>
@@ -138,7 +138,7 @@ export default function SkillsReportPage() {
       <PageHeader
         title="Skill Intelligence Report"
         icon={
-          <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #818CF8, #6366F1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'linear-gradient(135deg, #60A5FA, #2563EB)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <BarChart3 size={14} color="white" />
           </div>
         }
@@ -149,7 +149,7 @@ export default function SkillsReportPage() {
             style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px',
               borderRadius: 9, background: 'none', border: 'none',
-              color: '#6366F1', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+              color: '#2563EB', fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
             }}
           >
             <RefreshCw size={12} className={recompute.isPending ? 'animate-spin' : ''} />
@@ -158,7 +158,7 @@ export default function SkillsReportPage() {
         }
       />
 
-        <main style={{ padding: '28px', flex: 1, background: '#FAFBFD' }}>
+        <main style={{ padding: '28px', flex: 1, background: '#F4F5F7' }}>
 
           {/* Onboarding incomplete empty state */}
           {onboardingIncomplete && !isLoading && (
@@ -170,15 +170,15 @@ export default function SkillsReportPage() {
               }}>
                 <div style={{
                   width: 64, height: 64, borderRadius: 18,
-                  background: 'linear-gradient(135deg, #EEF2FF, #E0E7FF)',
+                  background: 'linear-gradient(135deg, #EFF6FF, #DBEAFE)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px',
                 }}>
-                  <ClipboardList size={28} color="#6366F1" />
+                  <ClipboardList size={28} color="#2563EB" />
                 </div>
-                <h2 style={{ fontSize: 20, fontWeight: 700, color: '#111827', marginBottom: 10 }}>
+                <h2 style={{ fontSize: 20, fontWeight: 700, color: '#1E3A5F', marginBottom: 10 }}>
                   Complete your profile to unlock your KRS score
                 </h2>
-                <p style={{ fontSize: 14, color: '#64748B', lineHeight: 1.6, marginBottom: 28 }}>
+                <p style={{ fontSize: 14, color: '#475569', lineHeight: 1.6, marginBottom: 28 }}>
                   Your Skill Intelligence Report is generated from your education, work experience, and skills. Finish setting up your profile to see your personalised score.
                 </p>
                 <button
@@ -186,7 +186,7 @@ export default function SkillsReportPage() {
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: 8,
                     padding: '11px 24px', borderRadius: 10, border: 'none',
-                    background: 'linear-gradient(135deg, #6366F1, #818CF8)',
+                    background: 'linear-gradient(135deg, #2563EB, #60A5FA)',
                     color: 'white', fontSize: 14, fontWeight: 600, cursor: 'pointer',
                   }}
                 >
@@ -199,7 +199,7 @@ export default function SkillsReportPage() {
 
           {!onboardingIncomplete && isLoading && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-              <div style={{ width: 32, height: 32, border: '3px solid #6366F1', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+              <div style={{ width: 32, height: 32, border: '3px solid #2563EB', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
             </div>
           )}
 
@@ -219,18 +219,18 @@ export default function SkillsReportPage() {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 28 }}>
                   <div>
-                    <p style={{ fontSize: 11.5, fontWeight: 700, color: '#6366F1', letterSpacing: '0.4px', marginBottom: 8 }}>KRS INTELLIGENCE SCORE</p>
-                    <h2 style={{ fontSize: 22, fontWeight: 700, color: '#111827', marginBottom: 6 }}>
+                    <p style={{ fontSize: 11.5, fontWeight: 700, color: '#2563EB', letterSpacing: '0.4px', marginBottom: 8 }}>KRS INTELLIGENCE SCORE</p>
+                    <h2 style={{ fontSize: 22, fontWeight: 700, color: '#1E3A5F', marginBottom: 6 }}>
                       {data.full_name?.split(' ')[0] ?? 'Your'}'s Skill Profile
                     </h2>
-                    <p style={{ fontSize: 13, color: '#9CA3AF', marginBottom: 20 }}>
+                    <p style={{ fontSize: 13, color: '#94A3B8', marginBottom: 20 }}>
                       {data.skills.length} verified skills extracted from your profile
                     </p>
                     <CompositeRing value={composite} run={ready} />
                   </div>
 
                   <div style={{ background: '#F8FAFC', borderRadius: 16, padding: '18px 22px', border: '1px solid #EEF1F6' }}>
-                    <p style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 14, textAlign: 'center' }}>Skill Radar</p>
+                    <p style={{ fontSize: 10, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 14, textAlign: 'center' }}>Skill Radar</p>
                     <RadarChart scores={[
                       { label: 'Knowledge', value: data.krs.k_score, color: '#374151' },
                       { label: 'Readiness', value: data.krs.r_score, color: '#374151' },
@@ -248,8 +248,8 @@ export default function SkillsReportPage() {
                     { label: 'Profile', value: data.profile_complete ? 'Complete' : 'Incomplete', sub: data.profile_complete ? 'All sections filled' : 'Action needed' },
                   ].map(s => (
                     <div key={s.label}>
-                      <p style={{ fontSize: 18, fontWeight: 700, color: '#111827', margin: 0 }}>{s.value}</p>
-                      <p style={{ fontSize: 11.5, color: '#9CA3AF', margin: '2px 0 0' }}>{s.label} · {s.sub}</p>
+                      <p style={{ fontSize: 18, fontWeight: 700, color: '#1E3A5F', margin: 0 }}>{s.value}</p>
+                      <p style={{ fontSize: 11.5, color: '#94A3B8', margin: '2px 0 0' }}>{s.label} · {s.sub}</p>
                     </div>
                   ))}
                 </div>
@@ -258,8 +258,8 @@ export default function SkillsReportPage() {
               {/* ── KRS BREAKDOWN ── */}
               <div style={{ background: 'white', borderRadius: 16, padding: '20px', border: '1px solid #E5E9F2', boxShadow: '0 6px 18px rgba(15,23,42,0.05)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>KRS Breakdown</span>
-                  <span style={{ fontSize: 11.5, color: '#9CA3AF', marginLeft: 4 }}>Knowledge · Readiness · Skills</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: '#1E3A5F' }}>KRS Breakdown</span>
+                  <span style={{ fontSize: 11.5, color: '#94A3B8', marginLeft: 4 }}>Knowledge · Readiness · Skills</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <ScoreBar label="Knowledge (K)" value={data.krs.k_score} color="#2563EB" run={ready} icon={<Brain size={15} />} desc="Breadth & depth of UPSC subjects mastered" />
@@ -276,7 +276,7 @@ export default function SkillsReportPage() {
                     <div style={{ width: 30, height: 30, borderRadius: 9, background: 'rgba(5,150,105,0.08)', border: '1.5px solid rgba(5,150,105,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <CheckCircle2 size={14} color="#059669" />
                     </div>
-                    <span style={{ fontSize: 13, fontWeight: 800, color: '#0F172A' }}>Verified Skills</span>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: '#1E3A5F' }}>Verified Skills</span>
                     <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: '#059669', background: 'rgba(5,150,105,0.07)', padding: '2px 9px', borderRadius: 20, border: '1px solid rgba(5,150,105,0.15)' }}>
                       {data.skills.length}
                     </span>
@@ -300,7 +300,7 @@ export default function SkillsReportPage() {
                     <div style={{ width: 30, height: 30, borderRadius: 9, background: 'rgba(217,119,6,0.08)', border: '1.5px solid rgba(217,119,6,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <TrendingUp size={14} color="#D97706" />
                     </div>
-                    <span style={{ fontSize: 13, fontWeight: 800, color: '#0F172A' }}>Skills to Develop</span>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: '#1E3A5F' }}>Skills to Develop</span>
                     <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: '#D97706', background: 'rgba(217,119,6,0.07)', padding: '2px 9px', borderRadius: 20, border: '1px solid rgba(217,119,6,0.15)' }}>
                       {data.missing_skills.length} gaps
                     </span>
@@ -323,7 +323,7 @@ export default function SkillsReportPage() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
                 {[
                   {
-                    icon: <Shield size={15} />, iconBg: '#6366F1',
+                    icon: <Shield size={15} />, iconBg: '#2563EB',
                     title: 'Profile Completeness',
                     body: data.profile_complete
                       ? 'Your profile is fully complete. This gives you the most accurate KRS score.'
@@ -333,7 +333,7 @@ export default function SkillsReportPage() {
                     cta: data.profile_complete ? null : { label: 'Complete Profile', path: '/app/profile' },
                   },
                   {
-                    icon: <Zap size={15} />, iconBg: '#6366F1',
+                    icon: <Zap size={15} />, iconBg: '#2563EB',
                     title: 'Skill Transferability',
                     body: data.krs.s_score >= 60
                       ? `Your ${data.skills.length} skills show strong transferability to private sector roles.`
@@ -343,7 +343,7 @@ export default function SkillsReportPage() {
                     cta: null,
                   },
                   {
-                    icon: <Brain size={15} />, iconBg: '#6366F1',
+                    icon: <Brain size={15} />, iconBg: '#2563EB',
                     title: 'Readiness Index',
                     body: data.krs.r_score >= 60
                       ? 'Strong psychological readiness for private sector transition.'
@@ -368,8 +368,8 @@ export default function SkillsReportPage() {
                       </span>
                     </div>
                     <div>
-                      <p style={{ fontSize: 13, fontWeight: 800, color: '#0F172A', marginBottom: 5 }}>{card.title}</p>
-                      <p style={{ fontSize: 12, color: '#4A453D', lineHeight: 1.7 }}>{card.body}</p>
+                      <p style={{ fontSize: 13, fontWeight: 800, color: '#1E3A5F', marginBottom: 5 }}>{card.title}</p>
+                      <p style={{ fontSize: 12, color: '#475569', lineHeight: 1.7 }}>{card.body}</p>
                     </div>
                     {card.cta && (
                       <button onClick={() => navigate(card.cta!.path)} style={{
@@ -399,13 +399,13 @@ export default function SkillsReportPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <AlertCircle size={18} color="#D97706" />
                     <div>
-                      <p style={{ fontSize: 13, fontWeight: 800, color: '#0F172A', marginBottom: 2 }}>Complete your profile for a higher KRS score</p>
-                      <p style={{ fontSize: 12, color: '#64748B' }}>Each section improves skill extraction accuracy and unlocks better matches.</p>
+                      <p style={{ fontSize: 13, fontWeight: 800, color: '#1E3A5F', marginBottom: 2 }}>Complete your profile for a higher KRS score</p>
+                      <p style={{ fontSize: 12, color: '#475569' }}>Each section improves skill extraction accuracy and unlocks better matches.</p>
                     </div>
                   </div>
                   <button onClick={() => navigate('/app/profile')} style={{
                     display: 'flex', alignItems: 'center', gap: 6, padding: '9px 18px',
-                    borderRadius: 11, background: '#3B82F6', border: 'none',
+                    borderRadius: 11, background: '#2563EB', border: 'none',
                     color: 'white', fontSize: 12, fontWeight: 700, cursor: 'pointer',
                     whiteSpace: 'nowrap',
                   }}>

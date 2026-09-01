@@ -56,7 +56,6 @@ def build_personalization_config(
     burnout_score: float | None,
     confidence_index: float | None,
     work_experience_years: int,
-    financial_pressure: bool = False,
 ) -> PersonalizationConfig:
     """
     Maps KRS scores and psychological signals to a PersonalizationConfig.
@@ -67,7 +66,6 @@ def build_personalization_config(
       R-low (<35):  insert networking module — readiness requires network signals
       confidence_index < 40: soft_gates + encouraging tone
       burnout_score > 70: reduce scaffolding to avoid overwhelm
-      financial_pressure: fast_track mode
       work_experience_years ≥ 5: senior difficulty + minimal scaffolding
       work_experience_years < 1: heavy scaffolding + junior difficulty
     """
@@ -113,11 +111,6 @@ def build_personalization_config(
         cfg.scaffolding_level = "heavy"
         cfg.notes.append(f"work_exp={work_experience_years}y → junior difficulty + heavy scaffolding")
 
-    # Financial pressure — fast track
-    if financial_pressure:
-        cfg.fast_track = True
-        cfg.notes.append("financial_pressure=True → fast track mode activated")
-
     logger.info(
         "[PERSONALIZATION] k=%d r=%d s=%d exp=%dy → diff=%s skip_found=%s net=%s soft=%s ft=%s",
         k_score, r_score, s_score, work_experience_years,
@@ -144,11 +137,6 @@ def get_personalization_from_user(user, db) -> PersonalizationConfig:
     confidence  = float(psych.confidence_index) if psych and psych.confidence_index is not None else None
     work_exp    = profile.work_experience_years if profile and profile.work_experience_years is not None else 0
 
-    # Use financial_pressure_score (numeric) directly — risk_tolerance is a string ("low"/"medium"/"high")
-    # and cannot be cast to float.
-    fin_pressure_score = float(psych.financial_pressure_score) if psych and psych.financial_pressure_score is not None else 0
-    fin_pressure = fin_pressure_score >= 65
-
     return build_personalization_config(
         k_score=k_score,
         r_score=r_score,
@@ -156,5 +144,4 @@ def get_personalization_from_user(user, db) -> PersonalizationConfig:
         burnout_score=burnout,
         confidence_index=confidence,
         work_experience_years=work_exp,
-        financial_pressure=fin_pressure,
     )
