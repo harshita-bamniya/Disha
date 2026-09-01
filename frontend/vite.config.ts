@@ -41,7 +41,6 @@ export default defineConfig({
       '@tanstack/react-query-devtools',
       'zustand',
       'axios',
-      'framer-motion',
       'clsx',
       'tailwind-merge',
       'class-variance-authority',

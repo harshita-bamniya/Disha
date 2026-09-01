@@ -9,6 +9,7 @@ import {
 import { attachSchedule, jobPlanApi, type GenerationDetail, type GenerationStep, type PlanModule, type PlanResource, type QuizProgress, type VideoRating } from '@/api/jobPlan'
 import type { RoadmapOut } from '@/api/roadmap'
 import { useOnboardingProfile } from '@/modules/onboarding/hooks/useOnboarding'
+import { toast } from '@/shared/components/feedback/Toast'
 
 interface Props {
   roadmap: RoadmapOut
@@ -710,6 +711,7 @@ export default function JobLearningPlanPanel({ activeJobId, activeJobTitle, acti
       qc.invalidateQueries({ queryKey: ['job-learning-plan', activeJobId] })
       qc.invalidateQueries({ queryKey: ['job-plans-all'] })
     },
+    onError: () => toast.danger('Could not cancel plan generation. Please try again.'),
   })
 
   // Self-healing: a "ready" plan generated before real-video enrichment existed
@@ -732,6 +734,7 @@ export default function JobLearningPlanPanel({ activeJobId, activeJobTitle, acti
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['job-learning-plan', activeJobId] })
     },
+    onError: () => toast.danger('Could not save your rating. Please try again.'),
   })
 
   const progressMutation = useMutation({

@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from 'react'
+﻿import { useRef, useState, useMemo } from 'react'
 import { FileText, Search } from 'lucide-react'
 import { useAdminApplications } from '../hooks/useAdmin'
 import { Badge, ExportButton, STATUS_COLOR_MAP } from '../shared/adminUI'
@@ -94,10 +94,11 @@ export default function ApplicationsPage() {
   const [search, setSearch] = useState('')
   const [debounced, setDebounced] = useState('')
 
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const handleSearch = (v: string) => {
     setSearch(v)
-    clearTimeout((handleSearch as any)._t)
-    ;(handleSearch as any)._t = setTimeout(() => setDebounced(v), 350)
+    clearTimeout(searchTimer.current)
+    searchTimer.current = setTimeout(() => setDebounced(v), 350)
   }
 
   const { data: apps, isLoading } = useAdminApplications(

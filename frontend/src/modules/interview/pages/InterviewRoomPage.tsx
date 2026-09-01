@@ -44,6 +44,7 @@ function useCamera() {
   const [audioLevel, setAudioLevel] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const animRef = useRef<number>(0)
+  const lastLevelUpdateRef = useRef(0)
 
   useEffect(() => {
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
@@ -65,7 +66,15 @@ function useCamera() {
         const tick = () => {
           analyser.getByteFrequencyData(buf)
           const avg = buf.reduce((a, b) => a + b, 0) / buf.length
-          setAudioLevel(Math.min(100, avg * 2.5))
+          // Sampling stays per-frame for responsiveness, but the state update
+          // (and the InterviewRoomPage re-render it triggers, since this hook
+          // is called at the top of that page) is throttled to ~8/sec — the
+          // mic-active glow doesn't need 60fps to read as "live".
+          const now = performance.now()
+          if (now - lastLevelUpdateRef.current > 120) {
+            lastLevelUpdateRef.current = now
+            setAudioLevel(Math.min(100, avg * 2.5))
+          }
           animRef.current = requestAnimationFrame(tick)
         }
         tick()
@@ -215,6 +224,12 @@ const QUESTION_TIME_LIMIT_SEC = 90
 function PerQuestionCountdown({ deadline, onExpire }: { deadline: number; onExpire: () => void }) {
   const [remaining, setRemaining] = useState(() => Math.max(0, Math.ceil((deadline - Date.now()) / 1000)))
   const firedRef = useRef(false)
+  // Always call the latest onExpire — deadline is the only thing that should
+  // reset the interval; onExpire itself is a new closure every parent render
+  // and its guards (waitingForNext/sessionDone) need to reflect current state,
+  // not whatever they were when the interval was last (re)subscribed.
+  const onExpireRef = useRef(onExpire)
+  onExpireRef.current = onExpire
 
   useEffect(() => {
     firedRef.current = false
@@ -223,13 +238,13 @@ function PerQuestionCountdown({ deadline, onExpire }: { deadline: number; onExpi
       setRemaining(left)
       if (left <= 0 && !firedRef.current) {
         firedRef.current = true
-        onExpire()
+        onExpireRef.current()
       }
     }
     tick()
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
-  }, [deadline]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [deadline])
 
   const m = Math.floor(remaining / 60).toString().padStart(2, '0')
   const s = (remaining % 60).toString().padStart(2, '0')

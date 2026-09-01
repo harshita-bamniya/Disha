@@ -20,6 +20,7 @@ import Button from '@/components/ui/Button'
 import { JobSpotlight, JobModal } from '../components/JobSpotlight'
 import Spinner from '@/shared/components/feedback/Spinner'
 import EmptyState from '@/shared/components/feedback/EmptyState'
+import { toast } from '@/shared/components/feedback/Toast'
 
 const ELEVATED = colors.surface.elevated
 
@@ -65,7 +66,14 @@ export default function DashboardPage() {
 
   const handleGenerateResume = (job: LiveJob) => {
     setSelectedJob(null)
-    startPrep(job.id, { onSuccess: () => { jobPlanApi.generate(job.id).catch(() => {}); qc.invalidateQueries({ queryKey: ['job-plans-all'] }); navigate('/app/roadmap') } })
+    startPrep(job.id, {
+      onSuccess: () => {
+        jobPlanApi.generate(job.id)
+          .catch(() => toast.danger('Could not start your learning plan. Please try again from the Roadmap page.'))
+          .finally(() => qc.invalidateQueries({ queryKey: ['job-plans-all'] }))
+        navigate('/app/roadmap')
+      },
+    })
   }
 
   const handleViewRoadmap = (job: LiveJob) => {
@@ -212,7 +220,7 @@ export default function DashboardPage() {
                   <JobSpotlight key={job.id} job={job}
                     onOpen={() => setSelectedJob(job)}
                     onApply={() => setApplyJob(job)}
-                    onPrepare={() => handlePrepare(job)}
+                    onPrepare={() => { handlePrepare(job).catch(() => toast.danger('Could not update your preparation list. Please try again.')) }}
                     onGenerateResume={() => handleGenerateResume(job)}
                     onViewRoadmap={() => handleViewRoadmap(job)}
                     roadmapStatus={roadmapStatusByJobId[job.id]}
@@ -254,7 +262,7 @@ export default function DashboardPage() {
       {selectedJob && (
         <JobModal job={selectedJob} onClose={() => setSelectedJob(null)}
           onApply={() => { setSelectedJob(null); setApplyJob(selectedJob) }}
-          onPrepare={() => { setSelectedJob(null); handlePrepare(selectedJob).catch(() => {}) }}
+          onPrepare={() => { setSelectedJob(null); handlePrepare(selectedJob).catch(() => toast.danger('Could not update your preparation list. Please try again.')) }}
           onGenerateResume={() => handleGenerateResume(selectedJob)}
           onViewRoadmap={() => handleViewRoadmap(selectedJob)}
           roadmapStatus={roadmapStatusByJobId[selectedJob.id]}

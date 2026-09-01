@@ -10,6 +10,7 @@ import { resumeApi } from '@/api/resume'
 import { jobPlanApi } from '@/api/jobPlan'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 import { trackJobEvent } from '@/lib/analytics'
+import { toast } from '@/shared/components/feedback/Toast'
 
 const INK_S    = INK_SFT
 const CREAM_DK = colors.surface.elevated
@@ -39,7 +40,7 @@ export default function JobDetailPage() {
     if (!jobId) return
     startPrep(jobId, {
       onSuccess: () => {
-        jobPlanApi.generate(jobId).catch(() => {})
+        jobPlanApi.generate(jobId).catch(() => toast.danger('Could not start your learning plan. Please try again from the Roadmap page.'))
         navigate('/app/roadmap')
       },
     })
