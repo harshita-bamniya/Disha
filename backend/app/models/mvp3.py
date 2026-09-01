@@ -73,7 +73,7 @@ class Application(Base):
     # Employer shortlist / rejection note (visible to aspirant)
     employer_note   = Column(Text, nullable=True)
 
-    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+    created_at      = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     updated_at      = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     aspirant        = relationship("User", foreign_keys=[aspirant_id])
@@ -105,7 +105,7 @@ class ApplicationStatusHistory(Base):
     application_id  = Column(UUID(as_uuid=True), ForeignKey("applications.id", ondelete="CASCADE"), nullable=False, index=True)
     from_status     = Column(String(30), nullable=True)   # null for initial 'applied' event
     to_status       = Column(String(30), nullable=False)
-    changed_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    changed_by      = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     note            = Column(Text, nullable=True)
     is_automated    = Column(Boolean, nullable=False, default=False)   # True for knockout/system actions
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
@@ -128,7 +128,7 @@ class CandidateNote(Base):
 
     id              = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
     application_id  = Column(UUID(as_uuid=True), ForeignKey("applications.id", ondelete="CASCADE"), nullable=False, index=True)
-    author_id       = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    author_id       = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     note            = Column(Text, nullable=False)
     is_internal     = Column(Boolean, nullable=False, default=True)
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
@@ -165,7 +165,7 @@ class CandidateInterviewFeedback(Base):
 
     id              = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
     application_id  = Column(UUID(as_uuid=True), ForeignKey("applications.id", ondelete="CASCADE"), nullable=False, index=True)
-    interviewer_id  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    interviewer_id  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     scheduled_at    = Column(DateTime(timezone=True), nullable=True)
     meeting_link    = Column(Text, nullable=True)
     status          = Column(String(20), nullable=False, default="scheduled")  # scheduled|completed|canceled

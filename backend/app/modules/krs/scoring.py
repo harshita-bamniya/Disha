@@ -185,6 +185,15 @@ def _fetch_anchor_vectors(db: Session) -> list[list[float]]:
     return [v for v in cached.values() if v is not None]
 
 
+def _breadth_fallback_score(skill_count: int) -> int:
+    """Skill-count-only S-score used whenever embeddings/anchors aren't available."""
+    if skill_count >= 7:
+        return 70
+    if skill_count >= 4:
+        return 50
+    return 30
+
+
 def compute_s_score(profile: AspirantProfile, db: Session | None = None) -> int:
     """
     Skills score: how well the user's skill set covers real market demand.
@@ -199,10 +208,7 @@ def compute_s_score(profile: AspirantProfile, db: Session | None = None) -> int:
     breadth_mult = 1.0 if len(skills) >= 7 else (0.85 if len(skills) >= 4 else 0.65)
 
     if db is None:
-        n = len(skills)
-        if n >= 7: return 70
-        if n >= 4: return 50
-        return 30
+        return _breadth_fallback_score(len(skills))
 
     try:
         from app.models.mvp2 import SkillVector
@@ -227,13 +233,11 @@ def compute_s_score(profile: AspirantProfile, db: Session | None = None) -> int:
 
         user_vecs = [cached[s] for s in normalised if s in cached]
         if not user_vecs:
-            n = len(skills)
-            return 70 if n >= 7 else (50 if n >= 4 else 30)
+            return _breadth_fallback_score(len(skills))
 
         anchor_vecs = _fetch_anchor_vectors(db)
         if not anchor_vecs:
-            n = len(skills)
-            return 70 if n >= 7 else (50 if n >= 4 else 30)
+            return _breadth_fallback_score(len(skills))
 
         A = np.asarray(anchor_vecs, dtype=np.float32)
         A_norms = np.linalg.norm(A, axis=1, keepdims=True)
@@ -256,8 +260,7 @@ def compute_s_score(profile: AspirantProfile, db: Session | None = None) -> int:
 
     except Exception as exc:
         logger.warning("[KRS] S-score computation failed: %s", exc)
-        n = len(skills)
-        return 70 if n >= 7 else (50 if n >= 4 else 30)
+        return _breadth_fallback_score(len(skills))
 
 
 # ── Composite ─────────────────────────────────────────────────────────────────

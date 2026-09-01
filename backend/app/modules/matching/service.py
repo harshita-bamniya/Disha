@@ -985,6 +985,10 @@ def bulk_update_status(application_ids: list[str], status: str, note: str | None
         .filter(Application.id.in_(application_ids), Application.job_id.in_(job_ids))
         .all()
     )
+    jobs_by_id = {
+        job.id: job
+        for job in db.query(JobPosting).filter(JobPosting.id.in_({app.job_id for app in apps})).all()
+    }
     updated = 0
     for app in apps:
         if app.status in ("withdrawn", "hired", "rejected", "offer_declined"):
@@ -996,7 +1000,7 @@ def bulk_update_status(application_ids: list[str], status: str, note: str | None
         db.add(ApplicationStatusHistory(
             application_id=app.id, from_status=prev, to_status=status, changed_by=user.id, note=note,
         ))
-        job = db.query(JobPosting).filter(JobPosting.id == app.job_id).first()
+        job = jobs_by_id.get(app.job_id)
         if job:
             create_notification(
                 db, app.aspirant_id, "application_status_changed",
@@ -1734,43 +1738,61 @@ def get_recruiter_performance(user: User, db: Session) -> RecruiterPerformanceRe
 
     job_ids = _get_scoped_job_ids(employer, company_employer_ids, user.role_name, db)
 
+    members_by_id = {m.id: m for m in db.query(User).filter(User.id.in_(team_user_ids)).all()}
+
+    moved_by_uid: dict = {}
+    interviews_by_uid: dict = {}
+    notes_by_uid: dict = {}
+    hire_events_by_uid: dict = {}
+
+    if job_ids:
+        moved_rows = (
+            db.query(ApplicationStatusHistory.changed_by, func.count())
+            .join(Application, ApplicationStatusHistory.application_id == Application.id)
+            .filter(ApplicationStatusHistory.changed_by.in_(team_user_ids), Application.job_id.in_(job_ids))
+            .group_by(ApplicationStatusHistory.changed_by)
+            .all()
+        )
+        moved_by_uid = dict(moved_rows)
+
+        interview_rows = (
+            db.query(CandidateInterviewFeedback.interviewer_id, func.count())
+            .join(Application, CandidateInterviewFeedback.application_id == Application.id)
+            .filter(CandidateInterviewFeedback.interviewer_id.in_(team_user_ids), Application.job_id.in_(job_ids))
+            .group_by(CandidateInterviewFeedback.interviewer_id)
+            .all()
+        )
+        interviews_by_uid = dict(interview_rows)
+
+        note_rows = (
+            db.query(CandidateNote.author_id, func.count())
+            .join(Application, CandidateNote.application_id == Application.id)
+            .filter(CandidateNote.author_id.in_(team_user_ids), Application.job_id.in_(job_ids))
+            .group_by(CandidateNote.author_id)
+            .all()
+        )
+        notes_by_uid = dict(note_rows)
+
+        hire_rows = (
+            db.query(ApplicationStatusHistory.changed_by, ApplicationStatusHistory.created_at, Application.created_at)
+            .join(Application, ApplicationStatusHistory.application_id == Application.id)
+            .filter(
+                ApplicationStatusHistory.changed_by.in_(team_user_ids),
+                ApplicationStatusHistory.to_status == "hired",
+                Application.job_id.in_(job_ids),
+            )
+            .all()
+        )
+        for uid, hired_at, applied_at in hire_rows:
+            hire_events_by_uid.setdefault(uid, []).append((hired_at, applied_at))
+
     entries: list[RecruiterPerformanceEntry] = []
     for uid in team_user_ids:
-        member = db.query(User).filter(User.id == uid).first()
+        member = members_by_id.get(uid)
         if not member:
             continue
 
-        moved = (
-            db.query(ApplicationStatusHistory)
-            .join(Application, ApplicationStatusHistory.application_id == Application.id)
-            .filter(ApplicationStatusHistory.changed_by == uid, Application.job_id.in_(job_ids))
-            .count() if job_ids else 0
-        )
-        interviews = (
-            db.query(CandidateInterviewFeedback)
-            .join(Application, CandidateInterviewFeedback.application_id == Application.id)
-            .filter(CandidateInterviewFeedback.interviewer_id == uid, Application.job_id.in_(job_ids))
-            .count() if job_ids else 0
-        )
-        notes = (
-            db.query(CandidateNote)
-            .join(Application, CandidateNote.application_id == Application.id)
-            .filter(CandidateNote.author_id == uid, Application.job_id.in_(job_ids))
-            .count() if job_ids else 0
-        )
-
-        hire_events = []
-        if job_ids:
-            hire_events = (
-                db.query(ApplicationStatusHistory.created_at, Application.created_at)
-                .join(Application, ApplicationStatusHistory.application_id == Application.id)
-                .filter(
-                    ApplicationStatusHistory.changed_by == uid,
-                    ApplicationStatusHistory.to_status == "hired",
-                    Application.job_id.in_(job_ids),
-                )
-                .all()
-            )
+        hire_events = hire_events_by_uid.get(uid, [])
         hires_closed = len(hire_events)
         avg_days_to_hire = None
         if hire_events:
@@ -1780,8 +1802,8 @@ def get_recruiter_performance(user: User, db: Session) -> RecruiterPerformanceRe
         entries.append(RecruiterPerformanceEntry(
             user_id=str(uid),
             name=member.full_name or member.email or member.phone,
-            applications_moved=moved, interviews_conducted=interviews,
-            notes_added=notes, hires_closed=hires_closed, avg_days_to_hire=avg_days_to_hire,
+            applications_moved=moved_by_uid.get(uid, 0), interviews_conducted=interviews_by_uid.get(uid, 0),
+            notes_added=notes_by_uid.get(uid, 0), hires_closed=hires_closed, avg_days_to_hire=avg_days_to_hire,
         ))
 
     entries.sort(key=lambda e: e.hires_closed, reverse=True)

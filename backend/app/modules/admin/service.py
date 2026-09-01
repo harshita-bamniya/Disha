@@ -894,20 +894,23 @@ def list_roles(db: Session) -> list[RoleEntry]:
         .all()
     )
 
+    perms_by_role_id: dict = {}
+    for role_id, resource, action in (
+        db.query(RolePermission.role_id, Permission.resource, Permission.action)
+        .join(Permission, RolePermission.permission_id == Permission.id)
+        .filter(RolePermission.role_id.in_([role.id for role in roles]))
+        .all()
+    ):
+        perms_by_role_id.setdefault(role_id, []).append(f"{resource}:{action}")
+
     result = []
     for role in roles:
-        perms = (
-            db.query(Permission)
-            .join(RolePermission, RolePermission.permission_id == Permission.id)
-            .filter(RolePermission.role_id == role.id)
-            .all()
-        )
         result.append(RoleEntry(
             id=str(role.id),
             name=role.name,
             description=role.description,
             is_system=role.is_system,
-            permissions=[f"{p.resource}:{p.action}" for p in perms],
+            permissions=perms_by_role_id.get(role.id, []),
             user_count=user_counts.get(role.id, 0),
         ))
     return result

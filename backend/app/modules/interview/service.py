@@ -682,7 +682,7 @@ def get_session(session_id: str, user: User, db: Session) -> SessionDetail:
         try:
             readiness = JobReadinessReport(**session.job_readiness_report)
         except Exception:
-            pass
+            logger.exception("Failed to deserialize job_readiness_report for session %s", session.id)
 
     # Already-submitted responses, ordered — used by the frontend to resume
     # a session after a refresh instead of restarting at question 1.
@@ -1336,7 +1336,7 @@ def get_session_feedback(session_id: str, user: User, db: Session) -> SessionFee
         try:
             readiness_report = JobReadinessReport(**session.job_readiness_report)
         except Exception:
-            pass
+            logger.exception("Failed to deserialize job_readiness_report for session %s", session.id)
 
     existing_outcome = db.query(InterviewOutcome).filter(InterviewOutcome.session_id == session_id).first()
 
