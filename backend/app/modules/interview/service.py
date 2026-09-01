@@ -10,9 +10,7 @@ from datetime import datetime, timezone
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.mvp2 import (
-    InterviewFeedback, InterviewOutcome, InterviewSession, QuestionBank, SessionResponse,
-)
+from app.models.interview import InterviewFeedback, InterviewOutcome, InterviewSession, QuestionBank, SessionResponse
 from app.models.user import CareerTrack, User
 from app.modules.interview import feedback_ai
 from app.modules.interview.schemas import (
@@ -336,7 +334,7 @@ def _build_resume_context(user: User, db: Session) -> str | None:
     primary resume, if one exists, so the interviewer can reference real things
     instead of only generic UPSC-prep background.
     """
-    from app.models.mvp2 import Resume, ResumeSection
+    from app.models.resume import Resume, ResumeSection
 
     resume = (
         db.query(Resume)

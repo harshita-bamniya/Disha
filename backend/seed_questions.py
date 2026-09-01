@@ -9,7 +9,7 @@ import os
 sys.path.insert(0, os.path.dirname(__file__))
 
 from app.database import SessionLocal
-from app.models.mvp2 import QuestionBank
+from app.models.interview import QuestionBank
 from app.models.user import CareerTrack
 
 UNIVERSAL_QUESTIONS = [

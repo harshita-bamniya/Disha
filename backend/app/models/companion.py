@@ -6,7 +6,8 @@ facts reuse `counsellor_memory`. This module only adds the two pieces of data
 unique to the companion experience: daily mood check-ins and milestones.
 """
 import uuid
-from sqlalchemy import Column, DateTime, ForeignKey, String, Text, CheckConstraint
+
+from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func

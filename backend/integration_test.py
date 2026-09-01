@@ -291,7 +291,7 @@ section("PHASE 4 — Application Submission")
 APPLY_JOB = EMP_JOB_ID
 
 # Clean up any applications + drafts from previous test runs for this job
-from app.models.mvp3 import Application, ApplicationStatusHistory
+from app.models.applications import Application, ApplicationStatusHistory
 _db = SessionLocal()
 _asp1 = _db.query(User).filter_by(email="aspirant1@disha.test").first()
 _asp2 = _db.query(User).filter_by(email="aspirant2@disha.test").first()

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.models.mvp2 import InterviewHumanReview, InterviewOutcome, InterviewSession
+from app.models.interview import InterviewHumanReview, InterviewOutcome, InterviewSession
 from app.models.user import User
 from app.modules.interview.schemas import (
     CalibrationStatsOut, HUMAN_RECOMMENDATION_VALUES, HumanReviewOut,
@@ -53,7 +53,7 @@ def _rebuild_transcript(session: InterviewSession, db: Session) -> list[dict]:
     """The readiness report doesn't persist the raw Q&A transcript, so
     reconstruct it from responses for the reviewer to actually read — a
     calibration reviewer scoring blind needs the same material the AI saw."""
-    from app.models.mvp2 import SessionResponse
+    from app.models.interview import SessionResponse
     responses = (
         db.query(SessionResponse)
         .filter(SessionResponse.session_id == session.id)

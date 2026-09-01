@@ -8,7 +8,7 @@ from app.models.employer_verification import (
     EmployerVerification, EmployerVerificationEvent,
 )
 from app.models.company import Company, CompanyDepartment
-from app.models.mvp3 import JobTemplate
+from app.models.jobs import JobTemplate
 from app.models.user import AuditLog, EmployerProfile, JobPosting, User
 from sqlalchemy import func
 from app.modules.jobs.schemas import (
@@ -118,7 +118,7 @@ def get_dashboard(
     limit: int = 50,
     offset: int = 0,
 ) -> EmployerDashboardResponse:
-    from app.models.mvp3 import Application
+    from app.models.applications import Application
     profile = _get_employer_profile(user, db)
     company_employer_ids = _get_company_employer_ids(profile, db)
     base_q = (
@@ -580,7 +580,7 @@ def delete_job(user: User, job_id: str, db: Session) -> None:
     if not job:
         raise BadRequestException("Job posting not found.")
 
-    from app.models.mvp3 import Application as _App
+    from app.models.applications import Application as _App
     active_apps = db.query(_App).filter(_App.job_id == job.id).count()
     if active_apps:
         raise BadRequestException(

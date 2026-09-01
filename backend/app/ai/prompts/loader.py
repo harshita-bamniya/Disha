@@ -119,7 +119,7 @@ def get_prompt(use_case: str, db=None) -> str:
     """
     if db is not None:
         try:
-            from app.models.mvp3 import PromptTemplate
+            from app.models.prompts import PromptTemplate
             row = (
                 db.query(PromptTemplate)
                 .filter(
@@ -155,7 +155,7 @@ def seed_builtin_prompts(db) -> int:
 
     Returns the number of rows inserted.
     """
-    from app.models.mvp3 import PromptTemplate
+    from app.models.prompts import PromptTemplate
 
     inserted = 0
     for use_case, content in _BUILTIN_PROMPTS.items():

@@ -286,7 +286,7 @@ def _build_semantic_overlap_fn(
     Falls back to exact-string overlap if embeddings are unavailable.
     """
     try:
-        from app.models.mvp2 import SkillVector
+        from app.models.skill_vectors import SkillVector
         from app.modules.krs.skill_gap import _max_cosine, SIMILARITY_THRESHOLD
 
         user_lower = {s.lower().strip() for s in user_skills}

@@ -52,7 +52,7 @@ def _flow():
 
 
 def _get_token_row(user_id, db: Session):
-    from app.models.mvp3 import GoogleCalendarToken
+    from app.models.integrations import GoogleCalendarToken
     return db.query(GoogleCalendarToken).filter(GoogleCalendarToken.user_id == user_id).first()
 
 
@@ -108,7 +108,7 @@ def callback(code: str, state: str, db: Session = Depends(get_db)):
     Exchanges the code for tokens and stores them, then redirects to the
     employer calendar page in the frontend.
     """
-    from app.models.mvp3 import GoogleCalendarToken
+    from app.models.integrations import GoogleCalendarToken
 
     try:
         flow = _flow()
@@ -159,7 +159,7 @@ def disconnect(
     current_user: User = Depends(require_employer),
     db: Session = Depends(get_db),
 ):
-    from app.models.mvp3 import GoogleCalendarToken
+    from app.models.integrations import GoogleCalendarToken
 
     row = _get_token_row(str(current_user.id), db)
     if not row:

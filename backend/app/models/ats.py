@@ -21,11 +21,20 @@ Naming notes:
     shared library entry it may reference.
 """
 import uuid
+
 from sqlalchemy import (
-    Boolean, Column, DateTime, ForeignKey, Index,
-    Integer, String, Text, UniqueConstraint, CheckConstraint,
+    Boolean,
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 

@@ -147,7 +147,7 @@ def _fetch_anchor_vectors(db: Session) -> list[list[float]]:
     grows more accurate as more employers join the platform (job postings).
     """
     from app.models.user import CareerTrack, JobPosting
-    from app.models.mvp2 import SkillVector
+    from app.models.skill_vectors import SkillVector
 
     all_skills: set[str] = set()
 
@@ -211,7 +211,7 @@ def compute_s_score(profile: AspirantProfile, db: Session | None = None) -> int:
         return _breadth_fallback_score(len(skills))
 
     try:
-        from app.models.mvp2 import SkillVector
+        from app.models.skill_vectors import SkillVector
         from app.modules.recommendations.embedder import embed_batch
 
         normalised = [s.lower().strip() for s in skills]

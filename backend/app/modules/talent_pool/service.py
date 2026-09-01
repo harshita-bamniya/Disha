@@ -6,7 +6,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import AuthException, NotFoundException
-from app.models.mvp3 import SavedCandidate
+from app.models.applications import SavedCandidate
 from app.models.user import AspirantProfile, EmployerProfile, KrsScore, User
 from app.modules.talent_pool.schemas import SavedCandidateOut
 

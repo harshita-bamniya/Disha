@@ -16,10 +16,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.email import send_email
 from app.core.exceptions import AuthException, BadRequestException, NotFoundException
-from app.models.mvp3 import (
-    Application, ApplicationStatusHistory, CandidateEmailLog, CandidateNote, CandidateRating,
-    CandidateInterviewFeedback, OfferLetter,
-)
+from app.models.applications import Application, ApplicationStatusHistory, CandidateEmailLog, CandidateNote, CandidateRating, CandidateInterviewFeedback, OfferLetter
 from app.models.user import (
     AuditLog, AspirantProfile, EmployerProfile, JobPosting, KrsScore, PsychologicalAssessment, User,
     UserCareerSelection,
@@ -55,7 +52,7 @@ def _audit_matching(db: Session, action: str, user_id, resource: str, resource_i
 def _get_platform_setting(key: str, default, db: Session):
     """Fetch a platform setting value. Never raises — returns default on any failure."""
     try:
-        from app.models.mvp3 import PlatformSetting
+        from app.models.platform import PlatformSetting
         row = db.query(PlatformSetting).filter(PlatformSetting.key == key).first()
         if row and row.value is not None:
             return row.value
@@ -139,7 +136,7 @@ def get_job_recommendations(
 
     # Load application history for collaborative filtering.
     # Cap at 2000 most-recent rows so we never pull the full table into memory.
-    from app.models.mvp3 import Application as AppModel
+    from app.models.applications import Application as AppModel
     recent_apps = (
         db.query(AppModel.aspirant_id, AppModel.job_id)
         .order_by(AppModel.created_at.desc())
@@ -1484,7 +1481,7 @@ def _push_interview_to_google_calendar(interview_row, user: User, db: Session) -
     """Best-effort push to Google Calendar — never raises, never blocks the request."""
     import json as _json
     try:
-        from app.models.mvp3 import GoogleCalendarToken
+        from app.models.integrations import GoogleCalendarToken
         token_row = db.query(GoogleCalendarToken).filter(GoogleCalendarToken.user_id == user.id).first()
         if not token_row:
             return
@@ -2069,7 +2066,7 @@ def list_all_offers(
     offset=0,
 ):
     from app.models.user import AspirantProfile
-    from app.models.mvp3 import OfferLetter
+    from app.models.applications import OfferLetter
     from app.modules.matching.schemas import OfferListItem, AllOffersResponse
 
     employer = _get_employer_profile_approved(user, db)
@@ -2140,7 +2137,7 @@ def _get_job_for_employer(job_id: str, current_user, db: Session):
 
 
 def get_pipeline_stages(job_id: str, current_user, db: Session):
-    from app.models.mvp3 import JobPipelineStage, CUSTOMISABLE_STAGE_KEYS
+    from app.models.pipeline import JobPipelineStage, CUSTOMISABLE_STAGE_KEYS
     from app.modules.matching.schemas import PipelineStageOut
     _get_job_for_employer(job_id, current_user, db)
     rows = (
@@ -2190,7 +2187,7 @@ def get_pipeline_stages(job_id: str, current_user, db: Session):
 
 
 def bulk_upsert_pipeline_stages(job_id: str, payload, current_user, db: Session):
-    from app.models.mvp3 import JobPipelineStage, CUSTOMISABLE_STAGE_KEYS
+    from app.models.pipeline import JobPipelineStage, CUSTOMISABLE_STAGE_KEYS
     from app.modules.matching.schemas import PipelineStageOut
     _get_job_for_employer(job_id, current_user, db)
     for s in payload.stages:
@@ -2212,7 +2209,7 @@ def bulk_upsert_pipeline_stages(job_id: str, payload, current_user, db: Session)
 
 
 def list_pipeline_templates(current_user, db: Session):
-    from app.models.mvp3 import CompanyPipelineTemplate
+    from app.models.pipeline import CompanyPipelineTemplate
     from app.modules.matching.schemas import PipelineTemplateOut, PipelineTemplateStage
     ep = _get_employer_profile_approved(current_user, db)
     if not ep.company_id:
@@ -2231,7 +2228,7 @@ def list_pipeline_templates(current_user, db: Session):
 
 
 def create_pipeline_template(payload, current_user, db: Session):
-    from app.models.mvp3 import CompanyPipelineTemplate, CUSTOMISABLE_STAGE_KEYS
+    from app.models.pipeline import CompanyPipelineTemplate, CUSTOMISABLE_STAGE_KEYS
     from app.modules.matching.schemas import PipelineTemplateOut, PipelineTemplateStage
     ep = _get_employer_profile_approved(current_user, db)
     if not ep.company_id:
@@ -2253,7 +2250,7 @@ def create_pipeline_template(payload, current_user, db: Session):
 
 
 def delete_pipeline_template(template_id: str, current_user, db: Session):
-    from app.models.mvp3 import CompanyPipelineTemplate
+    from app.models.pipeline import CompanyPipelineTemplate
     ep = _get_employer_profile_approved(current_user, db)
     tmpl = db.query(CompanyPipelineTemplate).filter(
         CompanyPipelineTemplate.id == template_id,
@@ -2267,7 +2264,7 @@ def delete_pipeline_template(template_id: str, current_user, db: Session):
 
 
 def apply_template_to_job(job_id: str, template_id: str, current_user, db: Session):
-    from app.models.mvp3 import CompanyPipelineTemplate
+    from app.models.pipeline import CompanyPipelineTemplate
     from app.modules.matching.schemas import BulkUpsertPipelineStagesRequest, PipelineStageIn
     ep, _ = _get_job_for_employer(job_id, current_user, db)
     tmpl = db.query(CompanyPipelineTemplate).filter(

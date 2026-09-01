@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 def send_application_confirmation_email(self, application_id: str, user_id: str, job_id: str) -> None:
     """Send a confirmation email to the candidate after successful submission."""
     from app.database import SessionLocal
-    from app.models.mvp3 import Application
+    from app.models.applications import Application
     from app.models.user import AspirantProfile, JobPosting, User, EmployerProfile
     from app.core.notifications import notify
 
@@ -86,7 +86,7 @@ def send_application_confirmation_email(self, application_id: str, user_id: str,
 def send_recruiter_new_application_alert(self, application_id: str, job_id: str) -> None:
     """Notify the employer team about a new application."""
     from app.database import SessionLocal
-    from app.models.mvp3 import Application
+    from app.models.applications import Application
     from app.models.user import AspirantProfile, JobPosting, EmployerProfile, User
     from app.core.notifications import new_application_email, notify
     from app.modules.inbox.service import notify_company_team

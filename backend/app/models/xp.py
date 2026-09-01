@@ -1,9 +1,18 @@
 """XP System ORM models."""
 from __future__ import annotations
+
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import CheckConstraint, Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.database import Base

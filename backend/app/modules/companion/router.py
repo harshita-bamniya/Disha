@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.rbac import get_current_aspirant
 from app.database import get_db
-from app.models.mvp2 import Conversation, Message, CounsellorMemory
+from app.models.counsellor import Conversation, Message, CounsellorMemory
 from app.models.companion import CompanionMoodEntry, CompanionMilestone
 from app.models.user import User
 from app.modules.companion import orchestrator

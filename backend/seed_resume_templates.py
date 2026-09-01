@@ -5,7 +5,7 @@ Run: python seed_resume_templates.py
 import uuid
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
-from app.models.mvp2 import ResumeTemplate
+from app.models.resume import ResumeTemplate
 
 
 TEMPLATES = [

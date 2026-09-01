@@ -30,10 +30,9 @@ from app.models.user import (
     PsychologicalAssessment, User, UserCareerSelection,
 )
 from app.modules.roadmap.personalization import get_personalization_from_user
-from app.models.mvp2 import (
-    InterviewFeedback, InterviewSession, LearningPath,
-    LessonCompletion, PathModule, Resume, UserLearningEnrollment,
-)
+from app.models.interview import InterviewFeedback, InterviewSession
+from app.models.learning import LearningPath, LessonCompletion, PathModule, UserLearningEnrollment
+from app.models.resume import Resume
 from app.modules.krs.skill_gap import compute_gap
 from app.modules.roadmap.schemas import (
     GapSkillOut, GateCheckOut, JRSBreakdown, RoadmapOut, RoadmapSummaryOut,
@@ -891,7 +890,7 @@ def get_cohort_signals(user: User, db: Session) -> dict:
     )
 
     # Users in same track who completed interviews this week
-    from app.models.mvp2 import InterviewSession as IS
+    from app.models.interview import InterviewSession as IS
     interview_count = (
         db.query(IS)
         .join(User, IS.user_id == User.id)
@@ -1058,7 +1057,7 @@ def _build_subtopics(stage_num: int, roadmap: UserRoadmap, cfg: dict, db: Sessio
 
     if stage_num == 3:
         target = cfg.get("exercises_target", 5)
-        from app.models.mvp2 import Lesson, LessonCompletion
+        from app.models.learning import Lesson, LessonCompletion
         done = (
             db.query(LessonCompletion)
             .join(Lesson, LessonCompletion.lesson_id == Lesson.id)
@@ -1221,7 +1220,7 @@ def _current_gate_value(ctype: str, roadmap: UserRoadmap, user: User, db: Sessio
 
     if ctype == "exercises_completed":
         # Currently approximated from lesson completions with content_type='exercise'
-        from app.models.mvp2 import Lesson
+        from app.models.learning import Lesson
         count = (
             db.query(LessonCompletion)
             .join(Lesson, LessonCompletion.lesson_id == Lesson.id)

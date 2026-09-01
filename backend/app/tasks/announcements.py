@@ -27,7 +27,7 @@ def send_announcement_emails(self, announcement_id: str, user_ids: list[str]) ->
     crash mid-run doesn't lose all progress.
     """
     from app.database import SessionLocal
-    from app.models.mvp3 import AdminAnnouncement, Notification
+    from app.models.notifications import AdminAnnouncement, Notification
     from app.models.user import User
     from app.core.email import get_email_provider
     from app.core.notifications import _wrap

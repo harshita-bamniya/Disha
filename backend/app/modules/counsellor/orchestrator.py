@@ -13,7 +13,7 @@ from typing import AsyncIterator
 
 from sqlalchemy.orm import Session
 
-from app.models.mvp2 import Conversation, Message, SafetyFlag
+from app.models.counsellor import Conversation, Message, SafetyFlag
 from app.models.user import AspirantProfile, JobPosting, KrsScore, User, UserCareerSelection
 from app.modules.counsellor import memory as memory_svc
 from app.modules.counsellor import safety
@@ -152,7 +152,7 @@ def _build_user_context(user: User, db: Session) -> str:
 
 def _build_previous_session_context(user: User, current_conv_id, db: Session) -> str:
     """Return a one-line hint about the most recent prior conversation so BeginablAI can reference it."""
-    from app.models.mvp2 import Message as Msg
+    from app.models.counsellor import Message as Msg
     prev = (
         db.query(Conversation)
         .filter(

@@ -13,7 +13,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
-from app.models.mvp2 import Conversation, CounsellorMemory, CounsellorMemoryEmbedding
+from app.models.counsellor import Conversation, CounsellorMemory, CounsellorMemoryEmbedding
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -154,7 +154,7 @@ async def extract_and_store_memories_bg(
     db = SessionLocal()
     try:
         from app.ai.providers import create_provider
-        from app.models.mvp2 import CounsellorMemory, CounsellorMemoryEmbedding
+        from app.models.counsellor import CounsellorMemory, CounsellorMemoryEmbedding
 
         provider = create_provider()
         user_prompt = _MEMORY_EXTRACTION_USER.format(

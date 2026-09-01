@@ -122,7 +122,7 @@ def _employer_to_response(profile: EmployerProfile, user: User, job_count: int =
 
 def list_employers(db: Session, status: str = "pending", limit: int = 100, offset: int = 0) -> list[PendingEmployerResponse]:
     """Return employers filtered by status: pending | approved | all."""
-    from app.models.mvp3 import Application
+    from app.models.applications import Application
 
     query = (
         db.query(EmployerProfile, User)
@@ -209,7 +209,7 @@ def revoke_employer(profile_id: str, admin_user_id: str, db: Session, request: R
 
 
 def get_stats(db: Session) -> AdminStatsResponse:
-    from app.models.mvp3 import Application
+    from app.models.applications import Application
     now = datetime.now(timezone.utc)
     seven_days_ago = now - timedelta(days=7)
 
@@ -260,7 +260,7 @@ def get_stats(db: Session) -> AdminStatsResponse:
 # ── Aspirant user management ──────────────────────────────────────────────────
 
 def list_aspirants(db: Session, search: str | None = None, limit: int = 100, offset: int = 0) -> list[AspirantUserEntry]:
-    from app.models.mvp3 import Application
+    from app.models.applications import Application
 
     query = (
         db.query(User, AspirantProfile, KrsScore)
@@ -434,7 +434,7 @@ def delete_career_track(track_id: str, db: Session) -> MessageResponse:
 # ── Aspirant detail ───────────────────────────────────────────────────────────
 
 def get_aspirant_detail(user_id: str, db: Session) -> AspirantDetailResponse:
-    from app.models.mvp3 import Application
+    from app.models.applications import Application
 
     user = db.query(User).filter(User.id == user_id, User.deleted_at == None).first()
     if not user:
@@ -516,7 +516,7 @@ def get_aspirant_detail(user_id: str, db: Session) -> AspirantDetailResponse:
 # ── Admin: Jobs management ────────────────────────────────────────────────────
 
 def list_admin_jobs(db: Session, search: str | None = None, active_only: bool = False) -> list[AdminJobEntry]:
-    from app.models.mvp3 import Application
+    from app.models.applications import Application
 
     query = (
         db.query(JobPosting, EmployerProfile)
@@ -567,7 +567,7 @@ def list_admin_jobs(db: Session, search: str | None = None, active_only: bool = 
 
 
 def toggle_admin_job(job_id: str, db: Session) -> AdminJobEntry:
-    from app.models.mvp3 import Application
+    from app.models.applications import Application
 
     job = db.query(JobPosting).filter(JobPosting.id == job_id).first()
     if not job:
@@ -599,7 +599,7 @@ def delete_admin_job(job_id: str, db: Session) -> MessageResponse:
 
 
 def get_admin_job_detail(job_id: str, db: Session) -> AdminJobDetailResponse:
-    from app.models.mvp3 import Application
+    from app.models.applications import Application
     from app.models.user import JobPosting, EmployerProfile
 
     job = db.query(JobPosting).filter(JobPosting.id == job_id).first()
@@ -648,7 +648,7 @@ def list_employer_jobs_admin(
     limit: int = 100,
     offset: int = 0,
 ) -> EmployerJobsResponse:
-    from app.models.mvp3 import Application
+    from app.models.applications import Application
 
     query = db.query(JobPosting).filter(JobPosting.employer_id == employer_id)
     if active_only:
@@ -692,7 +692,7 @@ def list_job_applications(
     limit: int = 100,
     offset: int = 0,
 ) -> list[AdminApplicationEntry]:
-    from app.models.mvp3 import Application
+    from app.models.applications import Application
     query = (
         db.query(Application, User, AspirantProfile, JobPosting, EmployerProfile)
         .join(User, Application.aspirant_id == User.id)
@@ -728,7 +728,7 @@ def list_candidate_applications(
     limit: int = 100,
     offset: int = 0,
 ) -> list[AdminApplicationEntry]:
-    from app.models.mvp3 import Application
+    from app.models.applications import Application
     query = (
         db.query(Application, User, AspirantProfile, JobPosting, EmployerProfile)
         .join(User, Application.aspirant_id == User.id)
@@ -766,7 +766,7 @@ def list_admin_applications(
     limit: int = 100,
     offset: int = 0,
 ) -> list[AdminApplicationEntry]:
-    from app.models.mvp3 import Application
+    from app.models.applications import Application
 
     query = (
         db.query(Application, User, AspirantProfile, JobPosting, EmployerProfile)
@@ -809,7 +809,7 @@ def list_admin_applications(
 # ── Admin: Activity feed ──────────────────────────────────────────────────────
 
 def get_activity_feed(db: Session, limit: int = 25) -> list[AdminActivityItem]:
-    from app.models.mvp3 import Application
+    from app.models.applications import Application
 
     items: list[AdminActivityItem] = []
 
@@ -1423,7 +1423,7 @@ def global_search(db: Session, q: str, limit_per_type: int = 5) -> GlobalSearchR
     """Cross-entity search across users/employers/jobs — previously each
     section had its own isolated search box with no way to ask 'where is
     this phone number / company / job title anywhere on the platform'."""
-    from app.models.mvp3 import Application
+    from app.models.applications import Application
 
     results: list[GlobalSearchResult] = []
     pattern = f"%{q}%"
@@ -1498,7 +1498,7 @@ def get_analytics(
     from_dt: datetime,
     to_dt: datetime,
 ) -> "AnalyticsResponse":
-    from app.models.mvp3 import Application
+    from app.models.applications import Application
     from app.modules.admin.schemas import (
         AnalyticsPeriod, AnalyticsResponse, CohortRow, FunnelStage, ScoreBin, TimeSeriesPoint,
     )
@@ -1703,7 +1703,7 @@ def update_subscription_plan(plan_id: str, data: SubscriptionPlanUpdateRequest, 
 # ── Employer detail (admin view) ──────────────────────────────────────────────
 
 def get_employer_detail(profile_id: str, db: Session) -> EmployerDetailResponse:
-    from app.models.mvp3 import Application
+    from app.models.applications import Application
     from app.models.employer_verification import EmployerVerification
 
     profile = db.query(EmployerProfile).filter(EmployerProfile.id == profile_id).first()
@@ -1836,7 +1836,7 @@ def _ann_to_entry(ann, creator_name: str | None = None) -> AnnouncementEntry:
 
 
 def list_announcements(db: Session, status: str | None = None) -> list[AnnouncementEntry]:
-    from app.models.mvp3 import AdminAnnouncement
+    from app.models.notifications import AdminAnnouncement
     now = datetime.now(timezone.utc)
 
     q = db.query(AdminAnnouncement, User).outerjoin(User, User.id == AdminAnnouncement.created_by)
@@ -1859,7 +1859,7 @@ def list_announcements(db: Session, status: str | None = None) -> list[Announcem
 
 
 def create_announcement(data: AnnouncementCreateRequest, actor_id: str, db: Session, request: Request | None = None) -> AnnouncementEntry:
-    from app.models.mvp3 import AdminAnnouncement
+    from app.models.notifications import AdminAnnouncement
     ann = AdminAnnouncement(
         title=data.title,
         body=data.body,
@@ -1878,7 +1878,7 @@ def create_announcement(data: AnnouncementCreateRequest, actor_id: str, db: Sess
 
 
 def update_announcement(ann_id: str, data: AnnouncementUpdateRequest, actor_id: str, db: Session, request: Request | None = None) -> AnnouncementEntry:
-    from app.models.mvp3 import AdminAnnouncement
+    from app.models.notifications import AdminAnnouncement
     ann = db.query(AdminAnnouncement).filter(AdminAnnouncement.id == uuid.UUID(ann_id)).first()
     if not ann:
         raise NotFoundException("Announcement not found")
@@ -1916,7 +1916,7 @@ def _resolve_announcement_targets(db: Session, ann) -> list[User]:
 
 
 def publish_announcement(ann_id: str, actor_id: str, db: Session, request: Request | None = None) -> AnnouncementEntry:
-    from app.models.mvp3 import AdminAnnouncement, Notification
+    from app.models.notifications import AdminAnnouncement, Notification
     ann = db.query(AdminAnnouncement).filter(AdminAnnouncement.id == uuid.UUID(ann_id)).first()
     if not ann:
         raise NotFoundException("Announcement not found")
@@ -1954,7 +1954,7 @@ def publish_announcement(ann_id: str, actor_id: str, db: Session, request: Reque
 
 
 def delete_announcement(ann_id: str, actor_id: str, db: Session, request: Request | None = None) -> None:
-    from app.models.mvp3 import AdminAnnouncement
+    from app.models.notifications import AdminAnnouncement
     ann = db.query(AdminAnnouncement).filter(AdminAnnouncement.id == uuid.UUID(ann_id)).first()
     if not ann:
         raise NotFoundException("Announcement not found")
@@ -2155,7 +2155,7 @@ def list_notifications(
     skip: int = 0,
     limit: int = 50,
 ) -> dict:
-    from app.models.mvp3 import Notification
+    from app.models.notifications import Notification
 
     q = db.query(Notification, User).outerjoin(User, User.id == Notification.user_id)
     if user_id:
@@ -2192,7 +2192,7 @@ def list_notifications(
 
 
 def get_notifications_stats(db: Session) -> dict:
-    from app.models.mvp3 import Notification
+    from app.models.notifications import Notification
 
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -2233,7 +2233,7 @@ def get_notifications_stats(db: Session) -> dict:
 
 
 def delete_notification(notification_id: str, db: Session) -> dict:
-    from app.models.mvp3 import Notification
+    from app.models.notifications import Notification
 
     n = db.query(Notification).filter(Notification.id == uuid.UUID(notification_id)).first()
     if not n:

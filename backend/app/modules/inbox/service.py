@@ -4,7 +4,8 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import NotFoundException
-from app.models.mvp3 import Application, EmployerTask, Notification
+from app.models.applications import Application, EmployerTask
+from app.models.notifications import Notification
 from app.models.user import EmployerProfile, JobPosting, User
 from app.modules.inbox.schemas import (
     NotificationListResponse, NotificationOut, TaskOut,

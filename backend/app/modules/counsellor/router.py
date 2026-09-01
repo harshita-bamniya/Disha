@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.rbac import get_current_aspirant
 from app.database import get_db
-from app.models.mvp2 import Conversation, CounsellorMemory, Message
+from app.models.counsellor import Conversation, CounsellorMemory, Message
 from app.models.user import User
 from app.modules.counsellor import orchestrator
 from app.modules.counsellor.schemas import (
@@ -292,7 +292,9 @@ def get_prep_checklist(
     and what's still outstanding.
     """
     from sqlalchemy import cast, String
-    from app.models.mvp2 import InterviewSession, LessonCompletion, Resume as ResumeModel
+    from app.models.interview import InterviewSession
+    from app.models.learning import LessonCompletion
+    from app.models.resume import Resume as ResumeModel
     from app.models.user import AspirantProfile, JobPosting
 
     profile = db.query(AspirantProfile).filter(AspirantProfile.user_id == user.id).first()
@@ -377,7 +379,8 @@ def get_nudge(
     Returns null when no nudge is warranted.
     """
     from datetime import datetime, timezone, timedelta
-    from app.models.mvp2 import InterviewSession, UserStreak, LessonCompletion
+    from app.models.interview import InterviewSession
+    from app.models.learning import UserStreak, LessonCompletion
     from app.models.job_plan import JobLearningPlan
     from app.models.roadmap import UserSkillCompetence
 

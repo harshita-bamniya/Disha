@@ -9,7 +9,7 @@ from typing import Optional
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.mvp2 import Resume, ResumeSection, ResumeTemplate, ResumeVersion
+from app.models.resume import Resume, ResumeSection, ResumeTemplate, ResumeVersion
 from app.models.user import AspirantProfile, CareerTrack, User
 from app.modules.resume import ai_service
 from app.modules.resume.schemas import (
@@ -654,7 +654,7 @@ def set_job_target(resume_id: str, body: SetJobTargetRequest, user: User, db: Se
     jd_text = body.job_description
 
     if body.job_posting_id and not jd_text:
-        from app.models.mvp3 import JobPosting
+        from app.models.user import JobPosting
         job = db.query(JobPosting).filter(JobPosting.id == body.job_posting_id).first()
         if job:
             jd_text = f"{job.title} at {job.company_name}. {job.description or ''}"

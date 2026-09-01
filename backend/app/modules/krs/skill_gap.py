@@ -17,7 +17,7 @@ import logging
 import numpy as np
 from sqlalchemy.orm import Session
 
-from app.models.mvp2 import SkillVector
+from app.models.skill_vectors import SkillVector
 from app.modules.recommendations import embedder
 
 logger = logging.getLogger(__name__)

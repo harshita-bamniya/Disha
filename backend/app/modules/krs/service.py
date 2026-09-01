@@ -269,7 +269,7 @@ def get_live_jobs(user: User, db: Session) -> list[LiveJobResponse]:
         )
 
     # Load application history for collaborative filtering
-    from app.models.mvp3 import Application as AppModel
+    from app.models.applications import Application as AppModel
     all_apps = db.query(AppModel).all()
     application_history = [
         {"user_id": str(a.aspirant_id), "job_id": str(a.job_id)}

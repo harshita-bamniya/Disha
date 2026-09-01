@@ -106,7 +106,7 @@ def embed_job(self, job_id: str) -> None:
     """
     from app.database import SessionLocal
     from app.models.user import JobPosting
-    from app.models.mvp2 import SkillVector
+    from app.models.skill_vectors import SkillVector
     from app.modules.recommendations import embedder
 
     db = SessionLocal()
@@ -207,7 +207,7 @@ def embed_skill_texts(self, skills: list[str]) -> None:
     Called after user saves skills and after AI job skill extraction completes.
     """
     from app.database import SessionLocal
-    from app.models.mvp2 import SkillVector
+    from app.models.skill_vectors import SkillVector
     from app.modules.recommendations import embedder
 
     if not skills:
@@ -251,7 +251,7 @@ def prune_counsellor_memories() -> dict:
     """
     from datetime import datetime, timezone
     from app.database import SessionLocal
-    from app.models.mvp2 import CounsellorMemory
+    from app.models.counsellor import CounsellorMemory
     from sqlalchemy import func
 
     db = SessionLocal()
@@ -387,7 +387,7 @@ def send_deadline_reminders() -> dict:
     from datetime import date, timedelta
     from app.database import SessionLocal
     from app.models.job_plan import JobLearningPlan
-    from app.models.mvp3 import Application
+    from app.models.applications import Application
     from app.models.user import JobPosting
     from app.modules.inbox.service import create_notification
 
@@ -446,7 +446,7 @@ def send_interview_outcome_requests() -> dict:
     """
     from datetime import datetime, timedelta, timezone
     from app.database import SessionLocal
-    from app.models.mvp2 import InterviewSession
+    from app.models.interview import InterviewSession
     from app.modules.inbox.service import create_notification
 
     FOLLOW_UP_DELAY_DAYS = 14

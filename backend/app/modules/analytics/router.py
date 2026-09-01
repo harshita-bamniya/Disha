@@ -51,7 +51,7 @@ async def ingest_events(
     user: Optional[User] = Depends(get_current_user),
 ):
     """Batch event ingestion (fire-and-forget, always returns 202)."""
-    from app.models.mvp3 import UserEvent
+    from app.models.analytics import UserEvent
     import uuid
 
     events = body.events[:50]
@@ -90,10 +90,11 @@ def admin_overview(
     from app.models.user import (
         AspirantProfile, EmployerProfile, JobPosting, KrsScore,
     )
-    from app.models.mvp2 import (
-        Resume, InterviewSession, Conversation, UserLearningEnrollment,
-    )
-    from app.models.mvp3 import Application
+    from app.models.counsellor import Conversation
+    from app.models.interview import InterviewSession
+    from app.models.learning import UserLearningEnrollment
+    from app.models.resume import Resume
+    from app.models.applications import Application
 
     now = datetime.now(timezone.utc)
     week_ago = now - timedelta(days=7)
@@ -131,7 +132,7 @@ def admin_overview(
         db.query(func.count(EmployerProfile.id))
         .filter(EmployerProfile.is_approved == False)
     )
-    from app.models.mvp2 import SafetyFlag as SF
+    from app.models.counsellor import SafetyFlag as SF
     open_safety_flags = safe_count(
         db.query(func.count(SF.id)).filter(SF.reviewed_by == None)
     )
@@ -170,7 +171,9 @@ def admin_funnel(
 ):
     """Onboarding + engagement funnel for cohort analysis."""
     from app.models.user import AspirantProfile, KrsScore, UserCareerSelection
-    from app.models.mvp2 import Resume, InterviewSession, UserLearningEnrollment
+    from app.models.interview import InterviewSession
+    from app.models.learning import UserLearningEnrollment
+    from app.models.resume import Resume
 
     def safe_count(query):
         try:
@@ -223,7 +226,7 @@ def list_safety_flags(
     db: Session = Depends(get_db),
 ):
     """List safety flags for admin review."""
-    from app.models.mvp2 import SafetyFlag, Message
+    from app.models.counsellor import SafetyFlag, Message
 
     q = db.query(SafetyFlag)
     if severity:
@@ -264,7 +267,7 @@ def admin_trends(
 ):
     """Daily time series for growth charts — Module 05 admin analytics dashboard."""
     from app.models.user import EmployerProfile, JobPosting
-    from app.models.mvp3 import Application
+    from app.models.applications import Application
 
     model_for_metric = {
         "users": (User, User.created_at, User.deleted_at == None),
@@ -308,7 +311,7 @@ def admin_job_engagement(
     Returns counts of job_card_click, application_started, application_submitted
     grouped by job_id for the specified window.
     """
-    from app.models.mvp3 import UserEvent
+    from app.models.analytics import UserEvent
 
     now = datetime.now(timezone.utc)
     start = now - timedelta(days=days)
@@ -355,7 +358,7 @@ def review_safety_flag(
     db: Session = Depends(get_db),
 ):
     """Mark a safety flag as reviewed by the current admin."""
-    from app.models.mvp2 import SafetyFlag
+    from app.models.counsellor import SafetyFlag
 
     flag = db.query(SafetyFlag).filter(SafetyFlag.id == flag_id).first()
     if not flag:

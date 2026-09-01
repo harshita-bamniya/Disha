@@ -7,7 +7,15 @@ until rejected. Keeping these distinct is what stops the "submit" button from be
 clickable indefinitely once already in the review queue.
 """
 import uuid
-from sqlalchemy import Boolean, Column, CheckConstraint, DateTime, ForeignKey, String, Text
+
+from sqlalchemy import (
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    String,
+    Text,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func

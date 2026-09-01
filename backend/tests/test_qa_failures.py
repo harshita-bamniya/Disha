@@ -256,7 +256,7 @@ class TestDeleteJobGuard:
 
         def query_side_effect(model):
             from app.models.user import EmployerProfile as EP, JobPosting as JP
-            from app.models.mvp3 import Application as App
+            from app.models.applications import Application as App
 
             mock_q = MagicMock()
             if model is EP:
@@ -342,7 +342,7 @@ class TestBackwardsTransitionGuard:
         db = MagicMock()
 
         from app.models.user import EmployerProfile as EP
-        from app.models.mvp3 import Application as AppModel
+        from app.models.applications import Application as AppModel
 
         def query_side(model):
             mock_q = MagicMock()
@@ -528,7 +528,7 @@ class TestApplicationOutDepartmentName:
     def test_department_name_populated_in_list_my_applications(self):
         """list_my_applications must carry dept name through to ApplicationOut."""
         from app.modules.matching.service import list_my_applications
-        from app.models.mvp3 import Application as AppModel
+        from app.models.applications import Application as AppModel
         from app.models.user import JobPosting as JP, EmployerProfile as EP
 
         user = _make_user(role_name="aspirant")

@@ -74,7 +74,7 @@ async def extract_and_store_memories_bg(
     db = SessionLocal()
     try:
         from app.ai.providers import create_provider
-        from app.models.mvp2 import CounsellorMemory, CounsellorMemoryEmbedding
+        from app.models.counsellor import CounsellorMemory, CounsellorMemoryEmbedding
         from app.models.companion import CompanionMilestone
 
         provider = create_provider()
@@ -153,7 +153,7 @@ async def extract_and_store_memories_bg(
 
 def retrieve_relevant_memories(user_id, db: Session, limit: int = 6) -> list[str]:
     """Most recent active memories for this user (career + companion are shared)."""
-    from app.models.mvp2 import CounsellorMemory
+    from app.models.counsellor import CounsellorMemory
 
     memories = (
         db.query(CounsellorMemory)

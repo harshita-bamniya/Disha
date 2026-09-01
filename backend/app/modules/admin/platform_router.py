@@ -67,7 +67,7 @@ def list_settings(
     current_user: User = Depends(_super_admin),
     db: Session = Depends(get_db),
 ):
-    from app.models.mvp3 import PlatformSetting
+    from app.models.platform import PlatformSetting
     rows = db.query(PlatformSetting).order_by(PlatformSetting.key).all()
     return [
         {
@@ -88,7 +88,7 @@ def update_setting(
     current_user: User = Depends(_super_admin),
     db: Session = Depends(get_db),
 ):
-    from app.models.mvp3 import PlatformSetting
+    from app.models.platform import PlatformSetting
     row = db.query(PlatformSetting).filter(PlatformSetting.key == key).first()
     if not row:
         raise HTTPException(status_code=404, detail=f"Setting '{key}' not found.")
@@ -107,7 +107,7 @@ def list_flags(
     current_user: User = Depends(_super_admin),
     db: Session = Depends(get_db),
 ):
-    from app.models.mvp3 import FeatureFlag
+    from app.models.platform import FeatureFlag
     rows = db.query(FeatureFlag).order_by(FeatureFlag.flag_name).all()
     return [
         {
@@ -130,7 +130,7 @@ def update_flag(
     current_user: User = Depends(_super_admin),
     db: Session = Depends(get_db),
 ):
-    from app.models.mvp3 import FeatureFlag
+    from app.models.platform import FeatureFlag
     flag = db.query(FeatureFlag).filter(FeatureFlag.flag_name == flag_name).first()
     if not flag:
         raise HTTPException(status_code=404, detail=f"Feature flag '{flag_name}' not found.")
@@ -166,7 +166,7 @@ def list_prompts(
     current_user: User = Depends(_super_admin),
     db: Session = Depends(get_db),
 ):
-    from app.models.mvp3 import PromptTemplate
+    from app.models.prompts import PromptTemplate
     rows = (
         db.query(PromptTemplate)
         .order_by(PromptTemplate.use_case, PromptTemplate.version.desc())
@@ -196,7 +196,7 @@ def create_prompt(
     db: Session = Depends(get_db),
 ):
     """Insert a new prompt version and deactivate the previous active version."""
-    from app.models.mvp3 import PromptTemplate
+    from app.models.prompts import PromptTemplate
 
     # Determine next version number
     latest = (
@@ -500,7 +500,7 @@ def get_prompt(
 ):
     """Return the full content of a single prompt template (not truncated)."""
     import uuid as _uuid
-    from app.models.mvp3 import PromptTemplate
+    from app.models.prompts import PromptTemplate
     try:
         pid = _uuid.UUID(prompt_id)
     except ValueError:
@@ -535,7 +535,7 @@ def toggle_prompt_active(
     Deactivating always succeeds.
     """
     import uuid as _uuid
-    from app.models.mvp3 import PromptTemplate
+    from app.models.prompts import PromptTemplate
     try:
         pid = _uuid.UUID(prompt_id)
     except ValueError:

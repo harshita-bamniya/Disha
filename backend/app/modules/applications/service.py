@@ -31,9 +31,7 @@ from app.models.ats import (
     ApplicationResponse, AtsQuestion, CandidateResumeFile,
     FormSection, KnockoutRule,
 )
-from app.models.mvp3 import (
-    Application, ApplicationStatusHistory,
-)
+from app.models.applications import Application, ApplicationStatusHistory
 from app.models.user import AspirantProfile, EmployerProfile, JobPosting, KrsScore, User
 from app.modules.applications.schemas import (
     AnswerIn, DraftSaveRequest, DraftStartRequest,

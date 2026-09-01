@@ -16,7 +16,7 @@ from typing import AsyncIterator
 
 from sqlalchemy.orm import Session
 
-from app.models.mvp2 import Conversation, Message, SafetyFlag
+from app.models.counsellor import Conversation, Message, SafetyFlag
 from app.models.user import User
 from app.models.companion import CompanionMoodEntry, CompanionMilestone
 from app.modules.companion import memory as memory_svc
@@ -287,7 +287,7 @@ async def handle_message(
     # route returns the StreamingResponse, *before* this generator finishes
     # running, which can expunge `conversation` from the session. Re-querying
     # re-attaches it so the count update actually persists.
-    from app.models.mvp2 import Conversation as ConversationModel
+    from app.models.counsellor import Conversation as ConversationModel
     fresh_conv = db.query(ConversationModel).filter(ConversationModel.id == conversation.id).first()
     if fresh_conv is not None:
         fresh_conv.message_count = (fresh_conv.message_count or 0) + 2

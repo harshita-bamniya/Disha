@@ -385,7 +385,7 @@ def update_application_note(
     db: Session = Depends(get_db),
 ):
     """Employer saves a private recruiter note on an application without changing status."""
-    from app.models.mvp3 import Application
+    from app.models.applications import Application
     from app.models.user import EmployerProfile, JobPosting
     employer = db.query(EmployerProfile).filter(EmployerProfile.user_id == current_user.id).first()
     if not employer:

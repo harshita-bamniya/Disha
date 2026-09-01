@@ -364,7 +364,7 @@ def delete_office(user: User, office_id: str, db: Session) -> MessageResponse:
 
 def _dept_to_out(dept: CompanyDepartment, db: Session) -> DepartmentOut:
     from app.models.user import JobPosting
-    from app.models.mvp3 import Application
+    from app.models.applications import Application
 
     member_count = db.query(EmployerProfile).filter(
         EmployerProfile.department_id == dept.id,
@@ -525,7 +525,7 @@ def delete_department(user: User, department_id: str, db: Session) -> MessageRes
 def get_department_overview(user: User, department_id: str, db: Session):
     from datetime import timezone as _tz
     from app.models.user import JobPosting
-    from app.models.mvp3 import Application, CandidateInterviewFeedback, OfferLetter
+    from app.models.applications import Application, CandidateInterviewFeedback, OfferLetter
     from app.modules.companies.schemas import DepartmentOverviewOut
 
     profile = _get_own_profile(user, db)
@@ -634,7 +634,7 @@ def assign_member_department(
 def list_department_jobs(user: User, department_id: str, db: Session) -> list[dict]:
     """Return all jobs (any status) belonging to a department, with applicant counts."""
     from app.models.user import JobPosting
-    from app.models.mvp3 import Application
+    from app.models.applications import Application
     from sqlalchemy import func
 
     profile = _get_own_profile(user, db)
