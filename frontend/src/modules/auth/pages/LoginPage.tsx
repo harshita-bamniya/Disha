@@ -14,7 +14,7 @@ export default function LoginPage() {
 
   const login = useLogin()
   const location = useLocation()
-  const justVerified = (location.state as any)?.verified === true
+  const justVerified = (location.state as { verified?: boolean } | null)?.verified === true
 
   const validate = () => {
     const errors: Record<string, string> = {}

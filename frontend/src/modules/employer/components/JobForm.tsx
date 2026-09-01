@@ -122,7 +122,8 @@ export default function JobForm({ initial, onSubmit, loading, onCancel }: JobFor
     setErrors(p => ({ ...p, skills: '' }))
     setSelectedSkills(prev => {
       const next = new Set(prev)
-      next.has(skill) ? next.delete(skill) : next.add(skill)
+      if (next.has(skill)) next.delete(skill)
+      else next.add(skill)
       return next
     })
   }

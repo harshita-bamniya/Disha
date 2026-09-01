@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Pencil, Check, ChevronUp, MapPin, RefreshCw, Plus } from 'lucide-react'
 import { onboardingApi, type ProfileData } from '@/api/onboarding'
+import type { Gender, Qualification, UpscExam, UpscStage } from '@/types'
 import { cn } from '@/lib/utils'
 import { getApiError } from '@/api/client'
 import Button from '@/components/ui/Button'
@@ -70,7 +71,7 @@ export function ChipSelector({
 }: {
   options: string[]
   selected: string | string[]
-  onChange: (val: any) => void
+  onChange: (val: string | string[]) => void
   multi?: boolean
 }) {
   const isSelected = (opt: string) =>
@@ -230,7 +231,7 @@ function PersonalSection({ profile, open, onToggle }: { profile: ProfileData; op
   const [saved, setSaved] = useState(false)
 
   const mut = useMutation({
-    mutationFn: () => onboardingApi.savePersonal({ ...form, gender: form.gender as any, state: form.state }),
+    mutationFn: () => onboardingApi.savePersonal({ ...form, gender: form.gender as Gender, state: form.state }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: PROFILE_KEY })
       setSaved(true)
@@ -253,9 +254,10 @@ function PersonalSection({ profile, open, onToggle }: { profile: ProfileData; op
           <ChipSelector
             options={['Male', 'Female', 'Other', 'Prefer not to say']}
             selected={form.gender === 'prefer_not_to_say' ? 'Prefer not to say' : form.gender ? form.gender.charAt(0).toUpperCase() + form.gender.slice(1) : ''}
-            onChange={(val: string) => {
+            onChange={(val) => {
               const map: Record<string,string> = { 'Male':'male','Female':'female','Other':'other','Prefer not to say':'prefer_not_to_say' }
-              setForm(p => ({ ...p, gender: map[val] ?? val }))
+              const key = Array.isArray(val) ? val[0] : val
+              setForm(p => ({ ...p, gender: map[key] ?? key }))
             }}
           />
         </div>
@@ -292,7 +294,7 @@ function EducationSection({ profile, open, onToggle }: { profile: ProfileData; o
   const [saved, setSaved] = useState(false)
 
   const mut = useMutation({
-    mutationFn: () => onboardingApi.saveEducation({ ...form, highest_qualification: form.highest_qualification as any }),
+    mutationFn: () => onboardingApi.saveEducation({ ...form, highest_qualification: form.highest_qualification as Qualification }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: PROFILE_KEY }); setSaved(true); setTimeout(() => setSaved(false), 3000); onToggle() },
   })
 
@@ -346,7 +348,7 @@ function UpscSection({ profile, open, onToggle }: { profile: ProfileData; open: 
   const [saved, setSaved] = useState(false)
 
   const mut = useMutation({
-    mutationFn: () => onboardingApi.saveUpscJourney({ ...form, upsc_exam: form.upsc_exam as any, highest_stage_cleared: form.highest_stage_cleared as any, optional_subject: form.optional_subject || undefined }),
+    mutationFn: () => onboardingApi.saveUpscJourney({ ...form, upsc_exam: form.upsc_exam as UpscExam, highest_stage_cleared: form.highest_stage_cleared as UpscStage, optional_subject: form.optional_subject || undefined }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: PROFILE_KEY }); setSaved(true); setTimeout(() => setSaved(false), 3000); onToggle() },
   })
 
@@ -608,7 +610,12 @@ function PreferencesSection({ profile, open, onToggle }: { profile: ProfileData;
           <div className="flex flex-wrap gap-2">
             {SECTORS.map(s => (
               <button key={s} type="button"
-                onClick={() => setSectors(prev => { const n = new Set(prev); n.has(s) ? n.delete(s) : n.add(s); return n })}
+                onClick={() => setSectors(prev => {
+                  const n = new Set(prev)
+                  if (n.has(s)) n.delete(s)
+                  else n.add(s)
+                  return n
+                })}
                 className={cn('px-3 py-1.5 rounded-full border text-xs font-medium transition-all',
                   sectors.has(s) ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary/50')}>
                 {s}
@@ -750,7 +757,6 @@ function MindsetSection({ profile, open, onToggle }: { profile: ProfileData; ope
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
-  const navigate = useNavigate()
   const [openSection, setOpenSection] = useState<string | null>(null)
 
   const { data: profile, isLoading, error } = useQuery({

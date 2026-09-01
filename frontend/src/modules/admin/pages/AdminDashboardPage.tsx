@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useRef, useState } from 'react'
 import {
   Users, Briefcase, Clock, CheckCircle2, Building2, LogOut,
   Globe, MapPin, Phone, AlertCircle, X, Search, Plus, Pencil, Trash2,
@@ -11,7 +11,7 @@ import {
 import { useLogout } from '@/modules/auth/hooks/useAuth'
 import { cn } from '@/lib/utils'
 import { getApiError } from '@/api/client'
-import type { AspirantDetailResponse, EmployerEntry, EmployerStatus, CareerTrackAdminEntry } from '@/api/admin'
+import type { EmployerEntry, EmployerStatus, CareerTrackAdminEntry } from '@/api/admin'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -424,10 +424,11 @@ function UsersSection() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
 
   // Simple debounce on input
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   const handleSearch = (val: string) => {
     setSearch(val)
-    clearTimeout((handleSearch as any)._t)
-    ;(handleSearch as any)._t = setTimeout(() => setDebouncedSearch(val), 350)
+    clearTimeout(searchTimer.current)
+    searchTimer.current = setTimeout(() => setDebouncedSearch(val), 350)
   }
 
   const { data: users, isLoading } = useAdminUsers(debouncedSearch || undefined)

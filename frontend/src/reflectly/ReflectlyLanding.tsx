@@ -11,7 +11,7 @@
  * --surface:     #F8FBFF
  */
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 
 // ─── tiny helpers ────────────────────────────────────────────────────────────
 function cn(...classes: (string | false | undefined)[]) {
@@ -706,7 +706,7 @@ function HowItWorks() {
             style={{ background: 'linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent)' }}
           />
 
-          {steps.map((step, i) => (
+          {steps.map((step) => (
             <div
               key={step.num}
               className="relative rounded-3xl p-8 text-center transition-all duration-300 hover:-translate-y-2"
@@ -880,7 +880,7 @@ function Testimonials() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
-          {reviews.map((r, i) => (
+          {reviews.map((r) => (
             <div
               key={r.name}
               className="relative rounded-3xl p-7 transition-all duration-400 hover:-translate-y-2 hover:shadow-2xl"

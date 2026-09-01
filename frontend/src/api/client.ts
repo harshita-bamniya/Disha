@@ -10,12 +10,12 @@ import { useAuthStore } from '@/stores/authStore'
  */
 export function getApiError(error: unknown, fallback = 'Something went wrong'): string {
   if (!error) return fallback
-  const detail = (error as any)?.response?.data?.detail
+  const detail = axios.isAxiosError(error) ? error.response?.data?.detail : undefined
   if (!detail) return fallback
   if (typeof detail === 'string') return detail
   if (Array.isArray(detail)) {
     return detail
-      .map((e: any) => {
+      .map((e: { loc?: unknown[]; msg?: string }) => {
         const loc = Array.isArray(e?.loc) ? e.loc.slice(1).join(' → ') : ''
         const msg = e?.msg ?? ''
         return loc ? `${loc}: ${msg}` : msg

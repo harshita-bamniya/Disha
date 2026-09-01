@@ -96,7 +96,7 @@ export default function CareerTrackPage() {
         const res = await selectMutation.mutateAsync(track.id)
         flash(res.message)
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       flash(getApiError(err))
     }
   }

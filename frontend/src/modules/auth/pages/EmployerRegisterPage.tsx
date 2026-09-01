@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Building2, Phone, Lock, User, Globe, MapPin } from 'lucide-react'
-import AuthLayout from '@/layouts/AuthLayout'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { cn } from '@/lib/utils'
@@ -275,7 +274,7 @@ export default function EmployerRegisterPage() {
                 {(showPasswordHints || form.password.length > 0) && (
                   <div className="mt-1 space-y-2">
                     <div className="flex gap-1">
-                      {passRules.map((r, i) => (
+                      {passRules.map((r) => (
                         <div
                           key={r.key}
                           className={cn('h-1 flex-1 rounded-full transition-all duration-300', r.pass ? strengthColor : 'bg-gray-200')}

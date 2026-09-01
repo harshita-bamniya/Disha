@@ -1,6 +1,6 @@
 import { lazy, Suspense, Component } from 'react'
 import type { ReactNode, ErrorInfo } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 
 // ── Global Error Boundary ─────────────────────────────────────────────────────
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {

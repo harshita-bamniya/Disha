@@ -1,5 +1,5 @@
 import { apiClient } from './client'
-import type { AuthTokens, CompanySize, User } from '@/types'
+import type { CompanySize, User } from '@/types'
 
 export interface RegisterPayload {
   phone: string

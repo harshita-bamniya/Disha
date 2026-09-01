@@ -12,8 +12,8 @@ export function useOnboardingStatus() {
   })
 }
 
-function useStepMutation(
-  mutationFn: (data: any) => Promise<any>,
+function useStepMutation<TData, TResult extends { current_step?: number; is_completed?: boolean }>(
+  mutationFn: (data: TData) => Promise<TResult>,
   nextStep: number | 'done',
 ) {
   const queryClient = useQueryClient()

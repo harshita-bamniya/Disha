@@ -37,7 +37,7 @@ export default function ForgotPasswordPage() {
       const res = await authApi.forgotPassword(phone)
       if (res.dev_otp) setDevOtp(res.dev_otp)
       setStep('reset')
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(getApiError(err, 'Could not send OTP. Please try again.'))
     } finally {
       setLoading(false)
@@ -59,7 +59,7 @@ export default function ForgotPasswordPage() {
     try {
       await authApi.resetPassword({ phone, otp, new_password: newPassword })
       setStep('done')
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(getApiError(err, 'Reset failed. Please check your OTP and try again.'))
     } finally {
       setLoading(false)
