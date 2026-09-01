@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { resumeApi, type ParsedResumeData } from '@/api/resume'
+import { resumeLibraryApi } from '@/api/resumeLibrary'
 import { Upload, FileText, CheckCircle, X, AlertCircle } from 'lucide-react'
 
 interface Props {
@@ -19,6 +20,9 @@ export default function ResumeUploadModal({ onClose }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [parsed, setParsed] = useState<ParsedResumeData | null>(null)
   const [resumeTitle, setResumeTitle] = useState('Imported Resume')
+  // Saved alongside parsing so the original file is also ready to attach when applying to jobs —
+  // best-effort only, never blocks the parse/edit flow if it fails.
+  const [savedToLibrary, setSavedToLibrary] = useState(false)
 
   const parseMutation = useMutation({
     mutationFn: (file: File) => resumeApi.parseResumeFile(file),
@@ -48,7 +52,11 @@ export default function ResumeUploadModal({ onClose }: Props) {
       return
     }
     setError(null)
+    setSavedToLibrary(false)
     parseMutation.mutate(file)
+    resumeLibraryApi.upload(file)
+      .then(() => { setSavedToLibrary(true); qc.invalidateQueries({ queryKey: ['resume-library'] }) })
+      .catch(() => { /* non-blocking: the editable resume is what matters here */ })
   }
 
   const p = parsed
@@ -137,6 +145,12 @@ export default function ResumeUploadModal({ onClose }: Props) {
                   Parsing complete — review before saving
                 </span>
               </div>
+
+              {savedToLibrary && (
+                <p style={{ fontSize: 11, color: '#94A3B8', margin: '-8px 0 16px' }}>
+                  Your original file was also saved — it'll be ready to attach when you apply to jobs.
+                </p>
+              )}
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 340, overflowY: 'auto', marginBottom: 16 }}>
                 <InfoRow label="Name" value={p.personal_info?.name} />

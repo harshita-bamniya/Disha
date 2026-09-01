@@ -346,11 +346,12 @@ Target Role: {target_role}
       "<Third-person factual statement: Cleared UPSC {stage} — add percentile or competitive context e.g. top X% of Y lakh candidates>",
       "<Third-person factual statement: one concrete achievement from their study or work — NO first-person 'me/my/I', NO 'making me an ideal candidate' phrases>"
     ]
-  }}{",\n  \"projects\": {{\n    \"items\": [\n      {{\n        \"name\": \"<short project name based on the candidate's description below>\",\n        \"description\": \"<1-2 sentences: the problem it solved, using the candidate's own description>\",\n        \"technologies\": [<tech stack mentioned by the candidate>],\n        \"url\": \"\"\n      }}\n    ]\n  }}" if project_str else ""}
+  }}{",\n  \"projects\": {{\n    \"items\": [\n      {{\n        \"name\": \"<short project name based on the candidate's description below>\",\n        \"bullets\": [\"<bullet point: what was built, using the candidate's own description>\", \"<bullet point: the outcome/impact, if mentioned>\"],\n        \"tech\": [<tech stack mentioned by the candidate>],\n        \"url\": \"\"\n      }}\n    ]\n  }}" if project_str else ""}
 }}
 
 CRITICAL: Replace every <…> placeholder with real personalised content. \
-The bullets array must have exactly 4 strings — each starting with a strong action verb, \
+The experience bullets array must have exactly 4 strings, and any projects bullets array \
+must have 2-3 strings — each starting with a strong action verb, \
 each specific to this candidate's {optional_subj} background and {target_role} target.\
 """
 
@@ -448,7 +449,7 @@ _PARSE_SCHEMA = """{
   "projects": [
     {
       "name": "<project name>",
-      "description": "<brief description>",
+      "bullets": ["<bullet point 1 — what was built and the impact>", "<bullet point 2>"],
       "tech": ["<technology 1>"],
       "url": "<URL or null>"
     }
