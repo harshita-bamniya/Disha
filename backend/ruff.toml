@@ -1,0 +1,14 @@
+[lint]
+select = ["E", "F", "W", "I", "N", "B", "S"]
+ignore = [
+    "E501",   # Line too long — formatter handles it
+    "S101",   # assert statements — used in tests
+    "S105",   # Possible hardcoded password — false positives on config defaults
+    "S106",   # Same
+    "B008",   # Do not perform function calls in default arguments — FastAPI pattern
+    "N802",   # Function name should be lowercase — some FastAPI patterns
+]
+exclude = ["alembic/"]
+
+[lint.per-file-ignores]
+"tests/**" = ["S", "B"]  # Relax security checks in test files
