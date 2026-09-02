@@ -13,11 +13,17 @@ from typing import AsyncIterator
 
 from sqlalchemy.orm import Session
 
-from app.models.counsellor import Conversation, Message, SafetyFlag
-from app.models.user import AspirantProfile, JobPosting, KrsScore, User, UserCareerSelection
-from app.modules.counsellor import memory as memory_svc
-from app.modules.counsellor import safety
 from app.ai.prompts.loader import get_prompt
+from app.core import safety
+from app.models.counsellor import Conversation, Message, SafetyFlag
+from app.models.user import (
+    AspirantProfile,
+    JobPosting,
+    KrsScore,
+    User,
+    UserCareerSelection,
+)
+from app.modules.counsellor import memory as memory_svc
 
 logger = logging.getLogger(__name__)
 

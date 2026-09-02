@@ -7,14 +7,22 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.ai.narrative_coach import evaluate_narrative
+from app.core.rbac import get_current_user
 from app.database import get_db
 from app.models.user import AspirantProfile, PsychologicalAssessment, User
-from app.core.rbac import get_current_user
 from app.modules.roadmap import service
 from app.modules.roadmap.schemas import (
-    GapSkillOut, GateCheckOut, JRSBreakdown, NarrativeFeedbackOut,
-    NarrativeSubmitRequest, RoadmapOut, RoadmapSummaryOut, SkillCompetenceOut,
-    TicketSubmitRequest, TicketSubmissionOut, TicketTemplateOut,
+    GapSkillOut,
+    GateCheckOut,
+    JRSBreakdown,
+    NarrativeFeedbackOut,
+    NarrativeSubmitRequest,
+    RoadmapOut,
+    RoadmapSummaryOut,
+    SkillCompetenceOut,
+    TicketSubmissionOut,
+    TicketSubmitRequest,
+    TicketTemplateOut,
 )
 
 router = APIRouter(prefix="/roadmap", tags=["Roadmap"])
@@ -244,26 +252,6 @@ def get_cohort_signals(
 ):
     """Return social proof signals from the user's career track cohort."""
     return service.get_cohort_signals(user, db)
-
-
-@router.get("/xp")
-def get_xp(
-    user: User = Depends(_require_aspirant),
-    db: Session = Depends(get_db),
-):
-    """Return XP summary for the current user."""
-    from app.modules.xp.service import get_xp_summary
-    return get_xp_summary(user.id, db)
-
-
-@router.get("/xp/transactions")
-def get_xp_transactions(
-    user: User = Depends(_require_aspirant),
-    db: Session = Depends(get_db),
-):
-    """Return recent XP transaction history."""
-    from app.modules.xp.service import get_recent_transactions
-    return get_recent_transactions(user.id, limit=20, db=db)
 
 
 @router.get("/skills/gap", response_model=list[GapSkillOut])

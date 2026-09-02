@@ -32,8 +32,8 @@ export interface CohortSignal {
 }
 
 export const xpApi = {
-  getSummary: () => apiClient.get<XPSummary>('/roadmap/xp').then(r => r.data),
-  getTransactions: () => apiClient.get<XPTransaction[]>('/roadmap/xp/transactions').then(r => r.data),
+  getSummary: () => apiClient.get<XPSummary>('/xp').then(r => r.data),
+  getTransactions: () => apiClient.get<XPTransaction[]>('/xp/transactions').then(r => r.data),
   getDailyMission: () => apiClient.get<DailyMission>('/roadmap/daily-mission').then(r => r.data),
   getCohortSignals: () => apiClient.get<{ signals: CohortSignal[] }>('/roadmap/cohort-signals').then(r => r.data),
 }

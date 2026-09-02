@@ -16,30 +16,33 @@ from starlette.middleware.base import BaseHTTPMiddleware
 import app.models  # noqa: F401 — registers every model class before any mapper configures
 from app.config import get_settings
 from app.core.storage import BASE_DIR as UPLOAD_BASE_DIR
-from app.modules.auth.router import router as auth_router
-from app.modules.onboarding.router import router as onboarding_router
-from app.modules.krs.router import router as krs_router
-from app.modules.jobs.router import router as jobs_router
-from app.modules.companies.router import router as companies_router
-from app.modules.companies.router import subscription_router
-from app.modules.admin.router import router as admin_router
-from app.modules.careers.router import router as careers_router
-from app.modules.resume.router import router as resume_router
-from app.modules.interview.router import router as interview_router
-from app.modules.counsellor.router import router as counsellor_router
-from app.modules.analytics.router import router as analytics_router
-from app.modules.matching.router import router as matching_router
-from app.modules.talent_pool.router import router as talent_pool_router
-from app.modules.inbox.router import router as inbox_router, aspirant_router as aspirant_inbox_router
 from app.modules.admin.platform_router import router as platform_router
-from app.modules.roadmap.router import router as roadmap_router
-from app.modules.jobs.plan_router import router as job_plan_router
-from app.modules.companion.router import router as companion_router
-from app.modules.calendar.router import router as calendar_router
-from app.modules.support.router import employer_router as support_employer_router, candidate_router as support_candidate_router
-from app.modules.resume_library.router import router as resume_library_router
+from app.modules.admin.router import router as admin_router
+from app.modules.analytics.router import router as analytics_router
 from app.modules.application_forms.router import router as application_forms_router
 from app.modules.applications.router import router as applications_router
+from app.modules.auth.router import router as auth_router
+from app.modules.calendar.router import router as calendar_router
+from app.modules.careers.router import router as careers_router
+from app.modules.companies.router import router as companies_router
+from app.modules.companies.router import subscription_router
+from app.modules.companion.router import router as companion_router
+from app.modules.counsellor.router import router as counsellor_router
+from app.modules.inbox.router import aspirant_router as aspirant_inbox_router
+from app.modules.inbox.router import router as inbox_router
+from app.modules.interview.router import router as interview_router
+from app.modules.jobs.plan_router import router as job_plan_router
+from app.modules.jobs.router import router as jobs_router
+from app.modules.krs.router import router as krs_router
+from app.modules.matching.router import router as matching_router
+from app.modules.onboarding.router import router as onboarding_router
+from app.modules.resume.router import router as resume_router
+from app.modules.resume_library.router import router as resume_library_router
+from app.modules.roadmap.router import router as roadmap_router
+from app.modules.support.router import candidate_router as support_candidate_router
+from app.modules.support.router import employer_router as support_employer_router
+from app.modules.talent_pool.router import router as talent_pool_router
+from app.modules.xp.router import router as xp_router
 
 settings = get_settings()
 
@@ -238,6 +241,7 @@ app.include_router(inbox_router, prefix="/api")
 app.include_router(aspirant_inbox_router, prefix="/api")
 app.include_router(platform_router, prefix="/api")
 app.include_router(roadmap_router, prefix="/api")
+app.include_router(xp_router, prefix="/api")
 app.include_router(job_plan_router, prefix="/api")
 app.include_router(companion_router, prefix="/api")
 app.include_router(calendar_router, prefix="/api")

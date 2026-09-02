@@ -16,11 +16,11 @@ from typing import AsyncIterator
 
 from sqlalchemy.orm import Session
 
+from app.core import safety
+from app.models.companion import CompanionMilestone, CompanionMoodEntry
 from app.models.counsellor import Conversation, Message, SafetyFlag
 from app.models.user import User
-from app.models.companion import CompanionMoodEntry, CompanionMilestone
 from app.modules.companion import memory as memory_svc
-from app.modules.counsellor import safety
 
 logger = logging.getLogger(__name__)
 
