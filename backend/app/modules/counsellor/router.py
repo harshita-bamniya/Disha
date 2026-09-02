@@ -1,16 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy import case
 from sqlalchemy.orm import Session
 
 from app.core.rbac import get_current_aspirant
 from app.database import get_db
-from app.models.counsellor import Conversation, CounsellorMemory, Message
 from app.models.user import User
-from app.modules.counsellor import orchestrator
+from app.modules.counsellor import orchestrator, service
 from app.modules.counsellor.schemas import (
-    ArchiveConversationResponse, ConversationDetail, ConversationSummary,
-    CreateConversationRequest, MessageOut, SendMessageRequest,
+    ArchiveConversationResponse,
+    ConversationDetail,
+    ConversationSummary,
+    CreateConversationRequest,
+    SendMessageRequest,
 )
 
 router = APIRouter(prefix="/counsellor", tags=["AI Counsellor"])
@@ -21,33 +22,7 @@ def list_conversations(
     user: User = Depends(get_current_aspirant),
     db: Session = Depends(get_db),
 ):
-    convs = (
-        db.query(Conversation)
-        .filter(
-            Conversation.user_id == user.id,
-            # "emotional" belongs to Your Companion, which has its own dedicated UI —
-            # keep it out of the general AI Counsellor's conversation list. Roadmap
-            # ("job_roadmap") chats stay visible here too, alongside the rest.
-            Conversation.context_type != "emotional",
-        )
-        .order_by(Conversation.updated_at.desc())
-        .limit(20)
-        .all()
-    )
-    return [
-        ConversationSummary(
-            id=str(c.id),
-            title=c.title,
-            context_type=c.context_type,
-            status=c.status,
-            message_count=c.message_count,
-            skill_focus=c.skill_focus,
-            job_context=c.job_context,
-            created_at=c.created_at,
-            updated_at=c.updated_at,
-        )
-        for c in convs
-    ]
+    return service.list_conversations(user.id, db)
 
 
 @router.post("/conversations", response_model=ConversationSummary, status_code=201)
@@ -56,79 +31,7 @@ def create_conversation(
     user: User = Depends(get_current_aspirant),
     db: Session = Depends(get_db),
 ):
-    job_ctx = None
-    title = None
-
-    if body.context_type == "skill_learning" and body.skill_focus:
-        job_ctx = {
-            "job_id":    body.job_id,
-            "job_title": body.job_title,
-            "company":   body.company,
-            "sector":    body.sector,
-        }
-        title = f"{body.skill_focus} — {body.job_title or 'Job Prep'}"
-
-    elif body.context_type == "career_coaching":
-        title = "Career Coaching Session"
-
-    elif body.context_type == "job_roadmap":
-        job_ctx = {
-            "job_id":    body.job_id,
-            "job_title": body.job_title,
-            "company":   body.company,
-            "sector":    body.sector,
-        }
-        title = f"Roadmap Q&A — {body.job_title or 'Job Prep'}"
-
-        # One continuous thread per job, not a new one on every page visit.
-        existing = (
-            db.query(Conversation)
-            .filter(
-                Conversation.user_id == user.id,
-                Conversation.context_type == "job_roadmap",
-                Conversation.status == "active",
-                Conversation.job_context["job_id"].astext == str(body.job_id),
-            )
-            .order_by(Conversation.updated_at.desc())
-            .first()
-        )
-        if existing:
-            return ConversationSummary(
-                id=str(existing.id),
-                title=existing.title,
-                context_type=existing.context_type,
-                status=existing.status,
-                message_count=existing.message_count,
-                skill_focus=existing.skill_focus,
-                job_context=existing.job_context,
-                interview_config=existing.interview_config,
-                created_at=existing.created_at,
-                updated_at=existing.updated_at,
-            )
-
-    conv = Conversation(
-        user_id=user.id,
-        title=title,
-        context_type=body.context_type,
-        status="active",
-        skill_focus=body.skill_focus if body.context_type == "skill_learning" else None,
-        job_context=job_ctx,
-    )
-    db.add(conv)
-    db.commit()
-    db.refresh(conv)
-
-    return ConversationSummary(
-        id=str(conv.id),
-        title=conv.title,
-        context_type=conv.context_type,
-        status=conv.status,
-        message_count=conv.message_count,
-        skill_focus=conv.skill_focus,
-        job_context=conv.job_context,
-        created_at=conv.created_at,
-        updated_at=conv.updated_at,
-    )
+    return service.create_conversation(body, user.id, db)
 
 
 @router.post("/career-coaching", response_model=ConversationSummary, status_code=201)
@@ -137,26 +40,7 @@ def start_career_coaching(
     db: Session = Depends(get_db),
 ):
     """One-click start a career coaching conversation."""
-    conv = Conversation(
-        user_id=user.id,
-        title="Career Coaching Session",
-        context_type="career_coaching",
-        status="active",
-    )
-    db.add(conv)
-    db.commit()
-    db.refresh(conv)
-    return ConversationSummary(
-        id=str(conv.id),
-        title=conv.title,
-        context_type=conv.context_type,
-        status=conv.status,
-        message_count=0,
-        skill_focus=None,
-        job_context=None,
-        created_at=conv.created_at,
-        updated_at=conv.updated_at,
-    )
+    return service.start_career_coaching(user.id, db)
 
 
 @router.get("/conversations/{conv_id}", response_model=ConversationDetail)
@@ -165,43 +49,10 @@ def get_conversation(
     user: User = Depends(get_current_aspirant),
     db: Session = Depends(get_db),
 ):
-    conv = (
-        db.query(Conversation)
-        .filter(Conversation.id == conv_id, Conversation.user_id == user.id)
-        .first()
-    )
-    if not conv:
-        raise HTTPException(status_code=404, detail="Conversation not found.")
-
-    messages = (
-        db.query(Message)
-        .filter(Message.conversation_id == conv_id)
-        .order_by(Message.created_at)
-        .all()
-    )
-
-    return ConversationDetail(
-        id=str(conv.id),
-        title=conv.title,
-        context_type=conv.context_type,
-        status=conv.status,
-        message_count=conv.message_count,
-        skill_focus=conv.skill_focus,
-        job_context=conv.job_context,
-        interview_config=conv.interview_config,
-        created_at=conv.created_at,
-        updated_at=conv.updated_at,
-        messages=[
-            MessageOut(
-                id=str(m.id),
-                role=m.role,
-                content=m.content,
-                safety_flagged=m.safety_flagged,
-                created_at=m.created_at,
-            )
-            for m in messages
-        ],
-    )
+    try:
+        return service.get_conversation_detail(conv_id, user.id, db)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.post("/conversations/{conv_id}/messages")
@@ -215,15 +66,12 @@ async def send_message(
     if not body.content or not body.content.strip():
         raise HTTPException(status_code=422, detail="Message content cannot be empty.")
 
-    conv = (
-        db.query(Conversation)
-        .filter(Conversation.id == conv_id, Conversation.user_id == user.id)
-        .first()
-    )
-    if not conv:
-        raise HTTPException(status_code=404, detail="Conversation not found.")
-    if conv.status == "archived":
-        raise HTTPException(status_code=400, detail="Cannot send messages to an archived conversation.")
+    try:
+        conv = service.get_conversation_for_message(conv_id, user.id, db)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     async def event_stream():
         async for chunk in orchestrator.handle_message(conv, body.content.strip(), user, db):
@@ -250,16 +98,10 @@ def delete_conversation(
     db: Session = Depends(get_db),
 ):
     """Hard-delete a conversation and all its messages."""
-    conv = (
-        db.query(Conversation)
-        .filter(Conversation.id == conv_id, Conversation.user_id == user.id)
-        .first()
-    )
-    if not conv:
-        raise HTTPException(status_code=404, detail="Conversation not found.")
-    db.query(Message).filter(Message.conversation_id == conv_id).delete()
-    db.delete(conv)
-    db.commit()
+    try:
+        service.delete_conversation(conv_id, user.id, db)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.put("/conversations/{conv_id}/archive", response_model=ArchiveConversationResponse)
@@ -268,17 +110,10 @@ def archive_conversation(
     user: User = Depends(get_current_aspirant),
     db: Session = Depends(get_db),
 ):
-    conv = (
-        db.query(Conversation)
-        .filter(Conversation.id == conv_id, Conversation.user_id == user.id)
-        .first()
-    )
-    if not conv:
-        raise HTTPException(status_code=404, detail="Conversation not found.")
-
-    conv.status = "archived"
-    db.commit()
-    return ArchiveConversationResponse(conversation_id=conv_id, status="archived")
+    try:
+        return service.archive_conversation(conv_id, user.id, db)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/prep-checklist/{job_id}")
@@ -291,78 +126,7 @@ def get_prep_checklist(
     Return a prep checklist for a given job showing what the user has done
     and what's still outstanding.
     """
-    from sqlalchemy import cast, String
-    from app.models.interview import InterviewSession
-    from app.models.learning import LessonCompletion
-    from app.models.resume import Resume as ResumeModel
-    from app.models.user import AspirantProfile, JobPosting
-
-    profile = db.query(AspirantProfile).filter(AspirantProfile.user_id == user.id).first()
-    job = db.query(JobPosting).filter(JobPosting.id == job_id).first()
-
-    # Mock interview done — checked against the real interview module
-    # (InterviewSession), not the retired counsellor mock_interview persona.
-    # InterviewSession has no job_id FK (job_role is free text), so this is
-    # "has the user completed any interview" rather than job-specific.
-    interview_done = (
-        db.query(InterviewSession)
-        .filter(
-            InterviewSession.user_id == user.id,
-            InterviewSession.status == "completed",
-        )
-        .first()
-    ) is not None
-
-    # Skill coaching sessions started for this job?
-    skill_sessions = (
-        db.query(Conversation)
-        .filter(
-            Conversation.user_id == user.id,
-            Conversation.context_type == "skill_learning",
-            cast(Conversation.job_context["job_id"], String) == str(job_id),
-        )
-        .count()
-    )
-
-    # Resume tailored to this job?
-    job_title = job.title if job else ""
-    resume_done = False
-    if job_title:
-        resume_done = db.query(ResumeModel).filter(
-            ResumeModel.user_id == user.id,
-            ResumeModel.title.ilike(f"%{job_title}%"),
-            ResumeModel.deleted_at.is_(None),
-        ).first() is not None
-
-    # Skill gap coverage
-    required = job.required_skills or [] if job else []
-    user_skills = {s.lower().strip() for s in (profile.skills or [])} if profile else set()
-    gap_skills = [s for s in required if s.lower().strip() not in user_skills]
-
-    return {
-        "checklist": [
-            {
-                "item": "Do a mock interview",
-                "done": interview_done,
-                "cta": "/app/interview/setup",
-                "cta_label": "Start Mock Interview",
-            },
-            {
-                "item": f"Start skill coaching sessions ({skill_sessions} done)",
-                "done": skill_sessions > 0,
-                "cta": "/app/learn",
-                "cta_label": "Go to Learning Hub",
-            },
-            {
-                "item": "Generate a tailored resume",
-                "done": resume_done,
-                "cta": f"/app/jobs/{job_id}",
-                "cta_label": "Generate Resume",
-            },
-        ],
-        "gap_skills": gap_skills,
-        "is_active_prep": str(profile.active_prep_job_id) == str(job_id) if profile and profile.active_prep_job_id else False,
-    }
+    return service.get_prep_checklist(job_id, user, db)
 
 
 @router.get("/nudge")
@@ -372,125 +136,10 @@ def get_nudge(
 ):
     """
     Return a proactive nudge message if the user has been inactive for 5+ days,
-    or hasn't done a mock interview / skill session in a while. Also checks for
-    a specific skill the user is stuck on (failed a job-plan quiz repeatedly)
-    or a job-specific plan with no progress in a while — these are checked
-    first since they reference something concrete, not just "come back".
-    Returns null when no nudge is warranted.
+    or hasn't done a mock interview / skill session in a while. Returns null
+    when no nudge is warranted.
     """
-    from datetime import datetime, timezone, timedelta
-    from app.models.interview import InterviewSession
-    from app.models.learning import UserStreak, LessonCompletion
-    from app.models.job_plan import JobLearningPlan
-    from app.models.roadmap import UserSkillCompetence
-
-    now = datetime.now(timezone.utc)
-    five_days_ago = now - timedelta(days=5)
-
-    def _is_older(dt, threshold):
-        if dt is None:
-            return True
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt < threshold
-
-    nudge = None
-
-    job_plans = (
-        db.query(JobLearningPlan)
-        .filter(JobLearningPlan.user_id == user.id, JobLearningPlan.status == "ready")
-        .all()
-    )
-
-    # Most specific: a named skill the user has failed a job-plan quiz on more
-    # than once (per UserSkillCompetence, the same tracker quiz submissions now
-    # write to) — nudge toward that skill by name, not a generic "come back".
-    for jp in job_plans:
-        jp_progress = jp.progress or {}
-        for module in (jp.plan or {}).get("modules", []):
-            quiz_entry = jp_progress.get(f"quiz_{module.get('id')}")
-            skill = (module.get("skill") or "").strip()
-            if not quiz_entry or quiz_entry.get("passed") or not skill:
-                continue
-            comp = (
-                db.query(UserSkillCompetence)
-                .filter(UserSkillCompetence.user_id == user.id, UserSkillCompetence.skill_text == skill.lower().strip())
-                .first()
-            )
-            if comp and comp.attempts >= 2 and comp.quiz_score_avg < 70:
-                nudge = {
-                    "type": "skill_struggle",
-                    "message": f"You've missed the {skill} quiz a couple of times now — want to go over it together before trying again?",
-                    "cta": f"Review {skill}",
-                    "cta_path": f"/app/jobs/{jp.job_id}",
-                }
-                break
-        if nudge:
-            break
-
-    # No progress on an in-progress job plan in 5+ days.
-    if not nudge:
-        for jp in job_plans:
-            resources = [r for m in (jp.plan or {}).get("modules", []) for r in m.get("resources", [])]
-            if not resources or not _is_older(jp.updated_at, five_days_ago):
-                continue
-            done_count = sum(1 for r in resources if (jp.progress or {}).get(r["id"], {}).get("done"))
-            if done_count < len(resources):
-                job_title = (jp.plan or {}).get("job_title", "your learning plan")
-                nudge = {
-                    "type": "stale_plan",
-                    "message": f"Your plan for {job_title} hasn't moved in a while — {done_count}/{len(resources)} resources done. Pick up where you left off?",
-                    "cta": "Resume Plan",
-                    "cta_path": f"/app/jobs/{jp.job_id}",
-                }
-                break
-
-    if nudge:
-        return nudge
-
-    # Check last mock interview — the real interview module (InterviewSession),
-    # not the retired counsellor mock_interview persona.
-    last_interview = (
-        db.query(InterviewSession)
-        .filter(InterviewSession.user_id == user.id)
-        .order_by(InterviewSession.created_at.desc())
-        .first()
-    )
-
-    # Check last lesson completion
-    last_lesson = (
-        db.query(LessonCompletion)
-        .filter(LessonCompletion.user_id == user.id)
-        .order_by(LessonCompletion.completed_at.desc())
-        .first()
-    )
-
-    # Check streak
-    streak = db.query(UserStreak).filter(UserStreak.user_id == user.id).first()
-
-    if not last_interview or _is_older(last_interview.created_at, five_days_ago):
-        nudge = {
-            "type": "interview",
-            "message": "You haven't practiced a mock interview in 5+ days. Even a quick 10-minute session keeps your confidence sharp.",
-            "cta": "Start Mock Interview",
-            "cta_path": "/app/interview/setup",
-        }
-    elif last_lesson and _is_older(last_lesson.completed_at, five_days_ago):
-        nudge = {
-            "type": "learning",
-            "message": f"Your learning streak needs attention — your last lesson was over 5 days ago. Keep the momentum going!",
-            "cta": "Continue Learning",
-            "cta_path": "/app/learn",
-        }
-    elif streak and streak.current_streak == 0 and streak.longest_streak > 0:
-        nudge = {
-            "type": "streak",
-            "message": f"Your streak broke — but your best was {streak.longest_streak} days. Today's a great day to restart.",
-            "cta": "Resume Learning",
-            "cta_path": "/app/learn",
-        }
-
-    return nudge or {}
+    return service.get_nudge(user, db)
 
 
 @router.get("/memories")
@@ -499,28 +148,7 @@ def list_memories(
     db: Session = Depends(get_db),
 ):
     """Return all active memories BeginablAI has stored about this user."""
-    importance_order = case(
-        (CounsellorMemory.importance == "critical", 0),
-        (CounsellorMemory.importance == "high", 1),
-        (CounsellorMemory.importance == "medium", 2),
-        else_=3,
-    )
-    memories = (
-        db.query(CounsellorMemory)
-        .filter(CounsellorMemory.user_id == user.id, CounsellorMemory.is_active == True)
-        .order_by(importance_order, CounsellorMemory.created_at.desc())
-        .all()
-    )
-    return [
-        {
-            "id": str(m.id),
-            "memory_type": m.memory_type,
-            "content": m.content,
-            "importance": m.importance,
-            "created_at": m.created_at.isoformat() if m.created_at else None,
-        }
-        for m in memories
-    ]
+    return service.list_memories(user.id, db)
 
 
 @router.delete("/memories/{memory_id}", status_code=204)
@@ -530,14 +158,7 @@ def delete_memory(
     db: Session = Depends(get_db),
 ):
     """Soft-delete a memory (user forgets it)."""
-    mem = (
-        db.query(CounsellorMemory)
-        .filter(CounsellorMemory.id == memory_id, CounsellorMemory.user_id == user.id)
-        .first()
-    )
-    if not mem:
-        raise HTTPException(status_code=404, detail="Memory not found.")
-    mem.is_active = False
-    db.commit()
-
-
+    try:
+        service.delete_memory(memory_id, user.id, db)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc

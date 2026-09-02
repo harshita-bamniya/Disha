@@ -13,7 +13,11 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
-from app.models.counsellor import Conversation, CounsellorMemory, CounsellorMemoryEmbedding
+from app.models.counsellor import (
+    Conversation,
+    CounsellorMemory,
+    CounsellorMemoryEmbedding,
+)
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -148,8 +152,9 @@ async def extract_and_store_memories_bg(
     without holding onto the request-scoped session (which is already closed by
     the time the background task actually runs).
     """
-    from app.database import SessionLocal
     from uuid import UUID
+
+    from app.database import SessionLocal
 
     db = SessionLocal()
     try:

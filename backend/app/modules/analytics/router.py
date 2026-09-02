@@ -9,37 +9,20 @@ Routes:
 """
 from __future__ import annotations
 
-import logging
-from datetime import datetime, timezone, timedelta
-from typing import Any, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
-from sqlalchemy import func, desc
 from sqlalchemy.orm import Session
 
 from app.core.rbac import get_current_user, require_permission
 from app.database import get_db
 from app.models.user import User
-
-logger = logging.getLogger(__name__)
+from app.modules.analytics import service
+from app.modules.analytics.schemas import BatchEventRequest
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
 _admin = require_permission("analytics", "view")
-
-
-# ── Schemas ───────────────────────────────────────────────────────────────────
-
-class EventPayload(BaseModel):
-    event_name: str
-    event_data: dict[str, Any] = {}
-    page_url: Optional[str] = None
-    session_id: Optional[str] = None
-
-
-class BatchEventRequest(BaseModel):
-    events: list[EventPayload]
 
 
 # ── Event ingestion ───────────────────────────────────────────────────────────
@@ -51,32 +34,8 @@ async def ingest_events(
     user: Optional[User] = Depends(get_current_user),
 ):
     """Batch event ingestion (fire-and-forget, always returns 202)."""
-    from app.models.analytics import UserEvent
-    import uuid
-
-    events = body.events[:50]
-    user_id = user.id if user else None
-
-    try:
-        for ev in events:
-            db.add(UserEvent(
-                id=uuid.uuid4(),
-                user_id=user_id,
-                session_id=ev.session_id,
-                event_name=ev.event_name[:100],
-                event_data=ev.event_data or {},
-                page_url=ev.page_url,
-            ))
-        db.commit()
-    except Exception as exc:
-        logger.warning("[ANALYTICS] Event ingestion failed: %s", exc)
-        # Analytics failures must never break user experience
-        try:
-            db.rollback()
-        except Exception:
-            pass
-
-    return {"accepted": len(events)}
+    accepted = service.ingest_events(body.events, user.id if user else None, db)
+    return {"accepted": accepted}
 
 
 # ── Admin: platform overview ──────────────────────────────────────────────────
@@ -87,81 +46,7 @@ def admin_overview(
     db: Session = Depends(get_db),
 ):
     """Platform KPIs for admin dashboard."""
-    from app.models.user import (
-        AspirantProfile, EmployerProfile, JobPosting, KrsScore,
-    )
-    from app.models.counsellor import Conversation
-    from app.models.interview import InterviewSession
-    from app.models.learning import UserLearningEnrollment
-    from app.models.resume import Resume
-    from app.models.applications import Application
-
-    now = datetime.now(timezone.utc)
-    week_ago = now - timedelta(days=7)
-    month_ago = now - timedelta(days=30)
-
-    def safe_count(query):
-        try:
-            return query.scalar() or 0
-        except Exception:
-            return 0
-
-    total_users = safe_count(db.query(func.count(User.id)).filter(User.deleted_at == None))
-    new_users_7d = safe_count(
-        db.query(func.count(User.id))
-        .filter(User.created_at >= week_ago, User.deleted_at == None)
-    )
-    onboarding_complete = safe_count(
-        db.query(func.count(AspirantProfile.id))
-        .filter(AspirantProfile.is_completed == True)
-    )
-    krs_computed = safe_count(db.query(func.count(KrsScore.id)))
-    resumes_created = safe_count(db.query(func.count(Resume.id)).filter(Resume.deleted_at == None))
-    interviews_completed = safe_count(
-        db.query(func.count(InterviewSession.id))
-        .filter(InterviewSession.status == "completed")
-    )
-    conversations_active = safe_count(
-        db.query(func.count(Conversation.id))
-        .filter(Conversation.status == "active")
-    )
-    enrollments = safe_count(db.query(func.count(UserLearningEnrollment.id)))
-    total_applications = safe_count(db.query(func.count(Application.id)))
-    active_jobs = safe_count(db.query(func.count(JobPosting.id)).filter(JobPosting.is_active == True))
-    pending_employers = safe_count(
-        db.query(func.count(EmployerProfile.id))
-        .filter(EmployerProfile.is_approved == False)
-    )
-    from app.models.counsellor import SafetyFlag as SF
-    open_safety_flags = safe_count(
-        db.query(func.count(SF.id)).filter(SF.reviewed_by == None)
-    )
-
-    return {
-        "users": {
-            "total": total_users,
-            "new_last_7d": new_users_7d,
-            "onboarding_complete": onboarding_complete,
-            "onboarding_rate_pct": round((onboarding_complete / total_users) * 100) if total_users else 0,
-        },
-        "intelligence": {
-            "krs_scores_computed": krs_computed,
-        },
-        "content": {
-            "resumes_created": resumes_created,
-            "interviews_completed": interviews_completed,
-            "learning_enrollments": enrollments,
-            "counsellor_conversations": conversations_active,
-        },
-        "employer_matching": {
-            "active_job_postings": active_jobs,
-            "total_applications": total_applications,
-            "pending_employer_approvals": pending_employers,
-        },
-        "safety": {
-            "open_flags": open_safety_flags,
-        },
-    }
+    return service.get_admin_overview(db)
 
 
 @router.get("/admin/funnel")
@@ -170,50 +55,7 @@ def admin_funnel(
     db: Session = Depends(get_db),
 ):
     """Onboarding + engagement funnel for cohort analysis."""
-    from app.models.user import AspirantProfile, KrsScore, UserCareerSelection
-    from app.models.interview import InterviewSession
-    from app.models.learning import UserLearningEnrollment
-    from app.models.resume import Resume
-
-    def safe_count(query):
-        try:
-            return query.scalar() or 0
-        except Exception:
-            return 0
-
-    registered = safe_count(
-        db.query(func.count(User.id))
-        .filter(User.deleted_at == None, User.role_id != None)
-    )
-    onboarding_started = safe_count(db.query(func.count(AspirantProfile.id)))
-    onboarding_done = safe_count(
-        db.query(func.count(AspirantProfile.id)).filter(AspirantProfile.is_completed == True)
-    )
-    krs_done = safe_count(db.query(func.count(KrsScore.id)))
-    career_selected = safe_count(db.query(func.count(UserCareerSelection.id.distinct())))
-    enrolled = safe_count(db.query(func.count(UserLearningEnrollment.id)))
-    resume_done = safe_count(
-        db.query(func.count(Resume.id)).filter(Resume.deleted_at == None)
-    )
-    interviewed = safe_count(
-        db.query(func.count(InterviewSession.id)).filter(InterviewSession.status == "completed")
-    )
-
-    def pct(num, den):
-        return round((num / den) * 100, 1) if den else 0.0
-
-    return {
-        "funnel": [
-            {"stage": "Registered", "count": registered, "pct_of_prev": 100.0},
-            {"stage": "Onboarding Started", "count": onboarding_started, "pct_of_prev": pct(onboarding_started, registered)},
-            {"stage": "Onboarding Complete", "count": onboarding_done, "pct_of_prev": pct(onboarding_done, onboarding_started)},
-            {"stage": "KRS Computed", "count": krs_done, "pct_of_prev": pct(krs_done, onboarding_done)},
-            {"stage": "Career Track Selected", "count": career_selected, "pct_of_prev": pct(career_selected, krs_done)},
-            {"stage": "Learning Enrolled", "count": enrolled, "pct_of_prev": pct(enrolled, career_selected)},
-            {"stage": "Resume Created", "count": resume_done, "pct_of_prev": pct(resume_done, career_selected)},
-            {"stage": "Interview Completed", "count": interviewed, "pct_of_prev": pct(interviewed, career_selected)},
-        ]
-    }
+    return service.get_admin_funnel(db)
 
 
 @router.get("/admin/safety-flags")
@@ -226,36 +68,7 @@ def list_safety_flags(
     db: Session = Depends(get_db),
 ):
     """List safety flags for admin review."""
-    from app.models.counsellor import SafetyFlag, Message
-
-    q = db.query(SafetyFlag)
-    if severity:
-        q = q.filter(SafetyFlag.severity == severity)
-    if reviewed is not None:
-        if reviewed:
-            q = q.filter(SafetyFlag.reviewed_by != None)
-        else:
-            q = q.filter(SafetyFlag.reviewed_by == None)
-
-    total = q.count()
-    flags = q.order_by(desc(SafetyFlag.created_at)).offset(offset).limit(limit).all()
-
-    return {
-        "total": total,
-        "flags": [
-            {
-                "id": str(f.id),
-                "user_id": str(f.user_id),
-                "flag_type": f.flag_type,
-                "severity": f.severity,
-                "triggered_by": f.triggered_by,
-                "action_taken": f.action_taken,
-                "reviewed": f.reviewed_by is not None,
-                "created_at": f.created_at,
-            }
-            for f in flags
-        ],
-    }
+    return service.list_safety_flags(severity, reviewed, limit, offset, db)
 
 
 @router.get("/admin/trends")
@@ -266,38 +79,7 @@ def admin_trends(
     db: Session = Depends(get_db),
 ):
     """Daily time series for growth charts — Module 05 admin analytics dashboard."""
-    from app.models.user import EmployerProfile, JobPosting
-    from app.models.applications import Application
-
-    model_for_metric = {
-        "users": (User, User.created_at, User.deleted_at == None),
-        "employers": (EmployerProfile, EmployerProfile.created_at, None),
-        "jobs": (JobPosting, JobPosting.created_at, None),
-        "applications": (Application, Application.created_at, None),
-    }
-    model, date_col, extra_filter = model_for_metric[metric]
-
-    now = datetime.now(timezone.utc)
-    start = now - timedelta(days=days)
-
-    query = (
-        db.query(func.date_trunc("day", date_col).label("day"), func.count())
-        .filter(date_col >= start)
-        .group_by("day")
-        .order_by("day")
-    )
-    if extra_filter is not None:
-        query = query.filter(extra_filter)
-
-    rows = query.all()
-    counts_by_day = {row.day.date().isoformat(): row[1] for row in rows}
-
-    series = []
-    for i in range(days):
-        day = (start + timedelta(days=i)).date().isoformat()
-        series.append({"date": day, "count": counts_by_day.get(day, 0)})
-
-    return {"metric": metric, "days": days, "series": series}
+    return service.get_admin_trends(metric, days, db)
 
 
 @router.get("/admin/job-engagement")
@@ -311,44 +93,7 @@ def admin_job_engagement(
     Returns counts of job_card_click, application_started, application_submitted
     grouped by job_id for the specified window.
     """
-    from app.models.analytics import UserEvent
-
-    now = datetime.now(timezone.utc)
-    start = now - timedelta(days=days)
-
-    EVENT_TYPES = ("job_card_click", "application_started", "application_submitted")
-    rows = (
-        db.query(
-            UserEvent.event_name,
-            UserEvent.event_data["job_id"].astext.label("job_id"),
-            func.count().label("cnt"),
-        )
-        .filter(
-            UserEvent.event_name.in_(EVENT_TYPES),
-            UserEvent.created_at >= start,
-        )
-        .group_by(UserEvent.event_name, UserEvent.event_data["job_id"].astext)
-        .all()
-    )
-
-    aggregated: dict[str, dict[str, int]] = {}
-    for event_name, job_id, cnt in rows:
-        if not job_id:
-            continue
-        agg = aggregated.setdefault(job_id, {e: 0 for e in EVENT_TYPES})
-        agg[event_name] = cnt
-
-    return {
-        "days": days,
-        "jobs": [
-            {"job_id": job_id, **counts}
-            for job_id, counts in sorted(
-                aggregated.items(),
-                key=lambda kv: kv[1].get("job_card_click", 0),
-                reverse=True,
-            )
-        ],
-    }
+    return service.get_admin_job_engagement(days, db)
 
 
 @router.patch("/admin/safety-flags/{flag_id}/review", status_code=200)
@@ -358,14 +103,9 @@ def review_safety_flag(
     db: Session = Depends(get_db),
 ):
     """Mark a safety flag as reviewed by the current admin."""
-    from app.models.counsellor import SafetyFlag
-
-    flag = db.query(SafetyFlag).filter(SafetyFlag.id == flag_id).first()
-    if not flag:
-        raise HTTPException(status_code=404, detail="Safety flag not found.")
-    if flag.reviewed_by:
-        raise HTTPException(status_code=400, detail="Flag already reviewed.")
-
-    flag.reviewed_by = current_user.id
-    db.commit()
-    return {"flag_id": flag_id, "reviewed_by": str(current_user.id)}
+    try:
+        return service.review_safety_flag(flag_id, current_user.id, db)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except LookupError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
