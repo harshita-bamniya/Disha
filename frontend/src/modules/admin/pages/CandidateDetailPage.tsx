@@ -167,38 +167,40 @@ function ApplicationsTab({ userId }: { userId: string }) {
         {isLoading ? <Spinner /> : !data?.length ? (
           <Empty icon={Briefcase} text="No applications" />
         ) : (
-          <>
-            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-2" style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
-              {['Job', 'Score', 'Status', 'Applied'].map((h, i) => (
-                <span key={h} className={i > 0 ? 'text-right' : ''} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>{h}</span>
+          <div style={{ overflowX: 'auto' }}>
+            <div style={{ minWidth: 480 }}>
+              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-2" style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+                {['Job', 'Score', 'Status', 'Applied'].map((h, i) => (
+                  <span key={h} className={i > 0 ? 'text-right' : ''} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>{h}</span>
+                ))}
+              </div>
+              {data.map((app, idx) => (
+                <button
+                  key={app.id}
+                  onClick={() => navigate(`/admin/jobs/${app.job_id}`)}
+                  className="w-full grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-3 items-center text-left"
+                  style={{
+                    background: idx % 2 === 0 ? '#fff' : colors.surface.bg,
+                    borderBottom: idx < data.length - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined,
+                  }}
+                  onMouseOver={e => (e.currentTarget.style.background = colors.surface.elevated)}
+                  onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : colors.surface.bg)}
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate" style={{ color: colors.text.ink }}>{app.job_title}</p>
+                    <p className="text-xs truncate" style={{ color: colors.text.muted }}>{app.company_name}</p>
+                  </div>
+                  <span className="text-xs font-bold text-right" style={{ color: colors.text.ink }}>{app.match_score ?? '—'}</span>
+                  <span className="text-right">
+                    <Badge color={STATUS_COLOR_MAP[app.status] ?? 'gray'}>{app.status.replace(/_/g, ' ')}</Badge>
+                  </span>
+                  <span className="text-xs text-right whitespace-nowrap" style={{ color: colors.text.muted }}>
+                    {new Date(app.applied_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  </span>
+                </button>
               ))}
             </div>
-            {data.map((app, idx) => (
-              <button
-                key={app.id}
-                onClick={() => navigate(`/admin/jobs/${app.job_id}`)}
-                className="w-full grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-3 items-center text-left"
-                style={{
-                  background: idx % 2 === 0 ? '#fff' : colors.surface.bg,
-                  borderBottom: idx < data.length - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined,
-                }}
-                onMouseOver={e => (e.currentTarget.style.background = colors.surface.elevated)}
-                onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : colors.surface.bg)}
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate" style={{ color: colors.text.ink }}>{app.job_title}</p>
-                  <p className="text-xs truncate" style={{ color: colors.text.muted }}>{app.company_name}</p>
-                </div>
-                <span className="text-xs font-bold text-right" style={{ color: colors.text.ink }}>{app.match_score ?? '—'}</span>
-                <span className="text-right">
-                  <Badge color={STATUS_COLOR_MAP[app.status] ?? 'gray'}>{app.status.replace(/_/g, ' ')}</Badge>
-                </span>
-                <span className="text-xs text-right whitespace-nowrap" style={{ color: colors.text.muted }}>
-                  {new Date(app.applied_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                </span>
-              </button>
-            ))}
-          </>
+          </div>
         )}
       </div>
     </div>
@@ -388,40 +390,42 @@ function SupportTab({ userId }: { userId: string }) {
         {isLoading ? <Spinner /> : !data?.items.length ? (
           <Empty icon={MessageSquare} text="No support tickets for this candidate" />
         ) : (
-          <>
-            <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-2" style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
-              {['Subject', 'Category', 'Priority', 'Status', 'Created'].map((h, i) => (
-                <span key={h} className={i > 0 ? 'text-right' : ''} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>{h}</span>
+          <div style={{ overflowX: 'auto' }}>
+            <div style={{ minWidth: 560 }}>
+              <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-2" style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+                {['Subject', 'Category', 'Priority', 'Status', 'Created'].map((h, i) => (
+                  <span key={h} className={i > 0 ? 'text-right' : ''} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>{h}</span>
+                ))}
+              </div>
+              {data.items.map((t, idx) => (
+                <button
+                  key={t.id}
+                  onClick={() => navigate(`/admin/support/${t.id}`)}
+                  className="w-full grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-3 items-center text-left"
+                  style={{
+                    background: idx % 2 === 0 ? '#fff' : colors.surface.bg,
+                    borderBottom: idx < data.items.length - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined,
+                  }}
+                  onMouseOver={e => (e.currentTarget.style.background = colors.surface.elevated)}
+                  onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : colors.surface.bg)}
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate" style={{ color: colors.text.ink }}>{t.subject}</p>
+                  </div>
+                  <span className="text-xs text-right capitalize" style={{ color: '#475569' }}>{t.category}</span>
+                  <span className="text-right">
+                    <Badge color={TICKET_PRIORITY_COLOR[t.priority] ?? 'gray'}>{t.priority}</Badge>
+                  </span>
+                  <span className="text-right">
+                    <Badge color={TICKET_STATUS_COLOR[t.status] ?? 'gray'}>{t.status}</Badge>
+                  </span>
+                  <span className="text-xs text-right whitespace-nowrap" style={{ color: colors.text.muted }}>
+                    {new Date(t.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
+                  </span>
+                </button>
               ))}
             </div>
-            {data.items.map((t, idx) => (
-              <button
-                key={t.id}
-                onClick={() => navigate(`/admin/support/${t.id}`)}
-                className="w-full grid grid-cols-[1fr_auto_auto_auto_auto] gap-3 px-4 py-3 items-center text-left"
-                style={{
-                  background: idx % 2 === 0 ? '#fff' : colors.surface.bg,
-                  borderBottom: idx < data.items.length - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined,
-                }}
-                onMouseOver={e => (e.currentTarget.style.background = colors.surface.elevated)}
-                onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : colors.surface.bg)}
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate" style={{ color: colors.text.ink }}>{t.subject}</p>
-                </div>
-                <span className="text-xs text-right capitalize" style={{ color: '#475569' }}>{t.category}</span>
-                <span className="text-right">
-                  <Badge color={TICKET_PRIORITY_COLOR[t.priority] ?? 'gray'}>{t.priority}</Badge>
-                </span>
-                <span className="text-right">
-                  <Badge color={TICKET_STATUS_COLOR[t.status] ?? 'gray'}>{t.status}</Badge>
-                </span>
-                <span className="text-xs text-right whitespace-nowrap" style={{ color: colors.text.muted }}>
-                  {new Date(t.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}
-                </span>
-              </button>
-            ))}
-          </>
+          </div>
         )}
       </div>
     </div>

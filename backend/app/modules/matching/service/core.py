@@ -97,6 +97,21 @@ def _get_employer_profile_approved(user: User, db: Session) -> EmployerProfile:
     return profile
 
 
+def _get_employer_profile_or_pending(user: User, db: Session) -> EmployerProfile | None:
+    """Like _get_employer_profile_approved, but returns None instead of raising
+    when the profile exists but is still awaiting admin approval — for read
+    endpoints (analytics, upcoming interviews) that should degrade to an empty
+    result while pending, the same way get_dashboard_kpis already does, rather
+    than 404ing and blanking the whole dashboard. Still raises if the profile
+    is missing entirely — that's a real auth problem, not a pending-approval one."""
+    profile = db.query(EmployerProfile).filter(EmployerProfile.user_id == user.id).first()
+    if not profile:
+        raise AuthException("Employer profile not found.")
+    if not profile.is_approved:
+        return None
+    return profile
+
+
 def _get_company_employer_ids(profile: EmployerProfile, db: Session) -> list:
     """All EmployerProfile.id values sharing this profile's company."""
     if not profile.company_id:

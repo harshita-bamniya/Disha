@@ -52,7 +52,12 @@ def get_employer_funnel(user: User, db: Session) -> EmployerFunnelResponse:
     """Company-wide application funnel — counts at each stage are cumulative
     'reached this stage or beyond', not just currently-sitting-there counts,
     so the funnel reads as a conversion drop-off rather than a live snapshot."""
-    employer = core._get_employer_profile_approved(user, db)
+    employer = core._get_employer_profile_or_pending(user, db)
+    if not employer:
+        return EmployerFunnelResponse(
+            total_applications=0,
+            stages=[EmployerFunnelStage(stage=stage, count=0, pct_of_total=0.0) for stage in FUNNEL_STAGE_ORDER],
+        )
     company_employer_ids = core._get_company_employer_ids(employer, db)
 
     job_ids = core._get_scoped_job_ids(employer, company_employer_ids, user.role_name, db)
@@ -84,7 +89,9 @@ def get_employer_funnel(user: User, db: Session) -> EmployerFunnelResponse:
 def get_job_performance(user: User, db: Session) -> JobPerformanceResponse:
     """Per-job application breakdown — views aren't tracked yet, so this
     covers applications/shortlist/interview/hire/conversion only."""
-    employer = core._get_employer_profile_approved(user, db)
+    employer = core._get_employer_profile_or_pending(user, db)
+    if not employer:
+        return JobPerformanceResponse(jobs=[])
     company_employer_ids = core._get_company_employer_ids(employer, db)
 
     scoped_ids = core._get_scoped_job_ids(employer, company_employer_ids, user.role_name, db)
@@ -125,7 +132,9 @@ def get_recruiter_performance(user: User, db: Session) -> RecruiterPerformanceRe
     entirely from existing audit tables (status_history, notes, interview
     feedback); no new model needed.
     """
-    employer = core._get_employer_profile_approved(user, db)
+    employer = core._get_employer_profile_or_pending(user, db)
+    if not employer:
+        return RecruiterPerformanceResponse(recruiters=[])
     company_employer_ids = core._get_company_employer_ids(employer, db)
 
     team = (
@@ -292,12 +301,14 @@ def get_dashboard_kpis(user: User, db: Session) -> DashboardKpis:
 def get_application_trend(user: User, db: Session, days: int = 30) -> ApplicationTrendResponse:
     from datetime import datetime, timedelta, timezone
 
-    employer = core._get_employer_profile_approved(user, db)
-    company_employer_ids = core._get_company_employer_ids(employer, db)
-    job_ids = core._get_scoped_job_ids(employer, company_employer_ids, user.role_name, db)
-
     now = datetime.now(timezone.utc)
     start = now - timedelta(days=days)
+
+    employer = core._get_employer_profile_or_pending(user, db)
+    job_ids: list = []
+    if employer:
+        company_employer_ids = core._get_company_employer_ids(employer, db)
+        job_ids = core._get_scoped_job_ids(employer, company_employer_ids, user.role_name, db)
 
     counts_by_day: dict[str, int] = {}
     if job_ids:

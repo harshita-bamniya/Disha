@@ -58,7 +58,7 @@ export default function InterviewHomePage() {
 
         <main style={{ padding: '24px 28px' }}>
           <ActivePrepBanner showSwitch />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24, maxWidth: 1000 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, maxWidth: 1000 }}>
             {/* Left: Start new session */}
             <div>
               <div style={{
@@ -192,7 +192,7 @@ export default function InterviewHomePage() {
                     Performance Overview
                   </h3>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, marginBottom: 16 }}>
                     {[
                       { label: 'Total Sessions', value: performance.total_sessions },
                       { label: 'Completed', value: performance.completed_sessions },

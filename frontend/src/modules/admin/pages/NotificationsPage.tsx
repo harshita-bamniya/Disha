@@ -358,7 +358,7 @@ function DeliveryLogTab() {
       )}
 
       {/* Delivery status filter */}
-      <div style={{ display: 'flex', gap: 2, background: colors.surface.bg, borderRadius: 10, padding: 3, border: '1px solid rgba(0,0,0,0.08)', width: 'fit-content' }}>
+      <div style={{ display: 'flex', gap: 2, background: colors.surface.bg, borderRadius: 10, padding: 3, border: '1px solid rgba(0,0,0,0.08)', width: 'fit-content', flexWrap: 'wrap' }}>
         {FILTERS.map(f => (
           <button
             key={f.key}
@@ -513,7 +513,7 @@ export default function NotificationsPage() {
       </div>
 
       {/* Page tabs */}
-      <div style={{ display: 'flex', gap: 2, background: colors.surface.bg, borderRadius: 10, padding: 3, border: '1px solid rgba(0,0,0,0.08)', width: 'fit-content' }}>
+      <div style={{ display: 'flex', gap: 2, background: colors.surface.bg, borderRadius: 10, padding: 3, border: '1px solid rgba(0,0,0,0.08)', width: 'fit-content', flexWrap: 'wrap' }}>
         <button onClick={() => setPageTab('announcements')} style={tabBtnStyle(pageTab === 'announcements')} className="flex items-center gap-1.5">
           <Radio className="w-3 h-3" />
           Announcements
@@ -528,7 +528,7 @@ export default function NotificationsPage() {
       {pageTab === 'announcements' && (
         <>
           {/* Filter tabs */}
-          <div style={{ display: 'flex', gap: 2, background: colors.surface.bg, borderRadius: 10, padding: 3, border: '1px solid rgba(0,0,0,0.08)', width: 'fit-content' }}>
+          <div style={{ display: 'flex', gap: 2, background: colors.surface.bg, borderRadius: 10, padding: 3, border: '1px solid rgba(0,0,0,0.08)', width: 'fit-content', flexWrap: 'wrap' }}>
             {FILTERS.map(f => (
               <button
                 key={f.key}

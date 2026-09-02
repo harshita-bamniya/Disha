@@ -110,8 +110,10 @@ export default function InterviewLobbyPage() {
         </div>
       </div>
 
-      {/* Main content */}
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 380px', gap: 0 }}>
+      {/* Main content — fixed 380px sidebar has no room on narrow viewports,
+          so it drops to auto-fit/minmax and stacks below the camera preview
+          instead of squeezing horizontally. */}
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 0 }}>
         {/* Left: Camera preview + info */}
         <div style={{ padding: '32px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
           {/* Camera */}

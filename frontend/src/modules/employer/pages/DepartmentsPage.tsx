@@ -229,7 +229,7 @@ export default function DepartmentsPage() {
 
           {/* Summary strip */}
           {(departments ?? []).length > 0 && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 24 }}>
               {[
                 { icon: Building2, label: 'Departments',   value: departments!.length, color: '#1E3A5F' },
                 { icon: Users,     label: 'Team members',  value: totalMembers,        color: colors.brand.navy },
@@ -280,7 +280,7 @@ export default function DepartmentsPage() {
             </div>
           ) : (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
                 {departments.map(dept => (
                   <DepartmentCard key={dept.id} dept={dept} canManage={canManage} onEdit={openEdit} onDelete={setDeleteConfirm} />
                 ))}

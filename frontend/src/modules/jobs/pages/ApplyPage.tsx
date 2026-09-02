@@ -121,7 +121,7 @@ function ContactInfoStep({
         Review your contact details. This information will be shared with the employer.
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
         <div style={{ gridColumn: '1 / -1' }}>
           <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: INK, marginBottom: 6 }}>
             Full name <span style={{ color: RED }}>*</span>
@@ -285,7 +285,7 @@ function ResumeStep({
         }}>
           <FileText size={24} color={MUTED} style={{ marginBottom: 8 }} />
           <p style={{ margin: 0, fontSize: 13, color: MUTED }}>
-            No resumes yet — upload one above to continue.
+            No resumes yet — upload one above if you'd like to attach it.
           </p>
         </div>
       )}
@@ -776,7 +776,7 @@ export default function ApplyPage() {
         )}
 
         {/* not eligible */}
-        {!isLoading && elig && !elig.eligible && (
+        {!isLoading && !submitted && elig && !elig.eligible && (
           <div style={{ background: WHITE, borderRadius: 16, border: `1px solid ${BORDER}`, overflow: 'hidden' }}>
             <div style={{ height: 4, background: '#F59E0B' }} />
             <div style={{ padding: '32px 28px' }}>

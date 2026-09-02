@@ -139,8 +139,8 @@ function GoogleCalendarBanner() {
       )}
 
       {/* Connection card */}
-      <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 14, padding: '14px 18px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: '1 1 220px' }}>
           {/* Google Calendar icon */}
           <div style={{ width: 36, height: 36, borderRadius: 8, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <CalendarDays size={18} color={colors.state.info} />
@@ -211,8 +211,8 @@ export default function EmployerCalendarPage() {
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {items.map(iv => (
-                    <div key={iv.id} style={{ background: '#fff', border: `1px solid ${colors.border.default}`, borderRadius: 12, padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div key={iv.id} style={{ background: '#fff', border: `1px solid ${colors.border.default}`, borderRadius: 12, padding: '12px 16px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: '1 1 220px', minWidth: 0 }}>
                         <div style={{ textAlign: 'center', minWidth: 52 }}>
                           <p style={{ fontSize: 14, fontWeight: 800, color: colors.text.ink, margin: 0 }}>
                             {new Date(iv.scheduled_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
@@ -228,7 +228,7 @@ export default function EmployerCalendarPage() {
                           </p>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
                         {iv.meeting_link && (
                           <a href={iv.meeting_link} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: colors.state.info, textDecoration: 'none' }}>
                             <Video size={12} />Join

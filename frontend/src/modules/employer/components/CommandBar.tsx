@@ -9,6 +9,7 @@ import {
   BarChart3, CreditCard, ShieldCheck, Briefcase, Plus, X,
 } from 'lucide-react'
 import { colors, radius } from '@/design-system/tokens'
+import { useIsMobile } from '@/shared/hooks/useIsMobile'
 
 interface CommandItem {
   id: string
@@ -26,6 +27,7 @@ export function CommandBar({ onPostJob }: { onPostJob?: () => void }) {
   const [selected, setSelected] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -88,14 +90,19 @@ export function CommandBar({ onPostJob }: { onPostJob?: () => void }) {
         title="Quick navigation (⌘K)"
         style={{
           display: 'flex', alignItems: 'center', gap: 8,
-          height: 34, padding: '0 12px', borderRadius: 9,
+          height: 34, padding: isMobile ? 0 : '0 12px', borderRadius: 9,
+          width: isMobile ? 34 : undefined, justifyContent: 'center',
           border: `1px solid ${colors.border.default}`, background: colors.surface.elevated,
-          color: colors.text.muted, fontSize: 13, cursor: 'pointer',
+          color: colors.text.muted, fontSize: 13, cursor: 'pointer', flexShrink: 0,
         }}
       >
         <Search size={13} />
-        <span style={{ fontSize: 12 }}>Search…</span>
-        <kbd style={{ fontSize: 10, fontWeight: 700, color: colors.text.muted, background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: 4, padding: '1px 5px', marginLeft: 4 }}>⌘K</kbd>
+        {!isMobile && (
+          <>
+            <span style={{ fontSize: 12 }}>Search…</span>
+            <kbd style={{ fontSize: 10, fontWeight: 700, color: colors.text.muted, background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: 4, padding: '1px 5px', marginLeft: 4 }}>⌘K</kbd>
+          </>
+        )}
       </button>
     )
   }

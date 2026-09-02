@@ -15,6 +15,7 @@ import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors } from '@/design-syste
 import { getJobs, type JobListItem } from '@/api/matching'
 import { jobPlanApi } from '@/api/jobPlan'
 import { trackJobEvent } from '@/lib/analytics'
+import { useIsMobile } from '@/shared/hooks/useIsMobile'
 
 const INK_S    = INK_SFT
 const CREAM_DK = colors.surface.elevated
@@ -251,6 +252,7 @@ function EmptyState({ hasFilters }: { hasFilters: boolean }) {
 
 // ── JobsPage ───────────────────────────────────────────────────────────────────
 export default function JobsPage() {
+  const isMobile = useIsMobile()
   const [sector,   setSector]   = useState('')
   const [jobType,  setJobType]  = useState('')
   const [minSal,   setMinSal]   = useState<number | null>(null)
@@ -288,14 +290,18 @@ export default function JobsPage() {
         below={<Breadcrumb items={[{ label: 'Dashboard', href: '/app/dashboard' }, { label: 'Jobs' }]} />}
       />
 
-        {/* ── body: sidebar + feed ── */}
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        {/* ── body: sidebar + feed ──
+            Two independently-scrolling panes side by side on desktop; on
+            mobile there's no room for that, so it stacks into one column
+            and scrolls with the page instead. */}
+        <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', flex: 1, overflow: isMobile ? 'visible' : 'hidden' }}>
 
           {/* ── filter sidebar ── */}
           <aside style={{
-            width: 210, flexShrink: 0,
-            background: '#fff', borderRight: `1px solid ${BORDER}`,
-            padding: '20px 16px', overflowY: 'auto',
+            width: isMobile ? '100%' : 210, flexShrink: 0,
+            background: '#fff', borderRight: isMobile ? 'none' : `1px solid ${BORDER}`,
+            borderBottom: isMobile ? `1px solid ${BORDER}` : 'none',
+            padding: '20px 16px', overflowY: isMobile ? 'visible' : 'auto',
           }}>
             {/* search */}
             <form
@@ -363,7 +369,7 @@ export default function JobsPage() {
           </aside>
 
           {/* ── main feed ── */}
-          <main style={{ flex: 1, minWidth: 0, padding: '20px 28px 40px', overflowY: 'auto' }}>
+          <main style={{ flex: 1, minWidth: 0, padding: isMobile ? '20px 16px 40px' : '20px 28px 40px', overflowY: isMobile ? 'visible' : 'auto' }}>
 
             {/* count + sort row */}
             {data && data.jobs.length > 0 && (
@@ -379,7 +385,7 @@ export default function JobsPage() {
 
             {/* loading */}
             {isLoading && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
                 {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} lines={3} />)}
               </div>
             )}
@@ -402,7 +408,7 @@ export default function JobsPage() {
                 {data.jobs.length === 0
                   ? <EmptyState hasFilters={hasFilters} />
                   : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
                       {data.jobs.map(job => (
                         <JobCard key={job.id} job={job} hasRoadmap={roadmapJobIds.has(job.id)} />
                       ))}

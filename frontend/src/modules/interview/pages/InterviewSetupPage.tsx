@@ -136,7 +136,7 @@ function Step2Experience({ level, setLevel, totalQ, setTotalQ, jobDesc, setJobDe
 
       <div style={{ marginBottom: 26 }}>
         <label style={S.label}>Experience Level</label>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
           {EXPERIENCE_LEVELS.map(l => {
             const sel = level === l.value
             return (
@@ -225,7 +225,7 @@ function Step3Device({ cam, mic, net, videoRef, checkAll }: ReturnType<typeof us
       <h2 style={S.stepTitle}>System Check</h2>
       <p style={S.stepSub}>We'll verify your camera, microphone, and connection before starting. This takes 5 seconds.</p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginBottom: 20 }}>
         {/* Camera preview */}
         <div style={{ background: WHITE, borderRadius: 13, padding: '14px 16px', border: `1.5px solid ${CREAM_DK}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
@@ -416,7 +416,12 @@ export default function InterviewSetupPage() {
   const isLast  = step === STEPS.length - 1
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+    // The fixed 260px stepper sidebar has no room next to the form panel on
+    // narrow viewports, so the row wraps and the sidebar stacks above the
+    // step content instead of squeezing it down to a sliver. overflow
+    // switches from hidden to overflow-y:auto so the stacked content is
+    // reachable by scrolling rather than clipped.
+    <div style={{ display: 'flex', flexWrap: 'wrap', minHeight: '100vh', overflowY: 'auto' }}>
 
       {/* ── navy sidebar ── */}
       <div style={{
@@ -500,7 +505,7 @@ export default function InterviewSetupPage() {
       </div>
 
       {/* ── right panel ── */}
-      <div style={{ flex: 1, background: CREAM, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ flex: '1 1 320px', background: CREAM, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
 
         {/* inner centering column */}
         <div style={{ flex: 1, minHeight: 0, padding: '24px 28px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>

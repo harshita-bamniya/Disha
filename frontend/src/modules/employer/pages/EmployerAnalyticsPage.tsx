@@ -86,26 +86,31 @@ function JobPerfTable({ jobs }: { jobs: { title: string; hired: number; total_ap
   if (!jobs.length) return <p style={{ padding: '16px 20px', fontSize: 13, color: C.ink3, margin: 0 }}>No job data yet.</p>
   const COLS = '1fr 90px 90px 100px'
   return (
-    <div>
-      <div style={{ display: 'grid', gridTemplateColumns: COLS, padding: '8px 20px', background: colors.surface.bg, borderBottom: `1px solid ${C.border}`, fontSize: 11, fontWeight: 600, color: C.ink2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-        {['Job Title', 'Applications', 'Hired', 'Conversion'].map(h => <span key={h}>{h}</span>)}
-      </div>
-      {jobs.map((j, i) => (
-        <div key={i} style={{ display: 'grid', gridTemplateColumns: COLS, padding: '10px 20px', borderBottom: `1px solid ${C.borderLight}`, fontSize: 13, alignItems: 'center' }}
-          onMouseOver={e => { e.currentTarget.style.background = colors.surface.elevated }}
-          onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
-        >
-          <span style={{ fontWeight: 500, color: C.ink1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{j.title}</span>
-          <span style={{ color: C.ink2, fontVariantNumeric: 'tabular-nums' }}>{j.total_applications}</span>
-          <span style={{ color: C.ink2, fontVariantNumeric: 'tabular-nums' }}>{j.hired}</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ flex: 1, height: 4, background: C.borderLight, borderRadius: 99, overflow: 'hidden' }}>
-              <div style={{ width: `${j.conversion_rate_pct}%`, height: '100%', background: C.accent, borderRadius: 99 }} />
-            </div>
-            <span style={{ fontSize: 12, color: C.accent, fontWeight: 600, width: 36, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{j.conversion_rate_pct}%</span>
-          </div>
+    // Narrower than ~460px, this table scrolls horizontally rather than
+    // squishing columns or overflowing the card — see DepartmentsTable
+    // in EmployerDashboardPage.tsx for the reference pattern.
+    <div style={{ overflowX: 'auto' }}>
+      <div style={{ minWidth: 460 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: COLS, padding: '8px 20px', background: colors.surface.bg, borderBottom: `1px solid ${C.border}`, fontSize: 11, fontWeight: 600, color: C.ink2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          {['Job Title', 'Applications', 'Hired', 'Conversion'].map(h => <span key={h}>{h}</span>)}
         </div>
-      ))}
+        {jobs.map((j, i) => (
+          <div key={i} style={{ display: 'grid', gridTemplateColumns: COLS, padding: '10px 20px', borderBottom: `1px solid ${C.borderLight}`, fontSize: 13, alignItems: 'center' }}
+            onMouseOver={e => { e.currentTarget.style.background = colors.surface.elevated }}
+            onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
+          >
+            <span style={{ fontWeight: 500, color: C.ink1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{j.title}</span>
+            <span style={{ color: C.ink2, fontVariantNumeric: 'tabular-nums' }}>{j.total_applications}</span>
+            <span style={{ color: C.ink2, fontVariantNumeric: 'tabular-nums' }}>{j.hired}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ flex: 1, height: 4, background: C.borderLight, borderRadius: 99, overflow: 'hidden' }}>
+                <div style={{ width: `${j.conversion_rate_pct}%`, height: '100%', background: C.accent, borderRadius: 99 }} />
+              </div>
+              <span style={{ fontSize: 12, color: C.accent, fontWeight: 600, width: 36, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{j.conversion_rate_pct}%</span>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -115,21 +120,26 @@ function RecruiterTable({ recruiters }: { recruiters: { name: string; jobs_poste
   if (!recruiters.length) return <p style={{ padding: '16px 20px', fontSize: 13, color: C.ink3, margin: 0 }}>No recruiter data yet.</p>
   const COLS = '1fr 90px 90px 70px'
   return (
-    <div>
-      <div style={{ display: 'grid', gridTemplateColumns: COLS, padding: '8px 20px', background: colors.surface.bg, borderBottom: `1px solid ${C.border}`, fontSize: 11, fontWeight: 600, color: C.ink2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-        {['Recruiter', 'Jobs Posted', 'Applications', 'Hired'].map(h => <span key={h}>{h}</span>)}
-      </div>
-      {recruiters.map((r, i) => (
-        <div key={i} style={{ display: 'grid', gridTemplateColumns: COLS, padding: '10px 20px', borderBottom: `1px solid ${C.borderLight}`, fontSize: 13, alignItems: 'center' }}
-          onMouseOver={e => { e.currentTarget.style.background = colors.surface.elevated }}
-          onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
-        >
-          <span style={{ fontWeight: 500, color: C.ink1 }}>{r.name}</span>
-          <span style={{ color: C.ink2, fontVariantNumeric: 'tabular-nums' }}>{r.jobs_posted}</span>
-          <span style={{ color: C.ink2, fontVariantNumeric: 'tabular-nums' }}>{r.total_applications}</span>
-          <span style={{ color: C.green, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{r.hired}</span>
+    // Narrower than ~400px, this table scrolls horizontally rather than
+    // squishing columns or overflowing the card — see DepartmentsTable
+    // in EmployerDashboardPage.tsx for the reference pattern.
+    <div style={{ overflowX: 'auto' }}>
+      <div style={{ minWidth: 400 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: COLS, padding: '8px 20px', background: colors.surface.bg, borderBottom: `1px solid ${C.border}`, fontSize: 11, fontWeight: 600, color: C.ink2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          {['Recruiter', 'Jobs Posted', 'Applications', 'Hired'].map(h => <span key={h}>{h}</span>)}
         </div>
-      ))}
+        {recruiters.map((r, i) => (
+          <div key={i} style={{ display: 'grid', gridTemplateColumns: COLS, padding: '10px 20px', borderBottom: `1px solid ${C.borderLight}`, fontSize: 13, alignItems: 'center' }}
+            onMouseOver={e => { e.currentTarget.style.background = colors.surface.elevated }}
+            onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
+          >
+            <span style={{ fontWeight: 500, color: C.ink1 }}>{r.name}</span>
+            <span style={{ color: C.ink2, fontVariantNumeric: 'tabular-nums' }}>{r.jobs_posted}</span>
+            <span style={{ color: C.ink2, fontVariantNumeric: 'tabular-nums' }}>{r.total_applications}</span>
+            <span style={{ color: C.green, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{r.hired}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -158,7 +168,7 @@ export default function EmployerAnalyticsPage() {
 
           {/* KPI strip */}
           {kpis && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 14 }}>
               <StatCard icon={Briefcase}   label="Active Jobs"        value={fmtNum(kpis.active_jobs)} />
               <StatCard icon={Users}       label="Total Applications" value={fmtNum(kpis.total_applications)} />
               <StatCard icon={Send}        label="Offers Sent"        value={fmtNum(kpis.offers_sent)} />
@@ -169,7 +179,7 @@ export default function EmployerAnalyticsPage() {
           )}
 
           {/* Funnel + Donut */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
             <div style={DS.card}>
               <div style={DS.cardHeader}>
                 <span style={{ fontSize: 13, fontWeight: 600, color: C.ink1 }}>Application Funnel</span>

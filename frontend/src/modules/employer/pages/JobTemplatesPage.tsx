@@ -247,7 +247,7 @@ export default function JobTemplatesPage() {
 
         {/* Summary */}
         {(templates ?? []).length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 16 }}>
             {[
               { icon: FileSignature, label: 'Templates', value: templates!.length },
               { icon: Tags, label: 'Total skills', value: totalSkills },

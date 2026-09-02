@@ -124,7 +124,7 @@ export default function DashboardPage() {
 
         {error && (
           getApiError(error).toLowerCase().includes('onboarding incomplete') ? (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 24, alignItems: 'start' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, alignItems: 'start' }}>
               <div style={{ background: 'white', border: `1px solid ${BORDER}`, borderRadius: 18, padding: '32px 28px', textAlign: 'center' }}>
                 <Sparkles size={28} color={NAVY} style={{ marginBottom: 10 }} />
                 <p style={{ fontSize: 16, fontWeight: 700, color: INK, marginBottom: 6 }}>Complete your profile to unlock job matches</p>
@@ -142,7 +142,7 @@ export default function DashboardPage() {
 
             {/* Email verification banner */}
             {showEmailBanner && (
-              <div style={{ background: colors.state.warningBg, border: '1px solid #FDE68A', borderRadius: 14, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ background: colors.state.warningBg, border: '1px solid #FDE68A', borderRadius: 14, padding: '12px 18px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14 }}>
                 <Mail size={18} color={colors.state.warning} style={{ flexShrink: 0 }} />
                 <div style={{ flex: 1 }}>
                   {emailVerifSent
@@ -165,7 +165,7 @@ export default function DashboardPage() {
 
             {/* Onboarding progress banner */}
             {showOnboardingBanner && (
-              <div style={{ background: 'white', border: `1px solid ${BORDER}`, borderRadius: 14, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ background: 'white', border: `1px solid ${BORDER}`, borderRadius: 14, padding: '14px 18px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 10, background: NAVY, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <ClipboardList size={16} color="white" />
                 </div>

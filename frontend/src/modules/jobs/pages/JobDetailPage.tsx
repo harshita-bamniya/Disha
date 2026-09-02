@@ -270,7 +270,7 @@ export default function JobDetailPage() {
               {/* prep tools */}
               <div style={{ padding: '20px 28px', borderBottom: `1px solid ${BORDER}` }}>
                 <p style={{ fontSize: 9.5, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '.5px', margin: '0 0 12px' }}>Preparation tools</p>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
 
                   {/* Generate Roadmap */}
                   <div style={{ borderRadius: 13, border: `1px solid ${BORDER}`, padding: '14px 14px', background: CREAM, display: 'flex', flexDirection: 'column', gap: 8 }}>

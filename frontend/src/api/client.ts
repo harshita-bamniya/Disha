@@ -42,6 +42,30 @@ apiClient.interceptors.request.use((config) => {
   return config
 })
 
+// The refresh token is rotated server-side on every /auth/refresh call — the
+// old one is revoked, and reusing an already-revoked one wipes ALL of the
+// user's refresh tokens (reuse-detection). If two requests get a 401 around
+// the same time (very plausible — e.g. an interview page polling several
+// endpoints), each independently calling /auth/refresh with the same
+// not-yet-rotated token means the second call reuses a token the first call
+// just revoked, forcing a full logout even though the session was fine. This
+// shared in-flight promise makes every 401 that arrives while a refresh is
+// already underway await that same call instead of starting its own.
+let refreshPromise: Promise<{ access_token: string; refresh_token: string }> | null = null
+
+function refreshTokens(refreshToken: string) {
+  if (!refreshPromise) {
+    refreshPromise = axios
+      .post(`${BASE_URL}/api/auth/refresh`, { refresh_token: refreshToken })
+      .then(({ data }) => {
+        useAuthStore.getState().setTokens(data.access_token, data.refresh_token)
+        return data
+      })
+      .finally(() => { refreshPromise = null })
+  }
+  return refreshPromise
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -57,10 +81,7 @@ apiClient.interceptors.response.use(
       }
 
       try {
-        const { data } = await axios.post(`${BASE_URL}/api/auth/refresh`, {
-          refresh_token: refreshToken,
-        })
-        useAuthStore.getState().setAccessToken(data.access_token)
+        const data = await refreshTokens(refreshToken)
         original.headers.Authorization = `Bearer ${data.access_token}`
         return apiClient(original)
       } catch {

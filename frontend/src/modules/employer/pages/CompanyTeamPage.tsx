@@ -531,8 +531,8 @@ export default function CompanyTeamPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
               {/* Stat row */}
-              <div style={{ display: 'flex', gap: 12 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+                <div style={{ flex: '1 1 180px', minWidth: 0 }}>
                   <StatCard
                     icon={Users}
                     label="Team Members"
@@ -542,7 +542,7 @@ export default function CompanyTeamPage() {
                     accent={C.accent}
                   />
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ flex: '1 1 180px', minWidth: 0 }}>
                   <StatCard
                     icon={MapPin}
                     label="Offices"
@@ -552,7 +552,7 @@ export default function CompanyTeamPage() {
                     accent={C.blue}
                   />
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ flex: '1 1 180px', minWidth: 0 }}>
                   <StatCard
                     icon={BriefcaseIcon}
                     label="Departments"
@@ -565,7 +565,7 @@ export default function CompanyTeamPage() {
               </div>
 
               {/* Manage cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
 
                 {/* Offices card */}
                 <div style={{ ...DS.card }}>
@@ -740,7 +740,7 @@ export default function CompanyTeamPage() {
                       }}
                     >
                       <Avatar name={m.contact_person ?? '?'} size={38} shape="rounded" />
-                      <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ flex: '1 1 180px', minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                           <span style={{ fontSize: 13, fontWeight: 700, color: C.ink1 }}>{m.contact_person}</span>
                           {m.is_owner && <Crown size={13} color={C.amber} />}
@@ -833,7 +833,7 @@ export default function CompanyTeamPage() {
                       }}>
                         <Activity size={13} color={C.accent} />
                       </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ flex: '1 1 180px', minWidth: 0 }}>
                         <p style={{ fontSize: 13, fontWeight: 600, color: C.ink1, margin: 0 }}>
                           {formatAction(entry.action)}
                         </p>

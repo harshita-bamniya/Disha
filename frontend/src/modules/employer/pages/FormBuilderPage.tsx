@@ -339,7 +339,7 @@ function KnockoutModal({
           style={{ ...inputStyle, marginBottom: 20 }}
         />
 
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', flexWrap: 'wrap' }}>
           {initial && (
             <Button variant="outline" size="sm" onClick={onDelete} className="text-red-600 border-red-600">
               <Trash2 size={13} />Remove rule
@@ -365,8 +365,8 @@ function SectionTitleEdit({
   const [title, setTitle] = useState(section.title)
   const [desc, setDesc] = useState(section.description ?? '')
   return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', flex: 1 }}>
-      <div style={{ flex: 1 }}>
+    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', flex: 1, flexWrap: 'wrap' }}>
+      <div style={{ flex: '1 1 160px', minWidth: 0 }}>
         <input value={title} onChange={e => setTitle(e.target.value)} style={{ ...inputStyle, marginBottom: 6 }} placeholder="Section title" />
         <input value={desc} onChange={e => setDesc(e.target.value)} style={inputStyle} placeholder="Optional description" />
       </div>
@@ -641,8 +641,8 @@ function SectionBlock({
 
       {/* Delete confirm */}
       {deleteConfirm && (
-        <div style={{ padding: '12px 20px', background: C.redBg, borderBottom: `1px solid #FCA5A5`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <span style={{ fontSize: 13, color: C.red }}>Delete this section and all its questions?</span>
+        <div style={{ padding: '12px 20px', background: C.redBg, borderBottom: `1px solid #FCA5A5`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 13, color: C.red, flex: '1 1 200px' }}>Delete this section and all its questions?</span>
           <div style={{ display: 'flex', gap: 8 }}>
             <Button variant="outline" size="sm" onClick={() => setDeleteConfirm(false)}>Cancel</Button>
             <Button variant="danger" size="sm" onClick={() => deleteSection.mutate()}>Delete</Button>
@@ -910,7 +910,7 @@ export default function FormBuilderPage() {
           )}
 
           {/* Info bar */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <FileText size={13} color={C.ink3} />
               <span style={{ fontSize: 12, color: C.ink2 }}>{sortedSections.length} section{sortedSections.length !== 1 ? 's' : ''}</span>

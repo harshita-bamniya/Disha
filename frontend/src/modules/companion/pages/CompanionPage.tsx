@@ -320,9 +320,9 @@ export default function CompanionPage() {
         icon={<Heart size={14} color="#E08E79" />}
       />
 
-        <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+        <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', minHeight: 0 }}>
           {/* Chat area */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <div style={{ flex: '1 1 320px', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
               {isLoading && (
                 <div style={{ display: 'flex', justifyContent: 'center', padding: 20 }}>
@@ -432,7 +432,7 @@ export default function CompanionPage() {
           </div>
 
           {/* Side panel — growth dashboard */}
-          <div style={{ width: 300, flexShrink: 0, padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto', borderLeft: '1px solid rgba(244,168,150,0.2)' }}>
+          <div style={{ flex: '0 1 300px', minWidth: 260, padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto', borderLeft: '1px solid rgba(244,168,150,0.2)' }}>
             <WeeklyInsights />
             <MoodCheckIn />
             <JourneyTimeline />

@@ -14,7 +14,12 @@ interface AuthState {
   isAuthenticated: boolean
   setAuth: (user: User, tokens: AuthTokens, rememberMe?: boolean) => void
   setUser: (user: User) => void
-  setAccessToken: (token: string) => void
+  // Refresh tokens are rotated server-side on every /auth/refresh call — the
+  // old one is revoked and reusing it wipes all of the user's refresh tokens.
+  // Both the new access and refresh token from a refresh response must be
+  // saved together, or the next refresh cycle uses a dead token and force-logs
+  // the user out.
+  setTokens: (accessToken: string, refreshToken: string) => void
   logout: () => void
 }
 
@@ -38,7 +43,7 @@ export const useAuthStore = create<AuthState>()(
 
       setUser: (user) => set({ user }),
 
-      setAccessToken: (token) => set({ accessToken: token }),
+      setTokens: (accessToken, refreshToken) => set({ accessToken, refreshToken }),
 
       logout: () =>
         set({

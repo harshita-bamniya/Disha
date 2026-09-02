@@ -67,8 +67,8 @@ export default function RoadmapPage() {
         }
       />
 
-        <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-          <main style={{ padding: '32px 36px', flex: 1, minWidth: 0, overflowY: 'auto' }}>
+        <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', minHeight: 0 }}>
+          <main style={{ padding: '32px 36px', flex: '1 1 320px', minWidth: 0, overflowY: 'auto' }}>
             {prepLoading && (
               <div style={{ display: 'flex', justifyContent: 'center', padding: 80 }}>
                 <Loader2 size={28} color="#6366F1" style={{ animation: 'spin 0.8s linear infinite' }} />

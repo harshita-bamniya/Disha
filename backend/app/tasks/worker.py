@@ -85,6 +85,29 @@ celery_app.conf.update(
 )
 
 
+# ── Dispatch helper ────────────────────────────────────────────────────────────
+
+def safe_dispatch(task, *args, **kwargs) -> bool:
+    """Fire-and-forget task dispatch that never blocks the calling request.
+
+    A plain `task.delay(...)` publishes through Celery's default retry policy,
+    which keeps retrying the broker connection (with backoff) for many seconds
+    before finally raising — so when Redis is unreachable, a request-path
+    `.delay()` call hangs the whole request for that entire retry window even
+    if the caller wraps it in try/except. Passing `retry=False` here makes the
+    publish attempt fail immediately instead of retrying, so a broker outage
+    degrades to "this background task didn't get queued" (logged, swallowed)
+    rather than a stalled or failed HTTP request. Returns True if the task was
+    queued, False if dispatch failed for any reason.
+    """
+    try:
+        task.apply_async(args=args, kwargs=kwargs, retry=False)
+        return True
+    except Exception as exc:
+        logger.warning("[DISPATCH] Failed to queue %s: %s", getattr(task, "name", task), exc)
+        return False
+
+
 # ── Embedding tasks ────────────────────────────────────────────────────────────
 
 @celery_app.task(

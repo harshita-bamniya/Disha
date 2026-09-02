@@ -71,7 +71,7 @@ export default function EmployerLayout() {
                   <AlertCircle size={10} /> Pending
                 </span>
               )}
-              {roleLabel && (
+              {roleLabel && !isMobile && (
                 <span style={{ fontSize: 11, fontWeight: 600, color: colors.text.muted, background: colors.surface.elevated, borderRadius: 6, padding: '2px 7px' }}>
                   {roleLabel}
                 </span>
@@ -96,7 +96,7 @@ export default function EmployerLayout() {
             borderTop: `1px solid ${colors.border.default}`,
             background: colors.surface.card,
             padding: '12px 28px',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between',
             flexShrink: 0,
           }}>
             <span style={{ fontSize: 11, color: colors.text.muted }}>

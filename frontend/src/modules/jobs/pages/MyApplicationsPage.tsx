@@ -583,7 +583,7 @@ export default function MyApplicationsPage() {
           <div style={{ background: NAVY, padding: '20px 28px', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', width: 240, height: 240, borderRadius: '50%', background: 'rgba(255,255,255,0.03)', top: -80, right: -60, pointerEvents: 'none' }} />
             <div style={{ position: 'absolute', width: 150, height: 150, borderRadius: '50%', background: 'rgba(255,255,255,0.03)', bottom: -50, left: 80, pointerEvents: 'none' }} />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, position: 'relative' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 12, position: 'relative' }}>
               {STATS.map(s => (
                 <div key={s.label} style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: '13px 15px' }}>
                   <div style={{ width: 24, height: 24, borderRadius: 7, background: 'rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
@@ -597,10 +597,10 @@ export default function MyApplicationsPage() {
           </div>
 
           {/* body */}
-          <div style={{ display: 'flex', alignItems: 'flex-start' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start' }}>
 
             {/* left filter sidebar */}
-            <div style={{ width: 160, flexShrink: 0, padding: '20px 16px', position: 'sticky', top: 58 }}>
+            <div style={{ flex: '0 1 160px', minWidth: 160, padding: '20px 16px', position: 'sticky', top: 58 }}>
               <p style={{ fontSize: 10, fontWeight: 800, color: MUTED, textTransform: 'uppercase', letterSpacing: '.5px', margin: '0 0 8px' }}>Filter</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 20 }}>
                 {FILTER_BTNS.map(f => (
@@ -622,7 +622,7 @@ export default function MyApplicationsPage() {
             </div>
 
             {/* timeline feed */}
-            <div style={{ flex: 1, minWidth: 0, padding: '20px 24px 48px 8px' }}>
+            <div style={{ flex: '1 1 280px', minWidth: 0, padding: '20px 24px 48px 8px' }}>
 
               {isLoading && (
                 <div style={{ display: 'flex', justifyContent: 'center', padding: '64px 0' }}>

@@ -121,7 +121,7 @@ export default function EmployerSetupWizardPage() {
       {/* ── Left panel ── */}
       <div style={{
         width: '38%', background: N.navy, flexShrink: 0,
-        display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+        flexDirection: 'column', justifyContent: 'space-between',
         padding: '40px 44px', position: 'relative', overflow: 'hidden',
       }} className="hidden lg:flex">
         <div style={{ position: 'absolute', width: 400, height: 400, borderRadius: '50%', background: 'rgba(255,255,255,0.03)', top: '-100px', right: '-100px', pointerEvents: 'none' }} />
@@ -244,7 +244,7 @@ export default function EmployerSetupWizardPage() {
 
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: N.muted, marginBottom: 10 }}>Company size</div>
-                  <div role="radiogroup" aria-label="Company size" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                  <div role="radiogroup" aria-label="Company size" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(85px, 1fr))', gap: 8 }}>
                     {COMPANY_SIZES.map(({ value, label }) => (
                       <button key={value} type="button" role="radio" aria-checked={companySize === value} onClick={() => setCompanySize(value)} style={{
                         height: 40, borderRadius: 10, fontSize: 13, fontWeight: 500, cursor: 'pointer',

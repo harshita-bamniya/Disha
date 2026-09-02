@@ -64,10 +64,14 @@ export default function AuthLayout({ children, title, subtitle, variant = 'defau
       <style>{"@keyframes slideInLeft{from{opacity:0;transform:translateX(-32px)}to{opacity:1;transform:translateX(0)}}@keyframes slideInRight{from{opacity:0;transform:translateX(32px)}to{opacity:1;transform:translateX(0)}}"}</style>
     <div style={{ height: '100vh', display: 'flex', flexDirection: reversed ? 'row-reverse' : 'row', background: N.bg, overflow: 'hidden' }}>
 
-      {/* Panel — dark navy branding, fixed height, never scrolls */}
+      {/* Panel — dark navy branding, fixed height, never scrolls. `display`
+          is intentionally left out of the inline style: the "hidden lg:flex"
+          className needs to control it (below lg it's `display:none`), and
+          an inline `display` would win over the class and always show this
+          panel regardless of viewport, squeezing the form into a sliver. */}
       <div style={{
         width: '42%', background: N.navy,
-        display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+        flexDirection: 'column', justifyContent: 'space-between',
         padding: '48px 52px', position: 'sticky', top: 0, height: '100vh',
         flexShrink: 0, overflow: 'hidden', animation: panelAnim,
       }} className="hidden lg:flex">

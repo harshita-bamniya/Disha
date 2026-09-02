@@ -121,38 +121,40 @@ function ApplicantsTab({ jobId }: { jobId: string }) {
         {isLoading ? <Spinner /> : !data?.length ? (
           <Empty icon={Users} text="No applicants yet" />
         ) : (
-          <>
-            <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-2" style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
-              {['Candidate', 'Score', 'Status', 'Applied'].map((h, i) => (
-                <span key={h} className={i > 0 ? 'text-right' : ''} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>{h}</span>
+          <div style={{ overflowX: 'auto' }}>
+            <div style={{ minWidth: 480 }}>
+              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-2" style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
+                {['Candidate', 'Score', 'Status', 'Applied'].map((h, i) => (
+                  <span key={h} className={i > 0 ? 'text-right' : ''} style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: colors.text.muted }}>{h}</span>
+                ))}
+              </div>
+              {data.map((app, idx) => (
+                <button
+                  key={app.id}
+                  onClick={() => navigate(`/admin/candidates/${app.aspirant_id}`)}
+                  className="w-full grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-3 items-center text-left"
+                  style={{
+                    background: idx % 2 === 0 ? '#fff' : colors.surface.bg,
+                    borderBottom: idx < data.length - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined,
+                  }}
+                  onMouseOver={e => (e.currentTarget.style.background = colors.surface.elevated)}
+                  onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : colors.surface.bg)}
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate" style={{ color: colors.text.ink }}>{app.aspirant_name ?? app.aspirant_phone}</p>
+                    <p className="text-xs" style={{ color: colors.text.muted }}>{app.aspirant_phone}</p>
+                  </div>
+                  <span className="text-xs font-bold text-right" style={{ color: colors.text.ink }}>{app.match_score ?? '—'}</span>
+                  <span className="text-right">
+                    <Badge color={STATUS_COLOR_MAP[app.status] ?? 'gray'}>{app.status.replace(/_/g, ' ')}</Badge>
+                  </span>
+                  <span className="text-xs text-right whitespace-nowrap" style={{ color: colors.text.muted }}>
+                    {new Date(app.applied_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                  </span>
+                </button>
               ))}
             </div>
-            {data.map((app, idx) => (
-              <button
-                key={app.id}
-                onClick={() => navigate(`/admin/candidates/${app.aspirant_id}`)}
-                className="w-full grid grid-cols-[1fr_auto_auto_auto] gap-3 px-4 py-3 items-center text-left"
-                style={{
-                  background: idx % 2 === 0 ? '#fff' : colors.surface.bg,
-                  borderBottom: idx < data.length - 1 ? '1px solid rgba(0,0,0,0.06)' : undefined,
-                }}
-                onMouseOver={e => (e.currentTarget.style.background = colors.surface.elevated)}
-                onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : colors.surface.bg)}
-              >
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate" style={{ color: colors.text.ink }}>{app.aspirant_name ?? app.aspirant_phone}</p>
-                  <p className="text-xs" style={{ color: colors.text.muted }}>{app.aspirant_phone}</p>
-                </div>
-                <span className="text-xs font-bold text-right" style={{ color: colors.text.ink }}>{app.match_score ?? '—'}</span>
-                <span className="text-right">
-                  <Badge color={STATUS_COLOR_MAP[app.status] ?? 'gray'}>{app.status.replace(/_/g, ' ')}</Badge>
-                </span>
-                <span className="text-xs text-right whitespace-nowrap" style={{ color: colors.text.muted }}>
-                  {new Date(app.applied_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                </span>
-              </button>
-            ))}
-          </>
+          </div>
         )}
       </div>
     </div>

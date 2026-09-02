@@ -135,7 +135,7 @@ export default function EmployerInterviewsPage() {
       <PageHeader title="Interviews" subtitle="All scheduled and completed interviews" />
 
       {/* Toolbar */}
-      <div style={DS.toolbar}>
+      <div style={{ ...DS.toolbar, flexWrap: 'wrap' }}>
         <Tabs
           variant="pill"
           tabs={TABS}

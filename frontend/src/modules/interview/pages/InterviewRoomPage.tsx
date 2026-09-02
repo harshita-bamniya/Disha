@@ -850,12 +850,12 @@ export default function InterviewRoomPage() {
 
       {/* ── Top bar ── */}
       <div style={{
-        height: 52, padding: '0 20px', display: 'flex', alignItems: 'center', gap: 16,
+        minHeight: 52, padding: '8px 20px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16,
         background: 'rgba(15,23,42,0.95)', borderBottom: '1px solid rgba(255,255,255,0.06)',
         flexShrink: 0,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1 }}>
-          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981', animation: 'dot-blink 2s ease-in-out infinite' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '1 1 140px' }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981', animation: 'dot-blink 2s ease-in-out infinite', flexShrink: 0 }} />
           <span style={{ fontSize: 13, fontWeight: 800, color: 'white' }}>{session.job_role || 'Interview'}</span>
           {session.experience_level && (
             <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'rgba(99,102,241,0.15)', color: '#818CF8', fontWeight: 700 }}>
@@ -864,7 +864,7 @@ export default function InterviewRoomPage() {
           )}
         </div>
 
-        <div style={{ flex: 2, maxWidth: 240 }}>
+        <div style={{ flex: '2 1 160px', maxWidth: 240 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
             <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>Q {Math.min(questionIdx + 1, totalQ)} of {totalQ}</span>
             <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>{progress}%</span>
@@ -921,8 +921,13 @@ export default function InterviewRoomPage() {
         </div>
       )}
 
-      {/* ── Main layout ── */}
-      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 272px', overflow: 'hidden', minHeight: 0 }}>
+      {/* ── Main layout ──
+          On narrow viewports the fixed 272px sidebar has no room next to the
+          main video/transcript stage, so it drops to auto-fit/minmax and
+          stacks below the main content instead of squeezing horizontally.
+          The row switches from overflow:hidden to overflow-y:auto so the
+          stacked sidebar is reachable by scrolling rather than clipped. */}
+      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', overflowY: 'auto', minHeight: 0 }}>
 
         <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '14px 14px 14px 16px', gap: 12 }}>
 

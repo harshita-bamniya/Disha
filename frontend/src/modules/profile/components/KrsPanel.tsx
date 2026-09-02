@@ -73,13 +73,13 @@ export function KrsPanel() {
       </div>
 
       {isLoading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
           {[1, 2, 3].map(i => (
             <div key={i} style={{ height: 110, borderRadius: 14, background: '#F8FAFC', animation: 'pulse 2s infinite' }} />
           ))}
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
           {KRS_TILES.map(t => (
             <div key={t.key} style={{
               borderRadius: 14,

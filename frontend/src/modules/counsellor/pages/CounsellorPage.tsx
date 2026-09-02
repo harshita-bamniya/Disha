@@ -175,6 +175,10 @@ export default function CounsellorPage() {
   const autoStartedRef = useRef<Set<string>>(new Set())
   // Maps convId → the hidden auto-start trigger text so we can filter it from display
   const hiddenTriggerRef = useRef<Map<string, string>>(new Map())
+  // A suggestion chip is clicked before activeConvId's state update has landed,
+  // so sendMessage's closure would still see the old (null) activeConvId — stash
+  // the text here and send it once the effect below sees the conv actually active.
+  const pendingSuggestionRef = useRef<string | null>(null)
 
   const { data: conversations } = useQuery({
     queryKey: ['counsellor-conversations'],
@@ -225,6 +229,19 @@ export default function CounsellorPage() {
       sendMessage(triggerText, true)
     }
   }, [convDetail, isStreaming])
+
+  // Fires the suggestion chip's queued text once activeConvId has actually
+  // updated (and this render's sendMessage closure reflects it). sendMessage
+  // is deliberately omitted from the deps (matching the auto-start effect
+  // above) — referencing it here would hit its `const` declaration's temporal
+  // dead zone, since that declaration sits below both effects in this file.
+  useEffect(() => {
+    if (activeConvId && pendingSuggestionRef.current && !isStreaming) {
+      const text = pendingSuggestionRef.current
+      pendingSuggestionRef.current = null
+      sendMessage(text)
+    }
+  }, [activeConvId, isStreaming]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -327,10 +344,10 @@ export default function CounsellorPage() {
       />
 
         <NudgeBanner />
-        <div style={{ flex: 1, display: 'flex', minHeight: 0, background: '#FAFBFD' }}>
+        <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', minHeight: 0, background: '#FAFBFD' }}>
           {/* Left sidebar — conversation list */}
           <div style={{
-            width: 260, flexShrink: 0, background: 'white',
+            flex: '0 1 260px', minWidth: 220, background: 'white',
             borderRight: '1px solid #F1F5F9',
             boxShadow: '4px 0 16px rgba(15,23,42,0.03)',
             display: 'flex', flexDirection: 'column',
@@ -467,7 +484,7 @@ export default function CounsellorPage() {
           </div>
 
           {/* Main chat area */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <div style={{ flex: '1 1 320px', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             {!activeConvId ? (
               /* No conversation selected — general welcome */
               <div style={{
@@ -501,9 +518,8 @@ export default function CounsellorPage() {
                     <button
                       key={i}
                       onClick={async () => {
-                        const conv = await createConvMutation.mutateAsync()
-                        setActiveConvId(conv.id)
-                        setTimeout(() => setInput(prompt), 100)
+                        pendingSuggestionRef.current = prompt
+                        await createConvMutation.mutateAsync()
                       }}
                       style={{
                         padding: '12px 16px', borderRadius: 12, textAlign: 'left',

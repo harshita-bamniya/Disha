@@ -127,8 +127,9 @@ export default function EmployerRegisterPage() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', background: N.bg }}>
 
-      {/* ── Left panel ── */}
-      <div style={{ width: '42%', background: N.navy, flexShrink: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '48px 52px', position: 'relative', overflow: 'hidden' }} className="hidden lg:flex">
+      {/* ── Left panel ── (no inline `display`: the "hidden lg:flex" class
+          must control it, or it always shows and squeezes the form) */}
+      <div style={{ width: '42%', background: N.navy, flexShrink: 0, flexDirection: 'column', justifyContent: 'space-between', padding: '48px 52px', position: 'relative', overflow: 'hidden' }} className="hidden lg:flex">
         <div style={{ position: 'absolute', width: 480, height: 480, borderRadius: '50%', background: 'rgba(255,255,255,0.03)', top: '-140px', right: '-140px', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', width: 300, height: 300, borderRadius: '50%', background: 'rgba(255,255,255,0.02)', bottom: '5%', left: '-80px', pointerEvents: 'none' }} />
         <Link to="/" style={{ textDecoration: 'none', position: 'relative', zIndex: 1 }}>

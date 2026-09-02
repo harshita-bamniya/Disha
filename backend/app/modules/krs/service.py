@@ -54,12 +54,13 @@ def compute_and_store(user: User, db: Session) -> KrsScore:
     db.refresh(krs)
     logger.info(f"[KRS] Computed for user={user.id}: K={scores['k_score']} R={scores['r_score']} S={scores['s_score']} → {scores['composite']}")
 
-    # Dispatch profile embedding to Celery — retried automatically on failure
-    try:
-        from app.tasks.worker import embed_profile
-        embed_profile.delay(str(user.id))
-    except Exception as exc:
-        logger.warning("[KRS] Could not dispatch embed_profile task for user=%s: %s", user.id, exc)
+    # Dispatch profile embedding to Celery. Uses safe_dispatch (retry=False)
+    # rather than .delay() directly — a plain .delay() retries the broker
+    # connection with backoff for ~20s before raising, which blocked this
+    # request for that whole window even inside this try/except when Redis
+    # was unreachable. safe_dispatch fails fast instead.
+    from app.tasks.worker import embed_profile, safe_dispatch
+    safe_dispatch(embed_profile, str(user.id))
 
     return krs
 

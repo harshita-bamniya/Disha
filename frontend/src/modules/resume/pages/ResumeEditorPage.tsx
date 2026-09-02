@@ -202,7 +202,7 @@ function SummaryBlock({ value, onChange }: { value: any; onChange: (v: any) => v
         rows={3}
         style={{ fontSize: 13, lineHeight: 1.6, resize: 'none', overflow: 'hidden' }}
       />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 6 }}>
         {[['email', 'Email'], ['phone', 'Phone'], ['location', 'Location'], ['linkedin', 'LinkedIn URL']].map(([key, placeholder]) => (
           <input
             key={key} className="rsm-field"
@@ -444,15 +444,15 @@ function CertificationsBlock({ value, onChange }: { value: any; onChange: (v: an
       {items.map((c, i) => (
         <div key={i}
           draggable onDragStart={() => drag.onDragStart(i)} onDragOver={drag.onDragOver} onDrop={() => drag.onDrop(i)}
-          style={{ display: 'flex', gap: 8, alignItems: 'center', paddingLeft: 18, paddingRight: 4, position: 'relative' }}
+          style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', paddingLeft: 18, paddingRight: 4, position: 'relative' }}
         >
           <div style={{ position: 'absolute', left: -2 }}><DragHandle /></div>
           <input className="rsm-field" value={typeof c === 'string' ? c : (c.name || '')} onChange={e => update(i, 'name', e.target.value)}
-            placeholder="Certification name" style={{ flex: 2, fontSize: 12.5, fontWeight: 600, color: INK }} />
+            placeholder="Certification name" style={{ flex: '2 1 140px', fontSize: 12.5, fontWeight: 600, color: INK }} />
           <input className="rsm-field" value={c.issuer || ''} onChange={e => update(i, 'issuer', e.target.value)}
-            placeholder="Issuer" style={{ flex: 1.5, fontSize: 12, color: INK_S }} />
+            placeholder="Issuer" style={{ flex: '1.5 1 100px', fontSize: 12, color: INK_S }} />
           <input className="rsm-field" value={c.year || ''} onChange={e => update(i, 'year', e.target.value)}
-            placeholder="Year" style={{ flex: 0.6, fontSize: 12, color: MUTED }} />
+            placeholder="Year" style={{ flex: '0.6 1 70px', fontSize: 12, color: MUTED }} />
           <DeleteX onClick={() => setItems(items.filter((_, idx) => idx !== i))} />
         </div>
       ))}
@@ -471,13 +471,13 @@ function LanguagesBlock({ value, onChange }: { value: any; onChange: (v: any) =>
       {items.map((l, i) => (
         <div key={i}
           draggable onDragStart={() => drag.onDragStart(i)} onDragOver={drag.onDragOver} onDrop={() => drag.onDrop(i)}
-          style={{ display: 'flex', gap: 8, alignItems: 'center', paddingLeft: 18, position: 'relative' }}
+          style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', paddingLeft: 18, position: 'relative' }}
         >
           <div style={{ position: 'absolute', left: -2 }}><DragHandle /></div>
           <input className="rsm-field" value={typeof l === 'string' ? l : (l.language || '')} onChange={e => update(i, 'language', e.target.value)}
-            placeholder="Language (e.g. Hindi)" style={{ flex: 2, fontSize: 12.5, fontWeight: 600, color: INK }} />
+            placeholder="Language (e.g. Hindi)" style={{ flex: '2 1 140px', fontSize: 12.5, fontWeight: 600, color: INK }} />
           <select className="rsm-field" value={l.proficiency || 'Professional'} onChange={e => update(i, 'proficiency', e.target.value)}
-            style={{ flex: 1.5, fontSize: 12, color: INK_S }}>
+            style={{ flex: '1.5 1 100px', fontSize: 12, color: INK_S }}>
             {['Native', 'Fluent', 'Professional', 'Intermediate', 'Basic'].map(p => <option key={p} value={p}>{p}</option>)}
           </select>
           <DeleteX onClick={() => setItems(items.filter((_, idx) => idx !== i))} />
@@ -765,8 +765,8 @@ export default function ResumeEditorPage() {
         }
       />
 
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        <div style={{ flex: 1, overflowY: 'auto', background: CREAM, padding: '20px 24px 60px' }}>
+      <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', overflow: 'auto' }}>
+        <div style={{ flex: '1 1 300px', minWidth: 0, overflowY: 'auto', background: CREAM, padding: '20px 24px 60px' }}>
           <div style={{ maxWidth: 820, margin: '0 auto' }}>
             <ActivePrepBanner showSwitch />
           </div>

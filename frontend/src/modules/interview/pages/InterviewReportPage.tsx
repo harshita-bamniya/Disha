@@ -188,7 +188,7 @@ function FeedbackCard({ item, index }: { item: FeedbackItem; index: number }) {
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: item.rewritten_answer ? 12 : 0 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: item.rewritten_answer ? 12 : 0 }}>
             {item.strengths?.length > 0 && (
               <div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: '#10B981', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}><CheckCircle size={11} /> Strengths</div>
@@ -419,7 +419,7 @@ export default function InterviewReportPage() {
       <div style={{ background: 'linear-gradient(135deg, #0F172A, #1E293B)', padding: '32px 28px' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
           {hasReport ? (
-            <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 32, alignItems: 'center' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 32, alignItems: 'center' }}>
               <div>
                 <ReadinessGauge score={Math.round(report.overall_readiness_score)} />
                 <div style={{ textAlign: 'center', marginTop: 4 }}>
@@ -442,7 +442,7 @@ export default function InterviewReportPage() {
                 <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', lineHeight: 1.7, marginBottom: 20 }}>
                   {report.readiness_message}
                 </p>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: 12 }}>
                   {[
                     { label: 'Technical', score: Math.round(report.technical_readiness_score), icon: '⚙️' },
                     { label: 'Communication', score: Math.round(report.communication_score), icon: '🗣️' },
@@ -495,14 +495,14 @@ export default function InterviewReportPage() {
 
         {/* ── Report Tab ─────────────────────────────────────────────────────── */}
         {activeTab === 'report' && hasReport && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
             {/* Competency scores */}
             <div style={{ background: 'white', borderRadius: 18, padding: '22px 24px', border: '1.5px solid rgba(226,232,240,0.8)', gridColumn: '1 / -1' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
                 <div style={{ width: 4, height: 16, background: 'linear-gradient(180deg, #6366F1, #8B5CF6)', borderRadius: 4 }} />
                 <h2 style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>Skill Competency Breakdown</h2>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 32px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0 32px' }}>
                 {report.competencies.map(comp => (
                   <SkillBar
                     key={comp.skill}

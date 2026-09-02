@@ -303,7 +303,7 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
         {/* Body */}
         <div style={{padding:'20px 24px',display:'flex',flexDirection:'column',gap:16,flex:1}}>
           {/* Match + KRS summary */}
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))',gap:12}}>
             {candidate.match_score!==null&&(
               <div style={{background:'rgba(59,130,246,0.04)',border:'1px solid rgba(59,130,246,0.12)',borderRadius:14,padding:'14px 16px'}}>
                 <p style={{fontSize:10,fontWeight:700,color:'#94A3B8',textTransform:'uppercase',marginBottom:8}}>Job Match</p>
@@ -945,60 +945,63 @@ function ManageStagesModal({ jobId, stages, onClose }: {
             </div>
           )}
 
-          {/* Stage rows */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
-            {localStages.map((stage, idx) => (
-              <div key={stage.stage_key} style={{
-                display: 'grid', gridTemplateColumns: '24px 1fr 110px 56px 60px', alignItems: 'center', gap: 8,
-                padding: '10px 12px', borderRadius: radius.xl, border: '1.5px solid #F1F5F9', background: stage.is_visible ? colors.surface.elevated : colors.surface.elevated,
-              }}>
-                {/* Drag handle / reorder */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 1, cursor: 'pointer', color: '#CBD5E1' }}>
-                  <button onClick={() => move(idx, -1)} disabled={idx === 0} style={{ background: 'none', border: 'none', cursor: idx === 0 ? 'not-allowed' : 'pointer', color: idx === 0 ? '#E5E7EB' : '#94A3B8', padding: 0, lineHeight: 1 }}>▲</button>
-                  <button onClick={() => move(idx, 1)}  disabled={idx === localStages.length - 1} style={{ background: 'none', border: 'none', cursor: idx === localStages.length - 1 ? 'not-allowed' : 'pointer', color: idx === localStages.length - 1 ? '#E5E7EB' : '#94A3B8', padding: 0, lineHeight: 1 }}>▼</button>
+          {/* Stage rows — narrower than ~450px, this scrolls horizontally rather than
+              squishing the fixed-width columns (drag handle / swatches / toggle / chip). */}
+          <div style={{ overflowX: 'auto', marginBottom: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 450 }}>
+              {localStages.map((stage, idx) => (
+                <div key={stage.stage_key} style={{
+                  display: 'grid', gridTemplateColumns: '24px 1fr 110px 56px 60px', alignItems: 'center', gap: 8,
+                  padding: '10px 12px', borderRadius: radius.xl, border: '1.5px solid #F1F5F9', background: stage.is_visible ? colors.surface.elevated : colors.surface.elevated,
+                }}>
+                  {/* Drag handle / reorder */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 1, cursor: 'pointer', color: '#CBD5E1' }}>
+                    <button onClick={() => move(idx, -1)} disabled={idx === 0} style={{ background: 'none', border: 'none', cursor: idx === 0 ? 'not-allowed' : 'pointer', color: idx === 0 ? '#E5E7EB' : '#94A3B8', padding: 0, lineHeight: 1 }}>▲</button>
+                    <button onClick={() => move(idx, 1)}  disabled={idx === localStages.length - 1} style={{ background: 'none', border: 'none', cursor: idx === localStages.length - 1 ? 'not-allowed' : 'pointer', color: idx === localStages.length - 1 ? '#E5E7EB' : '#94A3B8', padding: 0, lineHeight: 1 }}>▼</button>
+                  </div>
+
+                  {/* Display name */}
+                  <input
+                    value={stage.display_name}
+                    onChange={e => update(idx, { display_name: e.target.value })}
+                    style={{ height: 34, padding: '0 10px', borderRadius: 8, border: `1.5px solid ${colors.border.default}`, fontSize: 13, color: colors.text.ink, background: '#fff', outline: 'none' }}
+                  />
+
+                  {/* Colour picker swatches */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+                    {COLOUR_PRESETS.map(c => (
+                      <button
+                        key={c}
+                        onClick={() => update(idx, { color: c })}
+                        style={{
+                          width: 16, height: 16, borderRadius: '50%', background: c, border: 'none', cursor: 'pointer',
+                          outline: stage.color === c ? `2px solid ${c}` : 'none',
+                          outlineOffset: 1,
+                        }}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Visibility toggle */}
+                  <button
+                    onClick={() => update(idx, { is_visible: !stage.is_visible })}
+                    style={{
+                      height: 28, borderRadius: 8, border: `1.5px solid ${stage.is_visible ? '#BBF7D0' : colors.border.default}`,
+                      background: stage.is_visible ? '#F0FDF4' : '#F9FAFB',
+                      color: stage.is_visible ? '#059669' : colors.text.muted,
+                      fontSize: 10, fontWeight: 700, cursor: 'pointer', padding: '0 8px',
+                    }}
+                  >{stage.is_visible ? 'Visible' : 'Hidden'}</button>
+
+                  {/* Colour preview chip */}
+                  <span style={{
+                    height: 24, padding: '0 8px', borderRadius: 20, fontSize: 10, fontWeight: 700,
+                    background: `${stage.color}18`, color: stage.color, border: `1px solid ${stage.color}30`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap',
+                  }}>{stage.stage_key.split('_')[0]}</span>
                 </div>
-
-                {/* Display name */}
-                <input
-                  value={stage.display_name}
-                  onChange={e => update(idx, { display_name: e.target.value })}
-                  style={{ height: 34, padding: '0 10px', borderRadius: 8, border: `1.5px solid ${colors.border.default}`, fontSize: 13, color: colors.text.ink, background: '#fff', outline: 'none' }}
-                />
-
-                {/* Colour picker swatches */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-                  {COLOUR_PRESETS.map(c => (
-                    <button
-                      key={c}
-                      onClick={() => update(idx, { color: c })}
-                      style={{
-                        width: 16, height: 16, borderRadius: '50%', background: c, border: 'none', cursor: 'pointer',
-                        outline: stage.color === c ? `2px solid ${c}` : 'none',
-                        outlineOffset: 1,
-                      }}
-                    />
-                  ))}
-                </div>
-
-                {/* Visibility toggle */}
-                <button
-                  onClick={() => update(idx, { is_visible: !stage.is_visible })}
-                  style={{
-                    height: 28, borderRadius: 8, border: `1.5px solid ${stage.is_visible ? '#BBF7D0' : colors.border.default}`,
-                    background: stage.is_visible ? '#F0FDF4' : '#F9FAFB',
-                    color: stage.is_visible ? '#059669' : colors.text.muted,
-                    fontSize: 10, fontWeight: 700, cursor: 'pointer', padding: '0 8px',
-                  }}
-                >{stage.is_visible ? 'Visible' : 'Hidden'}</button>
-
-                {/* Colour preview chip */}
-                <span style={{
-                  height: 24, padding: '0 8px', borderRadius: 20, fontSize: 10, fontWeight: 700,
-                  background: `${stage.color}18`, color: stage.color, border: `1px solid ${stage.color}30`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap',
-                }}>{stage.stage_key.split('_')[0]}</span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
           {/* Save as template */}
@@ -1176,9 +1179,9 @@ export default function CandidatePipelinePage() {
         {/* Advanced filters */}
         {showFilters&&(
           <div style={{background:'#fff',border:`1px solid ${colors.border.default}`,borderRadius:radius.xl,padding:'14px 18px',marginBottom:14}}>
-            <div style={{display:'flex',alignItems:'center',gap:14}}>
+            <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
               <label style={{fontSize:12,fontWeight:600,color:colors.text.inkSoft,whiteSpace:'nowrap'}}>Min KRS Score:</label>
-              <input type="range" min={0} max={100} step={5} value={minKrs} onChange={e=>setMinKrs(Number(e.target.value))} style={{flex:1}}/>
+              <input type="range" min={0} max={100} step={5} value={minKrs} onChange={e=>setMinKrs(Number(e.target.value))} style={{flex:'1 1 120px'}}/>
               <span style={{fontSize:13,fontWeight:700,color:'#7C3AED',minWidth:30}}>{minKrs}</span>
               {minKrs>0&&<button onClick={()=>setMinKrs(0)} style={{fontSize:11,color:'#94A3B8',border:'none',background:'none',cursor:'pointer'}}>Reset</button>}
             </div>
@@ -1282,7 +1285,7 @@ export default function CandidatePipelinePage() {
             onMove={canMoveCandidates?(applicationId,toStatus)=>moveMutation.mutate({id:applicationId,status:toStatus}):()=>{}}
           />
         ):(
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(320px,1fr))',gap:14}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:14}}>
             {filtered.map(c=>(
               <CandidateCard key={c.application_id} candidate={c} jobId={jobId!} selected={selectedIds.has(c.application_id)} onSelect={toggleSelect}/>
             ))}

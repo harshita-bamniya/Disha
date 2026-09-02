@@ -73,7 +73,7 @@ export function JobSpotlight({
           {salary ? (
             <div>
               <p style={{ fontSize: 10, fontWeight: 700, color: MUTED, textTransform: 'uppercase', letterSpacing: '0.5px', margin: '0 0 2px' }}>Salary range</p>
-              <p style={{ fontSize: 14, color: INK, fontWeight: 800, margin: 0 }}>₹{salary} LPA</p>
+              <p style={{ fontSize: 14, color: INK, fontWeight: 800, margin: 0 }}>₹{salary}</p>
             </div>
           ) : <div />}
           <div style={{ flex: 1, maxWidth: 220 }}>
@@ -109,7 +109,7 @@ export function JobSpotlight({
       )}
 
       {/* Action cards */}
-      <div style={{ padding: '12px 20px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, borderBottom: `1px solid ${BORDER}` }}>
+      <div style={{ padding: '12px 20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8, borderBottom: `1px solid ${BORDER}` }}>
         <button
           onClick={onOpenResume} disabled={isTailoringResume}
           aria-label="Tailor resume for this role"
@@ -237,7 +237,7 @@ export function JobRow({ job, index, onOpen, onApply, onPrepare, isPreparing, is
       style={{
         background: hov ? 'white' : 'rgba(255,255,255,0.85)', borderRadius: 14, padding: '12px 14px',
         border: `1.5px solid ${hov ? 'rgba(26,39,68,0.15)' : BORDER}`,
-        display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
+        display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, cursor: 'pointer',
         boxShadow: hov ? '0 8px 24px rgba(26,39,68,0.08)' : '0 1px 4px rgba(15,23,42,0.03)',
         transform: hov ? 'translateX(4px)' : 'translateX(0)',
         transition: 'all 0.22s cubic-bezier(0.34,1.1,0.64,1)',
@@ -254,14 +254,14 @@ export function JobRow({ job, index, onOpen, onApply, onPrepare, isPreparing, is
         </div>
         <p style={{ fontSize: 11, color: MUTED }}>{job.company_name}{job.location ? ` · ${job.location}` : ''}</p>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <div style={{ textAlign: 'center' }}>
           <p style={{ fontSize: 15, fontWeight: 900, color: NAVY, lineHeight: 1 }}>{job.match_score}%</p>
           <p style={{ fontSize: 9, color: MUTED, fontWeight: 600 }}>match</p>
         </div>
         {formatSalary(job.salary_min, job.salary_max) && (
           <span style={{ fontSize: 11, fontWeight: 700, color: INK_SFT, background: CREAM, border: `1px solid ${BORDER}`, borderRadius: 7, padding: '3px 8px' }}>
-            ₹{formatSalary(job.salary_min, job.salary_max)} LPA
+            ₹{formatSalary(job.salary_min, job.salary_max)}
           </span>
         )}
         <div style={{ display: 'flex', gap: 5 }} onClick={e => e.stopPropagation()}>
@@ -312,7 +312,7 @@ export function JobModal({ job, onClose, onApply, onPrepare, onGenerateResume, o
             <span style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 11px', background: 'rgba(255,255,255,0.15)', borderRadius: 20, fontSize: 12, fontWeight: 700, color: 'white', border: '1px solid rgba(255,255,255,0.2)' }}><Target size={10} />{job.match_score}% match</span>
             {job.job_type && <span style={{ padding: '4px 11px', background: 'rgba(255,255,255,0.1)', borderRadius: 20, fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.8)', border: '1px solid rgba(255,255,255,0.15)', textTransform: 'capitalize' }}>{job.job_type}</span>}
             {job.growth_outlook === 'high' && <span style={{ padding: '4px 11px', background: 'rgba(255,255,255,0.1)', borderRadius: 20, fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.8)', border: '1px solid rgba(255,255,255,0.15)' }}>↑ High growth</span>}
-            {formatSalary(job.salary_min, job.salary_max) && <span style={{ padding: '4px 11px', background: 'rgba(255,255,255,0.15)', borderRadius: 20, fontSize: 11, fontWeight: 700, color: 'white', border: '1px solid rgba(255,255,255,0.2)' }}>₹{formatSalary(job.salary_min, job.salary_max)} LPA</span>}
+            {formatSalary(job.salary_min, job.salary_max) && <span style={{ padding: '4px 11px', background: 'rgba(255,255,255,0.15)', borderRadius: 20, fontSize: 11, fontWeight: 700, color: 'white', border: '1px solid rgba(255,255,255,0.2)' }}>₹{formatSalary(job.salary_min, job.salary_max)}</span>}
           </div>
         </div>
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 18 }}>

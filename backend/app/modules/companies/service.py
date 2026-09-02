@@ -255,9 +255,25 @@ def _plan_to_entry(plan: SubscriptionPlan) -> SubscriptionPlanEntry:
 
 
 def _get_company_subscription(company_id, db: Session) -> CompanySubscription:
+    """Every company is implicitly on the free plan until it upgrades — there's
+    no explicit provisioning step at registration that creates this row, so a
+    company that has never upgraded legitimately has zero rows here. Lazily
+    provision the free-plan subscription on first read instead of 404ing;
+    without this, the Subscription page permanently errors for every employer
+    who hasn't explicitly upgraded, which in practice is every new signup."""
     sub = db.query(CompanySubscription).filter(CompanySubscription.company_id == company_id).first()
     if not sub:
-        raise NotFoundException("No subscription found for this company.")
+        free_plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.name == "free").first()
+        if not free_plan:
+            raise NotFoundException("No subscription found for this company.")
+        now = datetime.now(timezone.utc)
+        sub = CompanySubscription(
+            company_id=company_id, plan_id=free_plan.id, status="active",
+            current_period_start=now, current_period_end=now + timedelta(days=365 * 100),
+        )
+        db.add(sub)
+        db.commit()
+        db.refresh(sub)
     return sub
 
 

@@ -82,6 +82,7 @@ interface JobFormProps {
   onSubmit: (data: JobPostingPayload) => void
   loading: boolean
   onCancel: () => void
+  error?: string
 }
 
 function FieldLabel({ children, required, hint }: { children: React.ReactNode; required?: boolean; hint?: string }) {
@@ -249,7 +250,7 @@ function ScreeningQuestionsSection({ jobId }: { jobId: string }) {
       )}
 
       {/* Settings row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
         <div>
           <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#1E3A5F', marginBottom: 5 }}>Resume</label>
           <select value={resumeCfg} onChange={e => { setResumeCfg(e.target.value); saveSettings(e.target.value, coverCfg) }} style={{ ...inp, width: '100%', appearance: 'none' }}>
@@ -325,8 +326,8 @@ function ScreeningQuestionsSection({ jobId }: { jobId: string }) {
           <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8, padding: 14, borderRadius: 11, border: `1.5px dashed ${colors.border.default}`, background: colors.surface.elevated }}>
             <input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="Question text…"
               style={{ ...inp, width: '100%' }} />
-            <div style={{ display: 'flex', gap: 8 }}>
-              <select value={newType} onChange={e => setNewType(e.target.value)} style={{ ...inp, flex: 1, appearance: 'none' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <select value={newType} onChange={e => setNewType(e.target.value)} style={{ ...inp, flex: '1 1 140px', appearance: 'none' }}>
                 {Object.entries(QT_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
               <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#475569', cursor: 'pointer', flexShrink: 0 }}>
@@ -465,7 +466,7 @@ function HiringTeamSection({ jobId }: { jobId: string }) {
   )
 }
 
-export default function JobForm({ initial, onSubmit, loading, onCancel }: JobFormProps) {
+export default function JobForm({ initial, onSubmit, loading, onCancel, error }: JobFormProps) {
   const [title,          setTitle]          = useState(initial?.title ?? '')
   const [description,    setDescription]    = useState(initial?.description ?? '')
   const [sector,         setSector]         = useState(initial?.sector ?? '')
@@ -490,7 +491,6 @@ export default function JobForm({ initial, onSubmit, loading, onCancel }: JobFor
   )
   const [departmentId, setDepartmentId] = useState<string>(initial?.department_id ?? '')
   const [isCustomSector, setIsCustomSector] = useState(!SECTORS.includes(initial?.sector ?? '') && !!initial?.sector)
-  const [customSkillInput, setCustomSkillInput] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const { data: departments } = useDepartments()
@@ -569,16 +569,6 @@ export default function JobForm({ initial, onSubmit, loading, onCancel }: JobFor
       next.has(skill) ? next.delete(skill) : next.add(skill)
       return next
     })
-  }
-
-  const addCustomJobSkill = () => {
-    const skill = customSkillInput.trim()
-    if (!skill) return
-    const existingLower = new Set([...selectedSkills].map(s => s.toLowerCase()))
-    if (existingLower.has(skill.toLowerCase())) { setCustomSkillInput(''); return }
-    setSelectedSkills(prev => new Set([...prev, skill]))
-    setCustomSkillInput('')
-    setErrors(p => ({ ...p, skills: '' }))
   }
 
   const validate = () => {
@@ -1046,25 +1036,6 @@ export default function JobForm({ initial, onSubmit, loading, onCancel }: JobFor
             </button>
           )}
         </div>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={customSkillInput}
-            onChange={e => setCustomSkillInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustomJobSkill() } }}
-            placeholder="Add a skill not listed above…"
-            className="flex-1 h-10 rounded-xl border-[1.5px] border-gray-200 bg-white/80 px-3.5 text-sm text-gray-900 placeholder:text-gray-400 outline-none transition-all duration-200 focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/8"
-          />
-          <button
-            type="button"
-            onClick={addCustomJobSkill}
-            disabled={!customSkillInput.trim()}
-            className="shrink-0 inline-flex items-center gap-1 h-10 px-4 rounded-xl bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/15 transition-colors disabled:opacity-40"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Add
-          </button>
-        </div>
         {errors.skills && <p className="text-xs text-danger">{errors.skills}</p>}
       </FormSection>
 
@@ -1097,6 +1068,12 @@ export default function JobForm({ initial, onSubmit, loading, onCancel }: JobFor
           <FileSignature className="w-3.5 h-3.5" />
           {createTemplate.isPending ? 'Saving…' : createTemplate.isSuccess ? 'Saved as template ✓' : 'Save these details as a template'}
         </button>
+      )}
+
+      {error && (
+        <p className="text-sm font-semibold text-danger bg-danger/10 border border-danger/20 rounded-xl px-4 py-3">
+          {error}
+        </p>
       )}
 
       {/* ── Actions ── */}

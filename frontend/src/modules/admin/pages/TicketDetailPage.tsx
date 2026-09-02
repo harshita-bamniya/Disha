@@ -72,9 +72,9 @@ export default function TicketDetailPage() {
         { label: ticket.subject },
       ]} />
 
-      <div className="flex items-start gap-6">
+      <div className="flex items-start gap-6" style={{ flexWrap: 'wrap' }}>
         {/* ── Main content ─────────────────────── */}
-        <div className="flex-1 min-w-0 flex flex-col gap-4">
+        <div className="min-w-0 flex flex-col gap-4" style={{ flex: '1 1 320px' }}>
           {/* Header */}
           <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '20px 24px' }}>
             <button
@@ -235,7 +235,7 @@ export default function TicketDetailPage() {
         </div>
 
         {/* ── Action sidebar ────────────────────────────────── */}
-        <div className="w-60 shrink-0 flex flex-col gap-3">
+        <div className="flex flex-col gap-3" style={{ flex: '0 1 240px', minWidth: 200 }}>
           <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
             <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted }}>Actions</p>
 

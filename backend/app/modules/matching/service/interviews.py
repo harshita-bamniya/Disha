@@ -232,7 +232,9 @@ def list_upcoming_interviews(user: User, db: Session, limit: int = 20) -> list["
 
     from app.models.user import AspirantProfile as _AspirantProfile
 
-    employer = core._get_employer_profile_approved(user, db)
+    employer = core._get_employer_profile_or_pending(user, db)
+    if not employer:
+        return []
     company_employer_ids = core._get_company_employer_ids(employer, db)
 
     job_ids = core._get_scoped_job_ids(employer, company_employer_ids, user.role_name, db)

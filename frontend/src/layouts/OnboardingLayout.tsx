@@ -60,7 +60,7 @@ export default function OnboardingLayout({ children, currentStep, title, subtitl
       {/* ── Left panel — dark navy, step info ── */}
       <div style={{
         width: '42%', background: N.navy,
-        display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+        flexDirection: 'column', justifyContent: 'space-between',
         padding: '48px 52px', position: 'sticky', top: 0, height: '100vh',
         flexShrink: 0, overflow: 'hidden',
       }} className="hidden lg:flex">

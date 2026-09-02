@@ -116,7 +116,7 @@ export default function EmployerApplicantsPage() {
       <PageHeader title="Applicants" subtitle="All candidates across your job postings" />
 
       {/* Toolbar */}
-      <div style={DS.toolbar}>
+      <div style={{ ...DS.toolbar, flexWrap: 'wrap' }}>
         {/* Search */}
         <div style={{ position: 'relative' }}>
           <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: C.ink3, pointerEvents: 'none' }} />
@@ -150,30 +150,37 @@ export default function EmployerApplicantsPage() {
       {/* Table */}
       <div style={{ padding: '16px 28px', background: colors.surface.bg, flex: 1 }}>
         <div style={DS.card}>
-          {/* Header */}
-          <div style={{ ...DS.tHead, gridTemplateColumns: COLS }}>
-            {['', 'Candidate', 'Role', 'Applied', 'Status', 'Match', ''].map(h => <span key={h}>{h}</span>)}
-          </div>
+          {/* Narrower than ~720px, this table scrolls horizontally rather than
+              squishing columns or overflowing the card — standard pattern for
+              tabular data that doesn't reflow into a single column sensibly. */}
+          <div style={{ overflowX: 'auto' }}>
+            <div style={{ minWidth: 720 }}>
+              {/* Header */}
+              <div style={{ ...DS.tHead, gridTemplateColumns: COLS }}>
+                {['', 'Candidate', 'Role', 'Applied', 'Status', 'Match', ''].map(h => <span key={h}>{h}</span>)}
+              </div>
 
-          {dashboard?.is_approved === false ? (
-            <div style={{ padding: '56px 0', textAlign: 'center' }}>
-              <p style={{ fontSize: 13, color: C.ink2, margin: 0 }}>Complete verification to view applicants.</p>
+              {dashboard?.is_approved === false ? (
+                <div style={{ padding: '56px 0', textAlign: 'center' }}>
+                  <p style={{ fontSize: 13, color: C.ink2, margin: 0 }}>Complete verification to view applicants.</p>
+                </div>
+              ) : isLoading ? (
+                <div style={{ padding: '48px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: C.ink3 }}>
+                  <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                  Loading…
+                </div>
+              ) : isError ? (
+                <ErrorState title="Failed to load applicants" onRetry={refetch} compact />
+              ) : filtered.length === 0 ? (
+                <div style={{ padding: '56px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  <p style={{ fontSize: 13, color: C.ink2, margin: 0 }}>No applicants found</p>
+                  <p style={{ fontSize: 12, color: C.ink3, margin: 0 }}>Try adjusting your filters.</p>
+                </div>
+              ) : (
+                filtered.map((item, i) => <ApplicantRow key={`${item.job_id}-${item.aspirant_id ?? i}`} item={item} />)
+              )}
             </div>
-          ) : isLoading ? (
-            <div style={{ padding: '48px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: C.ink3 }}>
-              <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
-              Loading…
-            </div>
-          ) : isError ? (
-            <ErrorState title="Failed to load applicants" onRetry={refetch} compact />
-          ) : filtered.length === 0 ? (
-            <div style={{ padding: '56px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-              <p style={{ fontSize: 13, color: C.ink2, margin: 0 }}>No applicants found</p>
-              <p style={{ fontSize: 12, color: C.ink3, margin: 0 }}>Try adjusting your filters.</p>
-            </div>
-          ) : (
-            filtered.map((item, i) => <ApplicantRow key={`${item.job_id}-${item.aspirant_id ?? i}`} item={item} />)
-          )}
+          </div>
         </div>
 
         {total > LIMIT && (

@@ -143,7 +143,7 @@ function JobRow({
 
       {/* Salary */}
       <span style={{ fontSize: 12, color: C.ink2, fontVariantNumeric: 'tabular-nums' }}>
-        {formatSalary(job.salary_min, job.salary_max) ? `₹${formatSalary(job.salary_min, job.salary_max)} LPA` : '—'}
+        {formatSalary(job.salary_min, job.salary_max) ? `₹${formatSalary(job.salary_min, job.salary_max)}` : '—'}
       </span>
 
       {/* Posted */}
@@ -229,7 +229,7 @@ export default function EmployerJobsPage() {
         <p style={{ fontSize: 18, fontWeight: 700, color: colors.text.ink, margin: 0 }}>New Job Posting</p>
         <Button variant="outline" size="sm" onClick={() => setView('list')}><X size={14} />Cancel</Button>
       </div>
-      <JobForm onSubmit={handleCreate} isLoading={createJob.isPending} error={createJob.isError ? getApiError(createJob.error) : undefined} />
+      <JobForm onSubmit={handleCreate} loading={createJob.isPending} onCancel={() => setView('list')} error={createJob.isError ? getApiError(createJob.error) : undefined} />
     </div>
   )
 
@@ -239,7 +239,7 @@ export default function EmployerJobsPage() {
         <p style={{ fontSize: 18, fontWeight: 700, color: colors.text.ink, margin: 0 }}>Edit: {view.edit.title}</p>
         <Button variant="outline" size="sm" onClick={() => setView('list')}><X size={14} />Cancel</Button>
       </div>
-      <JobForm job={view.edit} onSubmit={p => handleUpdate(view.edit.id, p)} isLoading={updateJob.isPending} error={updateJob.isError ? getApiError(updateJob.error) : undefined} />
+      <JobForm initial={view.edit} onSubmit={p => handleUpdate(view.edit.id, p)} loading={updateJob.isPending} onCancel={() => setView('list')} error={updateJob.isError ? getApiError(updateJob.error) : undefined} />
     </div>
   )
 
@@ -249,7 +249,7 @@ export default function EmployerJobsPage() {
         title="Jobs"
         subtitle="Post and manage job openings"
         actions={
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             <Button variant="outline" size="sm" onClick={() => setShowApprovalQueue(true)}>
               <FileSignature size={13} />Approvals
             </Button>
@@ -276,7 +276,7 @@ export default function EmployerJobsPage() {
       )}
 
       {/* Toolbar */}
-      <div style={DS.toolbar}>
+      <div style={{ ...DS.toolbar, flexWrap: 'wrap' }}>
         {/* Search */}
         <div style={{ position: 'relative', flexShrink: 0 }}>
           <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: C.ink3, pointerEvents: 'none' }} />
@@ -289,7 +289,7 @@ export default function EmployerJobsPage() {
         </div>
 
         {/* Status tabs */}
-        <div style={{ display: 'flex', gap: 2, background: C.borderLight, borderRadius: 7, padding: 3 }}>
+        <div style={{ display: 'flex', gap: 2, background: C.borderLight, borderRadius: 7, padding: 3, overflowX: 'auto' }}>
           {STATUS_TABS.map(t => (
             <button key={t.value} onClick={() => setStatusFilter(t.value)} style={{
               padding: '4px 10px', borderRadius: 5, border: 'none', fontSize: 12, fontWeight: 500,
@@ -315,48 +315,55 @@ export default function EmployerJobsPage() {
       {/* Table */}
       <div style={{ padding: '16px 28px', background: colors.surface.bg, flex: 1 }}>
         <div style={DS.card}>
-          {/* Header */}
-          <div style={{ ...DS.tHead, gridTemplateColumns: COLS }}>
-            {['Job', 'Status', 'Department', 'Candidates', 'Salary', 'Posted', 'Actions'].map(h => (
-              <span key={h}>{h}</span>
-            ))}
-          </div>
+          {/* Narrower than ~820px, this table scrolls horizontally rather than
+              squishing columns or overflowing the card — standard pattern for
+              tabular data that doesn't reflow into a single column sensibly. */}
+          <div style={{ overflowX: 'auto' }}>
+            <div style={{ minWidth: 820 }}>
+              {/* Header */}
+              <div style={{ ...DS.tHead, gridTemplateColumns: COLS }}>
+                {['Job', 'Status', 'Department', 'Candidates', 'Salary', 'Posted', 'Actions'].map(h => (
+                  <span key={h}>{h}</span>
+                ))}
+              </div>
 
-          {isLoading ? (
-            <div style={{ padding: '48px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: C.ink3 }}>
-              <div style={{ width: 16, height: 16, border: `2px solid ${C.border}`, borderTopColor: C.accent, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-              Loading…
-            </div>
-          ) : isError ? (
-            <ErrorState title="Failed to load jobs" onRetry={refetch} compact />
-          ) : filtered.length === 0 ? (
-            <div style={{ padding: '56px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-              <Briefcase size={28} color={C.ink3} strokeWidth={1.5} />
-              <p style={{ fontSize: 13, color: C.ink2, margin: 0, fontWeight: 500 }}>No jobs found</p>
-              <p style={{ fontSize: 12, color: C.ink3, margin: 0 }}>
-                {data?.is_approved ? 'Post your first job to start receiving applications.' : 'Complete verification to start posting jobs.'}
-              </p>
-              {data?.is_approved && canCreateJob && (
-                <Button variant="primary" size="sm" onClick={() => setView('new')} style={{ marginTop: 8 }}><Plus size={13} />Post a Job</Button>
+              {isLoading ? (
+                <div style={{ padding: '48px 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, color: C.ink3 }}>
+                  <div style={{ width: 16, height: 16, border: `2px solid ${C.border}`, borderTopColor: C.accent, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                  Loading…
+                </div>
+              ) : isError ? (
+                <ErrorState title="Failed to load jobs" onRetry={refetch} compact />
+              ) : filtered.length === 0 ? (
+                <div style={{ padding: '56px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                  <Briefcase size={28} color={C.ink3} strokeWidth={1.5} />
+                  <p style={{ fontSize: 13, color: C.ink2, margin: 0, fontWeight: 500 }}>No jobs found</p>
+                  <p style={{ fontSize: 12, color: C.ink3, margin: 0 }}>
+                    {data?.is_approved ? 'Post your first job to start receiving applications.' : 'Complete verification to start posting jobs.'}
+                  </p>
+                  {data?.is_approved && canCreateJob && (
+                    <Button variant="primary" size="sm" onClick={() => setView('new')} style={{ marginTop: 8 }}><Plus size={13} />Post a Job</Button>
+                  )}
+                </div>
+              ) : (
+                filtered.map(job => (
+                  <JobRow
+                    key={job.id}
+                    job={job}
+                    onEdit={() => setView({ edit: job })}
+                    onDelete={() => setConfirmDelete(job.id)}
+                    onPublish={() => run(job.id, id => publishJob.mutateAsync(id))}
+                    onPause={() => run(job.id, id => pauseJob.mutateAsync(id))}
+                    onClose={() => run(job.id, id => closeJob.mutateAsync(id))}
+                    onReopen={() => run(job.id, id => reopenJob.mutateAsync(id))}
+                    onArchive={() => run(job.id, id => archiveJob.mutateAsync(id))}
+                    onDuplicate={() => run(job.id, id => duplicateJob.mutateAsync(id))}
+                    isMutating={mutatingId === job.id}
+                  />
+                ))
               )}
             </div>
-          ) : (
-            filtered.map(job => (
-              <JobRow
-                key={job.id}
-                job={job}
-                onEdit={() => setView({ edit: job })}
-                onDelete={() => setConfirmDelete(job.id)}
-                onPublish={() => run(job.id, id => publishJob.mutateAsync(id))}
-                onPause={() => run(job.id, id => pauseJob.mutateAsync(id))}
-                onClose={() => run(job.id, id => closeJob.mutateAsync(id))}
-                onReopen={() => run(job.id, id => reopenJob.mutateAsync(id))}
-                onArchive={() => run(job.id, id => archiveJob.mutateAsync(id))}
-                onDuplicate={() => run(job.id, id => duplicateJob.mutateAsync(id))}
-                isMutating={mutatingId === job.id}
-              />
-            ))
-          )}
+          </div>
         </div>
       </div>
 

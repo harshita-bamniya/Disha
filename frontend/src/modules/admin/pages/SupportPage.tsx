@@ -187,7 +187,7 @@ export default function SupportPage() {
       {/* Tabs + table */}
       <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
         {/* Tab bar as pills */}
-        <div style={{ display: 'flex', gap: 2, padding: '12px 16px 0', borderBottom: '1px solid rgba(0,0,0,0.08)', background: colors.surface.bg }}>
+        <div style={{ display: 'flex', gap: 2, padding: '12px 16px 0', borderBottom: '1px solid rgba(0,0,0,0.08)', background: colors.surface.bg, flexWrap: 'wrap' }}>
           {TABS.map(t => (
             <button
               key={t.key}
@@ -214,53 +214,59 @@ export default function SupportPage() {
           ))}
         </div>
 
-        {/* Column headers */}
-        <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 px-4 py-2.5" style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)', fontSize: 10, fontWeight: 700, color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-          <span>Subject</span>
-          <span>Status</span>
-          <span>Priority</span>
-          <span>SLA</span>
-          <span>Messages</span>
-          <span />
-        </div>
+        {/* Narrower than ~600px, this list scrolls horizontally rather than
+            squishing the fixed-width status/priority/SLA/message columns. */}
+        <div style={{ overflowX: 'auto' }}>
+          <div style={{ minWidth: 600 }}>
+            {/* Column headers */}
+            <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 px-4 py-2.5" style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)', fontSize: 10, fontWeight: 700, color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              <span>Subject</span>
+              <span>Status</span>
+              <span>Priority</span>
+              <span>SLA</span>
+              <span>Messages</span>
+              <span />
+            </div>
 
-        {isLoading ? <Spinner /> : !filtered.length ? (
-          <Empty icon={HeadphonesIcon} text="No tickets found" />
-        ) : (
-          filtered.map((t, idx) => (
-            <button
-              key={t.id}
-              onClick={() => navigate(`/admin/support/${t.id}`)}
-              className="w-full grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 px-4 py-3 items-center text-left"
-              style={{
-                background: idx % 2 === 0 ? '#fff' : colors.surface.bg,
-                borderBottom: idx < filtered.length - 1 ? '1px solid rgba(0,0,0,0.06)' : 'none',
-                transition: 'background 0.1s',
-              }}
-              onMouseOver={e => (e.currentTarget.style.background = colors.surface.elevated)}
-              onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : colors.surface.bg)}
-            >
-              <div className="min-w-0">
-                <p style={{ fontSize: 14, fontWeight: 600, color: colors.text.ink }} className="truncate">{t.subject}</p>
-                <p style={{ fontSize: 12, color: colors.text.muted }} className="truncate">
-                  {t.reporter_name ?? 'Unknown reporter'}
-                  {t.entity_type !== 'general' && ` · ${t.entity_type}`}
-                </p>
-              </div>
-              <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full capitalize', STATUS_COLORS[t.status])}>
-                {t.status}
-              </span>
-              <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full capitalize', PRIORITY_COLORS[t.priority])}>
-                {t.priority}
-              </span>
-              <span className={cn('text-xs tabular-nums', slaClass(t.sla_deadline, t.status))}>
-                {formatSla(t.sla_deadline, t.status)}
-              </span>
-              <span style={{ fontSize: 12, color: colors.text.muted, textAlign: 'right', tabularNums: true } as React.CSSProperties}>{t.message_count}</span>
-              <ChevronRight size={14} style={{ color: colors.text.muted, flexShrink: 0 }} />
-            </button>
-          ))
-        )}
+            {isLoading ? <Spinner /> : !filtered.length ? (
+              <Empty icon={HeadphonesIcon} text="No tickets found" />
+            ) : (
+              filtered.map((t, idx) => (
+                <button
+                  key={t.id}
+                  onClick={() => navigate(`/admin/support/${t.id}`)}
+                  className="w-full grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-3 px-4 py-3 items-center text-left"
+                  style={{
+                    background: idx % 2 === 0 ? '#fff' : colors.surface.bg,
+                    borderBottom: idx < filtered.length - 1 ? '1px solid rgba(0,0,0,0.06)' : 'none',
+                    transition: 'background 0.1s',
+                  }}
+                  onMouseOver={e => (e.currentTarget.style.background = colors.surface.elevated)}
+                  onMouseOut={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : colors.surface.bg)}
+                >
+                  <div className="min-w-0">
+                    <p style={{ fontSize: 14, fontWeight: 600, color: colors.text.ink }} className="truncate">{t.subject}</p>
+                    <p style={{ fontSize: 12, color: colors.text.muted }} className="truncate">
+                      {t.reporter_name ?? 'Unknown reporter'}
+                      {t.entity_type !== 'general' && ` · ${t.entity_type}`}
+                    </p>
+                  </div>
+                  <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full capitalize', STATUS_COLORS[t.status])}>
+                    {t.status}
+                  </span>
+                  <span className={cn('text-[10px] font-bold px-2 py-0.5 rounded-full capitalize', PRIORITY_COLORS[t.priority])}>
+                    {t.priority}
+                  </span>
+                  <span className={cn('text-xs tabular-nums', slaClass(t.sla_deadline, t.status))}>
+                    {formatSla(t.sla_deadline, t.status)}
+                  </span>
+                  <span style={{ fontSize: 12, color: colors.text.muted, textAlign: 'right', tabularNums: true } as React.CSSProperties}>{t.message_count}</span>
+                  <ChevronRight size={14} style={{ color: colors.text.muted, flexShrink: 0 }} />
+                </button>
+              ))
+            )}
+          </div>
+        </div>
       </div>
     </section>
   )

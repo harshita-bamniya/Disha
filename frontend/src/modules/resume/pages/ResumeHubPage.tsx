@@ -432,8 +432,8 @@ export default function ResumeHubPage() {
 
       {/* Create dialog with template selection */}
       {showCreate && (
-        <div onClick={() => setShowCreate(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: 20, padding: 28, width: 440, boxShadow: '0 24px 64px rgba(15,23,42,0.2)' }}>
+        <div onClick={() => setShowCreate(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: 16, boxSizing: 'border-box' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'white', borderRadius: 20, padding: 28, width: '100%', maxWidth: 440, boxSizing: 'border-box', boxShadow: '0 24px 64px rgba(15,23,42,0.2)' }}>
             <h3 style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', marginBottom: 16 }}>Create New Resume</h3>
             <input
               autoFocus

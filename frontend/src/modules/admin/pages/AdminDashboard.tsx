@@ -95,11 +95,11 @@ function KpiBanner({ stats }: { stats: Record<string, number | string> }) {
     <div style={{
       background: colors.brand.navy, borderRadius: 16,
       padding: '22px 28px',
-      display: 'flex', gap: 0,
+      display: 'flex', flexWrap: 'wrap', gap: 16,
     }}>
       {items.map((kpi, i) => (
         <div key={kpi.label} style={{
-          flex: 1,
+          flex: '1 1 140px',
           paddingRight: i < items.length - 1 ? 28 : 0,
           paddingLeft: i > 0 ? 28 : 0,
           borderRight: i < items.length - 1 ? '0.5px solid rgba(255,255,255,0.1)' : 'none',
@@ -124,7 +124,7 @@ function KycFocusPanel() {
   ).length
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 8 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 8 }}>
       {[
         { label: 'Pending Review',    value: pending?.length ?? '—',     accent: '#F59E0B' },
         { label: 'Under Review',      value: underReview?.length ?? '—', accent: colors.brand.navy },
@@ -172,7 +172,7 @@ function FinanceFocusPanel() {
 function StatsRow({ stats, compact }: { stats: Record<string, number>; compact?: boolean }) {
   if (compact) {
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
         <StatCard icon={Users}     label="Total Aspirants" value={stats.total_aspirants}     sub={`+${stats.new_users_last_7d} this week`} />
         <StatCard icon={Briefcase} label="Active Jobs"     value={stats.active_job_postings} sub={`${stats.total_job_postings} total`} />
         <StatCard icon={FileText}  label="Applications"    value={stats.total_applications}  sub={`${stats.hired_count} hired`} />
@@ -182,7 +182,7 @@ function StatsRow({ stats, compact }: { stats: Record<string, number>; compact?:
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <KpiBanner stats={stats as unknown as Record<string, number | string>} />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
         <StatCard icon={CheckCircle2} label="Onboarding Done"    value={stats.completed_onboarding} sub={`${Math.round(stats.completed_onboarding / Math.max(stats.total_aspirants, 1) * 100)}% completion`} />
         <StatCard icon={FileText}     label="Applications"       value={stats.total_applications}   sub={`${stats.hired_count} hired`} />
         <StatCard icon={Award}        label="Hired"              value={stats.hired_count}          sub="Total placements" />
@@ -201,7 +201,7 @@ function AdminActionGrid({ navigate }: { navigate: (r: string) => void }) {
     { label: 'Platform',  sub: 'Settings · Feature flags', icon: Shield,      route: '/admin/settings',    accent: '#DC2626' },
   ]
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
       {items.map(({ label, sub, icon: Icon, route, accent }) => (
         <div
           key={label}
@@ -360,7 +360,7 @@ export default function AdminDashboard() {
       {showFullStats && (
         <div>
           <SectionDivider label="Growth trends — last 30 days" />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
             <TrendChart metric="users"        label="User Acquisition" />
             <TrendChart metric="employers"    label="Employer Growth" />
             <TrendChart metric="jobs"         label="Job Postings" />
@@ -370,7 +370,7 @@ export default function AdminDashboard() {
       )}
 
       {/* ── Funnel + Quick actions ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
 
         {/* Conversion funnel */}
         {showFullStats && stats && (

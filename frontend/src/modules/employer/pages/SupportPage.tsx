@@ -57,7 +57,7 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {field('Subject', <input value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} placeholder="Briefly describe your issue" style={inputStyle} />)}
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
             {field('Category',
               <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} style={{ ...selectStyle, width: '100%' }}>
                 <option value="general">General</option>
@@ -179,10 +179,12 @@ export default function SupportPage() {
   const [showNew, setShowNew]     = useState(false)
   const [activeTicket, setActive] = useState<TicketDetail | null>(null)
 
-  const { data: tickets, isLoading, isError, refetch } = useQuery({
+  const { data: ticketsData, isLoading, isError, refetch } = useQuery({
     queryKey: ['employer-tickets'],
-    queryFn:  employerSupportApi.getTickets,
+    queryFn:  employerSupportApi.listTickets,
+    select:   r => r.data,
   })
+  const tickets = ticketsData?.items ?? []
 
   const COLS = '1fr 90px 70px 100px 36px'
 
@@ -196,10 +198,6 @@ export default function SupportPage() {
 
       <div style={{ padding: '16px 28px', background: colors.surface.bg, flex: 1 }}>
         <div style={DS.card}>
-          <div style={{ display: 'grid', gridTemplateColumns: COLS, padding: '8px 20px', background: colors.surface.elevated, borderBottom: `1px solid ${colors.border.default}`, fontSize: 11, fontWeight: 600, color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            {['Subject', 'Status', 'Priority', 'Created', ''].map(h => <span key={h}>{h}</span>)}
-          </div>
-
           {isLoading ? (
             <Spinner />
           ) : isError ? (
@@ -216,28 +214,39 @@ export default function SupportPage() {
               }
             />
           ) : (
-            tickets.map(t => {
-              const s = statusDot(t.status)
-              return (
-                <div key={t.id} onClick={() => setActive(t as unknown as TicketDetail)}
-                  style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', padding: '11px 20px', borderBottom: `1px solid ${C.borderLight}`, cursor: 'pointer', transition: 'background 0.1s' }}
-                  onMouseOver={e => { e.currentTarget.style.background = colors.surface.elevated }}
-                  onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
-                >
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 500, color: colors.text.ink, margin: 0 }}>{t.subject}</p>
-                    <p style={{ fontSize: 11, color: colors.text.muted, margin: '1px 0 0' }}>#{t.id.slice(-6).toUpperCase()}</p>
-                  </div>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: s.color }}>
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.color }} />
-                    {s.label}
-                  </span>
-                  <span style={{ fontSize: 12, color: priorityColor(t.priority), fontWeight: 500, textTransform: 'capitalize' }}>{t.priority}</span>
-                  <span style={{ fontSize: 12, color: colors.text.muted }}>{fmtDate(t.created_at)}</span>
-                  <ChevronRight size={14} color={colors.text.muted} />
+            /* Narrower than ~460px, this table scrolls horizontally rather than
+                squishing columns or overflowing the card — standard pattern for
+                tabular data that doesn't reflow into a single column sensibly. */
+            <div style={{ overflowX: 'auto' }}>
+              <div style={{ minWidth: 460 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: COLS, padding: '8px 20px', background: colors.surface.elevated, borderBottom: `1px solid ${colors.border.default}`, fontSize: 11, fontWeight: 600, color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  {['Subject', 'Status', 'Priority', 'Created', ''].map(h => <span key={h}>{h}</span>)}
                 </div>
-              )
-            })
+
+                {tickets.map(t => {
+                  const s = statusDot(t.status)
+                  return (
+                    <div key={t.id} onClick={() => setActive(t as unknown as TicketDetail)}
+                      style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', padding: '11px 20px', borderBottom: `1px solid ${C.borderLight}`, cursor: 'pointer', transition: 'background 0.1s' }}
+                      onMouseOver={e => { e.currentTarget.style.background = colors.surface.elevated }}
+                      onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
+                    >
+                      <div>
+                        <p style={{ fontSize: 13, fontWeight: 500, color: colors.text.ink, margin: 0 }}>{t.subject}</p>
+                        <p style={{ fontSize: 11, color: colors.text.muted, margin: '1px 0 0' }}>#{t.id.slice(-6).toUpperCase()}</p>
+                      </div>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: s.color }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.color }} />
+                        {s.label}
+                      </span>
+                      <span style={{ fontSize: 12, color: priorityColor(t.priority), fontWeight: 500, textTransform: 'capitalize' }}>{t.priority}</span>
+                      <span style={{ fontSize: 12, color: colors.text.muted }}>{fmtDate(t.created_at)}</span>
+                      <ChevronRight size={14} color={colors.text.muted} />
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
           )}
         </div>
       </div>

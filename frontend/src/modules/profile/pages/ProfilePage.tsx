@@ -73,7 +73,7 @@ export default function ProfilePage() {
         )}
 
         {profile && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }} className="md:grid-cols-2 grid-cols-1">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }} className="md:grid-cols-2 grid-cols-1">
             <div style={{ gridColumn: openSection === 'personal'     ? '1 / -1' : undefined }}>
               <PersonalSection    profile={profile} open={openSection === 'personal'}     onToggle={() => toggle('personal')} />
             </div>

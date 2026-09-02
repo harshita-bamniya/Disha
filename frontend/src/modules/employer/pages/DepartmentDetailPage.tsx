@@ -79,14 +79,14 @@ function JobRow({ job }: { job: DepartmentJobEntry }) {
   const isExpired = job.expires_at ? new Date(job.expires_at) < new Date() : false
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '14px 20px', borderBottom: '1px solid #F8FAFC', transition: 'background 0.15s' }}
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16, padding: '14px 20px', borderBottom: '1px solid #F8FAFC', transition: 'background 0.15s' }}
       onMouseOver={e => e.currentTarget.style.background = '#FAFBFF'}
       onMouseOut={e => e.currentTarget.style.background = 'transparent'}
     >
       <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'rgba(30,58,95,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Briefcase size={15} color="#1E3A5F" />
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ flex: '1 1 160px', minWidth: 0 }}>
         <p style={{ fontSize: 13, fontWeight: 700, color: colors.text.ink, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.title}</p>
         <p style={{ fontSize: 11, color: '#94A3B8', margin: '2px 0 0' }}>
           {job.employment_type?.replace('_', ' ')} · posted {posted}
@@ -305,7 +305,7 @@ function OverviewTab({ deptId, dept, overview, jobs, deptTeam, onSwitchTab }: {
 
       {/* Dept-specific quick stats */}
       {overview && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
           {[
             { icon: Calendar, label: 'Scheduled Interviews', value: fmt(overview.scheduled_interviews_count), color: '#0EA5E9' },
             { icon: Send,     label: 'Pending Offers',       value: fmt(overview.pending_offers_count),       color: '#059669' },
@@ -456,7 +456,7 @@ export default function DepartmentDetailPage() {
         <main style={{ padding: '24px 32px', flex: 1, maxWidth: 1200 }}>
 
           {/* Dept-level KPI cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 24 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 24 }}>
             <MetricCard icon={Briefcase} label="Active Jobs"    value={fmt(dept.active_job_count)}      color="#059669" onClick={() => setActiveTab('jobs')} />
             <MetricCard icon={FileText}  label="Total Jobs"     value={fmt(dept.total_job_count)}       color="#1E3A5F" onClick={() => setActiveTab('jobs')} />
             <MetricCard icon={Users}     label="Applicants"     value={fmt(dept.total_applicant_count)} color={colors.state.info} />
@@ -479,7 +479,7 @@ export default function DepartmentDetailPage() {
 
           {activeTab === 'jobs' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
                 {['all', 'published', 'draft', 'paused', 'closed'].map(s => (
                   <button key={s} onClick={() => setJobStatusFilter(s)} style={{ padding: '5px 13px', borderRadius: 20, fontSize: 12, fontWeight: 500, border: jobStatusFilter === s ? 'none' : '1px solid #E2E8F0', background: jobStatusFilter === s ? '#0F172A' : '#fff', color: jobStatusFilter === s ? '#fff' : colors.text.inkSoft, cursor: 'pointer', textTransform: 'capitalize' }}>
                     {s === 'all' ? 'All' : s}

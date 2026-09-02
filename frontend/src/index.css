@@ -87,6 +87,14 @@
 @layer base {
   * { box-sizing: border-box; }
 
+  html, body {
+    /* Belt-and-suspenders backstop: individual pages should reflow instead of
+       overflowing, but this prevents any missed fixed-width element from
+       creating a page-wide horizontal scrollbar / clipped layout on mobile. */
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+
   body {
     margin: 0;
     font-family: var(--font-sans);

@@ -191,8 +191,8 @@ def save_skills(user: User, data: SkillsRequest, db: Session) -> StepSavedRespon
     _maybe_recompute_krs(user, profile, db)
     # Cache embeddings for user skills so gap computation is instant at query time
     if data.skills:
-        from app.tasks.worker import embed_skill_texts
-        embed_skill_texts.delay(data.skills)
+        from app.tasks.worker import embed_skill_texts, safe_dispatch
+        safe_dispatch(embed_skill_texts, data.skills)
     return StepSavedResponse(message="Skills saved", current_step=profile.current_step, is_completed=profile.is_completed)
 
 

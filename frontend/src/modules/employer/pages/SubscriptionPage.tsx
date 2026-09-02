@@ -23,7 +23,10 @@ function UsageBar({ label, used, limit }: { label: string; used: number; limit: 
   )
 }
 
-function formatPrice(paise: number): string {
+function formatPrice(paise: number, planName?: string): string {
+  // Enterprise is priced at 0 in the DB as a placeholder for custom/negotiated
+  // pricing, not because it's actually free — don't show it as "Free".
+  if (planName?.toLowerCase() === 'enterprise') return 'Custom pricing'
   if (paise === 0) return 'Free'
   return `₹${(paise / 100).toLocaleString('en-IN')}/mo`
 }
@@ -60,7 +63,7 @@ export default function SubscriptionPage() {
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <CreditCard size={15} color={colors.text.muted} />
-                  <span style={{ fontSize: 16, fontWeight: 700, color: colors.text.ink }}>{formatPrice(sub.plan.price_monthly)}</span>
+                  <span style={{ fontSize: 16, fontWeight: 700, color: colors.text.ink }}>{formatPrice(sub.plan.price_monthly, sub.plan.name)}</span>
                 </div>
               </div>
 
@@ -88,7 +91,7 @@ export default function SubscriptionPage() {
                 }}
               >
                 <p style={{ fontSize: 13, fontWeight: 800, color: colors.text.ink, textTransform: 'capitalize', margin: 0 }}>{plan.name}</p>
-                <p style={{ fontSize: 16, fontWeight: 700, color: colors.brand.navy, margin: '4px 0 12px' }}>{formatPrice(plan.price_monthly)}</p>
+                <p style={{ fontSize: 16, fontWeight: 700, color: colors.brand.navy, margin: '4px 0 12px' }}>{formatPrice(plan.price_monthly, plan.name)}</p>
                 <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 14px', fontSize: 11, color: colors.text.inkSoft, display: 'flex', flexDirection: 'column', gap: 5 }}>
                   <li>{plan.max_active_jobs ?? 'Unlimited'} active jobs</li>
                   <li>{plan.max_recruiter_seats ?? 'Unlimited'} recruiter seats</li>

@@ -287,7 +287,7 @@ export default function EmployersPage() {
       </FilterBar>
 
       {/* ── Stat cards ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
         <StatCard icon={Clock} label="Awaiting KYC" value={stats?.pending_employers ?? '—'} />
         <StatCard icon={ShieldCheck} label="Verified employers" value={stats?.approved_employers ?? '—'} />
         <StatCard icon={Building2} label="Total employers" value={stats?.total_employers ?? '—'} />

@@ -187,7 +187,7 @@ export default function TalentPoolPage() {
       <PageHeader title="Talent Pool" subtitle="Saved candidates for future roles" />
 
       {/* Toolbar */}
-      <div style={DS.toolbar}>
+      <div style={{ ...DS.toolbar, flexWrap: 'wrap' }}>
         <div style={{ position: 'relative' }}>
           <Search size={13} style={{ position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)', color: C.ink3, pointerEvents: 'none' }} />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search candidates…" style={{ ...inputStyle, width: 200, paddingLeft: 30 }} />

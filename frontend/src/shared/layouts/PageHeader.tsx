@@ -25,7 +25,7 @@ export default function PageHeader({ title, subtitle, icon, actions, back, below
       top: 0,
       zIndex: 20,
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
           {back}
           {icon && (

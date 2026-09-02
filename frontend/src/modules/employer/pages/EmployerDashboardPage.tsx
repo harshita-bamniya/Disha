@@ -41,7 +41,7 @@ function KpiStrip({ kpis }: { kpis: Record<string, number> }) {
   return (
     <div style={{
       display: 'grid',
-      gridTemplateColumns: 'repeat(8, 1fr)',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
       background: colors.surface.card,
       border: `1px solid ${colors.border.default}`,
       borderRadius: radius.xl,
@@ -53,7 +53,8 @@ function KpiStrip({ kpis }: { kpis: Record<string, number> }) {
           onClick={() => s.to && navigate(s.to)}
           style={{
             padding: '16px 18px',
-            borderRight: i < stats.length - 1 ? `1px solid ${colors.border.default}` : 'none',
+            borderRight: `1px solid ${colors.border.default}`,
+            borderBottom: `1px solid ${colors.border.default}`,
             cursor: s.to ? 'pointer' : 'default',
             transition: 'background 0.12s',
           }}
@@ -227,47 +228,54 @@ function DepartmentsTable() {
         </Link>
       </div>
 
-      {/* Table header */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: '1fr 140px 90px 90px 90px',
-        padding: '8px 20px', background: colors.surface.bg,
-        borderBottom: `1px solid ${colors.border.default}`,
-      }}>
-        {['Department', 'Head', 'Members', 'Active Jobs', 'Applicants'].map(col => (
-          <span key={col} style={{ fontSize: 11, fontWeight: 600, color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{col}</span>
-        ))}
-      </div>
-
-      {departments.map((d, i) => (
-        <div
-          key={d.id}
-          onClick={() => navigate(`/app/employer/departments/${d.id}`)}
-          style={{
+      {/* Narrower than ~500px, this table scrolls horizontally rather than
+          squishing columns or overflowing the card — standard pattern for
+          tabular data that doesn't reflow into a single column sensibly. */}
+      <div style={{ overflowX: 'auto' }}>
+        <div style={{ minWidth: 500 }}>
+          {/* Table header */}
+          <div style={{
             display: 'grid', gridTemplateColumns: '1fr 140px 90px 90px 90px',
-            padding: '11px 20px',
-            borderBottom: i < departments.length - 1 ? `1px solid ${colors.surface.bg}` : 'none',
-            cursor: 'pointer', transition: 'background 0.1s',
-            alignItems: 'center',
-          }}
-          onMouseOver={e => { e.currentTarget.style.background = '#F4F5F7' }}
-          onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-            <div style={{
-              width: 28, height: 28, borderRadius: 6,
-              background: colors.surface.elevated,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <Building2 size={13} color={colors.text.muted} />
-            </div>
-            <span style={{ fontSize: 13, fontWeight: 500, color: colors.text.ink }}>{d.name}</span>
+            padding: '8px 20px', background: colors.surface.bg,
+            borderBottom: `1px solid ${colors.border.default}`,
+          }}>
+            {['Department', 'Head', 'Members', 'Active Jobs', 'Applicants'].map(col => (
+              <span key={col} style={{ fontSize: 11, fontWeight: 600, color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{col}</span>
+            ))}
           </div>
-          <span style={{ fontSize: 12, color: colors.text.muted }}>{d.head_name ?? '—'}</span>
-          <span style={{ fontSize: 13, fontWeight: 500, color: colors.text.inkSoft, fontVariantNumeric: 'tabular-nums' }}>{d.member_count}</span>
-          <span style={{ fontSize: 13, fontWeight: 500, color: colors.text.inkSoft, fontVariantNumeric: 'tabular-nums' }}>{d.active_job_count}</span>
-          <span style={{ fontSize: 13, fontWeight: 500, color: colors.text.inkSoft, fontVariantNumeric: 'tabular-nums' }}>{d.total_applicant_count}</span>
+
+          {departments.map((d, i) => (
+            <div
+              key={d.id}
+              onClick={() => navigate(`/app/employer/departments/${d.id}`)}
+              style={{
+                display: 'grid', gridTemplateColumns: '1fr 140px 90px 90px 90px',
+                padding: '11px 20px',
+                borderBottom: i < departments.length - 1 ? `1px solid ${colors.surface.bg}` : 'none',
+                cursor: 'pointer', transition: 'background 0.1s',
+                alignItems: 'center',
+              }}
+              onMouseOver={e => { e.currentTarget.style.background = '#F4F5F7' }}
+              onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: 6,
+                  background: colors.surface.elevated,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Building2 size={13} color={colors.text.muted} />
+                </div>
+                <span style={{ fontSize: 13, fontWeight: 500, color: colors.text.ink }}>{d.name}</span>
+              </div>
+              <span style={{ fontSize: 12, color: colors.text.muted }}>{d.head_name ?? '—'}</span>
+              <span style={{ fontSize: 13, fontWeight: 500, color: colors.text.inkSoft, fontVariantNumeric: 'tabular-nums' }}>{d.member_count}</span>
+              <span style={{ fontSize: 13, fontWeight: 500, color: colors.text.inkSoft, fontVariantNumeric: 'tabular-nums' }}>{d.active_job_count}</span>
+              <span style={{ fontSize: 13, fontWeight: 500, color: colors.text.inkSoft, fontVariantNumeric: 'tabular-nums' }}>{d.total_applicant_count}</span>
+            </div>
+          ))}
         </div>
-      ))}
+      </div>
     </div>
   )
 }
@@ -437,7 +445,7 @@ function DashboardSkeleton() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <SkeletonCard lines={2} />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
         <SkeletonCard lines={4} />
         <SkeletonCard lines={4} />
       </div>
@@ -482,7 +490,7 @@ export default function EmployerDashboardPage() {
 
           {/* Charts row */}
           {kpis && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 14 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
               <ApplicationTrend />
               <HiringFunnel kpis={kpis as unknown as Record<string, number>} />
             </div>
@@ -492,7 +500,7 @@ export default function EmployerDashboardPage() {
           <DepartmentsTable />
 
           {/* Bottom row */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
             {kpis && <ActionItems kpis={kpis as unknown as Record<string, number>} />}
             <UpcomingInterviews />
           </div>

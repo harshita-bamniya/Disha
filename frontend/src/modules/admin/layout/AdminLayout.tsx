@@ -43,7 +43,7 @@ function GlobalSearchBar() {
   }
 
   return (
-    <div className="relative w-72">
+    <div className="relative flex-1 min-w-[160px] max-w-xs">
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color: focused ? colors.text.ink : '#94A3B8' }} />
       <input
         value={query}
@@ -115,7 +115,7 @@ export default function AdminLayout() {
       <div className="flex-1 flex flex-col min-h-screen min-w-0">
         {/* Top bar */}
         <header
-          className="sticky top-0 z-30 flex items-center justify-between gap-4 px-6 py-3"
+          className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-4 px-6 py-3"
           style={{
             background: 'rgba(255,255,255,0.92)',
             backdropFilter: 'blur(12px)',
@@ -125,7 +125,7 @@ export default function AdminLayout() {
           }}
         >
           <p style={{ fontSize: 12, color: '#94A3B8' }}>BeginablAI — platform administration</p>
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex flex-wrap items-center gap-3">
             <GlobalSearchBar />
             <PendingAlert />
             <div style={{

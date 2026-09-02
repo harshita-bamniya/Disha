@@ -84,13 +84,13 @@ export default function RoadmapHistoryPage() {
                       padding: '16px 0',
                       borderTop: i > 0 ? '1px solid #F1F5F9' : 'none',
                       cursor: isOpening ? 'wait' : 'pointer',
-                      display: 'flex', alignItems: 'center', gap: 16, opacity: isOpening ? 0.6 : 1,
+                      display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16, opacity: isOpening ? 0.6 : 1,
                     }}
                   >
                     <div style={{ width: 38, height: 38, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#EEF2FF' }}>
                       <Briefcase size={17} color="#6366F1" />
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ flex: '1 1 180px', minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <p style={{ fontSize: 14, fontWeight: 700, color: '#111827', margin: 0 }}>
                           {p.job_title}

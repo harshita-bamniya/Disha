@@ -37,7 +37,7 @@ function QueueCard({ job, onPublish, onDelete, publishing, deleting }: {
           <p style={{ fontSize: 13, fontWeight: 800, color: '#1E3A5F', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {job.title}
           </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 3 }}>
             {job.department_name && (
               <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: '#94A3B8' }}>
                 <Building2 size={9} />{job.department_name}

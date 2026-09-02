@@ -228,16 +228,17 @@ function Hero() {
             </div>
           </div>
 
-          {/* Right — illustration (hidden on mobile/tablet) */}
-          {!isTablet && (
-            <div style={{ position:'relative', width: '100%', height: 520, display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <img
-                src={heroKeyImg}
-                alt="Aspirant climbing to career success"
-                style={{ width: '100%', maxWidth: 600, height: '100%', objectFit: 'contain', display: 'block' }}
-              />
-            </div>
-          )}
+          {/* Right — illustration. Full-size beside the text on desktop; on
+              mobile/tablet it stacks below at a shorter height instead of
+              being hidden entirely, so the hero isn't left with a large
+              empty gap above the fold. */}
+          <div style={{ position:'relative', width: '100%', height: isMobile ? 260 : isTablet ? 360 : 520, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <img
+              src={heroKeyImg}
+              alt="Aspirant climbing to career success"
+              style={{ width: '100%', maxWidth: 600, height: '100%', objectFit: 'contain', display: 'block' }}
+            />
+          </div>
         </div>
       </div>
     </section>
@@ -517,7 +518,7 @@ function Footer() {
 
         {/* Bottom bar */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', margin: 0 }}>© 2025 BeginableAI. All rights reserved.</p>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', margin: 0 }}>© {new Date().getFullYear()} BeginableAI. All rights reserved.</p>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', display: 'inline-block' }} />
             <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>All systems operational</span>
