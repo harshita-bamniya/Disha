@@ -11,6 +11,7 @@ from app.models.user import (
     JobPosting,
     KrsScore,
     PsychologicalAssessment,
+    Role,
     User,
     UserCareerSelection,
 )
@@ -35,9 +36,10 @@ def list_aspirants(db: Session, search: str | None = None, limit: int = 100, off
 
     query = (
         db.query(User, AspirantProfile, KrsScore)
+        .join(Role, Role.id == User.role_id)
         .outerjoin(AspirantProfile, AspirantProfile.user_id == User.id)
         .outerjoin(KrsScore, KrsScore.user_id == User.id)
-        .filter(User.deleted_at == None)
+        .filter(User.deleted_at == None, Role.name == "aspirant")
     )
 
     if search:
@@ -49,12 +51,6 @@ def list_aspirants(db: Session, search: str | None = None, limit: int = 100, off
                 AspirantProfile.city.ilike(f"%{search}%"),
             )
         )
-
-    query = query.filter(
-        ~User.id.in_(
-            db.query(User.id).join(User.employer_profile)
-        )
-    )
 
     rows = query.order_by(User.created_at.desc()).offset(offset).limit(limit).all()
 

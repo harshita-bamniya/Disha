@@ -579,6 +579,36 @@ def _post_process_page(
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
+def build_preference_sql_filters(profile: Optional[AspirantProfile]) -> list:
+    """Hard SQL filters derived from the aspirant's own stated preferences —
+    location/relocation and minimum salary. Shared by every job-listing surface
+    (main Jobs page, Dashboard's live-jobs widget, etc.) so an aspirant's
+    onboarding answers are honored consistently everywhere, not just on
+    whichever endpoint happened to implement it first.
+    """
+    filters: list = []
+    if not profile:
+        return filters
+
+    # Location: only filter when the user has preferences AND won't relocate.
+    # Always include jobs with no location set — many employers don't specify.
+    if profile.preferred_locations and not profile.open_to_relocation:
+        location_clauses = [
+            JobPosting.location.ilike(f"%{loc}%")
+            for loc in profile.preferred_locations
+        ]
+        filters.append(or_(*location_clauses, JobPosting.location == None))  # noqa: E711
+
+    # Salary: exclude only when the job's stated max is below the user's floor.
+    # Jobs without salary listed are kept — employer may negotiate.
+    if profile.expected_salary_min:
+        filters.append(
+            or_(JobPosting.salary_max == None, JobPosting.salary_max >= profile.expected_salary_min)  # noqa: E711
+        )
+
+    return filters
+
+
 def rank_jobs_for_user(
     profile: AspirantProfile,
     krs: Optional[KrsScore],

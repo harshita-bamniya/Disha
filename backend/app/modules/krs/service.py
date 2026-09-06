@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime, timezone
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.user import AspirantProfile, CareerMatch, CareerTrack, EmployerProfile, JobPosting, KrsScore, PsychologicalAssessment, User, UserCareerSelection, UserJobPreparation
@@ -9,7 +8,7 @@ from app.modules.krs.schemas import (
     ActivePrepJobContext, CareerMatchResponse, CareerTrackResponse,
     KrsDashboardResponse, KrsScoreResponse, LiveJobResponse, PrepareJobResponse,
 )
-from app.modules.recommendations.ranker import rank_jobs_for_user
+from app.modules.recommendations.ranker import build_preference_sql_filters, rank_jobs_for_user
 
 logger = logging.getLogger(__name__)
 
@@ -250,24 +249,9 @@ def get_live_jobs(user: User, db: Session) -> list[LiveJobResponse]:
     if not krs:
         return []
 
-    # ── Build hard SQL filters from user profile preferences ─────────────────
-    sql_filters = []
-
-    # Location: only filter when user has preferences AND is not open to relocation.
-    # Always include jobs with no location set — many employers don't specify.
-    if profile.preferred_locations and not profile.open_to_relocation:
-        location_clauses = [
-            JobPosting.location.ilike(f"%{loc}%")
-            for loc in profile.preferred_locations
-        ]
-        sql_filters.append(or_(*location_clauses, JobPosting.location == None))
-
-    # Salary: exclude only when the job's stated max is below user's floor.
-    # Jobs without salary listed are kept — employer may negotiate.
-    if profile.expected_salary_min:
-        sql_filters.append(
-            or_(JobPosting.salary_max == None, JobPosting.salary_max >= profile.expected_salary_min)
-        )
+    # Hard SQL filters from the user's profile preferences — shared with the
+    # main Jobs page so both surfaces agree on what "matches" means.
+    sql_filters = build_preference_sql_filters(profile)
 
     # Load application history for collaborative filtering
     from app.models.applications import Application as AppModel

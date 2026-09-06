@@ -14,7 +14,7 @@ celery_app = Celery(
     "beginablai_worker",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.tasks.roadmap_tasks", "app.tasks.announcements"],
+    include=["app.tasks.roadmap_tasks", "app.tasks.announcements", "app.tasks.application_tasks"],
 )
 
 celery_app.conf.update(

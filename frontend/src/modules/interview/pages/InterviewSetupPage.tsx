@@ -16,19 +16,18 @@ const WHITE    = colors.surface.card
 
 // ── Role catalogue ─────────────────────────────────────────────────────────────
 const ROLES = [
-  { value: 'AI Engineer',              icon: '🤖' },
-  { value: 'Machine Learning Engineer',icon: '🧠' },
-  { value: 'Data Scientist',           icon: '📊' },
-  { value: 'Frontend Developer',       icon: '🎨' },
-  { value: 'Backend Developer',        icon: '⚙️' },
-  { value: 'Full Stack Developer',     icon: '🔧' },
-  { value: 'DevOps Engineer',          icon: '🚀' },
-  { value: 'Cloud Engineer',           icon: '☁️' },
-  { value: 'Product Manager',          icon: '📋' },
-  { value: 'UI/UX Designer',           icon: '✏️' },
-  { value: 'Cybersecurity Engineer',   icon: '🔒' },
-  { value: 'Mobile App Developer',     icon: '📱' },
-  { value: 'Business Analyst',         icon: '📈' },
+  { value: 'Policy Research Analyst',              icon: '📜' },
+  { value: 'Compliance & Regulatory Affairs Officer', icon: '⚖️' },
+  { value: 'Public Affairs & Communications Lead', icon: '📢' },
+  { value: 'Management Consultant (Public Sector)', icon: '💼' },
+  { value: 'Legal & Compliance Analyst',            icon: '🏛️' },
+  { value: 'CSR & Social Impact Manager',           icon: '🤝' },
+  { value: 'Data Analytics & Research Associate',   icon: '📊' },
+  { value: 'Government Relations Officer',          icon: '🏢' },
+  { value: 'Education & EdTech Program Manager',    icon: '🎓' },
+  { value: 'HR & Learning Development Specialist',  icon: '👥' },
+  { value: 'International Organizations Officer',   icon: '🌍' },
+  { value: 'Journalism & Media Analyst',            icon: '📰' },
 ]
 
 const EXPERIENCE_LEVELS = [
@@ -108,7 +107,7 @@ function Step1Role({ value, onChange }: { value: string; onChange: (v: string) =
           type="text"
           value={isCustom ? value : ''}
           onChange={e => onChange(e.target.value)}
-          placeholder="e.g. Site Reliability Engineer, Growth Marketer, Quant Trader…"
+          placeholder="e.g. NGO Programme Officer, Financial Analyst, Urban Planner…"
           style={{
             width: '100%', padding: '12px 14px', borderRadius: 11,
             border: isCustom ? `2px solid ${NAVY}` : `1.5px solid ${CREAM_DK}`,

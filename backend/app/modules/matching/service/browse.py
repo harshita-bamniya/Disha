@@ -17,7 +17,7 @@ from app.modules.matching.schemas import (
     JobDetail,
     JobRecommendationsResponse,
 )
-from app.modules.recommendations.ranker import rank_jobs_for_user
+from app.modules.recommendations.ranker import build_preference_sql_filters, rank_jobs_for_user
 
 from app.modules.matching.service import core
 
@@ -43,8 +43,10 @@ def get_job_recommendations(
     profile = db.query(AspirantProfile).filter(AspirantProfile.user_id == user.id).first()
     krs = db.query(KrsScore).filter(KrsScore.user_id == user.id).first()
 
-    # Build caller-specified SQL filters
-    sql_filters = []
+    # Build SQL filters: the aspirant's own stated preferences (location/
+    # relocation, salary floor) first, then whatever the caller narrowed
+    # the search to via query params.
+    sql_filters = build_preference_sql_filters(profile)
     if sector:
         sql_filters.append(JobPosting.sector.ilike(f"%{sector}%"))
     if job_type:
