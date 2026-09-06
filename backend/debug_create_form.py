@@ -8,7 +8,7 @@ from app.modules.application_forms.schemas import ApplicationFormCreateIn, FormS
 db = SessionLocal()
 
 # Use employer1
-emp_user = db.query(User).filter_by(email="employer1@disha.test").first()
+emp_user = db.query(User).filter_by(email="employer1@beginablai.test").first()
 print(f"employer: {emp_user.id}")
 
 # Use first published job ID

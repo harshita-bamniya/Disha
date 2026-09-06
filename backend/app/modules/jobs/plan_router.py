@@ -688,6 +688,9 @@ def update_progress(
 
     progress = dict(plan.progress or {})
     entry = dict(progress.get(resource_id, {}))
+    # Reflects the resource's current done-state in the response even when
+    # this request only rates a video and never touches "done" (see below).
+    done = bool(entry.get("done"))
 
     if "done" in body:
         done = bool(body["done"])

@@ -49,6 +49,7 @@ class ResumeSummary(BaseModel):
     is_primary: bool
     ats_score: Optional[int]
     score_breakdown: Optional[dict[str, Any]] = None
+    target_job_description: Optional[str] = None
     career_track_name: Optional[str]
     template_name: Optional[str]
     section_count: int

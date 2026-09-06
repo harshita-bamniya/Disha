@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { jobPlanApi, type QuizSubmitResponse } from '@/api/jobPlan'
+import { shadows } from '@/design-system/tokens'
 import PageHeader from '@/shared/layouts/PageHeader'
 import { ArrowLeft, BookOpen, CheckCircle2, ExternalLink, Loader2, RotateCcw, Zap } from 'lucide-react'
 
@@ -73,7 +74,7 @@ export default function QuizPage() {
           )}
 
           {!isLoading && module && !quiz && (
-            <div style={{ background: 'white', borderRadius: 20, border: '1px solid rgba(37,99,235,0.08)', padding: '40px 32px', textAlign: 'center' }}>
+            <div style={{ background: 'white', borderRadius: 20, border: '1px solid rgba(37,99,235,0.08)', boxShadow: shadows.card, padding: '40px 32px', textAlign: 'center' }}>
               <h2 style={{ fontSize: 18, fontWeight: 700, color: '#0F172A', marginBottom: 10 }}>
                 No quiz yet for {module.skill}
               </h2>
@@ -109,7 +110,7 @@ export default function QuizPage() {
                 </div>
               )}
 
-              <div style={{ background: 'white', borderRadius: 20, border: '1px solid rgba(37,99,235,0.08)', padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 22 }}>
+              <div style={{ background: 'white', borderRadius: 20, border: '1px solid rgba(37,99,235,0.08)', boxShadow: shadows.card, padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 22 }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                   <div>
                     <h2 style={{ fontSize: 17, fontWeight: 700, color: '#0F172A', margin: 0 }}>{module.skill} — Quick Check</h2>

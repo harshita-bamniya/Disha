@@ -11,11 +11,11 @@ from app.database import get_db
 from app.models.user import User
 from app.modules.auth import service
 from app.modules.auth.schemas import (
-    ChangePasswordRequest, EmployerRegisterRequest, EmployerRegisterResponse,
-    ForgotPasswordRequest, ResetPasswordRequest,
+    AddPhoneRequest, ChangePasswordRequest, EmployerRegisterRequest, EmployerRegisterResponse,
+    ForgotPasswordRequest, ResendEmailOtpRequest, ResetPasswordRequest,
     GoogleLoginRequest, LoginRequest, MessageResponse, RefreshRequest,
     RegisterRequest, SendOtpRequest, TokenResponse,
-    UserResponse, VerifyPhoneRequest,
+    UserResponse, VerifyEmailOtpRequest, VerifyPhoneRequest,
     TwoFactorDisableRequest, TwoFactorEnableRequest, TwoFactorEnableResponse,
     TwoFactorSetupResponse, TwoFactorStatusResponse, TwoFactorVerifyLoginRequest,
 )
@@ -40,7 +40,6 @@ async def register(body: RegisterRequest, request: Request, db: Session = Depend
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     dev_otp = await service.register_user(
-        phone=body.phone,
         email=body.email,
         password=body.password,
         preferred_language=body.preferred_language,
@@ -48,7 +47,7 @@ async def register(body: RegisterRequest, request: Request, db: Session = Depend
         request=request,
     )
     return MessageResponse(
-        message="Account created. Please verify your phone number with the OTP sent.",
+        message="Account created. Please verify with the OTP sent to your email.",
         dev_otp=_dev_otp(dev_otp),
     )
 
@@ -57,6 +56,31 @@ async def register(body: RegisterRequest, request: Request, db: Session = Depend
 @limiter.limit("5/minute")
 def verify_phone(body: VerifyPhoneRequest, request: Request, db: Session = Depends(get_db)):
     return service.verify_phone(phone=body.phone, otp=body.otp, db=db, request=request)
+
+
+@router.post("/verify-email-otp", response_model=TokenResponse)
+@limiter.limit("5/minute")
+def verify_email_otp(body: VerifyEmailOtpRequest, request: Request, db: Session = Depends(get_db)):
+    return service.verify_email_otp(email=body.email, otp=body.otp, db=db, request=request)
+
+
+@router.post("/resend-email-otp", response_model=MessageResponse)
+@limiter.limit("3/minute;5/hour")
+async def resend_email_otp(body: ResendEmailOtpRequest, request: Request, db: Session = Depends(get_db)):
+    dev_otp = await service.resend_register_email_otp(email=body.email, db=db)
+    return MessageResponse(
+        message="OTP sent successfully.",
+        dev_otp=_dev_otp(dev_otp),
+    )
+
+
+@router.post("/phone", response_model=UserResponse)
+def add_phone(
+    body: AddPhoneRequest, request: Request,
+    current_user: User = Depends(get_current_user), db: Session = Depends(get_db),
+):
+    user = service.add_phone(user=current_user, phone=body.phone, db=db, request=request)
+    return UserResponse.from_user(user)
 
 
 @router.post("/send-otp", response_model=MessageResponse)

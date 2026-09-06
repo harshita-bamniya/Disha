@@ -11,7 +11,7 @@ settings = get_settings()
 logger = logging.getLogger(__name__)
 
 celery_app = Celery(
-    "disha_worker",
+    "beginablai_worker",
     broker=settings.redis_url,
     backend=settings.redis_url,
     include=["app.tasks.roadmap_tasks", "app.tasks.announcements"],

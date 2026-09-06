@@ -192,7 +192,7 @@ export default function SupportPage() {
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
       <PageHeader
         title="Support"
-        subtitle="Get help from the BeginableAI team"
+        subtitle="Get help from the BeginablAI team"
         actions={<Button variant="primary" size="sm" onClick={() => setShowNew(true)}><Plus size={13} />New Ticket</Button>}
       />
 

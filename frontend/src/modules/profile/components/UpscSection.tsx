@@ -24,9 +24,10 @@ export function UpscSection({ profile, open, onToggle }: Props) {
     upsc_exam: profile.upsc_exam ?? '',
     years_preparing: profile.years_preparing ?? 1,
     upsc_attempts: profile.upsc_attempts ?? 0,
-    highest_stage_cleared: profile.highest_stage_cleared ?? '',
+    highest_stage_cleared: profile.highest_stage_cleared ?? 'none',
     optional_subject: profile.optional_subject ?? '',
   })
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [saved, setSaved] = useState(false)
 
   const mut = useMutation({
@@ -43,6 +44,15 @@ export function UpscSection({ profile, open, onToggle }: Props) {
       onToggle()
     },
   })
+
+  const handleSave = () => {
+    const e: Record<string, string> = {}
+    if (!form.upsc_exam) e.upsc_exam = 'Please select an exam'
+    if (form.years_preparing < 0 || form.years_preparing > 30) e.years_preparing = 'Enter valid years (0–30)'
+    if (form.upsc_attempts < 0 || form.upsc_attempts > 20) e.upsc_attempts = 'Enter valid attempts (0–20)'
+    setErrors(e)
+    if (Object.keys(e).length === 0) mut.mutate()
+  }
 
   const summary = profile.upsc_exam
     ? `${EXAM_LABELS[profile.upsc_exam] ?? profile.upsc_exam} · ${STAGE_LABELS[profile.highest_stage_cleared ?? 'none']} · ${profile.upsc_attempts ?? 0} attempt(s)`
@@ -67,6 +77,7 @@ export function UpscSection({ profile, open, onToggle }: Props) {
               </button>
             ))}
           </div>
+          {errors.upsc_exam && <p className="text-xs text-danger mt-0.5">{errors.upsc_exam}</p>}
         </div>
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium text-gray-700">Highest stage cleared</label>
@@ -86,12 +97,12 @@ export function UpscSection({ profile, open, onToggle }: Props) {
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Input label="Years preparing" type="number" value={String(form.years_preparing)} onChange={e => setForm(p => ({ ...p, years_preparing: parseInt(e.target.value) || 0 }))} />
-          <Input label="Total attempts" type="number" value={String(form.upsc_attempts)} onChange={e => setForm(p => ({ ...p, upsc_attempts: parseInt(e.target.value) || 0 }))} />
+          <Input label="Years preparing" type="number" min={0} max={30} value={String(form.years_preparing)} onChange={e => setForm(p => ({ ...p, years_preparing: parseInt(e.target.value) || 0 }))} error={errors.years_preparing} />
+          <Input label="Total attempts" type="number" min={0} max={20} value={String(form.upsc_attempts)} onChange={e => setForm(p => ({ ...p, upsc_attempts: parseInt(e.target.value) || 0 }))} error={errors.upsc_attempts} />
         </div>
         <Input label="Optional subject" placeholder="Public Administration, Geography…" value={form.optional_subject} onChange={e => setForm(p => ({ ...p, optional_subject: e.target.value }))} />
         {mut.error && <p className="text-xs text-danger">{getApiError(mut.error, 'Save failed')}</p>}
-        <Button fullWidth loading={mut.isPending} onClick={() => mut.mutate()}>Save changes</Button>
+        <Button fullWidth loading={mut.isPending} onClick={handleSave}>Save changes</Button>
       </div>
     </ProfileSection>
   )

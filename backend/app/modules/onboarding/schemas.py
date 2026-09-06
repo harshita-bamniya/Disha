@@ -97,7 +97,9 @@ class PersonalInfoRequest(BaseModel):
 
     @field_validator("state")
     @classmethod
-    def validate_state(cls, v: str) -> str:
+    def validate_state(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
         if v not in INDIAN_STATES:
             raise ValueError(f"Invalid state. Must be one of the valid Indian states/UTs.")
         return v
@@ -298,13 +300,14 @@ class StepSavedResponse(BaseModel):
     message: str
     current_step: int
     is_completed: bool
-    disha_insight: str | None = None
+    beginablai_insight: str | None = None
 
 
 class ProfileResponse(BaseModel):
     """Full aspirant profile — returned by GET /onboarding/profile for pre-filling edit forms."""
     # Personal
     full_name: str | None = None
+    phone: str | None = None
     current_status: str | None = None
     date_of_birth: str | None = None      # YYYY-MM-DD string
     gender: str | None = None
@@ -340,7 +343,7 @@ class ProfileResponse(BaseModel):
     open_to_relocation: bool | None = None
     expected_salary_min: int | None = None
     expected_salary_max: int | None = None
-    disha_insight: str | None = None
+    beginablai_insight: str | None = None
 
     # Learning setup — one-time, asked before first roadmap/plan generation
     # (read-only here; re-takes go through PUT /onboarding/learning-setup)

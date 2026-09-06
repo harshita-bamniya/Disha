@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import OnboardingLayout from '@/layouts/OnboardingLayout'
 import Button from '@/components/ui/Button'
-import { useOnboardingSteps } from '../hooks/useOnboarding'
+import { useOnboardingSteps, useOnboardingProfile } from '../hooks/useOnboarding'
 import SkillPicker from '../components/SkillPicker'
 import { getApiError } from '@/api/client'
 
@@ -11,8 +11,16 @@ const MAX_SKILLS = 10
 export default function Step5Skills() {
   const [selected, setSelected] = useState<string[]>([])
   const [error, setError] = useState('')
+  const [prefilled, setPrefilled] = useState(false)
   const { skills } = useOnboardingSteps()
+  const { data: profile } = useOnboardingProfile()
   const navigate = useNavigate()
+
+  // Pre-fill from whatever's already saved — see Step1Personal for why.
+  if (profile && !prefilled) {
+    setPrefilled(true)
+    if (profile.skills.length) setSelected(profile.skills)
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()

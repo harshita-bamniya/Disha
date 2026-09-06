@@ -14,7 +14,7 @@ roadmap-input audit identified: weekly study hours (pacing is currently a
 hardcoded STUDY_HOURS_PER_DAY=2 constant), an optional target completion
 date, and per-skill proficiency (the skill-gap check is currently binary).
 
-disha_insight moves from psychological_assessments to aspirant_profiles
+beginablai_insight moves from psychological_assessments to aspirant_profiles
 since it's now generated at Step 6 (registration) completion, before any
 PsychologicalAssessment row exists.
 
@@ -33,8 +33,8 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # ── aspirant_profiles: add disha_insight + one-time learning setup fields ──
-    op.add_column("aspirant_profiles", sa.Column("disha_insight", sa.Text(), nullable=True))
+    # ── aspirant_profiles: add beginablai_insight + one-time learning setup fields ──
+    op.add_column("aspirant_profiles", sa.Column("beginablai_insight", sa.Text(), nullable=True))
     op.add_column("aspirant_profiles", sa.Column("weekly_study_hours", sa.Integer(), nullable=True))
     op.add_column("aspirant_profiles", sa.Column("target_completion_date", sa.Date(), nullable=True))
     op.add_column("aspirant_profiles", sa.Column("skill_proficiency", JSONB(), nullable=True))
@@ -42,13 +42,13 @@ def upgrade() -> None:
     # Carry forward any existing welcome messages before dropping their source column
     op.execute(sa.text("""
         UPDATE aspirant_profiles ap
-        SET disha_insight = pa.disha_insight
+        SET beginablai_insight = pa.beginablai_insight
         FROM psychological_assessments pa
-        WHERE pa.user_id = ap.user_id AND pa.disha_insight IS NOT NULL
+        WHERE pa.user_id = ap.user_id AND pa.beginablai_insight IS NOT NULL
     """))
 
     # ── psychological_assessments: drop the 5 fields with no traced effect ────
-    op.drop_column("psychological_assessments", "disha_insight")
+    op.drop_column("psychological_assessments", "beginablai_insight")
     op.drop_column("psychological_assessments", "financial_pressure_score")
     op.drop_column("psychological_assessments", "risk_tolerance")
     op.drop_column("psychological_assessments", "motivation_type")
@@ -75,16 +75,16 @@ def downgrade() -> None:
     op.add_column("psychological_assessments", sa.Column("motivation_type", sa.Enum("intrinsic", "extrinsic", "mixed", name="motivation_type_enum"), nullable=True))
     op.add_column("psychological_assessments", sa.Column("risk_tolerance", sa.Enum("low", "medium", "high", name="risk_tolerance_enum"), nullable=True))
     op.add_column("psychological_assessments", sa.Column("financial_pressure_score", sa.Integer(), nullable=True))
-    op.add_column("psychological_assessments", sa.Column("disha_insight", sa.Text(), nullable=True))
+    op.add_column("psychological_assessments", sa.Column("beginablai_insight", sa.Text(), nullable=True))
 
     op.execute(sa.text("""
         UPDATE psychological_assessments pa
-        SET disha_insight = ap.disha_insight
+        SET beginablai_insight = ap.beginablai_insight
         FROM aspirant_profiles ap
-        WHERE ap.user_id = pa.user_id AND ap.disha_insight IS NOT NULL
+        WHERE ap.user_id = pa.user_id AND ap.beginablai_insight IS NOT NULL
     """))
 
     op.drop_column("aspirant_profiles", "skill_proficiency")
     op.drop_column("aspirant_profiles", "target_completion_date")
     op.drop_column("aspirant_profiles", "weekly_study_hours")
-    op.drop_column("aspirant_profiles", "disha_insight")
+    op.drop_column("aspirant_profiles", "beginablai_insight")

@@ -21,7 +21,7 @@ export const useUIStore = create<UIState>()(
       toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
     }),
     {
-      name: 'disha-ui',
+      name: 'beginablai-ui',
       partialize: (state) => ({ language: state.language }),
     }
   )

@@ -5,7 +5,7 @@ import OnboardingLayout from '@/layouts/OnboardingLayout'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
-import { useOnboardingSteps } from '../hooks/useOnboarding'
+import { useOnboardingSteps, useOnboardingProfile } from '../hooks/useOnboarding'
 import { getApiError } from '@/api/client'
 
 // ── BeginablAI Insight card shown after successful submission ──────────────────────
@@ -57,10 +57,26 @@ export default function Step6Preferences() {
   const [salary, setSalary] = useState<{ min: number; max: number } | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [insight, setInsight] = useState<string | null>(null)
+  const [prefilled, setPrefilled] = useState(false)
   const { preferences } = useOnboardingSteps()
+  const { data: profile } = useOnboardingProfile()
   const navigate = useNavigate()
 
   const MAX_SECTORS = 5
+
+  // Pre-fill from whatever's already saved — see Step1Personal for why.
+  if (profile && !prefilled) {
+    setPrefilled(true)
+    if (profile.preferred_sectors.length) setSelectedSectors(new Set(profile.preferred_sectors))
+    if (profile.open_to_relocation != null) setOpenToRelocation(profile.open_to_relocation)
+    if (profile.preferred_locations.length) setLocations(profile.preferred_locations)
+    if (profile.expected_salary_min != null && profile.expected_salary_max != null) {
+      const match = SALARY_OPTIONS.find(
+        (opt) => opt.min === profile.expected_salary_min && opt.max === profile.expected_salary_max,
+      )
+      setSalary(match ?? { min: profile.expected_salary_min, max: profile.expected_salary_max })
+    }
+  }
 
   const toggleSector = (s: string) => {
     setErrors((p) => ({ ...p, sectors: '' }))
@@ -104,8 +120,8 @@ export default function Step6Preferences() {
       },
       {
         onSuccess: (data) => {
-          if (data.disha_insight) {
-            setInsight(data.disha_insight)
+          if (data.beginablai_insight) {
+            setInsight(data.beginablai_insight)
           } else {
             navigate('/app/dashboard')
           }

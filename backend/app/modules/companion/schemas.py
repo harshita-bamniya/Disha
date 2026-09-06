@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class MessageOut(BaseModel):
@@ -40,6 +40,13 @@ class MoodEntryOut(BaseModel):
     note: Optional[str]
     created_at: datetime
 
+    # CompanionMoodEntry.id is a native UUID column — model_validate() hands
+    # this the raw uuid.UUID object, which a plain `id: str` field rejects.
+    @field_validator("id", mode="before")
+    @classmethod
+    def _stringify_id(cls, v):
+        return str(v)
+
     class Config:
         from_attributes = True
 
@@ -55,6 +62,12 @@ class MilestoneOut(BaseModel):
     description: Optional[str]
     source: str
     created_at: datetime
+
+    # Same UUID-vs-str mismatch as MoodEntryOut above.
+    @field_validator("id", mode="before")
+    @classmethod
+    def _stringify_id(cls, v):
+        return str(v)
 
     class Config:
         from_attributes = True

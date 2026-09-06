@@ -69,6 +69,7 @@ export interface ResumeSummary {
   is_primary: boolean
   ats_score: number | null
   score_breakdown: ScoreBreakdown | null
+  target_job_description: string | null
   career_track_name: string | null
   template_name: string | null
   section_count: number

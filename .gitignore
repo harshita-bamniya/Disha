@@ -3,6 +3,7 @@
 .env.local
 .env.staging
 .env.production
+docker-compose.override.yml
 
 # Python
 __pycache__/

@@ -76,7 +76,7 @@ class AspirantDetailResponse(BaseModel):
     # Onboarding status
     is_completed: bool
     current_step: int
-    disha_insight: Optional[str] = None
+    beginablai_insight: Optional[str] = None
 
     # Sub-sections (None when not yet filled)
     education: Optional[AspirantEducation] = None

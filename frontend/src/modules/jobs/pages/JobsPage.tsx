@@ -11,7 +11,7 @@ import Button from '@/shared/components/primitives/Button'
 import Breadcrumb from '@/shared/components/navigation/Breadcrumb'
 import { SkeletonCard } from '@/shared/components/feedback/Skeleton'
 import SharedEmptyState from '@/shared/components/feedback/EmptyState'
-import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors } from '@/design-system/tokens'
+import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors, shadows } from '@/design-system/tokens'
 import { getJobs, type JobListItem } from '@/api/matching'
 import { jobPlanApi } from '@/api/jobPlan'
 import { trackJobEvent } from '@/lib/analytics'
@@ -223,7 +223,7 @@ function FilterRow({ label, active, onClick }: { label: string; active: boolean;
 // ── EmptyState ─────────────────────────────────────────────────────────────────
 function EmptyState({ hasFilters }: { hasFilters: boolean }) {
   return (
-    <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${BORDER}` }}>
+    <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${BORDER}`, boxShadow: shadows.card }}>
       <SharedEmptyState
         icon={<Briefcase size={22} color={NAVY} />}
         title={hasFilters ? 'No jobs match these filters' : 'No jobs available yet'}

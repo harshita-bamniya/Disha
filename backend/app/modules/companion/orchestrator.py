@@ -74,7 +74,10 @@ What you know about this person so far:
 
 {mood_context}
 
-Respond in {language}. Keep it natural, warm, and brief."""
+LANGUAGE: Always reply in the same language the user just wrote in (e.g., if they write in Hindi,
+reply in Hindi; if English, reply in English; if Hinglish/code-mixed, mirror that mix naturally).
+Detect it from their latest message, not from anything else. If their message is ambiguous or too
+short to tell (e.g. "ok", "hi"), default to {language}. Keep it natural, warm, and brief."""
 
 _CRISIS_RESPONSE = """I'm right here with you, and I'm not going anywhere. What you're feeling matters,
 and you are not alone in this — I mean that.

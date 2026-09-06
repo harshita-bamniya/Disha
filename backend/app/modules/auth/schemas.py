@@ -5,28 +5,17 @@ import re
 # ── Request schemas ───────────────────────────────────────────────────────────
 
 class RegisterRequest(BaseModel):
-    phone: str
-    email: str | None = None
+    email: str
     password: str
     preferred_language: str = "hi"
     recaptcha_token: str | None = None
 
-    @field_validator("phone")
-    @classmethod
-    def validate_phone(cls, v: str) -> str:
-        cleaned = re.sub(r"\D", "", v)
-        if cleaned.startswith("91") and len(cleaned) == 12:
-            cleaned = cleaned[2:]
-        if not re.match(r"^[6-9]\d{9}$", cleaned):
-            raise ValueError("Enter a valid 10-digit Indian mobile number")
-        return cleaned
-
     @field_validator("email")
     @classmethod
-    def validate_email(cls, v: str | None) -> str | None:
-        if v is None or v.strip() == "":
-            return None
+    def validate_email(cls, v: str) -> str:
         v = v.strip().lower()
+        if not v:
+            raise ValueError("Email address is required")
         if not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", v):
             raise ValueError("Enter a valid email address")
         return v
@@ -103,6 +92,50 @@ class SendOtpRequest(BaseModel):
         if v not in ("register", "login", "reset", "verify"):
             raise ValueError("Invalid OTP purpose")
         return v
+
+
+class VerifyEmailOtpRequest(BaseModel):
+    """Verifies the OTP emailed during registration (aspirants no longer
+    provide a phone number until after this step)."""
+    email: str
+    otp: str
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        return v.strip().lower()
+
+    @field_validator("otp")
+    @classmethod
+    def validate_otp(cls, v: str) -> str:
+        if not re.match(r"^\d{6}$", v):
+            raise ValueError("OTP must be 6 digits")
+        return v
+
+
+class ResendEmailOtpRequest(BaseModel):
+    email: str
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        return v.strip().lower()
+
+
+class AddPhoneRequest(BaseModel):
+    """Collects the phone number right after email verification. Not SMS-
+    verified — just stored (phone_verified stays false)."""
+    phone: str
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        cleaned = re.sub(r"\D", "", v)
+        if cleaned.startswith("91") and len(cleaned) == 12:
+            cleaned = cleaned[2:]
+        if not re.match(r"^[6-9]\d{9}$", cleaned):
+            raise ValueError("Enter a valid 10-digit Indian mobile number")
+        return cleaned
 
 
 class EmployerRegisterRequest(BaseModel):

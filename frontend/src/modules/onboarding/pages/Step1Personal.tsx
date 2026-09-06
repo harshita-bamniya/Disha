@@ -4,7 +4,7 @@ import OnboardingLayout from '@/layouts/OnboardingLayout'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
-import { useOnboardingSteps } from '../hooks/useOnboarding'
+import { useOnboardingSteps, useOnboardingProfile } from '../hooks/useOnboarding'
 import { getApiError } from '@/api/client'
 import type { Gender } from '@/types'
 
@@ -39,7 +39,24 @@ export default function Step1Personal() {
     date_of_birth: '', gender: '' as Gender | '', state: '',
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [prefilled, setPrefilled] = useState(false)
   const { personal } = useOnboardingSteps()
+  const { data: profile } = useOnboardingProfile()
+
+  // Pre-fill from whatever's already saved — this step is reachable even
+  // after onboarding is complete (browser back, a stale link), and an empty
+  // form would otherwise silently wipe existing optional fields on submit.
+  if (profile && !prefilled) {
+    setPrefilled(true)
+    setForm({
+      full_name: profile.full_name ?? '',
+      current_status: (profile.current_status ?? '') as CurrentStatus | '',
+      city: profile.city ?? '',
+      date_of_birth: profile.date_of_birth ?? '',
+      gender: (profile.gender ?? '') as Gender | '',
+      state: profile.state ?? '',
+    })
+  }
 
   const set = (f: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm((p) => ({ ...p, [f]: e.target.value }))

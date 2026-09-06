@@ -100,10 +100,10 @@ export default function EmployerLayout() {
             flexShrink: 0,
           }}>
             <span style={{ fontSize: 11, color: colors.text.muted }}>
-              © {new Date().getFullYear()} Disha · All rights reserved
+              © {new Date().getFullYear()} BeginablAI · All rights reserved
             </span>
             <span style={{ fontSize: 11, color: colors.text.muted }}>
-              Powered by BeginableAI
+              Powered by BeginablAI
             </span>
           </footer>
         </div>

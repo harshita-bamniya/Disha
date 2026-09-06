@@ -8,6 +8,7 @@ import {
   Volume2, VolumeX, User, Loader, SkipForward, PhoneOff, AlertTriangle
 } from 'lucide-react'
 import TypingIndicator from '@/shared/components/ai/TypingIndicator'
+import { toast } from '@/shared/components/feedback/Toast'
 
 interface TranscriptEntry {
   role: 'ai' | 'candidate'
@@ -803,6 +804,7 @@ export default function InterviewRoomPage() {
 
       await fetchNext(respId, answeredQuestionText)
     },
+    onError: () => toast.danger('Could not submit your answer. Please try again.'),
   })
 
   const completeMutation = useMutation({
@@ -813,6 +815,7 @@ export default function InterviewRoomPage() {
       return interviewApi.completeSession(sessionId!)
     },
     onSuccess: () => navigate(`/app/interview/report/${sessionId}`),
+    onError: () => toast.danger('Could not finish the interview. Please try again.'),
     onSettled: () => setCompleting(false),
   })
 
@@ -1105,7 +1108,7 @@ export default function InterviewRoomPage() {
                     aria-label="End interview"
                     title="End interview and generate report"
                     style={{
-                      width: 44, height: 44, borderRadius: '50%', border: 'none', cursor: 'pointer',
+                      width: 44, height: 44, borderRadius: '50%', cursor: 'pointer',
                       background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.2)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       transition: 'background 0.2s',

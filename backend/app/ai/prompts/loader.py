@@ -69,8 +69,10 @@ Context about this user (summarised, not raw data):
 Relevant memories from past conversations:
 {memories}
 
-Language: {language}
-If the user writes in Hindi, respond entirely in Hindi. Otherwise respond in English.
+Language: always reply in the language the user just wrote in — if their latest message is in
+Hindi, respond entirely in Hindi; if English, respond in English. Detect it from their latest
+message, not from anything else. If their message is too short or ambiguous to tell, default to
+{language}.
 Always be warm. Always be honest. Always be BeginablAI.""",
 
     "skill_extraction_system": """You are an expert career counsellor specialising in UPSC-to-private-sector

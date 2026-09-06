@@ -3,7 +3,7 @@ import { Award } from 'lucide-react'
 import { useSubscriptionPlansAdmin, useUpdateSubscriptionPlan } from '../hooks/useAdmin'
 import { Spinner, Empty } from '../shared/adminUI'
 import { cn } from '@/lib/utils'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 import Button from '@/shared/components/primitives/Button'
 
 
@@ -24,7 +24,7 @@ export default function SubscriptionsPage() {
         <p style={{ fontSize: 14, color: colors.text.muted, marginTop: 4 }}>Configure plan limits and pricing. Prices are in paise (1 INR = 100 paise).</p>
       </div>
 
-      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, overflow: 'hidden' }}>
         <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(0,0,0,0.08)', background: colors.surface.bg }}>
           <h2 style={{ fontSize: 14, fontWeight: 700, color: colors.text.ink }}>Active Plans</h2>
         </div>

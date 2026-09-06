@@ -7,7 +7,7 @@ import {
 import { StatCard, Empty, Spinner } from '../shared/adminUI'
 import DataTable from '@/shared/components/data-display/DataTable'
 import type { TableColumn } from '@/shared/types'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 import type { HumanReviewEntry, ReviewableSession } from '@/api/admin'
 
 const RECOMMENDATIONS = ['Strong Hire', 'Hire', 'Maybe', 'No Hire']
@@ -27,7 +27,7 @@ function ReviewCard({ session }: { session: ReviewableSession }) {
   const canSubmit = score !== '' && Number(score) >= 0 && Number(score) <= 100 && recommendation !== ''
 
   return (
-    <div className="rounded-2xl p-5" style={{ border: `1px solid ${colors.border.default}`, background: colors.surface.card }}>
+    <div className="rounded-2xl p-5" style={{ border: `1px solid ${colors.border.default}`, background: colors.surface.card, boxShadow: shadows.card }}>
       <div className="flex items-center justify-between gap-3 mb-3">
         <div>
           <p className="text-sm font-semibold" style={{ color: colors.text.ink }}>
@@ -186,7 +186,7 @@ export default function InterviewCalibrationPage() {
 
       {/* Outcome correlation */}
       {correlation && correlation.by_recommendation.length > 0 && (
-        <div className="rounded-2xl p-5" style={{ border: `1px solid ${colors.border.default}`, background: colors.surface.card }}>
+        <div className="rounded-2xl p-5" style={{ border: `1px solid ${colors.border.default}`, background: colors.surface.card, boxShadow: shadows.card }}>
           <h2 className="text-sm font-bold mb-3" style={{ color: colors.text.ink }}>Readiness tier vs. reported outcome</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">

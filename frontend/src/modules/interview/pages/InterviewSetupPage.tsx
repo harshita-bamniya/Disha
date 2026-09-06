@@ -9,7 +9,7 @@ import {
   Volume2, Camera, CameraOff, Loader, Sparkles, Target
 } from 'lucide-react'
 
-import { NAVY, INK, INK_SFT as INK_S, MUTED, CREAM, BORDER, colors } from '@/design-system/tokens'
+import { NAVY, INK, INK_SFT as INK_S, MUTED, CREAM, BORDER, colors, shadows } from '@/design-system/tokens'
 import Button from '@/shared/components/primitives/Button'
 const CREAM_DK = colors.surface.elevated
 const WHITE    = colors.surface.card
@@ -227,7 +227,7 @@ function Step3Device({ cam, mic, net, videoRef, checkAll }: ReturnType<typeof us
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginBottom: 20 }}>
         {/* Camera preview */}
-        <div style={{ background: WHITE, borderRadius: 13, padding: '14px 16px', border: `1.5px solid ${CREAM_DK}` }}>
+        <div style={{ background: WHITE, borderRadius: 13, padding: '14px 16px', border: `1.5px solid ${CREAM_DK}`, boxShadow: shadows.card }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
             <Camera size={14} color={NAVY} />
             <span style={{ fontSize: 12.5, fontWeight: 700, color: INK }}>Camera</span>
@@ -253,7 +253,7 @@ function Step3Device({ cam, mic, net, videoRef, checkAll }: ReturnType<typeof us
             { icon: <Wifi size={14} color={NAVY} />,    label: 'Connection', state: net,    name: 'Network' },
             { icon: <Monitor size={14} color={NAVY} />, label: 'Browser',    state: 'ok',   name: 'Browser' },
           ].map(item => (
-            <div key={item.label} style={{ background: WHITE, borderRadius: 11, padding: '12px 14px', border: `1.5px solid ${CREAM_DK}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div key={item.label} style={{ background: WHITE, borderRadius: 11, padding: '12px 14px', border: `1.5px solid ${CREAM_DK}`, boxShadow: shadows.card, display: 'flex', alignItems: 'center', gap: 10 }}>
               {item.icon}
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: INK, marginBottom: 2 }}>{item.label}</div>
@@ -438,7 +438,7 @@ export default function InterviewSetupPage() {
             <Target size={18} color={WHITE} />
           </div>
           <div>
-            <div style={{ fontSize: 9.5, fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: '.5px', textTransform: 'uppercase' }}>DISHA AI</div>
+            <div style={{ fontSize: 9.5, fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: '.5px', textTransform: 'uppercase' }}>BEGINABLAI AI</div>
             <div style={{ fontSize: 14, fontWeight: 800, color: WHITE }}>AI Mock Interview</div>
           </div>
         </div>

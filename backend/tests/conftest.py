@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for DISHA test suite."""
+"""Shared pytest fixtures for BEGINABLAI test suite."""
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text

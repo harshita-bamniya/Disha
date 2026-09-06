@@ -3,7 +3,7 @@ import { Users, Target, TrendingUp, Activity } from 'lucide-react'
 import { adminApi } from '@/api/admin'
 import { useAdminStats } from '../hooks/useAdmin'
 import { Spinner, Empty, Breadcrumb } from '../shared/adminUI'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 
 
 export default function CandidateReportsPage() {
@@ -47,7 +47,7 @@ export default function CandidateReportsPage() {
               { label: 'Apply Rate',         value: `${applyRate}%`,                  icon: TrendingUp },
               { label: 'Total Hired',        value: hired.toLocaleString(),            icon: Target },
             ].map(({ label, value, icon: Icon }) => (
-              <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '16px 20px' }}>
+              <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '16px 20px' }}>
                 <div style={{ width: 40, height: 40, borderRadius: 12, background: colors.surface.elevated, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                   <Icon size={18} color={colors.text.ink} />
                 </div>
@@ -59,7 +59,7 @@ export default function CandidateReportsPage() {
 
           {/* Candidate registration trend */}
           {userGrowth.length > 0 && (
-            <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '20px' }}>
+            <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
                 <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, whiteSpace: 'nowrap' }}>Candidate Registrations — Last 90 Days</span>
                 <div style={{ flex: 1, height: '0.5px', background: '#E2E8F0' }} />
@@ -84,7 +84,7 @@ export default function CandidateReportsPage() {
 
           {/* KRS Score distribution */}
           {scoreDist.length > 0 && (
-            <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '20px' }}>
+            <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
                 <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, whiteSpace: 'nowrap' }}>KRS Match Score Distribution</span>
                 <div style={{ flex: 1, height: '0.5px', background: '#E2E8F0' }} />
@@ -107,7 +107,7 @@ export default function CandidateReportsPage() {
 
           {/* Cohort table */}
           {cohort.length > 0 && (
-            <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+            <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, overflow: 'hidden' }}>
               <div className="px-5 py-3" style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
                 <h2 className="text-sm font-bold" style={{ color: colors.text.ink }}>Candidate Funnel by Month</h2>
                 <p className="text-xs mt-0.5" style={{ color: colors.text.muted }}>Registrations → Applied → Hired</p>

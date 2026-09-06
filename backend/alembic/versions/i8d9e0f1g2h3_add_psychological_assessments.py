@@ -49,7 +49,7 @@ def upgrade() -> None:
             motivation_type         motivation_type_enum NOT NULL,
             identity_attachment     identity_attachment_enum NOT NULL,
             support_system          support_system_enum NOT NULL,
-            disha_insight           TEXT,
+            beginablai_insight           TEXT,
             created_at              TIMESTAMPTZ DEFAULT now(),
             updated_at              TIMESTAMPTZ DEFAULT now()
         )

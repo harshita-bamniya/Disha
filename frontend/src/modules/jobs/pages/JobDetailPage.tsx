@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { MapPin, Wifi, Briefcase, Target, Sparkles, Mic, Check, IndianRupee, ArrowUpRight } from 'lucide-react'
+import { MapPin, Wifi, Briefcase, Target, Sparkles, Mic, Check, IndianRupee, ArrowUpRight, SearchX } from 'lucide-react'
 import PageHeader from '@/shared/layouts/PageHeader'
 import Breadcrumb from '@/shared/components/navigation/Breadcrumb'
-import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors } from '@/design-system/tokens'
-import { getJobDetail } from '@/api/matching'
+import EmptyState from '@/shared/components/feedback/EmptyState'
+import Button from '@/shared/components/primitives/Button'
+import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors, shadows } from '@/design-system/tokens'
+import { getJobDetail, getMyApplications } from '@/api/matching'
 import { resumeApi } from '@/api/resume'
-import { jobPlanApi } from '@/api/jobPlan'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 import { trackJobEvent } from '@/lib/analytics'
-import { toast } from '@/shared/components/feedback/Toast'
 
 const INK_S    = INK_SFT
 const CREAM_DK = colors.surface.elevated
@@ -24,7 +24,6 @@ function skillBarColor(pct: number) {
 export default function JobDetailPage() {
   const { jobId } = useParams<{ jobId: string }>()
   const navigate = useNavigate()
-  const [applied, setApplied] = useState(false)
   const [generatingResume, setGeneratingResume] = useState(false)
   const [resumeError, setResumeError] = useState<string | null>(null)
 
@@ -33,17 +32,19 @@ export default function JobDetailPage() {
     queryFn: () => getJobDetail(jobId!),
     enabled: !!jobId,
   })
+  const { data: myApps } = useQuery({ queryKey: ['my-applications'], queryFn: getMyApplications })
+  const applied = !!myApps?.some(a => a.job_id === jobId)
   const { activePrep, startPrep, isStartingPrep } = useActivePrepJob()
   const isActivePrepJob = activePrep?.job_id === jobId
 
   function handleGenerateRoadmap() {
     if (!jobId) return
-    startPrep(jobId, {
-      onSuccess: () => {
-        jobPlanApi.generate(jobId).catch(() => toast.danger('Could not start your learning plan. Please try again from the Roadmap page.'))
-        navigate('/app/roadmap')
-      },
-    })
+    // Don't fire generation here — a first-time user hasn't answered the
+    // Learning Setup questions yet (burnout, confidence, format, etc.), and
+    // generating before that just bakes in wrong-sounding defaults. The
+    // Roadmap page gates on Learning Setup, then the plan panel's own
+    // "Generate My Roadmap" button starts generation with the real answers.
+    startPrep(jobId, { onSuccess: () => navigate('/app/roadmap') })
   }
 
   async function handleGenerateResume() {
@@ -67,19 +68,41 @@ export default function JobDetailPage() {
     }
   }
 
+  const backButton = (
+    <button
+      onClick={() => navigate(-1)}
+      style={{
+        width: 30, height: 30, borderRadius: '50%', background: CREAM,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        color: INK_S, border: 'none', cursor: 'pointer', fontSize: 16, flexShrink: 0,
+      }}
+    >←</button>
+  )
+
   if (isLoading) {
     return (
+      <>
+        <PageHeader title="Job Details" icon={<Briefcase size={13} color={NAVY} />} back={backButton} />
         <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ width: 28, height: 28, border: `2px solid ${NAVY}`, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
         </main>
+      </>
     )
   }
 
   if (isError || !job) {
     return (
-        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#DC2626', fontSize: 14 }}>
-          Job not found or no longer active.
+      <>
+        <PageHeader title="Job Details" icon={<Briefcase size={13} color={NAVY} />} back={backButton} />
+        <main style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <EmptyState
+            icon={<SearchX size={24} />}
+            title="Job not found"
+            description="This listing may have been removed or is no longer active."
+            action={<Button onClick={() => navigate('/app/jobs')}>Browse Jobs</Button>}
+          />
         </main>
+      </>
     )
   }
 
@@ -91,16 +114,7 @@ export default function JobDetailPage() {
       <PageHeader
         title={job.title}
         icon={<Briefcase size={13} color={NAVY} />}
-        back={
-          <button
-            onClick={() => navigate(-1)}
-            style={{
-              width: 30, height: 30, borderRadius: '50%', background: CREAM,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: INK_S, border: 'none', cursor: 'pointer', fontSize: 16, flexShrink: 0,
-            }}
-          >←</button>
-        }
+        back={backButton}
         below={
           <Breadcrumb items={[
             { label: 'Jobs', href: '/app/jobs' },
@@ -225,6 +239,7 @@ export default function JobDetailPage() {
               background: '#fff',
               borderRadius: '0 0 18px 18px',
               border: `1px solid ${BORDER}`, borderTop: 'none',
+              boxShadow: shadows.card,
               overflow: 'hidden',
             }}>
 

@@ -18,12 +18,12 @@ import {
 } from '../shared/adminUI'
 import { cn } from '@/lib/utils'
 import { adminApi } from '@/api/admin'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 import Button from '@/shared/components/primitives/Button'
 
 
-const cardStyle = { background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '20px' }
-const tableCardStyle = { background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' as const }
+const cardStyle = { background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '20px' }
+const tableCardStyle = { background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, overflow: 'hidden' as const }
 const tableHeaderStyle = { background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)', padding: '12px 16px' }
 const inputStyle = { border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, background: '#fff', color: colors.text.ink }
 
@@ -144,7 +144,7 @@ function OverviewTab({ emp }: { emp: any }) {
 
       {showRevoke && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
-          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: 24, maxWidth: 384, width: '100%' }}>
+          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: 24, maxWidth: 384, width: '100%' }}>
             <h3 className="text-base font-bold mb-2" style={{ color: colors.text.ink }}>Revoke approval?</h3>
             <p className="text-sm mb-5" style={{ color: colors.text.muted }}>
               <span className="font-semibold" style={{ color: colors.text.ink }}>{emp.company_name}</span> will lose access and their jobs will be unlisted.
@@ -713,7 +713,7 @@ export default function EmployerDetailPage() {
           { label: 'Team Members',  value: emp.team_members.length },
           { label: 'Plan',          value: emp.subscription_plan ?? 'Free' },
         ].map(({ label, value }) => (
-          <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 16px' }}>
+          <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '12px 16px' }}>
             <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, marginBottom: 6 }}>{label}</p>
             <p style={{ fontSize: 22, fontWeight: 800, color: colors.text.ink }}>{value}</p>
           </div>

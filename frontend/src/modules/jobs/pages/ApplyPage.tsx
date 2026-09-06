@@ -13,7 +13,7 @@ import {
   AlertCircle, ArrowLeft, ArrowRight, Check,
   CheckCircle2, FileText, Loader2, Send, Upload, X,
 } from 'lucide-react'
-import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors } from '@/design-system/tokens'
+import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors, shadows } from '@/design-system/tokens'
 import { applicationsApi, type AnswerIn, type FormSectionOut, type QuestionOut } from '@/api/applications'
 import { resumeLibraryApi, type ResumeFile } from '@/api/resumeLibrary'
 import { useAuthStore } from '@/stores/authStore'
@@ -777,7 +777,7 @@ export default function ApplyPage() {
 
         {/* not eligible */}
         {!isLoading && !submitted && elig && !elig.eligible && (
-          <div style={{ background: WHITE, borderRadius: 16, border: `1px solid ${BORDER}`, overflow: 'hidden' }}>
+          <div style={{ background: WHITE, borderRadius: 16, border: `1px solid ${BORDER}`, boxShadow: shadows.card, overflow: 'hidden' }}>
             <div style={{ height: 4, background: '#F59E0B' }} />
             <div style={{ padding: '32px 28px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -811,7 +811,7 @@ export default function ApplyPage() {
 
         {/* success */}
         {submitted && (
-          <div style={{ background: WHITE, borderRadius: 16, border: `1px solid ${BORDER}` }}>
+          <div style={{ background: WHITE, borderRadius: 16, border: `1px solid ${BORDER}`, boxShadow: shadows.card }}>
             <SuccessScreen refNum={submitted.refNum} jobTitle={submitted.jobTitle}
               onDone={() => navigate('/app/jobs/applications')} />
           </div>
@@ -819,7 +819,7 @@ export default function ApplyPage() {
 
         {/* wizard */}
         {!isLoading && elig?.eligible && !submitted && (
-          <div style={{ background: WHITE, borderRadius: 16, border: `1px solid ${BORDER}`, overflow: 'hidden' }}>
+          <div style={{ background: WHITE, borderRadius: 16, border: `1px solid ${BORDER}`, boxShadow: shadows.card, overflow: 'hidden' }}>
             <div style={{ height: 4, background: NAVY }} />
             <div style={{ padding: '28px 28px 24px' }}>
 

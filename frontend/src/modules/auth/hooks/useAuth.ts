@@ -37,6 +37,52 @@ export function useVerifyPhone() {
   })
 }
 
+export function useVerifyEmailOtp() {
+  const { setAuth } = useAuthStore()
+  const navigate = useNavigate()
+
+  return useMutation({
+    mutationFn: authApi.verifyEmailOtp,
+    onSuccess: (data) => {
+      setAuth(data.user!, {
+        access_token: data.access_token!,
+        refresh_token: data.refresh_token!,
+        token_type: data.token_type as 'bearer',
+      })
+      // Account has no phone number yet — collect it before anything else.
+      navigate('/auth/add-phone')
+    },
+  })
+}
+
+export function useResendEmailOtp() {
+  return useMutation({ mutationFn: authApi.resendEmailOtp })
+}
+
+export function useAddPhone() {
+  const { setUser } = useAuthStore()
+  const navigate = useNavigate()
+
+  return useMutation({
+    mutationFn: authApi.addPhone,
+    onSuccess: (user) => {
+      setUser(user)
+      navigate('/app/onboarding/step/1')
+    },
+  })
+}
+
+/** Same endpoint as useAddPhone, for editing an existing phone number from
+ * the profile page — updates the stored user but doesn't navigate anywhere. */
+export function useUpdatePhone() {
+  const { setUser } = useAuthStore()
+
+  return useMutation({
+    mutationFn: authApi.addPhone,
+    onSuccess: (user) => setUser(user),
+  })
+}
+
 export function useSendOtp() {
   return useMutation({ mutationFn: authApi.sendOtp })
 }

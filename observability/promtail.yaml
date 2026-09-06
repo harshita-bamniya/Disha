@@ -21,7 +21,7 @@ scrape_configs:
         target_label: service
       # Drop promtail's own logs to avoid loops
       - source_labels: [__meta_docker_container_name]
-        regex: disha_promtail
+        regex: beginablai_promtail
         action: drop
 
   # ── nginx access log (JSON format in nginx.conf) ──────────────────────────

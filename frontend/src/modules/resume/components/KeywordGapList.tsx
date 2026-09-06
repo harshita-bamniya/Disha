@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { resumeApi } from '@/api/resume'
+import { getApiError } from '@/api/client'
 import { CheckCircle, XCircle, AlertCircle, Plus, Loader } from 'lucide-react'
 
 interface KeywordGapResult {
@@ -79,16 +80,30 @@ function KeywordChip({
 }
 
 export default function KeywordGapList({ resumeId, jobDescription, onAddKeyword }: Props) {
+  const qc = useQueryClient()
   const [result, setResult] = useState<KeywordGapResult | null>(null)
   const [jd, setJd] = useState(jobDescription ?? '')
   const [showJdInput, setShowJdInput] = useState(!jobDescription)
 
   const analyzeMutation = useMutation({
-    mutationFn: () => resumeApi.keywordGap(resumeId, jd),
-    onSuccess: (data) => setResult(data),
+    mutationFn: async () => {
+      const trimmed = jd.trim()
+      // A different JD than what's currently saved on the resume — persist
+      // it as the new target, not just a one-off local analysis, so it
+      // sticks around (and the panel's "Job target set" bar reflects it).
+      if (trimmed !== (jobDescription ?? '').trim()) {
+        await resumeApi.setJobTarget(resumeId, { job_description: trimmed })
+        qc.invalidateQueries({ queryKey: ['resume', resumeId] })
+      }
+      return resumeApi.keywordGap(resumeId, trimmed)
+    },
+    onSuccess: (data) => {
+      setResult(data)
+      setShowJdInput(false)
+    },
   })
 
-  if (!jobDescription && !result) {
+  if (showJdInput) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <p style={{ fontSize: 12, color: '#64748B', margin: 0 }}>
@@ -101,13 +116,26 @@ export default function KeywordGapList({ resumeId, jobDescription, onAddKeyword 
           rows={5}
           style={{ width: '100%', padding: '10px 12px', borderRadius: 9, border: '1.5px solid #E2E8F0', fontSize: 12, resize: 'vertical', boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit', color: '#0F172A' }}
         />
-        <button
-          onClick={() => analyzeMutation.mutate()}
-          disabled={!jd.trim() || analyzeMutation.isPending}
-          style={{ padding: '9px', borderRadius: 9, background: '#1A2744', color: 'white', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, opacity: !jd.trim() || analyzeMutation.isPending ? 0.6 : 1 }}
-        >
-          {analyzeMutation.isPending ? 'Analyzing…' : 'Analyze Keywords'}
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {result && (
+            <button
+              onClick={() => { setJd(jobDescription ?? ''); setShowJdInput(false) }}
+              style={{ flex: 1, padding: '9px', borderRadius: 9, border: '1.5px solid #E2E8F0', background: 'white', color: '#64748B', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+            >
+              Cancel
+            </button>
+          )}
+          <button
+            onClick={() => analyzeMutation.mutate()}
+            disabled={!jd.trim() || analyzeMutation.isPending}
+            style={{ flex: 2, padding: '9px', borderRadius: 9, background: '#1A2744', color: 'white', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 700, opacity: !jd.trim() || analyzeMutation.isPending ? 0.6 : 1 }}
+          >
+            {analyzeMutation.isPending ? 'Analyzing…' : 'Analyze Keywords'}
+          </button>
+        </div>
+        {analyzeMutation.isError && (
+          <p style={{ fontSize: 11, color: '#DC2626', margin: 0 }}>{getApiError(analyzeMutation.error, 'Analysis failed')}</p>
+        )}
       </div>
     )
   }
@@ -181,7 +209,7 @@ export default function KeywordGapList({ resumeId, jobDescription, onAddKeyword 
       )}
 
       <button
-        onClick={() => { setResult(null); setShowJdInput(true) }}
+        onClick={() => { setJd(jobDescription ?? ''); setShowJdInput(true) }}
         style={{ fontSize: 11, color: '#1A2744', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', padding: 0, marginTop: 4 }}
       >
         Re-analyze with different JD

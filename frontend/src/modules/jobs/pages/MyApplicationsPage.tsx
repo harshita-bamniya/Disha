@@ -8,7 +8,8 @@ import {
 import PageHeader from '@/shared/layouts/PageHeader'
 import Button from '@/shared/components/primitives/Button'
 import EmptyState from '@/shared/components/feedback/EmptyState'
-import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors } from '@/design-system/tokens'
+import { toast } from '@/shared/components/feedback/Toast'
+import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors, shadows } from '@/design-system/tokens'
 import {
   getMyApplications, getApplicationDetail, withdrawApplication,
   getMyInterviews, requestInterviewReschedule,
@@ -160,7 +161,11 @@ function StatusTimeline({ items }: { items: ApplicationStatusHistoryItem[] }) {
 function WithdrawPanel({ app, onDone, onCancel }: { app: ApplicationOut; onDone: () => void; onCancel: () => void }) {
   const [reason, setReason] = useState('')
   const [note, setNote]     = useState('')
-  const mutation = useMutation({ mutationFn: () => withdrawApplication(app.id, reason, note || undefined), onSuccess: onDone })
+  const mutation = useMutation({
+    mutationFn: () => withdrawApplication(app.id, reason, note || undefined),
+    onSuccess: onDone,
+    onError: () => toast.danger('Could not withdraw your application. Please try again.'),
+  })
   const isAdvanced = ADVANCED_STATUSES.has(app.status)
   return (
     <div style={{ background: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 10, padding: 14, marginTop: 10 }}>
@@ -202,6 +207,7 @@ function InterviewsSection({ applicationId }: { applicationId: string }) {
   const requestMutation = useMutation({
     mutationFn: (ivId: string) => requestInterviewReschedule(applicationId, ivId, note),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['my-interviews', applicationId] }); setRequestingId(null); setNote('') },
+    onError: () => toast.danger('Could not send your reschedule request. Please try again.'),
   })
   if (!interviews || interviews.length === 0) return null
   return (
@@ -253,8 +259,16 @@ function OfferLetterSection({ applicationId }: { applicationId: string }) {
   const [declineReason, setDeclineReason] = useState('')
   const { data: offer } = useQuery({ queryKey: ['my-offer-letter', applicationId], queryFn: () => getMyOfferLetter(applicationId) })
   const invalidate = () => { qc.invalidateQueries({ queryKey: ['my-offer-letter', applicationId] }); qc.invalidateQueries({ queryKey: ['my-applications'] }) }
-  const acceptMutation  = useMutation({ mutationFn: () => acceptOfferLetter(applicationId, signatureName.trim()), onSuccess: () => { invalidate(); setMode('idle') } })
-  const declineMutation = useMutation({ mutationFn: () => declineOfferLetter(applicationId, declineReason.trim() || undefined), onSuccess: () => { invalidate(); setMode('idle') } })
+  const acceptMutation  = useMutation({
+    mutationFn: () => acceptOfferLetter(applicationId, signatureName.trim()),
+    onSuccess: () => { invalidate(); setMode('idle') },
+    onError: () => toast.danger('Could not accept the offer. Please try again.'),
+  })
+  const declineMutation = useMutation({
+    mutationFn: () => declineOfferLetter(applicationId, declineReason.trim() || undefined),
+    onSuccess: () => { invalidate(); setMode('idle') },
+    onError: () => toast.danger('Could not decline the offer. Please try again.'),
+  })
   if (!offer) return null
   return (
     <div>
@@ -364,7 +378,11 @@ function TimelineCard({ app, isLast }: { app: ApplicationOut; isLast: boolean })
             display: 'flex',
             flexDirection: 'column',
             gap: 10,
+            boxShadow: shadows.card,
+            transition: 'box-shadow 0.15s, transform 0.15s',
           }}
+          onMouseOver={e => { e.currentTarget.style.boxShadow = shadows.cardHover; e.currentTarget.style.transform = 'translateY(-1px)' }}
+          onMouseOut={e => { e.currentTarget.style.boxShadow = shadows.card; e.currentTarget.style.transform = 'translateY(0)' }}
         >
           {/* top row */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>

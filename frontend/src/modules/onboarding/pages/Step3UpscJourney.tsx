@@ -4,7 +4,7 @@ import OnboardingLayout from '@/layouts/OnboardingLayout'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
-import { useOnboardingSteps } from '../hooks/useOnboarding'
+import { useOnboardingSteps, useOnboardingProfile } from '../hooks/useOnboarding'
 import { getApiError } from '@/api/client'
 import type { UpscExam, UpscStage } from '@/types'
 
@@ -34,8 +34,22 @@ export default function Step3UpscJourney() {
     optional_subject: '',
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [prefilled, setPrefilled] = useState(false)
   const { upscJourney } = useOnboardingSteps()
+  const { data: profile } = useOnboardingProfile()
   const navigate = useNavigate()
+
+  // Pre-fill from whatever's already saved — see Step1Personal for why.
+  if (profile && !prefilled) {
+    setPrefilled(true)
+    setForm({
+      upsc_exam: (profile.upsc_exam ?? '') as UpscExam | '',
+      years_preparing: profile.years_preparing != null ? String(profile.years_preparing) : '',
+      upsc_attempts: profile.upsc_attempts != null ? String(profile.upsc_attempts) : '',
+      highest_stage_cleared: (profile.highest_stage_cleared ?? 'none') as UpscStage,
+      optional_subject: profile.optional_subject ?? '',
+    })
+  }
 
   const validate = () => {
     const e: Record<string, string> = {}

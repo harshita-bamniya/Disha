@@ -3,7 +3,7 @@
  * Employer managers can publish or discard directly from here.
  */
 import { useState } from 'react'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 import { X, CheckCircle2, Trash2, Briefcase, Clock, Building2, MapPin, AlertCircle } from 'lucide-react'
 import { useEmployerDashboard, usePublishJob, useDeleteJob } from '../hooks/useJobs'
 import type { JobPosting } from '@/api/jobs'
@@ -28,7 +28,7 @@ function QueueCard({ job, onPublish, onDelete, publishing, deleting }: {
   const chip = STATUS_COLOR[job.status] ?? STATUS_COLOR.draft
 
   return (
-    <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${colors.border.default}`, padding: '14px 16px' }}>
+    <div style={{ background: '#fff', borderRadius: 14, border: `1px solid ${colors.border.default}`, boxShadow: shadows.card, padding: '14px 16px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 }}>
         <div style={{ width: 34, height: 34, borderRadius: 9, background: 'rgba(30,58,95,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <Briefcase size={15} color="#1E3A5F" />

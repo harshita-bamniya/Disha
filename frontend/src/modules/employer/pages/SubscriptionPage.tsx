@@ -1,7 +1,7 @@
 import { CreditCard, CheckCircle2 } from 'lucide-react'
 import { useSubscription, useSubscriptionUsage, useSubscriptionPlans, useUpgradeSubscription, useHasPermission } from '../hooks/useJobs'
 import { getApiError } from '@/api/client'
-import { colors, radius } from '@/design-system/tokens'
+import { colors, radius, shadows } from '@/design-system/tokens'
 import PageHeader from '@/shared/layouts/PageHeader'
 import ErrorState from '@/shared/components/feedback/ErrorState'
 import Spinner from '@/shared/components/feedback/Spinner'
@@ -49,7 +49,7 @@ export default function SubscriptionPage() {
       <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
         {/* Current plan + usage */}
-        <div style={{ background: colors.surface.card, borderRadius: radius.xl, border: `1px solid ${colors.border.default}`, padding: 24 }}>
+        <div style={{ background: colors.surface.card, borderRadius: radius.xl, border: `1px solid ${colors.border.default}`, boxShadow: shadows.card, padding: 24 }}>
           {subLoading ? (
             <Spinner />
           ) : subError ? (
@@ -87,6 +87,7 @@ export default function SubscriptionPage() {
                 style={{
                   background: colors.surface.card, borderRadius: radius.xl, padding: 18,
                   border: isCurrent ? `2px solid ${colors.brand.navy}` : `1px solid ${colors.border.default}`,
+                  boxShadow: shadows.card,
                   transition: 'box-shadow 0.2s',
                 }}
               >

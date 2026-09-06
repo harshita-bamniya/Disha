@@ -12,7 +12,7 @@ import Breadcrumb from '@/shared/components/navigation/Breadcrumb'
 import Tabs from '@/shared/components/navigation/Tabs'
 import Spinner from '@/shared/components/feedback/Spinner'
 import Button from '@/shared/components/primitives/Button'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -126,7 +126,7 @@ function FeedbackCard({ item, index }: { item: FeedbackItem; index: number }) {
   }
 
   return (
-    <div style={{ background: 'white', borderRadius: 14, border: '1.5px solid rgba(226,232,240,0.8)', marginBottom: 10, overflow: 'hidden' }}>
+    <div style={{ background: 'white', borderRadius: 14, border: '1.5px solid rgba(226,232,240,0.8)', boxShadow: shadows.card, marginBottom: 10, overflow: 'hidden' }}>
       <button
         onClick={() => setOpen(o => !o)}
         style={{ width: '100%', padding: '14px 18px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}
@@ -238,10 +238,10 @@ function RoadmapTimeline({ steps }: { steps: JobReadinessReport['roadmap'] }) {
         const color = colorMap[step.resource_type] ?? '#6366F1'
         return (
           <div key={i} style={{ display: 'flex', gap: 16, marginBottom: 20, position: 'relative' }}>
-            <div style={{ width: 32, height: 32, borderRadius: '50%', background: `${color}15`, border: `2px solid ${color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color, zIndex: 1, background: 'white' }}>
+            <div style={{ width: 32, height: 32, borderRadius: '50%', background: `${color}15`, border: `2px solid ${color}30`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color, zIndex: 1 }}>
               {iconMap[step.resource_type] ?? <Target size={14} />}
             </div>
-            <div style={{ flex: 1, background: 'white', borderRadius: 12, padding: '12px 16px', border: '1.5px solid rgba(226,232,240,0.8)' }}>
+            <div style={{ flex: 1, background: 'white', borderRadius: 12, padding: '12px 16px', border: '1.5px solid rgba(226,232,240,0.8)', boxShadow: shadows.card }}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: '#64748B', fontWeight: 700 }}>
                   <Calendar size={11} /> {step.week_range}
@@ -264,7 +264,7 @@ function RoadmapTimeline({ steps }: { steps: JobReadinessReport['roadmap'] }) {
 
 function PracticeNextCard({ skills, navigate }: { skills: string[]; navigate: (path: string) => void }) {
   return (
-    <div style={{ background: 'white', borderRadius: 18, padding: '22px 24px', border: '1.5px solid rgba(99,102,241,0.2)', gridColumn: '1 / -1' }}>
+    <div style={{ background: 'white', borderRadius: 18, padding: '22px 24px', border: '1.5px solid rgba(99,102,241,0.2)', boxShadow: shadows.card, gridColumn: '1 / -1' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <Target size={16} color="#6366F1" />
         <h2 style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>Practice Before Your Next Interview</h2>
@@ -303,7 +303,7 @@ function OutcomeSurveyCard({ sessionId, reportedOutcome }: { sessionId: string; 
   if (reportedOutcome) {
     const label = OUTCOME_OPTIONS.find(o => o.value === reportedOutcome)?.label ?? reportedOutcome
     return (
-      <div style={{ background: 'white', borderRadius: 18, padding: '16px 22px', border: '1.5px solid rgba(226,232,240,0.8)', display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ background: 'white', borderRadius: 18, padding: '16px 22px', border: '1.5px solid rgba(226,232,240,0.8)', boxShadow: shadows.card, display: 'flex', alignItems: 'center', gap: 10 }}>
         <CheckCircle size={16} color="#10B981" />
         <span style={{ fontSize: 13, color: '#374151' }}>Thanks for letting us know — you reported: <strong>{label}</strong></span>
       </div>
@@ -311,7 +311,7 @@ function OutcomeSurveyCard({ sessionId, reportedOutcome }: { sessionId: string; 
   }
 
   return (
-    <div style={{ background: 'white', borderRadius: 18, padding: '18px 22px', border: '1.5px solid rgba(99,102,241,0.2)' }}>
+    <div style={{ background: 'white', borderRadius: 18, padding: '18px 22px', border: '1.5px solid rgba(99,102,241,0.2)', boxShadow: shadows.card }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
         <MessageCircleQuestion size={16} color="#6366F1" />
         <h2 style={{ fontSize: 13.5, fontWeight: 800, color: '#0F172A' }}>How did the real interview go?</h2>
@@ -497,7 +497,7 @@ export default function InterviewReportPage() {
         {activeTab === 'report' && hasReport && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
             {/* Competency scores */}
-            <div style={{ background: 'white', borderRadius: 18, padding: '22px 24px', border: '1.5px solid rgba(226,232,240,0.8)', gridColumn: '1 / -1' }}>
+            <div style={{ background: 'white', borderRadius: 18, padding: '22px 24px', border: '1.5px solid rgba(226,232,240,0.8)', boxShadow: shadows.card, gridColumn: '1 / -1' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
                 <div style={{ width: 4, height: 16, background: 'linear-gradient(180deg, #6366F1, #8B5CF6)', borderRadius: 4 }} />
                 <h2 style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>Skill Competency Breakdown</h2>
@@ -515,7 +515,7 @@ export default function InterviewReportPage() {
             </div>
 
             {/* Strengths */}
-            <div style={{ background: 'white', borderRadius: 18, padding: '22px 24px', border: '1.5px solid rgba(226,232,240,0.8)' }}>
+            <div style={{ background: 'white', borderRadius: 18, padding: '22px 24px', border: '1.5px solid rgba(226,232,240,0.8)', boxShadow: shadows.card }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
                 <Award size={16} color="#10B981" />
                 <h2 style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>Key Strengths</h2>
@@ -529,7 +529,7 @@ export default function InterviewReportPage() {
             </div>
 
             {/* Gaps */}
-            <div style={{ background: 'white', borderRadius: 18, padding: '22px 24px', border: '1.5px solid rgba(226,232,240,0.8)' }}>
+            <div style={{ background: 'white', borderRadius: 18, padding: '22px 24px', border: '1.5px solid rgba(226,232,240,0.8)', boxShadow: shadows.card }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
                 <AlertTriangle size={16} color="#F59E0B" />
                 <h2 style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>Critical Gaps</h2>
@@ -543,7 +543,7 @@ export default function InterviewReportPage() {
             </div>
 
             {report.consistency_notes?.length > 0 && (
-              <div style={{ background: 'white', borderRadius: 18, padding: '22px 24px', border: '1.5px solid rgba(139,92,246,0.25)', gridColumn: '1 / -1' }}>
+              <div style={{ background: 'white', borderRadius: 18, padding: '22px 24px', border: '1.5px solid rgba(139,92,246,0.25)', boxShadow: shadows.card, gridColumn: '1 / -1' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
                   <AlertTriangle size={16} color="#8B5CF6" />
                   <h2 style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>Consistency Check</h2>
@@ -558,7 +558,7 @@ export default function InterviewReportPage() {
             )}
 
             {report.pacing_notes?.length > 0 && (
-              <div style={{ background: 'white', borderRadius: 18, padding: '22px 24px', border: '1.5px solid rgba(59,130,246,0.25)', gridColumn: '1 / -1' }}>
+              <div style={{ background: 'white', borderRadius: 18, padding: '22px 24px', border: '1.5px solid rgba(59,130,246,0.25)', boxShadow: shadows.card, gridColumn: '1 / -1' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
                   <Clock size={16} color="#3B82F6" />
                   <h2 style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>Pacing</h2>
@@ -573,7 +573,7 @@ export default function InterviewReportPage() {
             )}
 
             {report.integrity_notes?.length > 0 && (
-              <div style={{ background: 'white', borderRadius: 18, padding: '22px 24px', border: '1.5px solid rgba(220,38,38,0.25)', gridColumn: '1 / -1' }}>
+              <div style={{ background: 'white', borderRadius: 18, padding: '22px 24px', border: '1.5px solid rgba(220,38,38,0.25)', boxShadow: shadows.card, gridColumn: '1 / -1' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
                   <ShieldAlert size={16} color="#DC2626" />
                   <h2 style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>Integrity Flags</h2>
@@ -600,7 +600,7 @@ export default function InterviewReportPage() {
             </div>
 
             {/* Recommendation */}
-            <div style={{ background: 'white', borderRadius: 18, padding: '22px 24px', border: '1.5px solid rgba(226,232,240,0.8)', gridColumn: '1 / -1' }}>
+            <div style={{ background: 'white', borderRadius: 18, padding: '22px 24px', border: '1.5px solid rgba(226,232,240,0.8)', boxShadow: shadows.card, gridColumn: '1 / -1' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                 <HiringBadge rec={report.hiring_recommendation} />
               </div>
@@ -617,7 +617,7 @@ export default function InterviewReportPage() {
 
         {activeTab === 'report' && !hasReport && (
           <div>
-            <div style={{ background: reportErrored ? '#FEF2F2' : 'white', borderRadius: 18, padding: '32px', textAlign: 'center', border: reportErrored ? '1.5px solid #FECACA' : '1.5px solid rgba(226,232,240,0.8)', marginBottom: feedback.weak_skills.length > 0 ? 20 : 0 }}>
+            <div style={{ background: reportErrored ? '#FEF2F2' : 'white', borderRadius: 18, padding: '32px', textAlign: 'center', border: reportErrored ? '1.5px solid #FECACA' : '1.5px solid rgba(226,232,240,0.8)', boxShadow: shadows.card, marginBottom: feedback.weak_skills.length > 0 ? 20 : 0 }}>
               {reportErrored ? (
                 <>
                   <AlertTriangle size={22} color="#DC2626" style={{ marginBottom: 10 }} />
@@ -663,7 +663,7 @@ export default function InterviewReportPage() {
         {/* ── Answers Tab ────────────────────────────────────────────────────── */}
         {activeTab === 'answers' && (
           <div>
-            <div style={{ background: 'white', borderRadius: 18, padding: '18px 22px', marginBottom: 18, border: '1.5px solid rgba(226,232,240,0.8)', display: 'flex', alignItems: 'center', gap: 20 }}>
+            <div style={{ background: 'white', borderRadius: 18, padding: '18px 22px', marginBottom: 18, border: '1.5px solid rgba(226,232,240,0.8)', boxShadow: shadows.card, display: 'flex', alignItems: 'center', gap: 20 }}>
               <div>
                 <div style={{ fontSize: 28, fontWeight: 900, color: overallColor, fontFamily: 'Hind, sans-serif' }}>{overallAvg.toFixed(1)}/10</div>
                 <div style={{ fontSize: 11, color: '#94A3B8' }}>Overall Average</div>
@@ -684,7 +684,7 @@ export default function InterviewReportPage() {
           <div>
             {hasReport && report.roadmap?.length > 0 ? (
               <div>
-                <div style={{ background: 'white', borderRadius: 18, padding: '22px 24px', marginBottom: 24, border: '1.5px solid rgba(226,232,240,0.8)' }}>
+                <div style={{ background: 'white', borderRadius: 18, padding: '22px 24px', marginBottom: 24, border: '1.5px solid rgba(226,232,240,0.8)', boxShadow: shadows.card }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                     <MapPin size={16} color="#6366F1" />
                     <h2 style={{ fontSize: 15, fontWeight: 800, color: '#0F172A' }}>
@@ -699,7 +699,7 @@ export default function InterviewReportPage() {
                 <RoadmapTimeline steps={report.roadmap} />
               </div>
             ) : (
-              <div style={{ background: 'white', borderRadius: 18, padding: '32px', textAlign: 'center', border: '1.5px solid rgba(226,232,240,0.8)' }}>
+              <div style={{ background: 'white', borderRadius: 18, padding: '32px', textAlign: 'center', border: '1.5px solid rgba(226,232,240,0.8)', boxShadow: shadows.card }}>
                 <p style={{ color: '#64748B', fontSize: 14 }}>
                   Personalized roadmap is generated for role-specific interviews.<br />
                   <button onClick={() => navigate('/app/interview/setup')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6366F1', fontWeight: 700, fontSize: 14 }}>

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Search, SlidersHorizontal, X } from 'lucide-react'
-import { colors, radius } from '@/design-system/tokens'
+import { colors, radius, shadows } from '@/design-system/tokens'
 
 interface FilterBarProps {
   search: string
@@ -80,6 +80,7 @@ export default function FilterBar({
         <div style={{
           background: colors.surface.card, borderRadius: radius.xl,
           border: `1px solid ${colors.border.default}`,
+          boxShadow: shadows.card,
           padding: '16px 20px',
           display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap',
         }}>

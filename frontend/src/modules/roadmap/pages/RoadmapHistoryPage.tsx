@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { jobPlanApi } from '@/api/jobPlan'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 import PageHeader from '@/shared/layouts/PageHeader'
+import { toast } from '@/shared/components/feedback/Toast'
 import { Map, ChevronRight, TrendingUp, Loader2, ArrowRight, Briefcase, Trash2 } from 'lucide-react'
 
 function statusBadge(status: 'generating' | 'ready' | 'failed') {
@@ -29,6 +30,7 @@ export default function RoadmapHistoryPage() {
       qc.invalidateQueries({ queryKey: ['job-plans-all'] })
       qc.invalidateQueries({ queryKey: ['active-prep'] })
     },
+    onError: () => toast.danger('Could not delete this roadmap. Please try again.'),
   })
 
   function openJobPlan(jobId: string) {

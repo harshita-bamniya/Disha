@@ -4,7 +4,7 @@ import { adminApi } from '@/api/admin'
 import type { IntegrationEntry, IntegrationStatus } from '@/api/admin'
 import { Spinner } from '@/modules/admin/shared/adminUI'
 import { cn } from '@/lib/utils'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 
 
 // ── Status helpers ─────────────────────────────────────────────────────────────
@@ -36,7 +36,7 @@ function IntegrationCard({ item }: { item: IntegrationEntry }) {
 
   return (
     <div
-      style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: 20, display: 'flex', flexDirection: 'column', gap: 12, transition: 'background 0.15s' }}
+      style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: 20, display: 'flex', flexDirection: 'column', gap: 12, transition: 'background 0.15s' }}
       onMouseOver={e => (e.currentTarget.style.background = colors.surface.elevated)}
       onMouseOut={e => (e.currentTarget.style.background = '#fff')}
     >

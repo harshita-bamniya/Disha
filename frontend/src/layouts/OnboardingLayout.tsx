@@ -71,7 +71,7 @@ export default function OnboardingLayout({ children, currentStep, title, subtitl
 
         {/* Logo */}
         <Link to="/" style={{ textDecoration: 'none', position: 'relative', zIndex: 1 }}>
-          <span style={{ fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.4px' }}>BeginableAI</span>
+          <span style={{ fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.4px' }}>BeginablAI</span>
         </Link>
 
         {/* Step list */}

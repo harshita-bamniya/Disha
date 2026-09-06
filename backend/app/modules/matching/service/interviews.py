@@ -146,7 +146,7 @@ def _push_interview_to_google_calendar(interview_row, user: User, db: Session) -
 
         event = {
             "summary": f"Interview: {job.title if job else 'Candidate'}" + (f" — {candidate.full_name}" if candidate and candidate.full_name else ""),
-            "description": f"Interview scheduled via Disha AI Platform." + (f"\nMeeting link: {interview_row.meeting_link}" if interview_row.meeting_link else ""),
+            "description": f"Interview scheduled via BeginablAI AI Platform." + (f"\nMeeting link: {interview_row.meeting_link}" if interview_row.meeting_link else ""),
             "start": {"dateTime": start.isoformat(), "timeZone": "Asia/Kolkata"},
             "end":   {"dateTime": end.isoformat(),   "timeZone": "Asia/Kolkata"},
         }

@@ -2,7 +2,7 @@
 Seed script: Delete all aspirant and employer users, then create 5 fresh entries each
 with ALL profile fields filled (including PsychologicalAssessment for aspirants).
 Run inside the backend Docker container:
-  docker exec -it disha_backend python seed_test_profiles.py
+  docker exec -it beginablai_backend python seed_test_profiles.py
 """
 import sys
 from datetime import date
@@ -21,7 +21,7 @@ def hash_pw(plain: str) -> str:
 
 ASPIRANTS = [
     {
-        "email": "aspirant1@disha.test",
+        "email": "aspirant1@beginablai.test",
         "phone": "+911111111001",
         "password": "Test@1234",
         # Step 1: Personal
@@ -56,13 +56,13 @@ ASPIRANTS = [
         "open_to_relocation": True,
         "expected_salary_min": 6,
         "expected_salary_max": 12,
-        "disha_insight": "You have a strong sense of purpose and are in a good mental space to push forward. Your moderate financial pressure keeps you focused without overwhelming you.",
+        "beginablai_insight": "You have a strong sense of purpose and are in a good mental space to push forward. Your moderate financial pressure keeps you focused without overwhelming you.",
         "weekly_study_hours": 10,
         # One-time learning setup (formerly Step 7)
         "psych": {"burnout_score": 30, "confidence_index": 65},
     },
     {
-        "email": "aspirant2@disha.test",
+        "email": "aspirant2@beginablai.test",
         "phone": "+911111111002",
         "password": "Test@1234",
         # Step 1
@@ -97,7 +97,7 @@ ASPIRANTS = [
         "open_to_relocation": True,
         "expected_salary_min": 7,
         "expected_salary_max": 14,
-        "disha_insight": "Two mains attempts show real grit. The moderate burnout you're feeling is normal — channel the financial pressure as fuel, not fear.",
+        "beginablai_insight": "Two mains attempts show real grit. The moderate burnout you're feeling is normal — channel the financial pressure as fuel, not fear.",
         "weekly_study_hours": 8,
         # One-time learning setup (formerly Step 7)
         "psych": {
@@ -106,7 +106,7 @@ ASPIRANTS = [
         },
     },
     {
-        "email": "aspirant3@disha.test",
+        "email": "aspirant3@beginablai.test",
         "phone": "+911111111003",
         "password": "Test@1234",
         # Step 1
@@ -141,7 +141,7 @@ ASPIRANTS = [
         "open_to_relocation": True,
         "expected_salary_min": 12,
         "expected_salary_max": 20,
-        "disha_insight": "Your technical background is a huge strategic advantage. Low pressure and high confidence — you're in an ideal position to prepare systematically without anxiety.",
+        "beginablai_insight": "Your technical background is a huge strategic advantage. Low pressure and high confidence — you're in an ideal position to prepare systematically without anxiety.",
         "weekly_study_hours": 15,
         # One-time learning setup (formerly Step 7)
         "psych": {
@@ -150,7 +150,7 @@ ASPIRANTS = [
         },
     },
     {
-        "email": "aspirant4@disha.test",
+        "email": "aspirant4@beginablai.test",
         "phone": "+911111111004",
         "password": "Test@1234",
         # Step 1
@@ -185,7 +185,7 @@ ASPIRANTS = [
         "open_to_relocation": False,
         "expected_salary_min": 5,
         "expected_salary_max": 10,
-        "disha_insight": "Fresh start, clear goals — you have everything ahead of you. Your strong support system will be key in the initial tough months of preparation.",
+        "beginablai_insight": "Fresh start, clear goals — you have everything ahead of you. Your strong support system will be key in the initial tough months of preparation.",
         "weekly_study_hours": 6,
         # One-time learning setup (formerly Step 7)
         "psych": {
@@ -194,7 +194,7 @@ ASPIRANTS = [
         },
     },
     {
-        "email": "aspirant5@disha.test",
+        "email": "aspirant5@beginablai.test",
         "phone": "+911111111005",
         "password": "Test@1234",
         # Step 1
@@ -229,7 +229,7 @@ ASPIRANTS = [
         "open_to_relocation": True,
         "expected_salary_min": 8,
         "expected_salary_max": 18,
-        "disha_insight": "Three mains attempts is an incredible journey — don't let the fatigue define you. The burnout is real and needs attention. Consider structured breaks alongside focused preparation.",
+        "beginablai_insight": "Three mains attempts is an incredible journey — don't let the fatigue define you. The burnout is real and needs attention. Consider structured breaks alongside focused preparation.",
         "weekly_study_hours": 5,
         # One-time learning setup (formerly Step 7)
         "psych": {
@@ -241,7 +241,7 @@ ASPIRANTS = [
 
 EMPLOYERS = [
     {
-        "email": "employer1@disha.test",
+        "email": "employer1@beginablai.test",
         "phone": "+912222222001",
         "password": "Test@1234",
         "company_name": "TechMinds Consulting",
@@ -255,7 +255,7 @@ EMPLOYERS = [
         "description": "Leading consulting firm specializing in government policy and digital transformation projects.",
     },
     {
-        "email": "employer2@disha.test",
+        "email": "employer2@beginablai.test",
         "phone": "+912222222002",
         "password": "Test@1234",
         "company_name": "GovTech Solutions",
@@ -269,7 +269,7 @@ EMPLOYERS = [
         "description": "Building secure digital infrastructure and e-governance platforms for public sector organizations across India.",
     },
     {
-        "email": "employer3@disha.test",
+        "email": "employer3@beginablai.test",
         "phone": "+912222222003",
         "password": "Test@1234",
         "company_name": "PolicyPulse Research",
@@ -283,7 +283,7 @@ EMPLOYERS = [
         "description": "Independent think tank focused on public policy research, governance advocacy, and social impact analysis.",
     },
     {
-        "email": "employer4@disha.test",
+        "email": "employer4@beginablai.test",
         "phone": "+912222222004",
         "password": "Test@1234",
         "company_name": "CivicEdge Academy",
@@ -297,7 +297,7 @@ EMPLOYERS = [
         "description": "Premier coaching and career development institute for civil services aspirants, offering structured mentorship and mock test programs.",
     },
     {
-        "email": "employer5@disha.test",
+        "email": "employer5@beginablai.test",
         "phone": "+912222222005",
         "password": "Test@1234",
         "company_name": "PublicSector Hire",

@@ -16,9 +16,9 @@ jobs:
       postgres:
         image: pgvector/pgvector:pg16
         env:
-          POSTGRES_USER: disha_test
-          POSTGRES_PASSWORD: disha_test
-          POSTGRES_DB: disha_test
+          POSTGRES_USER: beginablai_test
+          POSTGRES_PASSWORD: beginablai_test
+          POSTGRES_DB: beginablai_test
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -42,7 +42,7 @@ jobs:
         working-directory: backend
 
     env:
-      DATABASE_URL: postgresql://disha_test:disha_test@localhost:5432/disha_test
+      DATABASE_URL: postgresql://beginablai_test:beginablai_test@localhost:5432/beginablai_test
       REDIS_URL: redis://localhost:6379/0
       ENVIRONMENT: test
       JWT_SECRET_KEY: ci_test_secret_key_that_is_long_enough_32

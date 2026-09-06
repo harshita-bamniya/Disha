@@ -231,7 +231,7 @@ function CreateSubAdminWizard({ roles, onClose }: { roles: RoleEntry[]; onClose:
               </div>
               <div>
                 <label className="text-xs font-semibold text-gray-600 mb-1 block">Work email *</label>
-                <input value={email} onChange={e => setEmail(e.target.value)} placeholder="jordan@disha.ai"
+                <input value={email} onChange={e => setEmail(e.target.value)} placeholder="jordan@beginablai.ai"
                   className="w-full h-10 rounded-xl border border-gray-200 px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10" />
               </div>
               <div>

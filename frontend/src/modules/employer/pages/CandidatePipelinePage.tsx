@@ -34,7 +34,7 @@ import Spinner from '@/shared/components/feedback/Spinner'
 import Breadcrumb from '@/shared/components/navigation/Breadcrumb'
 import ErrorState from '@/shared/components/feedback/ErrorState'
 import PageHeader from '@/shared/layouts/PageHeader'
-import { colors, radius } from '@/design-system/tokens'
+import { colors, radius, shadows } from '@/design-system/tokens'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -1178,7 +1178,7 @@ export default function CandidatePipelinePage() {
 
         {/* Advanced filters */}
         {showFilters&&(
-          <div style={{background:'#fff',border:`1px solid ${colors.border.default}`,borderRadius:radius.xl,padding:'14px 18px',marginBottom:14}}>
+          <div style={{background:'#fff',border:`1px solid ${colors.border.default}`,borderRadius:radius.xl,boxShadow:shadows.card,padding:'14px 18px',marginBottom:14}}>
             <div style={{display:'flex',alignItems:'center',gap:14,flexWrap:'wrap'}}>
               <label style={{fontSize:12,fontWeight:600,color:colors.text.inkSoft,whiteSpace:'nowrap'}}>Min KRS Score:</label>
               <input type="range" min={0} max={100} step={5} value={minKrs} onChange={e=>setMinKrs(Number(e.target.value))} style={{flex:'1 1 120px'}}/>

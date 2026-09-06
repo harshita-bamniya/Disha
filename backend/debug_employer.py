@@ -7,7 +7,7 @@ import uuid
 db = SessionLocal()
 
 # employer1 details
-emp_user = db.query(User).filter_by(email="employer1@disha.test").first()
+emp_user = db.query(User).filter_by(email="employer1@beginablai.test").first()
 print(f"employer1 user.id: {emp_user.id}")
 
 # EmployerProfile

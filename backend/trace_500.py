@@ -7,7 +7,7 @@ from app.modules.application_forms.schemas import ApplicationFormCreateIn, FormS
 from sqlalchemy import text
 
 db = SessionLocal()
-emp = db.query(User).filter_by(email="employer1@disha.test").first()
+emp = db.query(User).filter_by(email="employer1@beginablai.test").first()
 ep = db.query(EmployerProfile).filter_by(user_id=emp.id).first()
 
 # Find a job that does NOT yet have a form

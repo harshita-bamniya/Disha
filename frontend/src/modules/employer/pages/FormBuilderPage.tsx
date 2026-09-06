@@ -17,7 +17,7 @@ import {
 } from '@/api/applicationForms'
 import { getApiError } from '@/api/client'
 import { C } from '../ds'
-import { colors, radius } from '@/design-system/tokens'
+import { colors, radius, shadows } from '@/design-system/tokens'
 import Button from '@/shared/components/primitives/Button'
 import Spinner from '@/shared/components/feedback/Spinner'
 import ErrorState from '@/shared/components/feedback/ErrorState'
@@ -165,7 +165,7 @@ function QuestionModal({
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: 16 }}>
-      <div style={{ background: colors.surface.card, borderRadius: radius.xl, padding: 24, width: '100%', maxWidth: 520, border: `1px solid ${colors.border.default}`, maxHeight: '90vh', overflowY: 'auto' }}>
+      <div style={{ background: colors.surface.card, borderRadius: radius.xl, padding: 24, width: '100%', maxWidth: 520, border: `1px solid ${colors.border.default}`, boxShadow: shadows.card, maxHeight: '90vh', overflowY: 'auto' }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h3 style={{ fontSize: 14, fontWeight: 600, color: C.ink1, margin: 0 }}>
@@ -291,7 +291,7 @@ function KnockoutModal({
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: 16 }}>
-      <div style={{ background: colors.surface.card, borderRadius: radius.xl, padding: 24, width: '100%', maxWidth: 460, border: `1px solid ${colors.border.default}` }}>
+      <div style={{ background: colors.surface.card, borderRadius: radius.xl, padding: 24, width: '100%', maxWidth: 460, border: `1px solid ${colors.border.default}`, boxShadow: shadows.card }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
           <h3 style={{ fontSize: 14, fontWeight: 600, color: C.ink1, margin: 0 }}>Knockout Rule</h3>
           <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close"><X size={14} /></Button>
@@ -420,7 +420,7 @@ function SettingsPanel({
   )
 
   return (
-    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, overflow: 'hidden', marginBottom: 16 }}>
+    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, boxShadow: shadows.card, overflow: 'hidden', marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: `1px solid ${colors.border.default}` }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Settings2 size={14} color={C.ink2} />
@@ -476,6 +476,7 @@ function QuestionCard({
   return (
     <div style={{
       background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: 8,
+      boxShadow: shadows.card,
       padding: '10px 14px', marginBottom: 6,
       display: 'flex', alignItems: 'center', gap: 10,
     }}>
@@ -608,7 +609,7 @@ function SectionBlock({
   const sorted = [...section.questions].sort((a, b) => a.order_index - b.order_index)
 
   return (
-    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, overflow: 'hidden', marginBottom: 16 }}>
+    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, boxShadow: shadows.card, overflow: 'hidden', marginBottom: 16 }}>
       {/* Section header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: `1px solid ${colors.border.default}` }}>
         {editingTitle ? (
@@ -738,7 +739,7 @@ function SaveTemplateModal({ formId, onClose }: { formId: string; onClose: () =>
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: 16 }}>
-      <div style={{ background: colors.surface.card, borderRadius: radius.xl, padding: 24, width: '100%', maxWidth: 420, border: `1px solid ${colors.border.default}` }}>
+      <div style={{ background: colors.surface.card, borderRadius: radius.xl, padding: 24, width: '100%', maxWidth: 420, border: `1px solid ${colors.border.default}`, boxShadow: shadows.card }}>
         {done ? (
           <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -956,7 +957,7 @@ export default function FormBuilderPage() {
           )}
 
           {/* Legend */}
-          <div style={{ marginTop: 24, padding: '12px 16px', background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl }}>
+          <div style={{ marginTop: 24, padding: '12px 16px', background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, boxShadow: shadows.card }}>
             <p style={{ fontSize: 11, fontWeight: 600, color: C.ink3, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Knockout Action Legend</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px' }}>
               {KNOCKOUT_ACTIONS.map(a => (

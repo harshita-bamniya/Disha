@@ -10,7 +10,7 @@ import { Spinner, Empty, StatCard } from '../shared/adminUI'
 import { useAuthStore } from '@/stores/authStore'
 import { cn } from '@/lib/utils'
 import type { TrendMetric } from '@/api/analytics'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 import Button from '@/shared/components/primitives/Button'
 
 
@@ -48,6 +48,7 @@ function TrendChart({ metric, label }: { metric: TrendMetric; label: string }) {
     <div style={{
       background: '#fff', borderRadius: 16,
       border: '1px solid rgba(0,0,0,0.08)',
+      boxShadow: shadows.card,
       padding: '16px 18px',
       transition: 'background 0.2s',
     }}
@@ -136,11 +137,12 @@ function KycFocusPanel() {
           style={{
             background: '#fff', borderRadius: 16, cursor: 'pointer',
             border: '1px solid rgba(0,0,0,0.08)',
+            boxShadow: shadows.card,
             padding: '20px 22px',
-            transition: 'background 0.2s',
+            transition: 'background 0.2s, box-shadow 0.15s, transform 0.15s',
           }}
-          onMouseOver={e => (e.currentTarget.style.background = '#EAECF0')}
-          onMouseOut={e => (e.currentTarget.style.background = '#fff')}
+          onMouseOver={e => { e.currentTarget.style.background = '#EAECF0'; e.currentTarget.style.boxShadow = shadows.cardHover; e.currentTarget.style.transform = 'translateY(-1px)' }}
+          onMouseOut={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.boxShadow = shadows.card; e.currentTarget.style.transform = 'translateY(0)' }}
         >
           <p style={{ fontSize: 24, fontWeight: 900, color: accent }}>{value}</p>
           <p style={{ fontSize: 12, fontWeight: 600, color: colors.text.ink, marginTop: 4 }}>{label}</p>
@@ -155,7 +157,7 @@ function FinanceFocusPanel() {
   return (
     <div style={{
       background: '#fff', border: '1px solid rgba(0,0,0,0.08)',
-      borderRadius: 16, padding: '18px 22px',
+      borderRadius: 16, boxShadow: shadows.card, padding: '18px 22px',
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       marginBottom: 8,
     }}>
@@ -209,11 +211,12 @@ function AdminActionGrid({ navigate }: { navigate: (r: string) => void }) {
           style={{
             background: '#fff', borderRadius: 16, cursor: 'pointer',
             border: '1px solid rgba(0,0,0,0.08)',
+            boxShadow: shadows.card,
             padding: '16px 18px',
-            transition: 'background 0.2s',
+            transition: 'background 0.2s, box-shadow 0.15s, transform 0.15s',
           }}
-          onMouseOver={e => (e.currentTarget.style.background = '#EAECF0')}
-          onMouseOut={e => (e.currentTarget.style.background = '#fff')}
+          onMouseOver={e => { e.currentTarget.style.background = '#EAECF0'; e.currentTarget.style.boxShadow = shadows.cardHover; e.currentTarget.style.transform = 'translateY(-1px)' }}
+          onMouseOut={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.boxShadow = shadows.card; e.currentTarget.style.transform = 'translateY(0)' }}
         >
           <Icon size={16} color={accent} style={{ marginBottom: 10 }} />
           <p style={{ fontSize: 13, fontWeight: 700, color: colors.text.ink }}>{label} →</p>
@@ -379,6 +382,7 @@ export default function AdminDashboard() {
             <div style={{
               background: '#fff', borderRadius: 16,
               border: '1px solid rgba(0,0,0,0.08)',
+              boxShadow: shadows.card,
               padding: '20px 22px',
               display: 'flex', flexDirection: 'column', gap: 14,
             }}>
@@ -429,6 +433,7 @@ export default function AdminDashboard() {
         <div style={{
           background: '#fff', borderRadius: 16,
           border: '1px solid rgba(0,0,0,0.08)',
+          boxShadow: shadows.card,
           overflow: 'hidden',
         }}>
           {actLoading ? <Spinner /> : !activity || activity.length === 0 ? (

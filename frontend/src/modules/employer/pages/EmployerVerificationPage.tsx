@@ -62,7 +62,7 @@ export default function EmployerVerificationPage() {
                 <p style={{ fontSize: 13, color: '#7F1D1D', marginTop: 6, lineHeight: 1.5 }}>{v.rejection_reason}</p>
               )}
               <p style={{ fontSize: 12.5, color: '#9CA3AF', marginTop: 8 }}>
-                Please contact us at <strong>support@beginableai.com</strong> for assistance.
+                Please contact us at <strong>support@beginablai.com</strong> for assistance.
               </p>
             </div>
             <Button

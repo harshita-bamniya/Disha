@@ -20,12 +20,11 @@ import PageHeader from '@/shared/layouts/PageHeader'
 
 const inputStyle: React.CSSProperties = { width: '100%', padding: '7px 10px', border: `1px solid ${colors.border.default}`, borderRadius: 7, fontSize: 13, color: colors.text.ink, background: colors.surface.card, outline: 'none', boxSizing: 'border-box' }
 const selectStyle: React.CSSProperties = { padding: '6px 10px', border: `1px solid ${colors.border.default}`, borderRadius: 7, fontSize: 13, color: colors.text.ink, background: colors.surface.card, cursor: 'pointer' }
-import { colors, radius } from '@/design-system/tokens'
+import { colors, radius, shadows } from '@/design-system/tokens'
 import Button from '@/shared/components/primitives/Button'
 import Tabs, { type TabItem } from '@/shared/components/navigation/Tabs'
 import Modal from '@/shared/components/overlays/Modal'
 import Avatar from '@/shared/components/data-display/Avatar'
-import StatCard from '@/shared/components/data-display/StatCard'
 import ErrorState from '@/shared/components/feedback/ErrorState'
 import Spinner from '@/shared/components/feedback/Spinner'
 
@@ -518,6 +517,7 @@ export default function CompanyTeamPage() {
           {company?.description && (
             <div style={{
               background: C.surface, border: `1px solid ${C.border}`, borderRadius: radius.xl,
+              boxShadow: shadows.card,
               padding: '14px 18px', marginBottom: 20, fontSize: 13, color: C.ink2, lineHeight: 1.6,
             }}>
               {company.description}
@@ -530,39 +530,26 @@ export default function CompanyTeamPage() {
           {tab === 'overview' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-              {/* Stat row */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-                <div style={{ flex: '1 1 180px', minWidth: 0 }}>
-                  <StatCard
-                    icon={Users}
-                    label="Team Members"
-                    value={team?.length ?? '—'}
-                    sub="Active members"
-                    onClick={() => setTab('team')}
-                    accent={C.accent}
-                  />
+              {/* Team — the Team tab is the detail view for this, so it gets a
+                  single compact summary row here rather than a full stat tile
+                  duplicating what "Offices"/"Departments" already show below. */}
+              <button
+                onClick={() => setTab('team')}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12, width: '100%',
+                  background: C.surface, border: `1px solid ${C.border}`, borderRadius: radius.xl,
+                  boxShadow: shadows.card, padding: '14px 18px', cursor: 'pointer', textAlign: 'left',
+                }}
+              >
+                <div style={{ width: 38, height: 38, borderRadius: radius.md, background: `${C.accent}12`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Users size={17} color={C.accent} />
                 </div>
-                <div style={{ flex: '1 1 180px', minWidth: 0 }}>
-                  <StatCard
-                    icon={MapPin}
-                    label="Offices"
-                    value={offices?.length ?? 0}
-                    sub={offices && offices.length > 0 ? offices.map(o => o.city).join(', ') : 'No offices added'}
-                    onClick={() => setShowOffices(true)}
-                    accent={C.blue}
-                  />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: C.ink1, margin: 0 }}>Team</p>
+                  <p style={{ fontSize: 12, color: C.ink3, margin: '1px 0 0' }}>{team?.length ?? '—'} active member{team?.length === 1 ? '' : 's'}</p>
                 </div>
-                <div style={{ flex: '1 1 180px', minWidth: 0 }}>
-                  <StatCard
-                    icon={BriefcaseIcon}
-                    label="Departments"
-                    value={departments?.length ?? 0}
-                    sub={departments && departments.length > 0 ? departments.slice(0, 2).map(d => d.name).join(', ') + (departments.length > 2 ? '…' : '') : 'No departments added'}
-                    onClick={() => setShowDepts(true)}
-                    accent="#7C3AED"
-                  />
-                </div>
-              </div>
+                <ChevronRight size={16} color={C.ink3} />
+              </button>
 
               {/* Manage cards */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>

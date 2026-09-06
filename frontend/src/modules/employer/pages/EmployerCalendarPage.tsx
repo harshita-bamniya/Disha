@@ -12,7 +12,7 @@ import { useUpcomingInterviews } from '../hooks/useJobs'
 import { inboxApi } from '@/api/inbox'
 import { calendarApi } from '@/api/calendar'
 import { CalendarDays, Clock, Video, Briefcase, User, Square, Plus, Trash2, ListTodo, Zap, CheckCircle2, AlertCircle, X } from 'lucide-react'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 import { SkeletonCard } from '@/shared/components/feedback/Skeleton'
 import ErrorState from '@/shared/components/feedback/ErrorState'
 import PageHeader from '@/shared/layouts/PageHeader'
@@ -46,7 +46,7 @@ function TasksPanel() {
   })
 
   return (
-    <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 14, padding: 16, marginBottom: 24 }}>
+    <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 14, boxShadow: shadows.card, padding: 16, marginBottom: 24 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <ListTodo size={15} color={colors.brand.navy} />
         <h2 style={{ fontSize: 13, fontWeight: 800, color: colors.text.ink, margin: 0 }}>Tasks</h2>
@@ -139,7 +139,7 @@ function GoogleCalendarBanner() {
       )}
 
       {/* Connection card */}
-      <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 14, padding: '14px 18px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+      <div style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 14, boxShadow: shadows.card, padding: '14px 18px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: '1 1 220px' }}>
           {/* Google Calendar icon */}
           <div style={{ width: 36, height: 36, borderRadius: 8, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -211,7 +211,7 @@ export default function EmployerCalendarPage() {
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {items.map(iv => (
-                    <div key={iv.id} style={{ background: '#fff', border: `1px solid ${colors.border.default}`, borderRadius: 12, padding: '12px 16px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                    <div key={iv.id} style={{ background: '#fff', border: `1px solid ${colors.border.default}`, borderRadius: 12, boxShadow: shadows.card, padding: '12px 16px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 14, flex: '1 1 220px', minWidth: 0 }}>
                         <div style={{ textAlign: 'center', minWidth: 52 }}>
                           <p style={{ fontSize: 14, fontWeight: 800, color: colors.text.ink, margin: 0 }}>

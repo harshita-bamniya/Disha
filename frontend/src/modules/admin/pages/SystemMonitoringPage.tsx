@@ -5,7 +5,7 @@ import type { DbPoolStats, QueueDepth, RedisInfo, ProcessInfo } from '@/api/admi
 import { Spinner } from '@/modules/admin/shared/adminUI'
 import ProgressBar from '@/shared/components/data-display/ProgressBar'
 import { cn } from '@/lib/utils'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -42,7 +42,7 @@ function MonitorCard({
   status?: 'ok' | 'warn' | 'error'
 }) {
   return (
-    <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: 20 }}>
+    <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: 20 }}>
       <div className="flex items-center gap-3 mb-4">
         <div style={{
           width: 32, height: 32, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,

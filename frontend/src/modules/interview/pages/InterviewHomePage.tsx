@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { interviewApi } from '@/api/interview'
+import { shadows } from '@/design-system/tokens'
 import PageHeader from '@/shared/layouts/PageHeader'
 import { ActivePrepBanner } from '@/components/ActivePrepBanner'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
@@ -63,7 +64,7 @@ export default function InterviewHomePage() {
             <div>
               <div style={{
                 background: 'white', borderRadius: 20, padding: '24px 28px', marginBottom: 24,
-                border: '1.5px solid rgba(226,232,240,0.8)',
+                border: '1.5px solid rgba(226,232,240,0.8)', boxShadow: shadows.card,
               }}>
                 <h2 style={{ fontSize: 16, fontWeight: 800, color: '#0F172A', marginBottom: 6 }}>
                   Start a Mock Interview
@@ -186,7 +187,7 @@ export default function InterviewHomePage() {
               {performance && (
                 <div style={{
                   background: 'white', borderRadius: 20, padding: '20px 20px 16px',
-                  border: '1.5px solid rgba(226,232,240,0.8)',
+                  border: '1.5px solid rgba(226,232,240,0.8)', boxShadow: shadows.card,
                 }}>
                   <h3 style={{ fontSize: 13, fontWeight: 800, color: '#0F172A', marginBottom: 16 }}>
                     Performance Overview

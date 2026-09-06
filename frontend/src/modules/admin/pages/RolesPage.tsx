@@ -7,7 +7,7 @@ import {
 import { Spinner, Empty, Badge } from '../shared/adminUI'
 import { getApiError } from '@/api/client'
 import type { RoleEntry, PermissionEntry } from '@/api/admin'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 import Button from '@/shared/components/primitives/Button'
 import Modal from '@/shared/components/overlays/Modal'
 
@@ -367,7 +367,7 @@ function RoleTable({
   onDelete?: (r: RoleEntry) => void
 }) {
   return (
-    <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+    <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, overflow: 'hidden' }}>
       <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(0,0,0,0.08)', background: colors.surface.bg }}>
         <p style={{ fontSize: 14, fontWeight: 900, color: colors.text.ink }}>{title}</p>
         <p style={{ fontSize: 12, color: colors.text.muted, marginTop: 2 }}>{subtitle}</p>

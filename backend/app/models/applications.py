@@ -46,7 +46,7 @@ class Application(Base):
     cover_note      = Column(Text, nullable=True)
 
     # ── ATS Phase 1 additions ────────────────────────────────────────────────
-    # Human-readable reference number: DISHA-{YYYY}-{6 random uppercase chars}
+    # Human-readable reference number: BEGINABLAI-{YYYY}-{6 random uppercase chars}
     reference_number    = Column(String(30), nullable=True, unique=True, index=True)
     # The resume file selected for this application (candidate_resume_files.id)
     resume_id           = Column(UUID(as_uuid=True), ForeignKey("candidate_resume_files.id", ondelete="SET NULL"), nullable=True)

@@ -151,7 +151,7 @@ export interface SidebarProps {
 }
 
 export default function Sidebar({
-  brand = 'BeginableAI', brandBadge, identity, sections, pathname, search = '',
+  brand = 'BeginablAI', brandBadge, identity, sections, pathname, search = '',
   onNavigate, onLogout, collapsed = false, onToggleCollapse,
 }: SidebarProps) {
   const isMobile = useIsMobile()

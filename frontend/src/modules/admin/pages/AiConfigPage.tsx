@@ -5,7 +5,7 @@ import { adminApi } from '@/api/admin'
 import type { PromptTemplateEntry, PromptTemplateDetail } from '@/api/admin'
 import { Badge, Spinner, Empty } from '@/modules/admin/shared/adminUI'
 import { cn } from '@/lib/utils'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 import Button from '@/shared/components/primitives/Button'
 
 
@@ -222,7 +222,7 @@ function UseCaseCard({ group }: { group: UseCaseGroup }) {
 
   return (
     <>
-      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, overflow: 'hidden' }}>
         {/* Group header */}
         <button
           onClick={() => setExpanded(e => !e)}

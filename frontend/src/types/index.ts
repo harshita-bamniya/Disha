@@ -15,7 +15,7 @@ export type CompanySize = '1-10' | '11-50' | '51-200' | '201-500' | '501-1000' |
 
 export interface User {
   id: string
-  phone: string
+  phone: string | null
   email?: string
   role: UserRole
   preferred_language: Language
@@ -56,5 +56,5 @@ export interface StepSavedResponse {
   message: string
   current_step: number
   is_completed: boolean
-  disha_insight?: string | null
+  beginablai_insight?: string | null
 }

@@ -45,7 +45,7 @@ class TestMSG91Provider:
         with patch("app.core.sms.settings") as mock_settings:
             mock_settings.msg91_api_key = "key"
             mock_settings.msg91_template_id = "tmpl"
-            mock_settings.msg91_sender_id = "DISHA"
+            mock_settings.msg91_sender_id = "BEGINABLAI"
             provider = MSG91SMSProvider()
 
             captured_payload = {}

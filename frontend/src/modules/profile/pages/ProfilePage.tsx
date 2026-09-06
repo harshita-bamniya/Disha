@@ -9,9 +9,8 @@ import { UpscSection } from '../components/UpscSection'
 import { WorkSection } from '../components/WorkSection'
 import { SkillsSection } from '../components/SkillsSection'
 import { PreferencesSection } from '../components/PreferencesSection'
-import { LearningSetupSection } from '../components/LearningSetupSection'
 
-type SectionKey = 'personal' | 'education' | 'upsc' | 'work' | 'skills' | 'preferences' | 'learningSetup'
+type SectionKey = 'personal' | 'education' | 'upsc' | 'work' | 'skills' | 'preferences'
 
 export default function ProfilePage() {
   const [openSection, setOpenSection] = useState<SectionKey | null>(null)
@@ -91,9 +90,6 @@ export default function ProfilePage() {
             </div>
             <div style={{ gridColumn: openSection === 'preferences'  ? '1 / -1' : undefined }}>
               <PreferencesSection profile={profile} open={openSection === 'preferences'}  onToggle={() => toggle('preferences')} />
-            </div>
-            <div style={{ gridColumn: openSection === 'learningSetup' ? '1 / -1' : undefined }}>
-              <LearningSetupSection profile={profile} open={openSection === 'learningSetup'} onToggle={() => toggle('learningSetup')} />
             </div>
           </div>
         )}

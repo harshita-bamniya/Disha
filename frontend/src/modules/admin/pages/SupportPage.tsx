@@ -8,7 +8,7 @@ import { useAdminTickets } from '../hooks/useAdmin'
 import type { TicketEntry } from '@/api/admin'
 import { Spinner, Empty } from '../shared/adminUI'
 import { cn } from '@/lib/utils'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 
 
 type StatusTab = 'all' | 'open' | 'pending' | 'resolved' | 'closed'
@@ -105,7 +105,7 @@ export default function SupportPage() {
           { icon: AlertCircle,  label: 'SLA Warnings',     value: counts.sla_warn },
           { icon: CheckCircle2, label: 'Resolved',         value: counts.resolved },
         ].map(({ icon: Icon, label, value }) => (
-          <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '20px' }}>
+          <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '20px' }}>
             <div style={{ width: 40, height: 40, borderRadius: 12, background: colors.surface.elevated, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
               <Icon className="w-4 h-4" style={{ color: colors.text.ink }} />
             </div>
@@ -150,7 +150,7 @@ export default function SupportPage() {
       </div>
 
       {showFilters && (
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '16px 20px', display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '16px 20px', display: 'flex', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
           <div className="flex flex-col gap-1">
             <label style={{ fontSize: 10, fontWeight: 700, color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '1.5px' }}>Priority</label>
             <select value={filterPriority} onChange={e => setFilterPriority(e.target.value)} style={selectStyle}>
@@ -185,7 +185,7 @@ export default function SupportPage() {
       )}
 
       {/* Tabs + table */}
-      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, overflow: 'hidden' }}>
         {/* Tab bar as pills */}
         <div style={{ display: 'flex', gap: 2, padding: '12px 16px 0', borderBottom: '1px solid rgba(0,0,0,0.08)', background: colors.surface.bg, flexWrap: 'wrap' }}>
           {TABS.map(t => (

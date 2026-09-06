@@ -55,7 +55,7 @@ def get_profile(user: User, db: Session) -> ProfileResponse:
     profile = db.query(AspirantProfile).filter(AspirantProfile.user_id == user.id).first()
 
     if not profile:
-        return ProfileResponse()
+        return ProfileResponse(phone=user.phone)
 
     # date_of_birth may be stored as a date object or a plain string depending on the DB driver
     dob = profile.date_of_birth
@@ -68,6 +68,7 @@ def get_profile(user: User, db: Session) -> ProfileResponse:
 
     return ProfileResponse(
         full_name=profile.full_name,
+        phone=user.phone,
         current_status=profile.current_status,
         date_of_birth=dob_str,
         gender=profile.gender,
@@ -93,7 +94,7 @@ def get_profile(user: User, db: Session) -> ProfileResponse:
         open_to_relocation=profile.open_to_relocation,
         expected_salary_min=profile.expected_salary_min,
         expected_salary_max=profile.expected_salary_max,
-        disha_insight=profile.disha_insight,
+        beginablai_insight=profile.beginablai_insight,
         has_learning_setup=profile.weekly_study_hours is not None,
         weekly_study_hours=profile.weekly_study_hours,
         target_completion_date=(
@@ -242,14 +243,14 @@ async def save_preferences(user: User, data: PreferencesRequest, db: Session) ->
     # lands on the dashboard; they just don't see the personalised message.
     insight = await _call_groq_insight(profile)
     if insight:
-        profile.disha_insight = insight
+        profile.beginablai_insight = insight
         db.commit()
 
     return StepSavedResponse(
         message="Onboarding complete!",
         current_step=6,
         is_completed=True,
-        disha_insight=insight or None,
+        beginablai_insight=insight or None,
     )
 
 

@@ -7,7 +7,7 @@ import { Spinner, Empty, Badge } from '../shared/adminUI'
 import { getApiError } from '@/api/client'
 import { cn } from '@/lib/utils'
 import type { CareerTrackAdminEntry } from '@/api/admin'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 import Button from '@/shared/components/primitives/Button'
 
 
@@ -40,7 +40,7 @@ function TrackFormModal({ initial, onSave, onCancel, saving, error }: {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 px-4 py-8 overflow-y-auto">
-      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: 24, width: '100%', maxWidth: 512 }}>
+      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: 24, width: '100%', maxWidth: 512 }}>
         <div className="flex items-start justify-between mb-5">
           <h3 className="text-base font-bold" style={{ color: colors.text.ink }}>{isEdit ? 'Edit career track' : 'New career track'}</h3>
           <button onClick={onCancel} aria-label="Cancel" style={{ color: colors.text.muted }}><X className="w-4 h-4" /></button>
@@ -163,7 +163,7 @@ export default function CareerTracksPage() {
     <section className="flex flex-col gap-6">
       <h1 style={{ fontSize: 20, fontWeight: 800, color: colors.text.ink, fontFamily: 'Hind, sans-serif', letterSpacing: '-0.3px' }}>Career Tracks</h1>
 
-      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, overflow: 'hidden' }}>
         <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid rgba(0,0,0,0.08)', background: colors.surface.bg }}>
           <h2 className="text-sm font-bold" style={{ color: colors.text.ink }}>All Tracks</h2>
           <Button size="sm" onClick={() => { setEditTarget(null); setFormError(null); setShowForm(true) }}>
@@ -245,7 +245,7 @@ export default function CareerTracksPage() {
 
       {deleteTarget && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
-          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: 24, maxWidth: 384, width: '100%' }}>
+          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: 24, maxWidth: 384, width: '100%' }}>
             <h3 className="text-base font-bold mb-2" style={{ color: colors.text.ink }}>Delete career track?</h3>
             <p className="text-sm mb-5" style={{ color: colors.text.muted }}>
               <span className="font-semibold" style={{ color: colors.text.ink }}>"{deleteTarget.title}"</span> will be permanently deleted.

@@ -1,5 +1,5 @@
 Enterprise ATS Architecture Document
-Disha Recruitment Platform — Employer Side Redesign
+BeginablAI Recruitment Platform — Employer Side Redesign
 Part 1 — Analysis of Current Implementation
 What We Have Today
 The platform has a strong foundation. The database schema is well-normalized, the RBAC system is database-backed (not hardcoded), department scoping exists on EmployerProfile.department_id, and the ATS pipeline (notes, ratings, interviews, offer letters, email logs) is fully modeled.

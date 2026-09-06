@@ -133,7 +133,7 @@ export default function EmployerRegisterPage() {
         <div style={{ position: 'absolute', width: 480, height: 480, borderRadius: '50%', background: 'rgba(255,255,255,0.03)', top: '-140px', right: '-140px', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', width: 300, height: 300, borderRadius: '50%', background: 'rgba(255,255,255,0.02)', bottom: '5%', left: '-80px', pointerEvents: 'none' }} />
         <Link to="/" style={{ textDecoration: 'none', position: 'relative', zIndex: 1 }}>
-          <span style={{ fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.4px' }}>BeginableAI</span>
+          <span style={{ fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.4px' }}>BeginablAI</span>
         </Link>
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 7, background: 'rgba(255,255,255,0.10)', border: '0.5px solid rgba(255,255,255,0.18)', borderRadius: 100, padding: '5px 14px', marginBottom: 28 }}>
@@ -163,7 +163,7 @@ export default function EmployerRegisterPage() {
       {/* ── Right panel ── */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px' }}>
         <Link to="/" className="lg:hidden" style={{ textDecoration: 'none', marginBottom: 28 }}>
-          <span style={{ fontSize: 20, fontWeight: 800, color: '#1E3A5F', letterSpacing: '-0.4px' }}>BeginableAI</span>
+          <span style={{ fontSize: 20, fontWeight: 800, color: '#1E3A5F', letterSpacing: '-0.4px' }}>BeginablAI</span>
         </Link>
 
         <div style={{ width: '100%', maxWidth: 440, background: N.white, borderRadius: 20, border: '0.5px solid rgba(0,0,0,0.08)', boxShadow: '0 4px 24px rgba(26,39,68,0.07)', padding: '36px 36px' }}>

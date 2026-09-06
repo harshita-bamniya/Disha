@@ -13,7 +13,7 @@ import {
   Spinner, Empty, Badge, SectionHeading, DetailRow, ScoreBar, Breadcrumb, TabBar, type TabDef, STATUS_COLOR_MAP,
 } from '../shared/adminUI'
 import { cn } from '@/lib/utils'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 import Button from '@/shared/components/primitives/Button'
 
 
@@ -32,8 +32,8 @@ const TICKET_PRIORITY_COLOR: Record<string, string> = {
   low: 'gray', normal: 'blue', high: 'amber', urgent: 'red',
 }
 
-const cardStyle = { background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '20px' }
-const tableCardStyle = { background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' as const }
+const cardStyle = { background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '20px' }
+const tableCardStyle = { background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, overflow: 'hidden' as const }
 const tableHeaderStyle = { background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)', padding: '12px 16px' }
 
 // ── Tab: Profile ───────────────────────────────────────────────────────────────
@@ -478,7 +478,7 @@ export default function CandidateDetailPage() {
           { label: 'KRS Score',    value: user.krs?.composite ?? '—' },
           { label: 'Tracks',       value: user.selected_tracks?.length ?? 0 },
         ].map(({ label, value }) => (
-          <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 16px' }}>
+          <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '12px 16px' }}>
             <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, marginBottom: 6 }}>{label}</p>
             <p style={{ fontSize: 22, fontWeight: 800, color: colors.text.ink }}>{value}</p>
           </div>

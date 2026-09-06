@@ -48,10 +48,10 @@ _KNOCKOUT_PRIORITY = {"auto_reject": 5, "auto_tag": 4, "alert": 3, "label": 2, "
 # ─── helpers ──────────────────────────────────────────────────────────────────
 
 def _ref_number() -> str:
-    """Generate DISHA-{YYYY}-{6 random uppercase chars}."""
+    """Generate BEGINABLAI-{YYYY}-{6 random uppercase chars}."""
     year = datetime.now(timezone.utc).year
     suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
-    return f"DISHA-{year}-{suffix}"
+    return f"BEGINABLAI-{year}-{suffix}"
 
 
 def _get_active_job(job_id: str, db: Session) -> JobPosting:

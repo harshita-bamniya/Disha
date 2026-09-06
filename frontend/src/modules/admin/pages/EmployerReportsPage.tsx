@@ -1,9 +1,9 @@
 ﻿import { useQuery } from '@tanstack/react-query'
-import { Building2, TrendingUp, CheckCircle, Clock } from 'lucide-react'
+import { Building2, TrendingUp } from 'lucide-react'
 import { adminApi } from '@/api/admin'
 import { useAdminStats, useAdminEmployers } from '../hooks/useAdmin'
 import { Spinner, Empty, Breadcrumb } from '../shared/adminUI'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 
 
 export default function EmployerReportsPage() {
@@ -17,15 +17,13 @@ export default function EmployerReportsPage() {
   const isLoading = statsLoading || analyticsLoading
 
   const employers  = allEmployers ?? []
-  const verified   = employers.filter(e => e.is_approved).length
-  const pending    = employers.filter(e => !e.is_approved).length
   const withJobs   = employers.filter(e => (e.job_count ?? 0) > 0).length
   const engagementRate = employers.length > 0 ? Math.round((withJobs / employers.length) * 100) : 0
 
   const cohortRows = analytics?.cohort_table ?? []
   const maxGrowth = Math.max(1, ...cohortRows.map(r => r.signups))
 
-  const cardStyle = { background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '20px' }
+  const cardStyle = { background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '20px' }
 
   return (
     <section className="flex flex-col gap-6">
@@ -38,15 +36,15 @@ export default function EmployerReportsPage() {
 
       {isLoading ? <Spinner /> : (
         <>
-          {/* KPI row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {/* KPI row — Approved/Pending intentionally omitted: the
+              "Verification Status Breakdown" card just below already shows
+              those exact counts, with more context (as a proportion). */}
+          <div className="grid grid-cols-2 gap-4">
             {[
               { label: 'Total Employers',    value: stats?.total_employers ?? 0, icon: Building2 },
-              { label: 'Approved',           value: verified,                    icon: CheckCircle },
-              { label: 'Pending Approval',   value: pending,                     icon: Clock },
               { label: 'Active (have jobs)', value: withJobs,                    icon: TrendingUp },
             ].map(({ label, value, icon: Icon }) => (
-              <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '16px 20px' }}>
+              <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '16px 20px' }}>
                 <div style={{ width: 40, height: 40, borderRadius: 12, background: colors.surface.elevated, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                   <Icon size={18} color={colors.text.ink} />
                 </div>
@@ -71,7 +69,7 @@ export default function EmployerReportsPage() {
 
           {/* Verification breakdown */}
           {employers.length > 0 && (
-            <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+            <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, overflow: 'hidden' }}>
               <div className="px-5 py-3" style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
                 <h2 className="text-sm font-bold" style={{ color: colors.text.ink }}>Verification Status Breakdown</h2>
               </div>
@@ -117,7 +115,7 @@ export default function EmployerReportsPage() {
 
           {/* Top employers by job count */}
           {employers.length > 0 && (
-            <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+            <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, overflow: 'hidden' }}>
               <div className="px-5 py-3" style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
                 <h2 className="text-sm font-bold" style={{ color: colors.text.ink }}>Top Employers by Jobs Posted</h2>
               </div>

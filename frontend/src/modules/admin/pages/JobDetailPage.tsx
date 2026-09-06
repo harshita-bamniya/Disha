@@ -8,7 +8,7 @@ import {
   Spinner, Empty, Badge, SectionHeading, DetailRow, Breadcrumb, TabBar, type TabDef, STATUS_COLOR_MAP,
 } from '../shared/adminUI'
 import { cn } from '@/lib/utils'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 
 
 const TABS: TabDef[] = [
@@ -18,8 +18,8 @@ const TABS: TabDef[] = [
   { key: 'moderation',  label: 'Moderation' },
 ]
 
-const cardStyle = { background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '20px' }
-const tableCardStyle = { background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' as const }
+const cardStyle = { background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '20px' }
+const tableCardStyle = { background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, overflow: 'hidden' as const }
 
 // ── Tab: Information ───────────────────────────────────────────────────────────
 
@@ -207,7 +207,7 @@ function ReportsTab({ jobId, job }: { jobId: string; job: any }) {
           { label: 'Hired',            value: hired },
           { label: 'Hire Rate',        value: `${hireRate}%` },
         ].map(({ label, value }) => (
-          <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '16px 20px' }}>
+          <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '16px 20px' }}>
             <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, marginBottom: 8 }}>{label}</p>
             <p style={{ fontSize: 28, fontWeight: 800, color: colors.text.ink }}>{value}</p>
           </div>
@@ -337,7 +337,7 @@ function ModerationTab({ job }: { job: any }) {
 
       {showDelete && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
-          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: 24, maxWidth: 384, width: '100%' }}>
+          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: 24, maxWidth: 384, width: '100%' }}>
             <h3 className="text-base font-bold mb-2" style={{ color: colors.text.ink }}>Delete "{job.title}"?</h3>
             <p className="text-sm mb-5" style={{ color: colors.text.muted }}>
               This will permanently delete the job and all {job.applicant_count} application{job.applicant_count !== 1 ? 's' : ''}. This cannot be undone.
@@ -405,7 +405,7 @@ export default function JobDetailPage() {
           { label: 'Min K-Score', value: job.min_k_score || '—' },
           { label: 'Status',      value: job.status },
         ].map(({ label, value }) => (
-          <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 16px' }}>
+          <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '12px 16px' }}>
             <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, marginBottom: 6 }}>{label}</p>
             <p className="capitalize" style={{ fontSize: 22, fontWeight: 800, color: colors.text.ink }}>{value}</p>
           </div>

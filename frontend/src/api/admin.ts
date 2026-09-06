@@ -122,7 +122,7 @@ export interface AspirantDetailResponse {
   state: string | null
   is_completed: boolean
   current_step: number
-  disha_insight: string | null
+  beginablai_insight: string | null
   education: AspirantEducation | null
   upsc_journey: AspirantUpscJourney | null
   work_experience: AspirantWorkExperience | null

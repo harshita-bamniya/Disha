@@ -32,6 +32,7 @@ def _register(client: TestClient, phone: str = PHONE, name: str = "Test User") -
 
     r = client.post("/api/auth/register", json={
         "phone": phone,
+        "email": f"{phone.lstrip('+')}@example.com",
         "otp": dev_otp,
         "full_name": name,
         "password": "SecurePass@123",
@@ -46,12 +47,12 @@ class TestSendOtp:
     def test_send_otp_returns_200_for_existing_account(self, client):
         """send-otp resends OTP to an existing account — register first."""
         phone = "+919900000002"
-        with patch("app.modules.auth.service.send_otp_sms", new_callable=AsyncMock):
+        with patch("app.modules.auth.service.send_otp_email", new_callable=AsyncMock):
             r = client.post("/api/auth/register", json={
-                "phone": phone, "password": "SecurePass@123",
+                "phone": phone, "email": "otp-resend-test@example.com", "password": "SecurePass@123",
             })
         # send-otp resend for the now-registered phone
-        with patch("app.modules.auth.service.send_otp_sms", new_callable=AsyncMock):
+        with patch("app.modules.auth.service.send_otp_email", new_callable=AsyncMock):
             r = client.post("/api/auth/send-otp", json={"phone": phone, "purpose": "register"})
         assert r.status_code == 200
 
@@ -65,11 +66,11 @@ class TestSendOtp:
 
 class TestLogin:
     def test_login_success_returns_tokens(self, client):
-        with patch("app.modules.auth.service.send_otp_sms", new_callable=AsyncMock):
+        with patch("app.modules.auth.service.send_otp_email", new_callable=AsyncMock):
             r = client.post("/api/auth/send-otp", json={"phone": "+919900000003", "purpose": "register"})
         dev_otp = r.json().get("dev_otp", "000000")
         client.post("/api/auth/register", json={
-            "phone": "+919900000003", "otp": dev_otp,
+            "phone": "+919900000003", "email": "login-tester@example.com", "otp": dev_otp,
             "full_name": "Login Tester", "password": "SecurePass@123", "role": "aspirant",
         })
 
@@ -104,11 +105,11 @@ class TestTokenBlacklist:
     def test_token_rejected_after_logout(self, client):
         # Register + login
         phone = "+919900000005"
-        with patch("app.modules.auth.service.send_otp_sms", new_callable=AsyncMock):
+        with patch("app.modules.auth.service.send_otp_email", new_callable=AsyncMock):
             r = client.post("/api/auth/send-otp", json={"phone": phone, "purpose": "register"})
         dev_otp = r.json().get("dev_otp", "000000")
         client.post("/api/auth/register", json={
-            "phone": phone, "otp": dev_otp,
+            "phone": phone, "email": "blacklist-tester@example.com", "otp": dev_otp,
             "full_name": "Blacklist Tester", "password": "SecurePass@123", "role": "aspirant",
         })
 
@@ -148,11 +149,11 @@ class TestTokenBlacklist:
 class TestAccountLockout:
     def test_repeated_bad_password_causes_lockout(self, client):
         phone = "+919900000006"
-        with patch("app.modules.auth.service.send_otp_sms", new_callable=AsyncMock):
+        with patch("app.modules.auth.service.send_otp_email", new_callable=AsyncMock):
             r = client.post("/api/auth/send-otp", json={"phone": phone, "purpose": "register"})
         dev_otp = r.json().get("dev_otp", "000000")
         client.post("/api/auth/register", json={
-            "phone": phone, "otp": dev_otp,
+            "phone": phone, "email": "lockout-tester@example.com", "otp": dev_otp,
             "full_name": "Lockout Tester", "password": "SecurePass@123", "role": "aspirant",
         })
 

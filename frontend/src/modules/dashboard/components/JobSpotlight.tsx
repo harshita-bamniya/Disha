@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MapPin, Map, BookOpen, ExternalLink, X, CheckCircle2, TrendingUp, Zap, Target, ArrowUpRight, Mic, FileText } from 'lucide-react'
+import { MapPin, Map, BookOpen, BookmarkCheck, ExternalLink, X, CheckCircle2, TrendingUp, Zap, Target, ArrowUpRight, Mic, FileText } from 'lucide-react'
 import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER } from '@/design-system/tokens'
 import { colors } from '@/design-system/tokens'
 import { formatSalary } from '@/api/jobs'
@@ -110,6 +110,22 @@ export function JobSpotlight({
 
       {/* Action cards */}
       <div style={{ padding: '12px 20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8, borderBottom: `1px solid ${BORDER}` }}>
+        <button
+          onClick={onPrepare} disabled={isPreparing}
+          aria-label={job.is_prepared ? 'Remove from prep list' : 'Add to prep list'}
+          style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 10, background: job.is_prepared ? 'rgba(26,39,68,0.04)' : 'white', border: job.is_prepared ? '1px solid rgba(26,39,68,0.16)' : `1px solid ${BORDER}`, cursor: isPreparing ? 'wait' : 'pointer', textAlign: 'left', opacity: isPreparing ? 0.7 : 1, transition: 'all 0.18s', width: '100%' }}
+          onMouseOver={e => { if (!job.is_prepared) { e.currentTarget.style.background = CREAM; e.currentTarget.style.borderColor = 'rgba(26,39,68,0.16)' } }}
+          onMouseOut={e => { if (!job.is_prepared) { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = BORDER } }}
+        >
+          {isPreparing
+            ? <div style={{ width: 15, height: 15, border: `2px solid ${ELEVATED}`, borderTopColor: NAVY, borderRadius: '50%', animation: 'spin 0.8s linear infinite', flexShrink: 0 }} />
+            : job.is_prepared ? <BookmarkCheck size={15} color={NAVY} /> : <BookOpen size={15} color={NAVY} />}
+          <div>
+            <p style={{ fontSize: 12, fontWeight: 700, color: INK, margin: '0 0 1px' }}>{job.is_prepared ? 'Saved' : 'Prepare'}</p>
+            <p style={{ fontSize: 10, color: MUTED, margin: 0 }}>{job.is_prepared ? 'In your prep list' : 'Add to prep list'}</p>
+          </div>
+        </button>
+
         <button
           onClick={onOpenResume} disabled={isTailoringResume}
           aria-label="Tailor resume for this role"

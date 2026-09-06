@@ -18,7 +18,7 @@ from app.core.security import (
     decode_refresh_token,
     create_2fa_challenge_token, decode_2fa_challenge_token,
 )
-from app.core.email import get_email_provider
+from app.core.email import get_email_provider, send_otp_email
 from app.core.sms import send_otp_sms
 from app.models.company import Company
 from app.models.user import AuditLog, DeviceSession, EmployerProfile, LoginHistory, OtpVerification, RefreshToken, Role, TwoFactorCredential, User
@@ -146,22 +146,18 @@ def _audit(db: Session, action: str, user_id=None, resource: str | None = None,
 # ── Public service functions ──────────────────────────────────────────────────
 
 async def register_user(
-    phone: str, password: str, preferred_language: str, db: Session,
-    email: str | None = None, request: Request | None = None
+    email: str, password: str, preferred_language: str, db: Session,
+    request: Request | None = None
 ) -> str:
-    """Creates a new aspirant account and sends phone OTP. Returns dev_otp in local env."""
-    existing = db.query(User).filter(User.phone == phone, User.deleted_at == None).first()
-    if existing:
-        raise ConflictException("An account with this phone number already exists.")
-
-    if email:
-        email_taken = db.query(User).filter(User.email == email, User.deleted_at == None).first()
-        if email_taken:
-            raise ConflictException("An account with this email address already exists.")
+    """Creates a new aspirant account (no phone number yet — that's collected
+    right after email verification, see add_phone below) and sends a
+    verification OTP by email. Returns dev_otp in local env."""
+    email_taken = db.query(User).filter(User.email == email, User.deleted_at == None).first()
+    if email_taken:
+        raise ConflictException("An account with this email address already exists.")
 
     role = _get_aspirant_role(db)
     user = User(
-        phone=phone,
         email=email,
         password_hash=hash_password(password),
         preferred_language=preferred_language,
@@ -173,7 +169,7 @@ async def register_user(
     otp = generate_otp()
     otp_record = OtpVerification(
         user_id=user.id,
-        target=phone,
+        target=email,
         otp_hash=hash_otp(otp),
         purpose="register",
         expires_at=datetime.now(timezone.utc) + timedelta(minutes=OTP_TTL_MINUTES),
@@ -183,8 +179,8 @@ async def register_user(
            resource_id=user.id, request=request)
     db.commit()
 
-    await send_otp_sms(phone, otp)
-    logger.info("[REGISTER] New user phone=%s", phone)
+    await send_otp_email(email, otp)
+    logger.info("[REGISTER] New user email=%s", email)
 
     return otp if settings.environment == "local" else ""
 
@@ -224,8 +220,89 @@ def verify_phone(phone: str, otp: str, db: Session, request: Request | None = No
     return tokens
 
 
+def verify_email_otp(email: str, otp: str, db: Session, request: Request | None = None) -> TokenResponse:
+    """Registration counterpart of verify_phone — verifies the OTP emailed at
+    signup, marks the email verified, and auto-logs in. The account has no
+    phone number yet at this point; add_phone collects it next."""
+    user = db.query(User).filter(User.email == email, User.deleted_at == None).first()
+    if not user:
+        raise AuthException("No account found for this email address.")
+
+    otp_record = (
+        db.query(OtpVerification)
+        .filter(
+            OtpVerification.user_id == user.id,
+            OtpVerification.purpose == "register",
+            OtpVerification.used_at == None,
+        )
+        .order_by(OtpVerification.created_at.desc())
+        .first()
+    )
+
+    if not otp_record:
+        raise BadRequestException("No active OTP found. Please request a new one.")
+    if otp_record.is_expired:
+        raise OtpExpiredException()
+    if not verify_otp(otp, otp_record.otp_hash):
+        raise OtpInvalidException()
+
+    otp_record.used_at = datetime.now(timezone.utc)
+    user.email_verified = True
+    user.last_login_at = datetime.now(timezone.utc)
+    _audit(db, "email_verified_and_logged_in", user_id=user.id, resource="user",
+           resource_id=user.id, request=request)
+
+    tokens = _issue_token_pair(user, db, request)
+    logger.info("[VERIFY] Email verified + auto-login for user_id=%s", user.id)
+    return tokens
+
+
+async def resend_register_email_otp(email: str, db: Session) -> str:
+    """Resends the registration OTP by email (used before a phone number
+    exists on the account). Returns dev_otp only in local env."""
+    user = db.query(User).filter(User.email == email, User.deleted_at == None).first()
+    if not user:
+        raise AuthException("No account found for this email address.")
+
+    otp = generate_otp()
+    otp_record = OtpVerification(
+        user_id=user.id,
+        target=email,
+        otp_hash=hash_otp(otp),
+        purpose="register",
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=OTP_TTL_MINUTES),
+    )
+    db.add(otp_record)
+    db.commit()
+
+    await send_otp_email(email, otp)
+    return otp if settings.environment == "local" else ""
+
+
+def add_phone(user: User, phone: str, db: Session, request: Request | None = None) -> User:
+    """Sets the phone number on an already-verified account. Not SMS-verified
+    — phone_verified stays false, matching the plain-collection flow."""
+    existing = db.query(User).filter(
+        User.phone == phone, User.id != user.id, User.deleted_at == None
+    ).first()
+    if existing:
+        raise ConflictException("An account with this phone number already exists.")
+
+    user.phone = phone
+    db.add(user)
+    _audit(db, "phone_added", user_id=user.id, resource="user",
+           resource_id=user.id, request=request)
+    db.commit()
+    db.refresh(user)
+    logger.info("[ADD-PHONE] phone set for user_id=%s", user.id)
+    return user
+
+
 async def send_otp(phone: str, purpose: str, db: Session) -> str:
-    """Generates and sends a new OTP. Returns it only in local env."""
+    """Generates and sends a new OTP. Returns it only in local env.
+
+    Registration OTPs go by email (matches register_user); every other
+    purpose (e.g. login 2FA) keeps going by SMS to the phone."""
     user = db.query(User).filter(User.phone == phone, User.deleted_at == None).first()
     if not user:
         raise AuthException("No account found for this phone number.")
@@ -241,7 +318,10 @@ async def send_otp(phone: str, purpose: str, db: Session) -> str:
     db.add(otp_record)
     db.commit()
 
-    await send_otp_sms(phone, otp)
+    if purpose == "register" and user.email:
+        await send_otp_email(user.email, otp)
+    else:
+        await send_otp_sms(phone, otp)
     return otp if settings.environment == "local" else ""
 
 
@@ -649,14 +729,19 @@ def google_login(credential: str, db: Session, request: Request | None = None) -
             user.google_id = google_id
 
     if not user:
-        # New user — create aspirant account
+        # New user — create aspirant account. Google's ID token includes the account's
+        # locale when available; use it instead of blindly assuming English — fall back
+        # to "hi" (same default as direct registration) when Google gives no hint.
+        google_locale = (idinfo.get("locale") or "").lower()
+        preferred_language = "en" if google_locale.startswith("en") else "hi"
+
         role = _get_aspirant_role(db)
         user = User(
             google_id=google_id,
             email=email,
             email_verified=True,
             phone_verified=False,
-            preferred_language="en",
+            preferred_language=preferred_language,
             role_id=role.id,
             is_active=True,
         )
@@ -752,14 +837,14 @@ async def send_email_verification(user: User, db: Session) -> "MessageResponse":
         logger.warning("[EMAIL-VERIFY] Redis unavailable — token not stored")
         raise BadRequestException("Verification service temporarily unavailable. Please try again.")
 
-    app_url = get_settings().frontend_url if hasattr(get_settings(), "frontend_url") else "https://app.disha.ai"
+    app_url = get_settings().frontend_url if hasattr(get_settings(), "frontend_url") else "https://app.beginablai.ai"
     verify_url = f"{app_url}/verify-email?token={token}"
 
     html = f"""
     <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px 24px">
       <h2 style="color:#111827;margin-bottom:8px">Verify your email</h2>
       <p style="color:#6B7280;line-height:1.6">
-        Click the button below to verify <strong>{user.email}</strong> on your Disha account.
+        Click the button below to verify <strong>{user.email}</strong> on your BeginablAI account.
         This link expires in 1 hour.
       </p>
       <a href="{verify_url}"
@@ -773,7 +858,7 @@ async def send_email_verification(user: User, db: Session) -> "MessageResponse":
     </div>
     """
     provider = get_email_provider()
-    await provider.send(user.email, "Verify your Disha email address", html)
+    await provider.send(user.email, "Verify your BeginablAI email address", html)
     logger.info("[EMAIL-VERIFY] verification email sent to user_id=%s", user.id)
     return MessageResponse(message="Verification email sent. Please check your inbox.")
 

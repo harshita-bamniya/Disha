@@ -3,7 +3,7 @@ import { useBillingOverview, useSubscriptionPlansAdmin } from '../hooks/useAdmin
 import { Spinner, Empty, Breadcrumb } from '../shared/adminUI'
 import { formatPaise } from '@/shared/utils/format'
 import { cn } from '@/lib/utils'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 
 
 export default function FinancialReportsPage() {
@@ -46,7 +46,7 @@ export default function FinancialReportsPage() {
           { label: 'Active Subscriptions', value: data.active_subscriptions },
           { label: 'New (30d)',            value: data.new_subscriptions_30d },
         ].map(({ label, value }) => (
-          <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '16px' }}>
+          <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '16px' }}>
             <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, marginBottom: 8 }}>{label}</p>
             <p style={{ fontSize: 28, fontWeight: 800, color: colors.text.ink }}>{typeof value === 'number' ? value.toLocaleString() : value}</p>
           </div>
@@ -72,7 +72,7 @@ export default function FinancialReportsPage() {
       )}
 
       {/* Subscription trend */}
-      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: 20 }}>
+      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, whiteSpace: 'nowrap' }}>New Subscriptions — Last 6 Months</span>
           <div style={{ flex: 1, height: '0.5px', background: '#E2E8F0' }} />
@@ -103,7 +103,7 @@ export default function FinancialReportsPage() {
       </div>
 
       {/* Revenue by plan */}
-      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, overflow: 'hidden' }}>
         <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(0,0,0,0.08)', background: colors.surface.bg }}>
           <h2 style={{ fontSize: 14, fontWeight: 700, color: colors.text.ink }}>Revenue by Plan</h2>
         </div>
@@ -137,7 +137,7 @@ export default function FinancialReportsPage() {
 
       {/* Plan limits table */}
       {plans && plans.length > 0 && (
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, overflow: 'hidden' }}>
           <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(0,0,0,0.08)', background: colors.surface.bg }}>
             <h2 style={{ fontSize: 14, fontWeight: 700, color: colors.text.ink }}>Subscription Plan Configuration</h2>
           </div>

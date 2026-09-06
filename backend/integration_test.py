@@ -40,9 +40,9 @@ def login(email):
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 section("AUTH — get tokens")
-asp_tok  = login("aspirant1@disha.test")
-asp2_tok = login("aspirant2@disha.test")
-emp_tok  = login("employer1@disha.test")
+asp_tok  = login("aspirant1@beginablai.test")
+asp2_tok = login("aspirant2@beginablai.test")
+emp_tok  = login("employer1@beginablai.test")
 ah  = {"Authorization": f"Bearer {asp_tok}"}
 ah2 = {"Authorization": f"Bearer {asp2_tok}"}
 eh  = {"Authorization": f"Bearer {emp_tok}"}
@@ -55,7 +55,7 @@ from app.models.user import User, EmployerProfile, JobPosting
 from sqlalchemy import text
 
 db = SessionLocal()
-emp_user = db.query(User).filter_by(email="employer1@disha.test").first()
+emp_user = db.query(User).filter_by(email="employer1@beginablai.test").first()
 ep = db.query(EmployerProfile).filter_by(user_id=emp_user.id).first()
 
 # Find a job owned by employer1's profile (by employer_id)
@@ -293,9 +293,9 @@ APPLY_JOB = EMP_JOB_ID
 # Clean up any applications + drafts from previous test runs for this job
 from app.models.applications import Application, ApplicationStatusHistory
 _db = SessionLocal()
-_asp1 = _db.query(User).filter_by(email="aspirant1@disha.test").first()
-_asp2 = _db.query(User).filter_by(email="aspirant2@disha.test").first()
-_asp3 = _db.query(User).filter_by(email="aspirant3@disha.test").first()
+_asp1 = _db.query(User).filter_by(email="aspirant1@beginablai.test").first()
+_asp2 = _db.query(User).filter_by(email="aspirant2@beginablai.test").first()
+_asp3 = _db.query(User).filter_by(email="aspirant3@beginablai.test").first()
 _test_job_uuid = uuid.UUID(APPLY_JOB)
 for _asp in [_asp1, _asp2, _asp3]:
     if _asp:
@@ -381,7 +381,7 @@ if r.status_code == 201:
     ok("'reference_number' present", "reference_number" in app_data, app_data)
     ok("'status' is 'applied'", app_data.get("status") == "applied", app_data)
     ref = app_data.get("reference_number", "")
-    ok("reference_number matches DISHA-YYYY-XXXXXX format", ref.startswith("DISHA-"), ref)
+    ok("reference_number matches BEGINABLAI-YYYY-XXXXXX format", ref.startswith("BEGINABLAI-"), ref)
     print(f"  APP1_ID={APP1_ID}  ref={ref}")
 
 # 4.6 Duplicate submit should be blocked
@@ -429,7 +429,7 @@ if APP1_ID:
            r.json().get("status") == "withdrawn", r.json())
 
 # 4.11 Discard draft (aspirant2 tests it before they applied — use aspirant3)
-asp3_tok = login("aspirant3@disha.test")
+asp3_tok = login("aspirant3@beginablai.test")
 ah3 = {"Authorization": f"Bearer {asp3_tok}"}
 requests.post(f"{BASE}/jobs/{APPLY_JOB}/apply/draft", json={}, headers=ah3)
 r = requests.delete(f"{BASE}/jobs/{APPLY_JOB}/apply/draft", headers=ah3)

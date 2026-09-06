@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { krsApi } from '../api/krs'
 import { usePrepStore } from '../stores/prepStore'
+import { toast } from '@/shared/components/feedback/Toast'
 
 /** Returns the server-synced active prep job context. Keeps Zustand store in sync. */
 export function useActivePrepJob() {
@@ -29,6 +30,7 @@ export function useActivePrepJob() {
       queryClient.setQueryData(['active-prep'], ctx)
       queryClient.invalidateQueries({ queryKey: ['krs-jobs'] })
     },
+    onError: () => toast.danger('Could not update your active prep job. Please try again.'),
   })
 
   const clearPrepMutation = useMutation({
@@ -38,6 +40,7 @@ export function useActivePrepJob() {
       queryClient.setQueryData(['active-prep'], null)
       queryClient.invalidateQueries({ queryKey: ['krs-jobs'] })
     },
+    onError: () => toast.danger('Could not clear your active prep job. Please try again.'),
   })
 
   return {

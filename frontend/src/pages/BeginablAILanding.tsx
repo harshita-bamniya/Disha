@@ -69,7 +69,7 @@ function Navbar() {
 
           {/* Logo */}
           <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', overflow: 'visible' }}>
-            <span style={{ fontSize: 24, fontWeight: 800, color: '#1A2744', letterSpacing: '-0.5px' }}>BeginableAI</span>
+            <span style={{ fontSize: 24, fontWeight: 800, color: '#1A2744', letterSpacing: '-0.5px' }}>BeginablAI</span>
           </Link>
 
           {/* Desktop links */}
@@ -177,7 +177,7 @@ function Hero() {
             </h1>
 
             <p style={{ fontSize: isMobile ? 15 : 16, color: C.inkSoft, lineHeight: 1.75, maxWidth: 440, marginBottom: 36 }}>
-              BeginableAI matches UPSC aspirants with employers who value analytical depth and governance knowledge — turning years of preparation into a career advantage.
+              BeginablAI matches UPSC aspirants with employers who value analytical depth and governance knowledge — turning years of preparation into a career advantage.
             </p>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 40 }}>
@@ -471,7 +471,7 @@ function Footer() {
         }}>
           {/* Brand */}
           <div style={{ gridColumn: isMobile ? '1 / -1' : 'auto' }}>
-            <span style={{ fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.4px', display: 'block', marginBottom: 14 }}>BeginableAI</span>
+            <span style={{ fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.4px', display: 'block', marginBottom: 14 }}>BeginablAI</span>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.75, maxWidth: 240, margin: 0 }}>
               Turning years of UPSC preparation into a recognized career advantage.
             </p>
@@ -518,7 +518,7 @@ function Footer() {
 
         {/* Bottom bar */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', margin: 0 }}>© {new Date().getFullYear()} BeginableAI. All rights reserved.</p>
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', margin: 0 }}>© {new Date().getFullYear()} BeginablAI. All rights reserved.</p>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22C55E', display: 'inline-block' }} />
             <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>All systems operational</span>
@@ -530,7 +530,7 @@ function Footer() {
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
-export default function DishaLanding() {
+export default function BeginablAILanding() {
   return (
     <>
       <style>{KEYFRAMES}</style>

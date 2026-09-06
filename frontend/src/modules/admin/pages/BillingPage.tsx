@@ -3,7 +3,7 @@ import { useBillingOverview } from '../hooks/useAdmin'
 import { Spinner, Empty } from '../shared/adminUI'
 import { formatPaise } from '@/shared/utils/format'
 import { cn } from '@/lib/utils'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 
 
 export default function BillingPage() {
@@ -32,7 +32,7 @@ export default function BillingPage() {
           { label: 'Active Subscriptions', value: data.active_subscriptions },
           { label: 'New (30d)', value: data.new_subscriptions_30d },
         ].map(({ label, value }) => (
-          <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '16px 20px' }}>
+          <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '16px 20px' }}>
             <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, marginBottom: 8 }}>{label}</p>
             <p style={{ fontSize: 28, fontWeight: 800, color: colors.text.ink }}>{typeof value === 'number' ? value.toLocaleString() : value}</p>
           </div>
@@ -55,7 +55,7 @@ export default function BillingPage() {
       )}
 
       {/* Trend chart */}
-      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '16px' }}>
+      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '16px' }}>
         <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, marginBottom: 12 }}>New subscriptions — last 6 months</p>
         {data.trend.length === 0 ? (
           <p className="text-xs" style={{ color: colors.text.muted }}>No subscriptions created in this window yet.</p>
@@ -75,7 +75,7 @@ export default function BillingPage() {
       </div>
 
       {/* Plan distribution */}
-      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, overflow: 'hidden' }}>
         <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(0,0,0,0.08)', background: colors.surface.bg }}>
           <h2 className="text-sm font-bold" style={{ color: colors.text.ink }}>Revenue by Plan</h2>
         </div>

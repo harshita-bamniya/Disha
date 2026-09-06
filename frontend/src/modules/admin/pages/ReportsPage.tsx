@@ -2,7 +2,7 @@
 import { BarChart2, Users, Building2, Briefcase, IndianRupee, ArrowRight, TrendingUp } from 'lucide-react'
 import { useAdminStats } from '../hooks/useAdmin'
 import { Spinner } from '../shared/adminUI'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 
 
 function ReportCard({
@@ -15,9 +15,9 @@ function ReportCard({
   return (
     <button
       onClick={() => navigate(href)}
-      style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: 20, textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 12, transition: 'background 0.15s' }}
-      onMouseOver={e => (e.currentTarget.style.background = colors.surface.elevated)}
-      onMouseOut={e => (e.currentTarget.style.background = '#fff')}
+      style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: 20, textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 12, transition: 'background 0.15s, box-shadow 0.15s, transform 0.15s' }}
+      onMouseOver={e => { e.currentTarget.style.background = colors.surface.elevated; e.currentTarget.style.boxShadow = shadows.cardHover; e.currentTarget.style.transform = 'translateY(-1px)' }}
+      onMouseOut={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.boxShadow = shadows.card; e.currentTarget.style.transform = 'translateY(0)' }}
     >
       <div className="flex items-start justify-between">
         <div style={{ width: 40, height: 40, borderRadius: 12, background: colors.surface.elevated, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -60,7 +60,7 @@ export default function ReportsPage() {
             { label: 'Total Jobs',       value: stats.total_job_postings },
             { label: 'Applications',     value: stats.total_applications },
           ].map(({ label, value }) => (
-            <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '16px' }}>
+            <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '16px' }}>
               <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, marginBottom: 8 }}>{label}</p>
               <p style={{ fontSize: 28, fontWeight: 800, color: colors.text.ink }}>{value.toLocaleString()}</p>
             </div>
@@ -80,24 +80,18 @@ export default function ReportsPage() {
             title="Employer Reports"
             description="Employer registrations, verification status, engagement rate, and top hiring companies."
             href="/admin/reports/employers"
-            stat={stats?.total_employers}
-            statLabel="employers"
           />
           <ReportCard
             icon={Briefcase}
             title="Job Reports"
             description="Job posting trends, application funnel, average applications per job, and monthly cohort analysis."
             href="/admin/reports/jobs"
-            stat={stats?.total_job_postings}
-            statLabel="jobs"
           />
           <ReportCard
             icon={Users}
             title="Candidate Reports"
             description="Registration trends, KRS score distribution, application rates, and candidate-to-hire conversion."
             href="/admin/reports/candidates"
-            stat={stats?.total_aspirants}
-            statLabel="candidates"
           />
         </div>
       </div>

@@ -26,15 +26,20 @@ const StatCard = memo(function StatCard({ icon: Icon, label, value, sub, accent,
         display: 'flex', flexDirection: 'column',
         width: '100%', textAlign: 'left',
         cursor: onClick ? 'pointer' : 'default',
-        transition: 'background 0.2s, box-shadow 0.15s',
+        boxShadow: shadows.card,
+        transition: 'background 0.2s, box-shadow 0.15s, transform 0.15s',
       }}
       onMouseOver={e => {
         e.currentTarget.style.background = colors.surface.elevated
-        if (onClick) e.currentTarget.style.boxShadow = shadows.cardHover
+        if (onClick) {
+          e.currentTarget.style.boxShadow = shadows.cardHover
+          e.currentTarget.style.transform = 'translateY(-1px)'
+        }
       }}
       onMouseOut={e => {
         e.currentTarget.style.background = colors.surface.card
-        e.currentTarget.style.boxShadow = 'none'
+        e.currentTarget.style.boxShadow = shadows.card
+        e.currentTarget.style.transform = 'translateY(0)'
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>

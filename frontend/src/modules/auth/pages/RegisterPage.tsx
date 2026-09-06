@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Phone, Lock, Check, X, Mail, RotateCcw } from 'lucide-react'
+import { Lock, Mail, RotateCcw } from 'lucide-react'
 import AuthLayout from '@/layouts/AuthLayout'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import OtpInput from '@/components/ui/OtpInput'
 import { cn } from '@/lib/utils'
 import { GoogleLogin } from '@react-oauth/google'
-import { useRegister, useVerifyPhone, useSendOtp, useGoogleLogin } from '../hooks/useAuth'
+import { useRegister, useVerifyEmailOtp, useResendEmailOtp, useGoogleLogin } from '../hooks/useAuth'
 import { getApiError } from '@/api/client'
 import { getRecaptchaToken } from '@/lib/recaptcha'
 
@@ -24,28 +24,26 @@ const PASSWORD_RULES: PasswordRule[] = [
   { label: 'One special character (!@#$...)', test: (v) => /[!@#$%^&*(),.?":{}|<>]/.test(v) },
 ]
 
-function isEmail(v: string) { return v.includes('@') }
+const STRENGTH_LABELS = ['Too weak', 'Weak', 'Fair', 'Good', 'Strong', 'Very strong']
+
 const RESEND_COOLDOWN = 30
 
 export default function RegisterPage() {
-  const [identifier, setIdentifier] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [showRules, setShowRules] = useState(false)
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
   const [otpSent, setOtpSent] = useState(false)
   const [otp, setOtp] = useState('')
-  const [devOtp, setDevOtp] = useState<string | null>(null)
   const [countdown, setCountdown] = useState(RESEND_COOLDOWN)
   const otpRef = useRef<HTMLDivElement>(null)
 
   const register = useRegister()
-  const verifyPhone = useVerifyPhone()
-  const sendOtp = useSendOtp()
+  const verifyEmailOtp = useVerifyEmailOtp()
+  const resendEmailOtp = useResendEmailOtp()
   const googleLogin = useGoogleLogin()
 
-  const usingEmail = isEmail(identifier)
   const passwordStrength = PASSWORD_RULES.filter((r) => r.test(password)).length
 
   useEffect(() => {
@@ -61,14 +59,10 @@ export default function RegisterPage() {
 
   const validate = () => {
     const errors: Record<string, string> = {}
-    if (!identifier.trim()) {
-      errors.identifier = 'Phone number or email is required'
-    } else if (usingEmail) {
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier.trim()))
-        errors.identifier = 'Enter a valid email address'
-    } else {
-      if (!/^[6-9]\d{9}$/.test(identifier.replace(/\D/g, '')))
-        errors.identifier = 'Enter a valid 10-digit Indian mobile number'
+    if (!email.trim()) {
+      errors.email = 'Email address is required'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      errors.email = 'Enter a valid email address'
     }
     if (PASSWORD_RULES.some(r => !r.test(password))) errors.password = 'Password does not meet all requirements'
     if (!acceptedTerms) errors.terms = 'You must accept the Terms & Conditions to create an account'
@@ -80,32 +74,25 @@ export default function RegisterPage() {
     e.preventDefault()
     if (otpSent) {
       if (otp.length < 6) return
-      verifyPhone.mutate({ phone: identifier, otp })
+      verifyEmailOtp.mutate({ email: email.trim(), otp })
       return
     }
     if (!validate()) return
-    if (usingEmail) {
-      const recaptcha_token = await getRecaptchaToken('register')
-      register.mutate({ email: identifier.trim(), password, recaptcha_token })
-      return
-    }
     const recaptcha_token = await getRecaptchaToken('register')
     register.mutate(
-      { phone: identifier, password, recaptcha_token },
+      { email: email.trim(), password, recaptcha_token },
       {
-        onSuccess: (data) => {
+        onSuccess: () => {
           setOtpSent(true)
           setCountdown(RESEND_COOLDOWN)
-          if (data.dev_otp) setDevOtp(data.dev_otp)
         },
       }
     )
   }
 
   const handleResend = () => {
-    sendOtp.mutate({ phone: identifier, purpose: 'register' }, {
-      onSuccess: (data) => {
-        if (data.dev_otp) setDevOtp(data.dev_otp)
+    resendEmailOtp.mutate({ email: email.trim() }, {
+      onSuccess: () => {
         setOtp('')
         setCountdown(RESEND_COOLDOWN)
       },
@@ -114,11 +101,13 @@ export default function RegisterPage() {
 
   const serverError = register.error
     ? getApiError(register.error)
-    : verifyPhone.error
-    ? getApiError(verifyPhone.error, 'Verification failed')
+    : verifyEmailOtp.error
+    ? getApiError(verifyEmailOtp.error, 'Verification failed')
     : null
 
-  const maskedPhone = identifier ? `${identifier.slice(0, 2)}XXXXXX${identifier.slice(-2)}` : ''
+  const maskedEmail = email.includes('@')
+    ? email.replace(/^(.{2}).*(@.*)$/, '$1***$2')
+    : email
 
   const strengthColor = [
     '', 'bg-danger', 'bg-orange-400', 'bg-yellow-400', 'bg-lime-400', 'bg-primary',
@@ -128,56 +117,47 @@ export default function RegisterPage() {
     <AuthLayout title="Create your account" subtitle="Start your career relaunch journey today" variant="register" panelSide="right">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
 
-        {/* Phone/Email + inline OTP */}
+        {/* Email + inline OTP */}
         <div className="flex flex-col gap-0">
           <Input
-            label="Phone number or email"
-            type={usingEmail ? 'email' : 'tel'}
-            placeholder="Enter phone number or email"
-            value={identifier}
+            label="Email address"
+            type="email"
+            placeholder="Enter email address"
+            value={email}
             onChange={(e) => {
-              const v = e.target.value
-              if (!isEmail(v) && v.replace(/\D/g, '').length > 10) return
-              setIdentifier(v)
-              if (fieldErrors.identifier) setFieldErrors(p => ({ ...p, identifier: '' }))
+              setEmail(e.target.value)
+              if (fieldErrors.email) setFieldErrors(p => ({ ...p, email: '' }))
             }}
-            error={fieldErrors.identifier}
-            prefix={usingEmail ? <Mail className="w-4 h-4" /> : <Phone className="w-4 h-4" />}
-            maxLength={usingEmail ? 150 : 10}
-            inputMode={usingEmail ? 'email' : 'numeric'}
+            error={fieldErrors.email}
+            prefix={<Mail className="w-4 h-4" />}
+            maxLength={150}
+            inputMode="email"
             disabled={otpSent}
           />
 
-          {otpSent && !usingEmail && (
+          {otpSent && (
             <div ref={otpRef} style={{
               marginTop: 10, padding: '14px 16px', borderRadius: 12,
               background: 'rgba(26,39,68,0.03)', border: '1px solid rgba(26,39,68,0.08)',
               display: 'flex', flexDirection: 'column', gap: 10,
             }}>
               <p style={{ fontSize: 12.5, color: '#475569', margin: 0 }}>
-                OTP sent to <strong style={{ color: '#1E3A5F' }}>+91 {maskedPhone}</strong>
+                A verification code was sent to <strong style={{ color: '#1E3A5F' }}>{maskedEmail}</strong>
               </p>
-              {devOtp && (
-                <div className="text-center text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2">
-                  <span className="font-semibold">Dev OTP:</span>{' '}
-                  <span className="font-mono font-bold cursor-pointer underline" onClick={() => setOtp(devOtp)}>{devOtp}</span>
-                  {' '}(click to fill)
-                </div>
-              )}
-              <OtpInput value={otp} onChange={setOtp} length={6} disabled={verifyPhone.isPending} />
+              <OtpInput value={otp} onChange={setOtp} length={6} disabled={verifyEmailOtp.isPending} />
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: '#94A3B8' }}>
                   <RotateCcw className="w-3 h-3" />
                   {countdown > 0 ? <span>Resend in {countdown}s</span> : (
-                    <Button type="button" variant="ghost" size="sm" onClick={handleResend} disabled={sendOtp.isPending}
+                    <Button type="button" variant="ghost" size="sm" onClick={handleResend} disabled={resendEmailOtp.isPending}
                       className="text-[#1A2744] font-semibold text-xs p-0 h-auto">
-                      Resend OTP
+                      Resend code
                     </Button>
                   )}
                 </div>
-                <Button type="button" variant="ghost" size="sm" onClick={() => { setOtpSent(false); setOtp(''); setDevOtp(null) }}
+                <Button type="button" variant="ghost" size="sm" onClick={() => { setOtpSent(false); setOtp('') }}
                   className="text-xs text-[#94A3B8] p-0 h-auto">
-                  Change number
+                  Edit details
                 </Button>
               </div>
             </div>
@@ -191,31 +171,23 @@ export default function RegisterPage() {
             type="password"
             placeholder="Min. 8 characters"
             value={password}
-            onChange={(e) => { setPassword(e.target.value); setShowRules(true) }}
+            onChange={(e) => setPassword(e.target.value)}
             error={fieldErrors.password}
             prefix={<Lock className="w-4 h-4" />}
             maxLength={128}
             disabled={otpSent}
           />
           {password.length > 0 && (
-            <div className="flex gap-1 mt-1">
-              {PASSWORD_RULES.map((_, i) => (
-                <div key={i} className={cn('h-1 flex-1 rounded-full transition-all duration-300', i < passwordStrength ? strengthColor : 'bg-gray-200')} />
-              ))}
-            </div>
-          )}
-          {showRules && password.length > 0 && (
-            <ul className="mt-2 flex flex-col gap-1">
-              {PASSWORD_RULES.map((rule) => {
-                const passed = rule.test(password)
-                return (
-                  <li key={rule.label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: passed ? '#1A2744' : '#94A3B8' }}>
-                    {passed ? <Check className="w-3 h-3 shrink-0" /> : <X className="w-3 h-3 shrink-0" />}
-                    {rule.label}
-                  </li>
-                )
-              })}
-            </ul>
+            <>
+              <div className="flex gap-1 mt-1">
+                {PASSWORD_RULES.map((_, i) => (
+                  <div key={i} className={cn('h-1 flex-1 rounded-full transition-all duration-300', i < passwordStrength ? strengthColor : 'bg-gray-200')} />
+                ))}
+              </div>
+              <p className="text-xs mt-1" style={{ color: passwordStrength === PASSWORD_RULES.length ? '#16A34A' : '#94A3B8' }}>
+                {STRENGTH_LABELS[passwordStrength]}
+              </p>
+            </>
           )}
         </div>
 
@@ -242,7 +214,7 @@ export default function RegisterPage() {
 
         <Button
           type="submit" fullWidth size="lg"
-          loading={register.isPending || verifyPhone.isPending}
+          loading={register.isPending || verifyEmailOtp.isPending}
           disabled={otpSent ? otp.length < 6 : (passwordStrength < PASSWORD_RULES.length || !acceptedTerms)}
           className="mt-1"
         >

@@ -98,7 +98,7 @@ function FieldLabel({ children, required, hint }: { children: React.ReactNode; r
 
 function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="bg-white border border-gray-200 rounded-2xl p-6 flex flex-col gap-5">
+    <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 flex flex-col gap-5">
       <h3 className="text-sm font-bold text-gray-900 tracking-tight">{title}</h3>
       {children}
     </section>

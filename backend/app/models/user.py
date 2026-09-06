@@ -292,7 +292,7 @@ class AspirantProfile(Base):
     # ── Completion tracking ───────────────────────────────────────────────────
     current_step = Column(Integer, nullable=False, default=1)
     is_completed = Column(Boolean, nullable=False, default=False, index=True)
-    disha_insight = Column(Text, nullable=True)  # Groq-generated welcome message, set on Step 6 completion
+    beginablai_insight = Column(Text, nullable=True)  # Groq-generated welcome message, set on Step 6 completion
 
     # ── Learning setup (one-time, asked before first roadmap/plan generation) ─
     weekly_study_hours = Column(Integer, nullable=True)

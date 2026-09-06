@@ -1,5 +1,5 @@
 import { useNavigate, Link } from 'react-router-dom'
-import { colors, radius } from '@/design-system/tokens'
+import { colors, radius, shadows } from '@/design-system/tokens'
 import {
   Plus, Building2,
   CheckCircle2, ChevronRight, ArrowUpRight,
@@ -42,24 +42,23 @@ function KpiStrip({ kpis }: { kpis: Record<string, number> }) {
     <div style={{
       display: 'grid',
       gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-      background: colors.surface.card,
-      border: `1px solid ${colors.border.default}`,
-      borderRadius: radius.xl,
-      overflow: 'hidden',
+      gap: 12,
     }}>
-      {stats.map((s, i) => (
+      {stats.map(s => (
         <div
           key={s.label}
           onClick={() => s.to && navigate(s.to)}
           style={{
+            background: colors.surface.card,
+            border: `1px solid ${colors.border.default}`,
+            borderRadius: radius.lg,
+            boxShadow: shadows.card,
             padding: '16px 18px',
-            borderRight: `1px solid ${colors.border.default}`,
-            borderBottom: `1px solid ${colors.border.default}`,
             cursor: s.to ? 'pointer' : 'default',
-            transition: 'background 0.12s',
+            transition: 'box-shadow 0.15s, transform 0.15s',
           }}
-          onMouseOver={e => { if (s.to) e.currentTarget.style.background = '#F4F5F7' }}
-          onMouseOut={e => { e.currentTarget.style.background = '#fff' }}
+          onMouseOver={e => { if (s.to) { e.currentTarget.style.boxShadow = shadows.cardHover; e.currentTarget.style.transform = 'translateY(-1px)' } }}
+          onMouseOut={e => { e.currentTarget.style.boxShadow = shadows.card; e.currentTarget.style.transform = 'translateY(0)' }}
         >
           <p style={{
             fontSize: 22, fontWeight: 700, color: colors.text.ink,
@@ -111,7 +110,7 @@ function ApplicationTrend() {
   )
 
   return (
-    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, padding: '18px 20px' }}>
+    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, boxShadow: shadows.card, padding: '18px 20px' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
         <div>
           <p style={{ fontSize: 13, fontWeight: 600, color: colors.text.ink, margin: 0 }}>Application Trend</p>
@@ -178,7 +177,7 @@ function HiringFunnel({ kpis }: { kpis: Record<string, number> }) {
   ]
 
   return (
-    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, padding: '18px 20px' }}>
+    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, boxShadow: shadows.card, padding: '18px 20px' }}>
       <p style={{ fontSize: 13, fontWeight: 600, color: colors.text.ink, margin: '0 0 16px' }}>Hiring Funnel</p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {stages.map((s, i) => (
@@ -212,7 +211,7 @@ function DepartmentsTable() {
   if (!departments?.length) return null
 
   return (
-    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, overflow: 'hidden' }}>
+    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, boxShadow: shadows.card, overflow: 'hidden' }}>
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '14px 20px', borderBottom: `1px solid ${colors.border.default}`,
@@ -286,7 +285,7 @@ function UpcomingInterviews() {
   const { data: interviews } = useUpcomingInterviews(5)
 
   return (
-    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, overflow: 'hidden' }}>
+    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, boxShadow: shadows.card, overflow: 'hidden' }}>
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '14px 18px', borderBottom: `1px solid ${colors.border.default}`,
@@ -349,7 +348,7 @@ function ActionItems({ kpis }: { kpis: Record<string, number> }) {
   if (kpis.offers_sent > 0)          items.push({ label: 'offers pending response',count: kpis.offers_sent,         to: '/app/employer/offers',   color: '#0891B2' })
 
   return (
-    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, overflow: 'hidden' }}>
+    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, boxShadow: shadows.card, overflow: 'hidden' }}>
       <div style={{ padding: '14px 18px', borderBottom: `1px solid ${colors.border.default}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <p style={{ fontSize: 13, fontWeight: 600, color: colors.text.ink, margin: 0 }}>Action Items</p>
         <span style={{ fontSize: 11, color: colors.text.muted }}>Needs attention</span>

@@ -97,7 +97,7 @@ async def _resolve_via_wikipedia(query: str) -> str | None:
                     "format": "json",
                     "utf8": 1,
                 },
-                headers={"User-Agent": "Disha-AI-Learning-Platform/1.0 (https://disha.ai)"},
+                headers={"User-Agent": "BeginablAI-AI-Learning-Platform/1.0 (https://beginablai.ai)"},
             )
             if resp.status_code != 200:
                 return None

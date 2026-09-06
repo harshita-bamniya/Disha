@@ -16,15 +16,15 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
       return (
         <div style={{
           minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: 24, background: 'var(--disha-danger-bg)',
+          padding: 24, background: 'var(--beginablai-danger-bg)',
         }}>
           <div style={{
             maxWidth: 600, width: '100%',
-            background: 'var(--disha-card)',
-            borderRadius: 'var(--disha-radius-2xl)',
+            background: 'var(--beginablai-card)',
+            borderRadius: 'var(--beginablai-radius-2xl)',
             padding: 32,
             border: '1px solid rgba(220,38,38,0.20)',
-            boxShadow: 'var(--disha-shadow-elevated)',
+            boxShadow: 'var(--beginablai-shadow-elevated)',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
               <div style={{
@@ -35,19 +35,19 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
               }}>⚠</div>
               <h2 style={{
                 fontFamily: 'Hind, sans-serif', fontSize: 18, fontWeight: 800,
-                color: 'var(--disha-danger)', margin: 0,
+                color: 'var(--beginablai-danger)', margin: 0,
               }}>Something went wrong</h2>
             </div>
-            <p style={{ fontSize: 14, color: 'var(--disha-ink-soft)', marginBottom: 16, lineHeight: 1.6 }}>
+            <p style={{ fontSize: 14, color: 'var(--beginablai-ink-soft)', marginBottom: 16, lineHeight: 1.6 }}>
               An unexpected error occurred. Please reload the page. If the problem persists,{' '}
-              <a href="mailto:support@beginable.ai" style={{ color: 'var(--disha-navy)', fontWeight: 600 }}>
+              <a href="mailto:support@beginable.ai" style={{ color: 'var(--beginablai-navy)', fontWeight: 600 }}>
                 contact support
               </a>.
             </p>
             {isDev && (
               <pre style={{
-                fontSize: 11, color: 'var(--disha-ink)',
-                background: 'var(--disha-elevated)',
+                fontSize: 11, color: 'var(--beginablai-ink)',
+                background: 'var(--beginablai-elevated)',
                 padding: 14, borderRadius: 8,
                 overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all',
                 marginBottom: 16, maxHeight: 240, overflow: 'auto',
@@ -60,9 +60,9 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
               <button
                 onClick={() => window.location.reload()}
                 style={{
-                  padding: '9px 20px', background: 'var(--disha-danger)',
+                  padding: '9px 20px', background: 'var(--beginablai-danger)',
                   color: 'white', border: 'none',
-                  borderRadius: 'var(--disha-radius-lg)',
+                  borderRadius: 'var(--beginablai-radius-lg)',
                   cursor: 'pointer', fontWeight: 700, fontSize: 13,
                   boxShadow: '0 4px 12px rgba(220,38,38,0.25)',
                 }}
@@ -73,9 +73,9 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
                 onClick={() => { window.history.back() }}
                 style={{
                   padding: '9px 20px', background: 'transparent',
-                  color: 'var(--disha-ink-soft)',
-                  border: '1.5px solid var(--disha-border-md)',
-                  borderRadius: 'var(--disha-radius-lg)',
+                  color: 'var(--beginablai-ink-soft)',
+                  border: '1.5px solid var(--beginablai-border-md)',
+                  borderRadius: 'var(--beginablai-radius-lg)',
                   cursor: 'pointer', fontWeight: 600, fontSize: 13,
                 }}
               >
@@ -99,6 +99,7 @@ import LoginPage from '@/modules/auth/pages/LoginPage'
 import RegisterPage from '@/modules/auth/pages/RegisterPage'
 import VerifyOtpPage from '@/modules/auth/pages/VerifyOtpPage'
 import VerifyEmailPage from '@/modules/auth/pages/VerifyEmailPage'
+import AddPhonePage from '@/modules/auth/pages/AddPhonePage'
 import EmployerRegisterPage from '@/modules/auth/pages/EmployerRegisterPage'
 import EmployerVerifyOtpPage from '@/modules/auth/pages/EmployerVerifyOtpPage'
 import EmployerPendingPage from '@/modules/auth/pages/EmployerPendingPage'
@@ -114,7 +115,7 @@ import Step5Skills from '@/modules/onboarding/pages/Step5Skills'
 import Step6Preferences from '@/modules/onboarding/pages/Step6Preferences'
 import { useOnboardingStatus } from '@/modules/onboarding/hooks/useOnboarding'
 import DashboardPage from '@/modules/dashboard/pages/DashboardPage'
-import DishaLanding from '@/pages/DishaLanding'
+import BeginablAILanding from '@/pages/BeginablAILanding'
 import ProfilePage from '@/modules/profile/pages/ProfilePage'
 import AspLayout from '@/shared/layouts/AspLayout'
 import EmployerDashboardPage from '@/modules/employer/pages/EmployerDashboardPage'
@@ -201,6 +202,17 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return isAuthenticated ? <>{children}</> : <Navigate to="/auth/login" replace />
 }
 
+/** Like ProtectedRoute, but also blocks aspirants who haven't added a phone
+ * number yet (collected right after email verification, not at registration).
+ * Employers always have one from their own registration flow. */
+function RequirePhone({ children }: { children: React.ReactNode }) {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const user = useAuthStore((s) => s.user)
+  if (!isAuthenticated) return <Navigate to="/auth/login" replace />
+  if (user?.role !== 'employer' && !user?.phone) return <Navigate to="/auth/add-phone" replace />
+  return <>{children}</>
+}
+
 function GuestRoute({ children, employerRedirect = '/app/employer/dashboard' }: { children: React.ReactNode; employerRedirect?: string }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const user = useAuthStore((s) => s.user)
@@ -246,6 +258,9 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated) return <Navigate to="/auth/login" replace />
   // Employers skip onboarding — they land on a pending/different page
   if (user?.role === 'employer') return <>{children}</>
+  // Phone is collected right after email verification, not at registration —
+  // block everything else until it's on file.
+  if (!user?.phone) return <Navigate to="/auth/add-phone" replace />
   if (isLoading) return null
   if (status && status.current_step < 2) {
     return <Navigate to="/app/onboarding/step/1" replace />
@@ -264,7 +279,7 @@ function App() {
             path="/"
             element={
               <GuestRoute>
-                <DishaLanding />
+                <BeginablAILanding />
               </GuestRoute>
             }
           />
@@ -274,6 +289,7 @@ function App() {
           <Route path="/auth/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
           <Route path="/auth/verify" element={<VerifyOtpPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/auth/add-phone" element={<ProtectedRoute><AddPhonePage /></ProtectedRoute>} />
           <Route path="/auth/forgot-password" element={<GuestRoute><ForgotPasswordPage /></GuestRoute>} />
           <Route path="/auth/2fa-challenge" element={<TwoFactorChallengePage />} />
 
@@ -283,12 +299,12 @@ function App() {
           <Route path="/auth/employer-pending" element={<GuestRoute><EmployerPendingPage /></GuestRoute>} />
 
           {/* Onboarding wizard — aspirants only */}
-          <Route path="/app/onboarding/step/1" element={<ProtectedRoute><Step1Personal /></ProtectedRoute>} />
-          <Route path="/app/onboarding/step/2" element={<ProtectedRoute><Step2Education /></ProtectedRoute>} />
-          <Route path="/app/onboarding/step/3" element={<ProtectedRoute><Step3UpscJourney /></ProtectedRoute>} />
-          <Route path="/app/onboarding/step/4" element={<ProtectedRoute><Step4WorkExperience /></ProtectedRoute>} />
-          <Route path="/app/onboarding/step/5" element={<ProtectedRoute><Step5Skills /></ProtectedRoute>} />
-          <Route path="/app/onboarding/step/6" element={<ProtectedRoute><Step6Preferences /></ProtectedRoute>} />
+          <Route path="/app/onboarding/step/1" element={<RequirePhone><Step1Personal /></RequirePhone>} />
+          <Route path="/app/onboarding/step/2" element={<RequirePhone><Step2Education /></RequirePhone>} />
+          <Route path="/app/onboarding/step/3" element={<RequirePhone><Step3UpscJourney /></RequirePhone>} />
+          <Route path="/app/onboarding/step/4" element={<RequirePhone><Step4WorkExperience /></RequirePhone>} />
+          <Route path="/app/onboarding/step/5" element={<RequirePhone><Step5Skills /></RequirePhone>} />
+          <Route path="/app/onboarding/step/6" element={<RequirePhone><Step6Preferences /></RequirePhone>} />
           {/* Redirect bare /app/onboarding to step 1 */}
           <Route path="/app/onboarding" element={<Navigate to="/app/onboarding/step/1" replace />} />
 

@@ -3,7 +3,7 @@ import { Briefcase, Users, TrendingUp, BarChart2 } from 'lucide-react'
 import { adminApi } from '@/api/admin'
 import { useAdminStats } from '../hooks/useAdmin'
 import { Spinner, Empty, Breadcrumb } from '../shared/adminUI'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 
 
 const STATUS_LABELS: Record<string, string> = {
@@ -36,7 +36,7 @@ export default function JobReportsPage() {
   const hired = funnel.find(f => f.status === 'hired')?.count ?? 0
   const fillRate = totalApps > 0 ? Math.round((hired / totalApps) * 100) : 0
 
-  const cardStyle = { background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '20px' }
+  const cardStyle = { background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '20px' }
 
   return (
     <section className="flex flex-col gap-6">
@@ -57,7 +57,7 @@ export default function JobReportsPage() {
               { label: 'Avg Apps / Job', value: avgApps,                    icon: BarChart2 },
               { label: 'Hire Rate',      value: `${fillRate}%`,             icon: TrendingUp },
             ].map(({ label, value, icon: Icon }) => (
-              <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '16px 20px' }}>
+              <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '16px 20px' }}>
                 <div style={{ width: 40, height: 40, borderRadius: 12, background: colors.surface.elevated, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                   <Icon size={18} color={colors.text.ink} />
                 </div>
@@ -94,7 +94,7 @@ export default function JobReportsPage() {
 
           {/* Application funnel */}
           {funnel.length > 0 && (
-            <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+            <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, overflow: 'hidden' }}>
               <div className="px-5 py-3" style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
                 <h2 className="text-sm font-bold" style={{ color: colors.text.ink }}>Application Funnel</h2>
               </div>
@@ -123,7 +123,7 @@ export default function JobReportsPage() {
 
           {/* Cohort table */}
           {(analytics?.cohort_table ?? []).length > 0 && (
-            <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+            <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, overflow: 'hidden' }}>
               <div className="px-5 py-3" style={{ background: colors.surface.bg, borderBottom: '1px solid rgba(0,0,0,0.08)' }}>
                 <h2 className="text-sm font-bold" style={{ color: colors.text.ink }}>Monthly Hiring Cohort</h2>
                 <p className="text-xs mt-0.5" style={{ color: colors.text.muted }}>Signups → Applied → Hired conversion per month</p>

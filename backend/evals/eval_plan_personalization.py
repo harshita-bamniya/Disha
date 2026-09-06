@@ -4,7 +4,7 @@ the generated learning plan, or just decorates it with unused context.
 This calls the REAL Groq API — real tokens, real cost, non-deterministic
 output. Not a unit test, not run by pytest/CI. Run it deliberately:
 
-    docker exec disha_backend python evals/eval_plan_personalization.py
+    docker exec beginablai_backend python evals/eval_plan_personalization.py
 
 What it checks, per persona, against the concrete rules PLAN_PROMPT states:
   - Resource count per module matches the burnout tier (2 / 3 / 4)

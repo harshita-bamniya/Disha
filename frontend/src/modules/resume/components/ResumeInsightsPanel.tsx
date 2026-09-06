@@ -58,7 +58,10 @@ interface Props {
 export default function ResumeInsightsPanel({ resume, onClose }: Props) {
   const qc = useQueryClient()
   const [activeTab, setActiveTab] = useState<Tab>('score')
-  const [jobDescription, setJobDescription] = useState<string>(resume.score_breakdown?.keyword_coverage.explanation.includes('No job target') ? '' : '')
+  // Derived straight from the resume prop (not copied into local state) so it
+  // always reflects the latest saved target — including when it's changed
+  // from KeywordGapList's own "Re-analyze with different JD" flow.
+  const jobDescription = resume.target_job_description ?? ''
   const [showJdInput, setShowJdInput] = useState(false)
   const [jdDraft, setJdDraft] = useState('')
 
@@ -66,7 +69,6 @@ export default function ResumeInsightsPanel({ resume, onClose }: Props) {
     mutationFn: (jd: string) => resumeApi.setJobTarget(resume.id, { job_description: jd }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['resume', resume.id] })
-      setJobDescription(jdDraft)
       setShowJdInput(false)
     },
   })

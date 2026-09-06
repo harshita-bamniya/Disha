@@ -137,7 +137,7 @@ def get_aspirant_detail(user_id: str, db: Session) -> AspirantDetailResponse:
         state=profile.state if profile else None,
         is_completed=profile.is_completed if profile else False,
         current_step=profile.current_step if profile else 1,
-        disha_insight=profile.disha_insight if profile else None,
+        beginablai_insight=profile.beginablai_insight if profile else None,
         education=AspirantEducation(
             highest_qualification=profile.highest_qualification,
             degree=profile.degree,

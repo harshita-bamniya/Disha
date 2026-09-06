@@ -11,7 +11,7 @@ import type {
   AnnouncementEntry, AnnouncementType, AnnouncementTarget,
   AnnouncementChannel, AnnouncementCreatePayload, AdminNotificationEntry,
 } from '@/api/admin'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 import Button from '@/shared/components/primitives/Button'
 
 
@@ -236,7 +236,7 @@ function AnnCard({
   const isPublished = ann.status === 'published'
 
   return (
-    <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: 20 }}>
+    <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: 20 }}>
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-2 flex-wrap">
           <Badge color={tc.color}>{tc.label}</Badge>
@@ -344,7 +344,7 @@ function DeliveryLogTab() {
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {statCards.map(({ label, value, icon: Icon }) => (
-            <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div key={label} style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ width: 40, height: 40, borderRadius: 12, background: colors.surface.elevated, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Icon className="w-5 h-5" style={{ color: colors.text.ink }} />
               </div>
@@ -383,7 +383,7 @@ function DeliveryLogTab() {
       {isLoading ? <Spinner /> : !data || data.items.length === 0 ? (
         <Empty icon={Activity} text="No notifications found" />
       ) : (
-        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+        <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, overflow: 'hidden' }}>
           <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(0,0,0,0.08)', background: colors.surface.bg, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted }}>{data.total.toLocaleString()} total</p>
           </div>

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, MessageSquare, Send, Clock, CheckCircle2, AlertCircle } from 'lucide-react'
 import { candidateSupportApi, type CreateTicketPayload, type TicketDetail } from '@/api/support'
 import { getApiError } from '@/api/client'
+import { toast } from '@/shared/components/feedback/Toast'
 import PageHeader from '@/shared/layouts/PageHeader'
 import Button from '@/shared/components/primitives/Button'
 import Modal from '@/shared/components/overlays/Modal'
@@ -134,6 +135,7 @@ function TicketThread({ ticketId, reporterId, onClose }: { ticketId: string; rep
       setMsg('')
       qc.invalidateQueries({ queryKey: ['candidate-ticket', ticketId] })
     },
+    onError: () => toast.danger('Could not send your message. Please try again.'),
   })
 
   const ticket = data as TicketDetail | undefined
@@ -212,7 +214,7 @@ export default function CandidateSupportPage() {
     <>
       <PageHeader
         title="Support"
-        subtitle="Get help from the Disha team"
+        subtitle="Get help from the BeginablAI team"
         actions={
           <Button size="sm" onClick={() => setShowNew(true)}>
             <Plus size={14} /> New Ticket

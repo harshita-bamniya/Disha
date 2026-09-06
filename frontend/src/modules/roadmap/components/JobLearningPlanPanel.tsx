@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { attachSchedule, jobPlanApi, type GenerationDetail, type GenerationStep, type PlanModule, type PlanResource, type QuizProgress, type VideoRating } from '@/api/jobPlan'
 import type { RoadmapOut } from '@/api/roadmap'
+import { shadows } from '@/design-system/tokens'
 import { useOnboardingProfile } from '@/modules/onboarding/hooks/useOnboarding'
 import { toast } from '@/shared/components/feedback/Toast'
 
@@ -308,9 +309,12 @@ function VideoOptionCard({
       flex: 1, minWidth: 180, borderRadius: 10, overflow: 'hidden', cursor: 'pointer',
       border: selected ? '1.5px solid #6366F1' : '1px solid #F1F5F9',
       background: 'white',
-      transition: 'border-color 0.15s',
+      boxShadow: shadows.card,
+      transition: 'border-color 0.15s, box-shadow 0.15s, transform 0.15s',
     }}
       onClick={onSelect}
+      onMouseOver={e => { e.currentTarget.style.boxShadow = shadows.cardHover; e.currentTarget.style.transform = 'translateY(-1px)' }}
+      onMouseOut={e => { e.currentTarget.style.boxShadow = shadows.card; e.currentTarget.style.transform = 'translateY(0)' }}
     >
       <div style={{ position: 'relative', aspectRatio: '16/9', background: '#F3F4F6' }}>
         <img src={video.thumbnail_url} alt={video.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />

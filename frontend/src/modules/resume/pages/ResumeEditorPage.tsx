@@ -9,6 +9,7 @@ import ResumeCopilotPanel from '@/modules/resume/components/ResumeCopilotPanel'
 import VersionDrawer from '@/modules/resume/components/VersionDrawer'
 import ResumeInsightsPanel from '@/modules/resume/components/ResumeInsightsPanel'
 import { useAutosave } from '@/shared/hooks/useAutosave'
+import { toast } from '@/shared/components/feedback/Toast'
 import { useDragReorder, type DragReorderHandlers } from '@/shared/hooks/useDragReorder'
 import { NAVY, INK, INK_SFT as INK_S, MUTED, CREAM, BORDER, colors, shadows } from '@/design-system/tokens'
 import {
@@ -557,12 +558,14 @@ function SectionEditor({
       return resumeApi.upsertSection(resumeId, { section_type: section.section_type, content })
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['resume', resumeId] }),
+    onError: () => toast.danger('Could not save your changes. Please try again.'),
   })
   const status = useAutosave(draft, (content) => saveMutation.mutateAsync(content))
 
   const improveMutation = useMutation({
     mutationFn: () => { setImproving(true); return resumeApi.aiImproveSection(resumeId, section.id) },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['resume', resumeId] }),
+    onError: () => toast.danger('Could not improve this section. Please try again.'),
     onSettled: () => setImproving(false),
   })
 
@@ -590,6 +593,7 @@ function SectionEditor({
         <IssuePill count={issues} fixing={improving} onFix={() => improveMutation.mutate()} />
         {status === 'saving' && <span style={{ fontSize: 10.5, color: MUTED, flexShrink: 0 }}>Saving…</span>}
         {status === 'saved' && <span style={{ fontSize: 10.5, color: colors.state.success, flexShrink: 0 }}>Saved</span>}
+        {status === 'error' && <span style={{ fontSize: 10.5, color: '#DC2626', flexShrink: 0 }}>Not saved</span>}
         <button onClick={onDeleted} title="Delete section" style={{
           width: 24, height: 24, borderRadius: 7, border: 'none', background: 'transparent',
           cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: MUTED, flexShrink: 0,
@@ -689,11 +693,18 @@ export default function ResumeEditorPage() {
   const deleteSectionMutation = useMutation({
     mutationFn: (sectionId: string) => resumeApi.deleteSection(resumeId!, sectionId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['resume', resumeId] }),
+    onError: (_err, _sectionId) => {
+      toast.danger('Could not delete this section. Please try again.')
+      // The call site removes it from local state optimistically — put it
+      // back since the delete didn't actually happen server-side.
+      qc.invalidateQueries({ queryKey: ['resume', resumeId] })
+    },
   })
 
   const addSectionMutation = useMutation({
     mutationFn: () => resumeApi.upsertSection(resumeId!, { section_type: newSectionType, content: getDefaultContent(newSectionType) }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['resume', resumeId] }); setAddSection(false) },
+    onError: () => toast.danger('Could not add this section. Please try again.'),
   })
 
   const atsColor = (score: number | null) => {

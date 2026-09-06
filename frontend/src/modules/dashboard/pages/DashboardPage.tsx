@@ -5,11 +5,11 @@ import { X, ArrowUpRight, Sparkles, ChevronRight, ClipboardList, Mail } from 'lu
 import { useOnboardingStatus } from '@/modules/onboarding/hooks/useOnboarding'
 import type { LiveJob } from '@/api/krs'
 import PageHeader from '@/shared/layouts/PageHeader'
-import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors } from '@/design-system/tokens'
+import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors, shadows } from '@/design-system/tokens'
 import JobAnalysisDrawer from '@/components/JobAnalysisDrawer'
 import { resumeApi } from '@/api/resume'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
-import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { getMyApplications } from '@/api/matching'
 import { jobPlanApi } from '@/api/jobPlan'
 import { getApiError } from '@/api/client'
@@ -26,7 +26,6 @@ const ELEVATED = colors.surface.elevated
 
 export default function DashboardPage() {
   const navigate = useNavigate()
-  const qc = useQueryClient()
   const { data, isLoading, error } = useKrsDashboard()
   const { data: liveJobs, isLoading: jobsLoading } = useLiveJobs()
   const { data: onboarding } = useOnboardingStatus()
@@ -66,14 +65,11 @@ export default function DashboardPage() {
 
   const handleGenerateResume = (job: LiveJob) => {
     setSelectedJob(null)
-    startPrep(job.id, {
-      onSuccess: () => {
-        jobPlanApi.generate(job.id)
-          .catch(() => toast.danger('Could not start your learning plan. Please try again from the Roadmap page.'))
-          .finally(() => qc.invalidateQueries({ queryKey: ['job-plans-all'] }))
-        navigate('/app/roadmap')
-      },
-    })
+    // Don't fire generation here — a first-time user hasn't answered the
+    // Learning Setup questions yet. The Roadmap page gates on that, then the
+    // plan panel's own "Generate My Roadmap" button starts generation with
+    // the real answers instead of wrong-sounding defaults.
+    startPrep(job.id, { onSuccess: () => navigate('/app/roadmap') })
   }
 
   const handleViewRoadmap = (job: LiveJob) => {
@@ -125,7 +121,7 @@ export default function DashboardPage() {
         {error && (
           getApiError(error).toLowerCase().includes('onboarding incomplete') ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, alignItems: 'start' }}>
-              <div style={{ background: 'white', border: `1px solid ${BORDER}`, borderRadius: 18, padding: '32px 28px', textAlign: 'center' }}>
+              <div style={{ background: 'white', border: `1px solid ${BORDER}`, borderRadius: 18, boxShadow: shadows.card, padding: '32px 28px', textAlign: 'center' }}>
                 <Sparkles size={28} color={NAVY} style={{ marginBottom: 10 }} />
                 <p style={{ fontSize: 16, fontWeight: 700, color: INK, marginBottom: 6 }}>Complete your profile to unlock job matches</p>
                 <p style={{ fontSize: 13, color: INK_SFT, maxWidth: 380, margin: '0 auto' }}>Your KRS score and tailored job recommendations need a bit more info.</p>
@@ -165,7 +161,7 @@ export default function DashboardPage() {
 
             {/* Onboarding progress banner */}
             {showOnboardingBanner && (
-              <div style={{ background: 'white', border: `1px solid ${BORDER}`, borderRadius: 14, padding: '14px 18px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14 }}>
+              <div style={{ background: 'white', border: `1px solid ${BORDER}`, borderRadius: 14, boxShadow: shadows.card, padding: '14px 18px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 14 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 10, background: NAVY, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <ClipboardList size={16} color="white" />
                 </div>

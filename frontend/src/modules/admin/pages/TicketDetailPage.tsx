@@ -7,7 +7,7 @@ import {
 import { useAdminTicket, useUpdateTicket, useAddTicketMessage } from '../hooks/useAdmin'
 import { Spinner, Breadcrumb } from '../shared/adminUI'
 import { cn } from '@/lib/utils'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -76,7 +76,7 @@ export default function TicketDetailPage() {
         {/* ── Main content ─────────────────────── */}
         <div className="min-w-0 flex flex-col gap-4" style={{ flex: '1 1 320px' }}>
           {/* Header */}
-          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '20px 24px' }}>
+          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '20px 24px' }}>
             <button
               onClick={() => navigate('/admin/support')}
               className="flex items-center gap-1 mb-3"
@@ -111,7 +111,7 @@ export default function TicketDetailPage() {
           </div>
 
           {/* Tabs */}
-          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, overflow: 'hidden' }}>
             <div style={{ display: 'flex', gap: 2, padding: '12px 16px 0', borderBottom: '1px solid rgba(0,0,0,0.08)', background: colors.surface.bg }}>
               {TABS.map(t => (
                 <button
@@ -236,7 +236,7 @@ export default function TicketDetailPage() {
 
         {/* ── Action sidebar ────────────────────────────────── */}
         <div className="flex flex-col gap-3" style={{ flex: '0 1 240px', minWidth: 200 }}>
-          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
             <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted }}>Actions</p>
 
             {/* Status */}
@@ -299,7 +299,7 @@ export default function TicketDetailPage() {
           </div>
 
           {/* Ticket meta */}
-          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: '16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: '16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
             <p style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', color: colors.text.muted, marginBottom: 4 }}>Details</p>
             {[
               { label: 'Entity', value: ticket.entity_type },

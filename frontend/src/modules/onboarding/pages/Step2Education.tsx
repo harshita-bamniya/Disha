@@ -4,7 +4,7 @@ import OnboardingLayout from '@/layouts/OnboardingLayout'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
-import { useOnboardingSteps } from '../hooks/useOnboarding'
+import { useOnboardingSteps, useOnboardingProfile } from '../hooks/useOnboarding'
 import { getApiError } from '@/api/client'
 import type { Qualification } from '@/types'
 
@@ -27,7 +27,21 @@ export default function Step2Education() {
     graduation_year: '',
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [prefilled, setPrefilled] = useState(false)
   const { education } = useOnboardingSteps()
+  const { data: profile } = useOnboardingProfile()
+
+  // Pre-fill from whatever's already saved — see Step1Personal for why.
+  if (profile && !prefilled) {
+    setPrefilled(true)
+    setForm({
+      highest_qualification: (profile.highest_qualification ?? '') as Qualification | '',
+      degree: profile.degree ?? '',
+      field_of_study: profile.field_of_study ?? '',
+      institution: profile.institution ?? '',
+      graduation_year: profile.graduation_year ? String(profile.graduation_year) : '',
+    })
+  }
 
   const set = (f: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((p) => ({ ...p, [f]: e.target.value }))

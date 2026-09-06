@@ -5,6 +5,7 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { authApi } from '@/api/auth'
 import { getApiError } from '@/api/client'
+import { toast } from '@/shared/components/feedback/Toast'
 
 const STATUS_KEY = ['auth', '2fa-status']
 
@@ -23,6 +24,7 @@ export default function TwoFactorSettings() {
   const startSetup = useMutation({
     mutationFn: authApi.setup2fa,
     onSuccess: (data) => { setSetupData(data); setStage('setup') },
+    onError: () => toast.danger('Could not start two-factor setup. Please try again.'),
   })
 
   const enable = useMutation({

@@ -63,11 +63,11 @@ def interview_scheduled_email(job_title: str, company_name: str, scheduled_at: s
 
 
 def employer_verification_request_email(company_name: str) -> tuple[str, str]:
-    subject = "Thank you for choosing BeginableAI — next steps for verification"
+    subject = "Thank you for choosing BeginablAI — next steps for verification"
     html = _wrap(
         f"Welcome, {company_name}!",
         f"""
-        <p>Thank you for choosing <strong>BeginableAI</strong> to find your next hire. We're excited to have you on board!</p>
+        <p>Thank you for choosing <strong>BeginablAI</strong> to find your next hire. We're excited to have you on board!</p>
         <p>To complete your company verification, please keep the following documents ready — our team will reach out to collect them:</p>
         <ul style="line-height:1.8;padding-left:20px;">
           <li><strong>GST Certificate</strong> <em>or</em> <strong>Company Registration Certificate</strong></li>

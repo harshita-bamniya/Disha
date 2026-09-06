@@ -55,7 +55,7 @@ export const useAuthStore = create<AuthState>()(
         }),
     }),
     {
-      name: 'disha-auth',
+      name: 'beginablai-auth',
       // Only persist user identity and auth flag by default — never tokens,
       // unless the user opted into "Remember me" for this login.
       partialize: (state) => ({

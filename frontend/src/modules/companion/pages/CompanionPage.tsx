@@ -6,6 +6,7 @@ import {
 import PageHeader from '@/shared/layouts/PageHeader'
 import ChatBubble, { type ChatBubbleTheme } from '@/shared/components/ai/ChatBubble'
 import TypingIndicator from '@/shared/components/ai/TypingIndicator'
+import { toast } from '@/shared/components/feedback/Toast'
 import {
   Send, Heart, Sparkles, BookHeart, AlertTriangle, X, Plus, Trash2, Flame,
 } from 'lucide-react'
@@ -53,6 +54,7 @@ function MoodCheckIn() {
       qc.invalidateQueries({ queryKey: ['companion-insights'] })
       qc.invalidateQueries({ queryKey: ['companion-timeline'] })
     },
+    onError: () => toast.danger('Could not save your mood check-in. Please try again.'),
   })
 
   return (
@@ -147,10 +149,12 @@ function MilestonesPanel() {
       qc.invalidateQueries({ queryKey: ['companion-timeline'] })
       qc.invalidateQueries({ queryKey: ['companion-insights'] })
     },
+    onError: () => toast.danger('Could not save your milestone. Please try again.'),
   })
   const deleteMutation = useMutation({
     mutationFn: (id: string) => companionApi.deleteMilestone(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['companion-milestones'] }),
+    onError: () => toast.danger('Could not delete this milestone. Please try again.'),
   })
 
   return (
@@ -226,6 +230,7 @@ function MemoryHighlights() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => companionApi.deleteMemory(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['companion-memories'] }),
+    onError: () => toast.danger('Could not delete this memory. Please try again.'),
   })
 
   return (

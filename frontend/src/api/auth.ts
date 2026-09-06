@@ -2,11 +2,23 @@ import { apiClient } from './client'
 import type { AuthTokens, CompanySize, User } from '@/types'
 
 export interface RegisterPayload {
-  phone: string
-  email?: string
+  email: string
   password: string
   preferred_language?: string
   recaptcha_token?: string
+}
+
+export interface VerifyEmailOtpPayload {
+  email: string
+  otp: string
+}
+
+export interface ResendEmailOtpPayload {
+  email: string
+}
+
+export interface AddPhonePayload {
+  phone: string
 }
 
 export interface LoginPayload {
@@ -103,6 +115,15 @@ export const authApi = {
 
   verifyPhone: (data: VerifyPhonePayload) =>
     apiClient.post<TokenResponse>('/auth/verify-phone', data).then((r) => r.data),
+
+  verifyEmailOtp: (data: VerifyEmailOtpPayload) =>
+    apiClient.post<TokenResponse>('/auth/verify-email-otp', data).then((r) => r.data),
+
+  resendEmailOtp: (data: ResendEmailOtpPayload) =>
+    apiClient.post<MessageResponse>('/auth/resend-email-otp', data).then((r) => r.data),
+
+  addPhone: (data: AddPhonePayload) =>
+    apiClient.post<User>('/auth/phone', data).then((r) => r.data),
 
   sendOtp: (data: SendOtpPayload) =>
     apiClient.post<MessageResponse>('/auth/send-otp', data).then((r) => r.data),

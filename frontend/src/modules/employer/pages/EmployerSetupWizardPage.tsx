@@ -127,7 +127,7 @@ export default function EmployerSetupWizardPage() {
         <div style={{ position: 'absolute', width: 400, height: 400, borderRadius: '50%', background: 'rgba(255,255,255,0.03)', top: '-100px', right: '-100px', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', width: 250, height: 250, borderRadius: '50%', background: 'rgba(255,255,255,0.02)', bottom: '8%', left: '-60px', pointerEvents: 'none' }} />
 
-        <span style={{ fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.4px', position: 'relative', zIndex: 1 }}>BeginableAI</span>
+        <span style={{ fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.4px', position: 'relative', zIndex: 1 }}>BeginablAI</span>
 
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ fontSize: 80, fontWeight: 900, color: 'rgba(255,255,255,0.04)', lineHeight: 1, marginBottom: -16, fontFamily: 'system-ui', userSelect: 'none' }}>

@@ -1,4 +1,5 @@
 import type { ScoreBreakdown } from '@/api/resume'
+import { shadows } from '@/design-system/tokens'
 
 const CRITERIA: { key: keyof Omit<ScoreBreakdown, 'overall'>; label: string }[] = [
   { key: 'ats_compatibility', label: 'ATS Compatibility' },
@@ -24,34 +25,38 @@ export default function ScoreBreakdownCard({ breakdown, compact = false }: Props
   const overall = breakdown.overall
 
   return (
-    <div style={{ background: 'white', borderRadius: 14, border: '1px solid #E2E8F0', overflow: 'hidden' }}>
-      {/* overall score header */}
-      <div style={{
-        background: `linear-gradient(135deg, ${scoreColor(overall)}15, ${scoreColor(overall)}08)`,
-        borderBottom: `1px solid ${scoreColor(overall)}20`,
-        padding: compact ? '12px 14px' : '16px 18px',
-        display: 'flex', alignItems: 'center', gap: 12,
-      }}>
+    <div style={{ background: 'white', borderRadius: 14, border: '1px solid #E2E8F0', boxShadow: shadows.card, overflow: 'hidden' }}>
+      {/* Overall-score header — skipped in compact mode, whose only caller
+          (ResumeHubPage's expanded resume-card view) already shows this same
+          circle/score/label directly above where this card renders. */}
+      {!compact && (
         <div style={{
-          width: compact ? 44 : 54, height: compact ? 44 : 54,
-          borderRadius: '50%',
-          border: `3px solid ${scoreColor(overall)}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0,
+          background: `linear-gradient(135deg, ${scoreColor(overall)}15, ${scoreColor(overall)}08)`,
+          borderBottom: `1px solid ${scoreColor(overall)}20`,
+          padding: '16px 18px',
+          display: 'flex', alignItems: 'center', gap: 12,
         }}>
-          <span style={{ fontSize: compact ? 14 : 18, fontWeight: 900, color: scoreColor(overall) }}>
-            {overall}
-          </span>
-        </div>
-        <div>
-          <div style={{ fontSize: compact ? 12 : 14, fontWeight: 800, color: '#0F172A' }}>
-            Overall Score
+          <div style={{
+            width: 54, height: 54,
+            borderRadius: '50%',
+            border: `3px solid ${scoreColor(overall)}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            <span style={{ fontSize: 18, fontWeight: 900, color: scoreColor(overall) }}>
+              {overall}
+            </span>
           </div>
-          <div style={{ fontSize: 11, color: scoreColor(overall), fontWeight: 700 }}>
-            {overall >= 75 ? 'Excellent' : overall >= 50 ? 'Good' : 'Needs Work'}
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: '#0F172A' }}>
+              Overall Score
+            </div>
+            <div style={{ fontSize: 11, color: scoreColor(overall), fontWeight: 700 }}>
+              {overall >= 75 ? 'Excellent' : overall >= 50 ? 'Good' : 'Needs Work'}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* criteria breakdown */}
       <div style={{ padding: compact ? '10px 14px' : '14px 18px', display: 'flex', flexDirection: 'column', gap: compact ? 10 : 14 }}>

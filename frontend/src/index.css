@@ -33,55 +33,55 @@
 }
 
 /* ── AC-6: CSS custom properties for design tokens ──────────────────────────
-   Mirrors design-system/tokens.ts so inline styles can use var(--disha-*)
+   Mirrors design-system/tokens.ts so inline styles can use var(--beginablai-*)
    and future dark-mode theming can override them at :root[data-theme="dark"].  */
 :root {
   /* Brand */
-  --disha-navy:         #1A2744;
-  --disha-navy-soft:    #243359;
-  --disha-navy-dark:    #111C35;
+  --beginablai-navy:         #1A2744;
+  --beginablai-navy-soft:    #243359;
+  --beginablai-navy-dark:    #111C35;
 
   /* Text */
-  --disha-ink:          #1E3A5F;
-  --disha-ink-soft:     #475569;
-  --disha-muted:        #94A3B8;
+  --beginablai-ink:          #1E3A5F;
+  --beginablai-ink-soft:     #475569;
+  --beginablai-muted:        #94A3B8;
 
   /* Surfaces */
-  --disha-bg:           #F4F5F7;
-  --disha-card:         #FFFFFF;
-  --disha-elevated:     #EAECF0;
+  --beginablai-bg:           #F4F5F7;
+  --beginablai-card:         #FFFFFF;
+  --beginablai-elevated:     #EAECF0;
 
   /* Borders */
-  --disha-border:       rgba(0,0,0,0.08);
-  --disha-border-md:    rgba(0,0,0,0.12);
+  --beginablai-border:       rgba(0,0,0,0.08);
+  --beginablai-border-md:    rgba(0,0,0,0.12);
 
   /* State */
-  --disha-success:      #16A34A;
-  --disha-success-bg:   #F0FDF4;
-  --disha-warning:      #D97706;
-  --disha-warning-bg:   #FFFBEB;
-  --disha-danger:       #DC2626;
-  --disha-danger-bg:    #FEF2F2;
-  --disha-info:         #2563EB;
-  --disha-info-bg:      #EFF6FF;
+  --beginablai-success:      #16A34A;
+  --beginablai-success-bg:   #F0FDF4;
+  --beginablai-warning:      #D97706;
+  --beginablai-warning-bg:   #FFFBEB;
+  --beginablai-danger:       #DC2626;
+  --beginablai-danger-bg:    #FEF2F2;
+  --beginablai-info:         #2563EB;
+  --beginablai-info-bg:      #EFF6FF;
 
   /* Shadows */
-  --disha-shadow-card:     0 2px 8px rgba(15,23,42,0.05);
-  --disha-shadow-elevated: 0 4px 16px rgba(15,23,42,0.08);
-  --disha-shadow-sidebar:  4px 0 24px rgba(10,18,40,0.22);
-  --disha-shadow-button:   0 4px 14px rgba(26,39,68,0.25);
+  --beginablai-shadow-card:     0 2px 8px rgba(15,23,42,0.05);
+  --beginablai-shadow-elevated: 0 4px 16px rgba(15,23,42,0.08);
+  --beginablai-shadow-sidebar:  4px 0 24px rgba(10,18,40,0.22);
+  --beginablai-shadow-button:   0 4px 14px rgba(26,39,68,0.25);
 
   /* Layout */
-  --disha-sidebar-width: 260px;
-  --disha-header-height: 64px;
-  --disha-content-pad:   28px;
+  --beginablai-sidebar-width: 260px;
+  --beginablai-header-height: 64px;
+  --beginablai-content-pad:   28px;
 
   /* Radius */
-  --disha-radius-sm:   6px;
-  --disha-radius-md:   10px;
-  --disha-radius-lg:   12px;
-  --disha-radius-xl:   16px;
-  --disha-radius-2xl:  20px;
+  --beginablai-radius-sm:   6px;
+  --beginablai-radius-md:   10px;
+  --beginablai-radius-lg:   12px;
+  --beginablai-radius-xl:   16px;
+  --beginablai-radius-2xl:  20px;
 }
 
 @layer base {

@@ -1,7 +1,7 @@
 """
 Seed 15 published job postings across the 5 test employers.
 Run inside the backend Docker container:
-  docker exec -it disha_backend python seed_test_jobs.py
+  docker exec -it beginablai_backend python seed_test_jobs.py
 """
 import uuid
 from datetime import date, timedelta

@@ -28,7 +28,7 @@ const PANEL_CONTENT: Record<string, { tag: string; heading: string; body: string
     quote: '"Every great career begins with showing up."',
   },
   register: {
-    tag: 'Join BeginableAI',
+    tag: 'Join BeginablAI',
     heading: 'Turn your preparation into a career.',
     body: 'Create your profile once. Get matched to roles that value your UPSC background, governance knowledge, and analytical mindset.',
     quote: '"Your discipline is your differentiator."',
@@ -90,7 +90,7 @@ export default function AuthLayout({ children, title, subtitle, variant = 'defau
 
         {/* Logo */}
         <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', position: 'relative', zIndex: 1 }}>
-          <span style={{ fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.4px' }}>BeginableAI</span>
+          <span style={{ fontSize: 20, fontWeight: 800, color: '#fff', letterSpacing: '-0.4px' }}>BeginablAI</span>
         </Link>
 
         {/* Middle copy */}
@@ -134,7 +134,7 @@ export default function AuthLayout({ children, title, subtitle, variant = 'defau
       }}>
         {/* Mobile logo */}
         <Link to="/" className="lg:hidden" style={{ textDecoration: 'none', marginBottom: 28 }}>
-          <span style={{ fontSize: 20, fontWeight: 800, color: N.ink, letterSpacing: '-0.4px' }}>BeginableAI</span>
+          <span style={{ fontSize: 20, fontWeight: 800, color: N.ink, letterSpacing: '-0.4px' }}>BeginablAI</span>
         </Link>
 
         {/* Card */}

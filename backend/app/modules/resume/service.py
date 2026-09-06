@@ -51,6 +51,7 @@ def _build_summary(resume: Resume) -> ResumeSummary:
         is_primary=resume.is_primary,
         ats_score=resume.ats_score,
         score_breakdown=resume.score_breakdown,
+        target_job_description=resume.target_job_description,
         career_track_name=resume.career_track.title if resume.career_track else None,
         template_name=resume.template.name if resume.template else None,
         section_count=len(resume.sections),

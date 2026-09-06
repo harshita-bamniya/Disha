@@ -16,7 +16,7 @@ export const usePrepStore = create<PrepStore>()(
       clearActivePrep: () => set({ activePrep: null }),
     }),
     {
-      name: 'disha-active-prep',
+      name: 'beginablai-active-prep',
     }
   )
 )

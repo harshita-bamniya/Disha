@@ -6,7 +6,7 @@ from sqlalchemy import text
 db = SessionLocal()
 
 # Employer 1 details
-emp = db.query(User).filter_by(email="employer1@disha.test").first()
+emp = db.query(User).filter_by(email="employer1@beginablai.test").first()
 ep = db.query(EmployerProfile).filter_by(user_id=emp.id).first() if emp else None
 print(f"employer1 user_id: {emp.id if emp else 'NOT FOUND'}")
 print(f"employer1 is_approved: {ep.is_approved if ep else 'NO PROFILE'}")

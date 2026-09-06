@@ -60,6 +60,7 @@ export interface LearningSetupPayload {
 
 export interface ProfileData {
   full_name: string | null
+  phone: string | null
   current_status: string | null
   date_of_birth: string | null
   gender: string | null
@@ -85,7 +86,7 @@ export interface ProfileData {
   open_to_relocation: boolean | null
   expected_salary_min: number | null
   expected_salary_max: number | null
-  disha_insight: string | null
+  beginablai_insight: string | null
   has_learning_setup: boolean
   weekly_study_hours: number | null
   target_completion_date: string | null

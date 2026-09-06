@@ -8,7 +8,7 @@
  * from design-system/tokens.ts over time.
  */
 import type React from 'react'
-import { colors, radius, spacing } from '@/design-system/tokens'
+import { colors, radius, shadows, spacing } from '@/design-system/tokens'
 
 // ── Color palette ──────────────────────────────────────────────────────────────
 export const C = {
@@ -85,7 +85,7 @@ export const DS = {
   // Card
   card: {
     background: C.surface, border: `1px solid ${C.border}`, borderRadius: radius.xl,  // 16px — matches aspirant cards
-    overflow: 'hidden',
+    boxShadow: shadows.card, overflow: 'hidden',
   } as React.CSSProperties,
 
   // Card header row

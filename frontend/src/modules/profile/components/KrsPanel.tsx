@@ -51,7 +51,7 @@ export function KrsPanel() {
         <div>
           <p style={{ fontSize: 13, fontWeight: 700, color: '#111827', marginBottom: 3 }}>Your KRS Score</p>
           <p style={{ fontSize: 12, color: '#6B7280', lineHeight: 1.6, maxWidth: 520 }}>
-            Knowledge · Readiness · Skills — Disha uses this score to match you to the right jobs and build
+            Knowledge · Readiness · Skills — BeginablAI uses this score to match you to the right jobs and build
             your personalised roadmap. Every profile section you complete raises it.
           </p>
         </div>

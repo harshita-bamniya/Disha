@@ -103,7 +103,7 @@ export default function EmployerPendingPage() {
       </div>
 
       <p style={{ marginTop: 20, fontSize: 12, color: '#9CA3AF', position: 'relative', zIndex: 1 }}>
-        Questions? Contact us at <a href="mailto:support@dishaai.in" style={{ color: '#3B82F6', textDecoration: 'none' }}>support@dishaai.in</a>
+        Questions? Contact us at <a href="mailto:support@beginablai.in" style={{ color: '#3B82F6', textDecoration: 'none' }}>support@beginablai.in</a>
       </p>
     </div>
   )

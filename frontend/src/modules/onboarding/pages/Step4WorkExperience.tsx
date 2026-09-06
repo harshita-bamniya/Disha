@@ -5,7 +5,7 @@ import OnboardingLayout from '@/layouts/OnboardingLayout'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
-import { useOnboardingSteps } from '../hooks/useOnboarding'
+import { useOnboardingSteps, useOnboardingProfile } from '../hooks/useOnboarding'
 import { getApiError } from '@/api/client'
 
 const DOMAINS = [
@@ -18,8 +18,21 @@ export default function Step4WorkExperience() {
   const [hasExp, setHasExp] = useState<boolean | null>(null)
   const [form, setForm] = useState({ work_experience_years: '', work_experience_domain: '', last_designation: '' })
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [prefilled, setPrefilled] = useState(false)
   const { workExperience } = useOnboardingSteps()
+  const { data: profile } = useOnboardingProfile()
   const navigate = useNavigate()
+
+  // Pre-fill from whatever's already saved — see Step1Personal for why.
+  if (profile && !prefilled) {
+    setPrefilled(true)
+    if (profile.has_work_experience != null) setHasExp(profile.has_work_experience)
+    setForm({
+      work_experience_years: profile.work_experience_years != null ? String(profile.work_experience_years) : '',
+      work_experience_domain: profile.work_experience_domain ?? '',
+      last_designation: profile.last_designation ?? '',
+    })
+  }
 
   const validate = () => {
     const e: Record<string, string> = {}

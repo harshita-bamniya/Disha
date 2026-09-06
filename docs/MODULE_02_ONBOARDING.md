@@ -8,7 +8,7 @@
 
 ## What This Module Does
 
-Module 02 is the data foundation every other DISHA module depends on. It captures a complete picture of the user's background, mindset, and goals across 7 guided steps:
+Module 02 is the data foundation every other BEGINABLAI module depends on. It captures a complete picture of the user's background, mindset, and goals across 7 guided steps:
 
 - **Step 1 — Personal info** — Name, date of birth, gender, city, state
 - **Step 2 — Education** — Highest qualification, degree, field, institution, graduation year
@@ -17,7 +17,7 @@ Module 02 is the data foundation every other DISHA module depends on. It capture
 - **Step 5 — Skills** — Up to 10 UPSC-relevant skills from a fixed list of 21
 - **Step 6 — Career preferences** — Preferred sectors, locations, relocation openness, salary range
 - **Step 7 — Psychological assessment** — Burnout level, confidence, financial pressure, risk tolerance, motivation type, identity attachment, support system
-- **Groq AI insight** — After step 7, DISHA generates a personalised 2–3 sentence welcome message using the Groq API
+- **Groq AI insight** — After step 7, BEGINABLAI generates a personalised 2–3 sentence welcome message using the Groq API
 - **KRS auto-trigger** — After step 7, the KRS score (Knowledge × Readiness × Skill) is computed and stored automatically
 
 ---
@@ -30,7 +30,7 @@ Module 02 is the data foundation every other DISHA module depends on. It capture
 | **Psychological assessment as the final step** | The psychological state data transforms the KRS R-score from a generic formula into a personalised readiness measure. It must come last so all context is available when Groq generates the insight. |
 | **Option labels map to numeric scores, not stored as-is** | `burnout_level: "exhausted"` is human-readable; the KRS engine needs `burnout_score: 70`. The mapping is done in the service, not the model. |
 | **`is_completed` only set on step 7** | All 6 earlier steps set `current_step` to advance the wizard but leave `is_completed=False`. The `OnboardingGate` in React uses this to block access to the dashboard. |
-| **Groq called synchronously before DB commit** | The insight is stored with the assessment record. If Groq fails (timeout, rate limit), the service logs a warning and returns `disha_insight=null` — onboarding still completes. |
+| **Groq called synchronously before DB commit** | The insight is stored with the assessment record. If Groq fails (timeout, rate limit), the service logs a warning and returns `beginablai_insight=null` — onboarding still completes. |
 | **KRS triggered automatically at end of step 7** | Users should see their score on first dashboard load without any extra action. Failure is non-fatal (logged, not raised). |
 | **`setQueryData` not `invalidateQueries` in the frontend** | `invalidateQueries` marks the cache stale and fires a background refetch, but navigation happens immediately with the stale `is_completed=false` value — causing `OnboardingGate` to redirect back to step 1. `setQueryData` updates the cache synchronously before navigation. |
 | **Psychology step handles its own navigation** | Step 7 needs to show the InsightCard before navigating to the dashboard. The generic `useStepMutation` hook skips navigation for `nextStep === 'done'` steps so the component can control the flow. |
@@ -68,7 +68,7 @@ backend/
 frontend/src/
 ├── types/
 │   └── index.ts                         ← Added 7 psychological assessment types +
-│                                            disha_insight to StepSavedResponse
+│                                            beginablai_insight to StepSavedResponse
 ├── api/
 │   └── onboarding.ts                    ← Added PsychologyPayload + savePsychology()
 ├── layouts/
@@ -128,7 +128,7 @@ One row per user. Upserted on each step 7 submission.
 | motivation_type | ENUM | `intrinsic`, `extrinsic`, `mixed` |
 | identity_attachment | ENUM | `low`, `medium`, `high` |
 | support_system | ENUM | `strong`, `moderate`, `weak` |
-| disha_insight | TEXT NULL | Groq-generated personalised message |
+| beginablai_insight | TEXT NULL | Groq-generated personalised message |
 | created_at / updated_at | TIMESTAMPTZ | Auto-managed |
 
 **Score mapping for numeric fields:**
@@ -279,12 +279,12 @@ Saves step 7 data. Sets `is_completed = true`. Triggers Groq insight generation 
   "message": "Onboarding complete!",
   "current_step": 7,
   "is_completed": true,
-  "disha_insight": "You've carried the weight of four years of preparation with extraordinary discipline — that doesn't disappear when the exam chapter closes. With your Mains experience and your genuine drive for both purpose and impact, the management consulting and policy world has real room for someone like you. Trust that your UPSC preparation didn't just prepare you for a job; it prepared you for a career worth having."
+  "beginablai_insight": "You've carried the weight of four years of preparation with extraordinary discipline — that doesn't disappear when the exam chapter closes. With your Mains experience and your genuine drive for both purpose and impact, the management consulting and policy world has real room for someone like you. Trust that your UPSC preparation didn't just prepare you for a job; it prepared you for a career worth having."
 }
 ```
 
 **Notes:**
-- If Groq is unavailable or times out, `disha_insight` is `null` — onboarding still completes
+- If Groq is unavailable or times out, `beginablai_insight` is `null` — onboarding still completes
 - KRS computation failure is also non-fatal (logged as warning)
 
 ---
@@ -293,13 +293,13 @@ Saves step 7 data. Sets `is_completed = true`. Triggers Groq insight generation 
 
 **Where it's used:** `backend/app/modules/onboarding/service.py` → `_call_groq_insight()` function, called at the start of `save_psychology()`.
 
-**Purpose:** After the user completes all 7 steps, DISHA generates a warm, personalised 2–3 sentence welcome message that acknowledges the specific user's UPSC journey and psychological state. This is shown as the "DISHA says" card on the frontend before the user is taken to the dashboard.
+**Purpose:** After the user completes all 7 steps, BEGINABLAI generates a warm, personalised 2–3 sentence welcome message that acknowledges the specific user's UPSC journey and psychological state. This is shown as the "BEGINABLAI says" card on the frontend before the user is taken to the dashboard.
 
 **Model:** `llama-3.1-8b-instant` via `https://api.groq.com/openai/v1/chat/completions`
 
 **Prompt structure:**
 ```
-You are DISHA AI — a compassionate, deeply human career counsellor for UPSC aspirants
+You are BEGINABLAI AI — a compassionate, deeply human career counsellor for UPSC aspirants
 transitioning into private sector roles. You understand the psychological weight of this journey.
 
 A user has just completed their onboarding. Write a warm, grounding, personalised 2–3 sentence
@@ -318,7 +318,7 @@ Write the message now:
 
 **Config:** `GROQ_API_KEY` in `.env` → `settings.groq_api_key` in `app/config.py`. Max tokens: 180. Temperature: 0.75. Timeout: 20 seconds.
 
-**Failure handling:** Any exception (network error, timeout, invalid key, rate limit) is caught, logged as a warning, and returns an empty string. The frontend shows the InsightCard only when `disha_insight` is non-null.
+**Failure handling:** Any exception (network error, timeout, invalid key, rate limit) is caught, logged as a warning, and returns an empty string. The frontend shows the InsightCard only when `beginablai_insight` is non-null.
 
 ---
 
@@ -363,8 +363,8 @@ A user who is very confident (`confidence_index=85`) and not burnt out (`burnout
 /app/onboarding/step/6  ← Career preferences
   ↓
 /app/onboarding/step/7  ← Mindset & readiness
-  ↓ (API returns disha_insight)
-[InsightCard shown] "DISHA says…"
+  ↓ (API returns beginablai_insight)
+[InsightCard shown] "BEGINABLAI says…"
   ↓ user clicks "Go to my dashboard"
 /app/dashboard
 ```
@@ -430,7 +430,7 @@ docker compose up -d --force-recreate backend
 # 1. Get a token
 TOKEN=$(curl -s -X POST http://localhost:8000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"phone":"9876543210","password":"Disha@2024"}' | jq -r '.access_token')
+  -d '{"phone":"9876543210","password":"BeginablAI@2024"}' | jq -r '.access_token')
 
 # 2. Step 7 — psychological assessment
 curl -s -X PUT http://localhost:8000/api/onboarding/psychology \
@@ -446,5 +446,5 @@ curl -s -X PUT http://localhost:8000/api/onboarding/psychology \
     "support_system": "strong"
   }' | jq .
 
-# Expected: is_completed=true, disha_insight contains a personalised message
+# Expected: is_completed=true, beginablai_insight contains a personalised message
 ```

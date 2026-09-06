@@ -63,7 +63,7 @@ def send_application_confirmation_email(self, application_id: str, user_id: str,
              <a href="/app/my-applications">My Applications</a>.</p>
           <p style="color:#6B7280;font-size:13px;margin-top:24px;">
             The hiring team will review your application and be in touch.</p>
-          <p style="color:#9CA3AF;font-size:12px;margin-top:32px;">— Disha AI</p>
+          <p style="color:#9CA3AF;font-size:12px;margin-top:32px;">— BeginablAI AI</p>
         </div>
         """
         notify(user.email, subject, html)

@@ -12,7 +12,7 @@ from app.models.user import User, EmployerProfile
 db = SessionLocal()
 
 # ── Employer1: ensure company record exists ───────────────────────────────────
-emp_user = db.query(User).filter_by(email="employer1@disha.test").first()
+emp_user = db.query(User).filter_by(email="employer1@beginablai.test").first()
 ep = db.query(EmployerProfile).filter_by(user_id=emp_user.id).first()
 print(f"employer1: id={emp_user.id}  profile_id={ep.id if ep else None}  company_id={ep.company_id if ep else None}")
 
@@ -30,7 +30,7 @@ if ep and not ep.company_id:
             VALUES (:id, :name, :industry, :city, true, now(), now())
         """), {
             "id": str(company_id),
-            "name": "Disha Test Employer Co.",
+            "name": "BeginablAI Test Employer Co.",
             "industry": "Education & Training",
             "city": "Mumbai",
         })
@@ -84,7 +84,7 @@ else:
 print(f"\nEMPLOYER_JOB_ID={job_id}")
 
 # ── Verify aspirant1 has a completed onboarding profile ──────────────────────
-asp = db.query(User).filter_by(email="aspirant1@disha.test").first()
+asp = db.query(User).filter_by(email="aspirant1@beginablai.test").first()
 profile = db.execute(text("SELECT id, current_step FROM aspirant_profiles WHERE user_id=:uid"), {"uid": str(asp.id)}).fetchone()
 if profile:
     print(f"aspirant1 profile: id={profile[0]}  current_step={profile[1]}")

@@ -422,7 +422,7 @@ export default function ResumeHubPage() {
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, background: `${NAVY}08`, border: `1px solid ${NAVY}18`, borderRadius: 12, padding: '12px 16px' }}>
                 <Sparkles size={16} color={NAVY} style={{ flexShrink: 0, marginTop: 1 }} />
                 <p style={{ margin: 0, fontSize: 12, color: INK_S, lineHeight: 1.5 }}>
-                  <strong style={{ color: NAVY }}>Tip:</strong> When you apply for a job, Disha AI will recommend the best file from here for that role.
+                  <strong style={{ color: NAVY }}>Tip:</strong> When you apply for a job, BeginablAI AI will recommend the best file from here for that role.
                 </p>
               </div>
             )}

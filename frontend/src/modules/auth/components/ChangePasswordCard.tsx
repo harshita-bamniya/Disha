@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import { Lock, Eye, EyeOff, CheckCircle2 } from 'lucide-react'
 import { authApi } from '@/api/auth'
 import { getApiError } from '@/api/client'
+import Button from '@/components/ui/Button'
 
 export default function ChangePasswordCard() {
   const [current, setCurrent]       = useState('')
@@ -46,10 +47,10 @@ export default function ChangePasswordCard() {
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
         <div style={{
-          width: 34, height: 34, borderRadius: 9, background: '#EEF2FF',
+          width: 34, height: 34, borderRadius: 9, background: 'rgba(26,39,68,0.07)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <Lock size={16} color="#6366F1" />
+          <Lock size={16} color="#1A2744" />
         </div>
         <div>
           <p style={{ fontSize: 14, fontWeight: 700, color: '#111827', margin: 0 }}>Change Password</p>
@@ -138,19 +139,9 @@ export default function ChangePasswordCard() {
           />
         </div>
 
-        <button
-          type="submit"
-          disabled={mutation.isPending}
-          style={{
-            padding: '10px 20px', borderRadius: 9, border: 'none',
-            background: mutation.isPending ? '#A5B4FC' : '#6366F1',
-            color: 'white', fontSize: 13.5, fontWeight: 700,
-            cursor: mutation.isPending ? 'not-allowed' : 'pointer',
-            alignSelf: 'flex-start', transition: 'background 0.2s',
-          }}
-        >
-          {mutation.isPending ? 'Saving…' : 'Update Password'}
-        </button>
+        <Button type="submit" loading={mutation.isPending} style={{ alignSelf: 'flex-start' }}>
+          Update Password
+        </Button>
       </form>
     </div>
   )

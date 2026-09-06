@@ -3,7 +3,7 @@ import { Settings, Flag } from 'lucide-react'
 import { usePlatformSettings, useUpdatePlatformSetting, useFeatureFlags, useUpdateFeatureFlag } from '../hooks/useAdmin'
 import { Spinner, Empty } from '../shared/adminUI'
 import { cn } from '@/lib/utils'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 import Button from '@/shared/components/primitives/Button'
 
 
@@ -28,7 +28,7 @@ export default function PlatformSettingsPage() {
       </div>
 
       {/* Platform settings */}
-      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, overflow: 'hidden' }}>
         <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(0,0,0,0.08)', background: colors.surface.bg, display: 'flex', alignItems: 'center', gap: 8 }}>
           <Settings size={14} style={{ color: colors.text.muted }} />
           <h2 style={{ fontSize: 14, fontWeight: 700, color: colors.text.ink }}>Platform Settings</h2>
@@ -86,7 +86,7 @@ export default function PlatformSettingsPage() {
       </div>
 
       {/* Feature flags */}
-      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+      <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, overflow: 'hidden' }}>
         <div style={{ padding: '14px 20px', borderBottom: '1px solid rgba(0,0,0,0.08)', background: colors.surface.bg, display: 'flex', alignItems: 'center', gap: 8 }}>
           <Flag size={14} style={{ color: colors.text.muted }} />
           <h2 style={{ fontSize: 14, fontWeight: 700, color: colors.text.ink }}>Feature Flags</h2>

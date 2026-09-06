@@ -4,7 +4,7 @@ import requests
 BASE = "http://localhost:8000/api"
 
 r = requests.post(f"{BASE}/auth/login",
-                  json={"identifier": "employer1@disha.test", "password": "Test@1234"})
+                  json={"identifier": "employer1@beginablai.test", "password": "Test@1234"})
 tok = r.json()["access_token"]
 eh = {"Authorization": f"Bearer {tok}"}
 
@@ -14,7 +14,7 @@ from app.models.user import User, EmployerProfile, JobPosting
 from sqlalchemy import text
 
 db = SessionLocal()
-emp = db.query(User).filter_by(email="employer1@disha.test").first()
+emp = db.query(User).filter_by(email="employer1@beginablai.test").first()
 ep = db.query(EmployerProfile).filter_by(user_id=emp.id).first()
 jobs = db.query(JobPosting).filter_by(employer_id=ep.id).all()
 

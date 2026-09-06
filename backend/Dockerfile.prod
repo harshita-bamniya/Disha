@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir --prefix=/install -r requirements.txt && \
 FROM python:3.12-slim
 
 # Non-root user for security
-RUN groupadd -r disha && useradd -r -g disha disha
+RUN groupadd -r beginablai && useradd -r -g beginablai beginablai
 
 WORKDIR /app
 
@@ -29,12 +29,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /install /usr/local
 
 # Copy application code
-COPY --chown=disha:disha . .
+COPY --chown=beginablai:beginablai . .
 
-COPY --chown=disha:disha entrypoint.sh /entrypoint.sh
+COPY --chown=beginablai:beginablai entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-USER disha
+USER beginablai
 
 EXPOSE 8000
 

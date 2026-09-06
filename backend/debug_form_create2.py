@@ -7,7 +7,7 @@ BASE = "http://localhost:8000/api"
 
 # Login as employer1
 r = requests.post(f"{BASE}/auth/login",
-                  json={"identifier": "employer1@disha.test", "password": "Test@1234"})
+                  json={"identifier": "employer1@beginablai.test", "password": "Test@1234"})
 tok = r.json()["access_token"]
 eh = {"Authorization": f"Bearer {tok}"}
 
@@ -15,7 +15,7 @@ eh = {"Authorization": f"Bearer {tok}"}
 from app.database import SessionLocal
 from app.models.user import User, EmployerProfile, JobPosting
 db = SessionLocal()
-emp = db.query(User).filter_by(email="employer1@disha.test").first()
+emp = db.query(User).filter_by(email="employer1@beginablai.test").first()
 ep = db.query(EmployerProfile).filter_by(user_id=emp.id).first()
 job = db.query(JobPosting).filter_by(employer_id=ep.id).first()
 job_id = str(job.id)

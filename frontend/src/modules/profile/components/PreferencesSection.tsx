@@ -24,6 +24,7 @@ export function PreferencesSection({ profile, open, onToggle }: Props) {
   const [salary, setSalary] = useState<{ min: number; max: number } | null>(
     profile.expected_salary_min != null ? { min: profile.expected_salary_min, max: profile.expected_salary_max ?? 500 } : null
   )
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [saved, setSaved] = useState(false)
 
   const mut = useMutation({
@@ -41,6 +42,16 @@ export function PreferencesSection({ profile, open, onToggle }: Props) {
       onToggle()
     },
   })
+
+  const handleSave = () => {
+    const e: Record<string, string> = {}
+    if (sectors.size === 0) e.sectors = 'Select at least 1 sector'
+    if (openToReloc === null) e.relocation = 'Please answer this question'
+    if (openToReloc === false && locations.length === 0) e.locations = 'Add at least 1 preferred location'
+    if (!salary) e.salary = 'Please select expected salary range'
+    setErrors(e)
+    if (Object.keys(e).length === 0) mut.mutate()
+  }
 
   const addLoc = () => {
     const loc = locInput.trim()
@@ -73,6 +84,7 @@ export function PreferencesSection({ profile, open, onToggle }: Props) {
               </button>
             ))}
           </div>
+          {errors.sectors && <p className="text-xs text-danger">{errors.sectors}</p>}
         </div>
 
         <div className="flex flex-col gap-2">
@@ -97,6 +109,7 @@ export function PreferencesSection({ profile, open, onToggle }: Props) {
               </button>
             ))}
           </div>
+          {errors.relocation && <p className="text-xs text-danger">{errors.relocation}</p>}
         </div>
 
         {openToReloc === false && (
@@ -130,6 +143,7 @@ export function PreferencesSection({ profile, open, onToggle }: Props) {
                 ))}
               </div>
             )}
+            {errors.locations && <p className="text-xs text-danger">{errors.locations}</p>}
           </div>
         )}
 
@@ -149,10 +163,11 @@ export function PreferencesSection({ profile, open, onToggle }: Props) {
               </button>
             ))}
           </div>
+          {errors.salary && <p className="text-xs text-danger">{errors.salary}</p>}
         </div>
 
         {mut.error && <p className="text-xs text-danger">{getApiError(mut.error, 'Save failed')}</p>}
-        <Button fullWidth loading={mut.isPending} onClick={() => mut.mutate()}>Save changes</Button>
+        <Button fullWidth loading={mut.isPending} onClick={handleSave}>Save changes</Button>
       </div>
     </ProfileSection>
   )

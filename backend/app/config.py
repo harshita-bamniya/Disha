@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     clamav_port: int = 3310
 
     # Database
-    database_url: str = "postgresql://disha:disha_dev@postgres:5432/disha_db"
+    database_url: str = "postgresql://beginablai:beginablai_dev@postgres:5432/beginablai_db"
     db_pool_size: int = 10
     db_max_overflow: int = 20
     db_pool_timeout: int = 30

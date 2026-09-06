@@ -7,7 +7,7 @@ import { adminApi } from '@/api/admin'
 import type { AnalyticsResponse, TimeSeriesPoint, FunnelStage, ScoreBin, CohortRow } from '@/api/admin'
 import { Spinner, downloadCSV } from '@/modules/admin/shared/adminUI'
 import { cn } from '@/lib/utils'
-import { colors } from '@/design-system/tokens'
+import { colors, shadows } from '@/design-system/tokens'
 
 
 // ── Date range picker ──────────────────────────────────────────────────────────
@@ -258,7 +258,7 @@ function ChartCard({
   onExport?: () => void
 }) {
   return (
-    <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', padding: 20 }}>
+    <div style={{ background: '#fff', borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: shadows.card, padding: 20 }}>
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
           <div style={{ width: 40, height: 40, borderRadius: 12, background: colors.surface.elevated, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -350,7 +350,7 @@ export default function AnalyticsPage() {
         {data && (
           <button
             onClick={() => handleExport(
-              `disha_analytics_${data.period.from_date}_${data.period.to_date}`,
+              `beginablai_analytics_${data.period.from_date}_${data.period.to_date}`,
               [
                 ...data.user_growth.map(d => ({ type: 'user_growth', ...d })),
                 ...data.job_volume.map(d => ({ type: 'job_volume', ...d })),

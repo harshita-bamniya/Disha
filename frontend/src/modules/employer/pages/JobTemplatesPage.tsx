@@ -11,7 +11,7 @@ import { useJobTemplates, useCreateJobTemplate, useDeleteJobTemplate } from '../
 import { getApiError } from '@/api/client'
 import type { JobTemplateEntry, JobType, EmploymentType } from '@/api/jobs'
 import Button from '@/shared/components/primitives/Button'
-import { colors, radius } from '@/design-system/tokens'
+import { colors, radius, shadows } from '@/design-system/tokens'
 import PageHeader from '@/shared/layouts/PageHeader'
 import { Skeleton } from '@/shared/components/feedback/Skeleton'
 import ErrorState from '@/shared/components/feedback/ErrorState'
@@ -42,11 +42,12 @@ function TemplateCard({
   return (
     <div style={{
       background: colors.surface.card, borderRadius: radius.xl, border: `1px solid ${colors.border.default}`,
+      boxShadow: shadows.card,
       padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 12,
       transition: 'box-shadow 0.2s, border-color 0.2s',
     }}
-      onMouseOver={e => { e.currentTarget.style.boxShadow = '0 4px 20px rgba(15,23,42,0.08)'; e.currentTarget.style.borderColor = colors.border.medium }}
-      onMouseOut={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = colors.border.default }}
+      onMouseOver={e => { e.currentTarget.style.boxShadow = shadows.cardHover; e.currentTarget.style.borderColor = colors.border.medium }}
+      onMouseOut={e => { e.currentTarget.style.boxShadow = shadows.card; e.currentTarget.style.borderColor = colors.border.default }}
     >
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
@@ -253,7 +254,7 @@ export default function JobTemplatesPage() {
               { icon: Tags, label: 'Total skills', value: totalSkills },
               { icon: Code2, label: 'With description', value: templates!.filter(t => t.description).length },
             ].map(({ icon: Icon, label, value }) => (
-              <div key={label} style={{ background: colors.surface.card, borderRadius: radius.lg, padding: '12px 16px', border: `1px solid ${colors.border.default}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div key={label} style={{ background: colors.surface.card, borderRadius: radius.lg, padding: '12px 16px', border: `1px solid ${colors.border.default}`, boxShadow: shadows.card, display: 'flex', alignItems: 'center', gap: 10 }}>
                 <div style={{ width: 32, height: 32, borderRadius: 9, background: colors.surface.elevated, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <Icon size={14} color={colors.text.ink} />
                 </div>
