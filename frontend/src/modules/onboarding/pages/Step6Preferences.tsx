@@ -1,11 +1,37 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { MapPin } from 'lucide-react'
 import OnboardingLayout from '@/layouts/OnboardingLayout'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
-import { useOnboardingSteps } from '../hooks/useOnboarding'
+import { useOnboardingSteps, useOnboardingProfile } from '../hooks/useOnboarding'
 import { getApiError } from '@/api/client'
+
+// ── BeginablAI Insight card shown after successful submission ──────────────────────
+
+function InsightCard({ insight, onContinue }: { insight: string; onContinue: () => void }) {
+  return (
+    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shrink-0">
+            <span className="text-white font-bold text-sm">D</span>
+          </div>
+          <span className="text-sm font-semibold text-primary">BeginablAI says</span>
+        </div>
+        <p className="text-gray-700 text-sm leading-relaxed italic">"{insight}"</p>
+      </div>
+
+      <div className="text-center">
+        <p className="text-sm text-gray-500 mb-4">Your profile is complete. Your KRS score and career matches are being calculated.</p>
+        <Button onClick={onContinue} fullWidth size="lg">
+          Go to my dashboard →
+        </Button>
+      </div>
+    </div>
+  )
+}
 
 const SECTORS = [
   'Government & Civil Services', 'Public Sector Undertakings (PSU)',
@@ -30,13 +56,33 @@ export default function Step6Preferences() {
   const [locations, setLocations] = useState<string[]>([])
   const [salary, setSalary] = useState<{ min: number; max: number } | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [insight, setInsight] = useState<string | null>(null)
+  const [prefilled, setPrefilled] = useState(false)
   const { preferences } = useOnboardingSteps()
+  const { data: profile } = useOnboardingProfile()
+  const navigate = useNavigate()
+
+  const MAX_SECTORS = 5
+
+  // Pre-fill from whatever's already saved — see Step1Personal for why.
+  if (profile && !prefilled) {
+    setPrefilled(true)
+    if (profile.preferred_sectors.length) setSelectedSectors(new Set(profile.preferred_sectors))
+    if (profile.open_to_relocation != null) setOpenToRelocation(profile.open_to_relocation)
+    if (profile.preferred_locations.length) setLocations(profile.preferred_locations)
+    if (profile.expected_salary_min != null && profile.expected_salary_max != null) {
+      const match = SALARY_OPTIONS.find(
+        (opt) => opt.min === profile.expected_salary_min && opt.max === profile.expected_salary_max,
+      )
+      setSalary(match ?? { min: profile.expected_salary_min, max: profile.expected_salary_max })
+    }
+  }
 
   const toggleSector = (s: string) => {
     setErrors((p) => ({ ...p, sectors: '' }))
     setSelectedSectors((prev) => {
       const next = new Set(prev)
-      next.has(s) ? next.delete(s) : next.add(s)
+      if (next.has(s)) { next.delete(s) } else if (next.size < MAX_SECTORS) { next.add(s) }
       return next
     })
   }
@@ -64,16 +110,39 @@ export default function Step6Preferences() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!validate()) return
-    preferences.mutate({
-      preferred_sectors: Array.from(selectedSectors),
-      preferred_locations: openToRelocation ? [] : locations,
-      open_to_relocation: openToRelocation!,
-      expected_salary_min: salary!.min,
-      expected_salary_max: salary!.max,
-    })
+    preferences.mutate(
+      {
+        preferred_sectors: Array.from(selectedSectors),
+        preferred_locations: openToRelocation ? [] : locations,
+        open_to_relocation: openToRelocation!,
+        expected_salary_min: salary!.min,
+        expected_salary_max: salary!.max,
+      },
+      {
+        onSuccess: (data) => {
+          if (data.beginablai_insight) {
+            setInsight(data.beginablai_insight)
+          } else {
+            navigate('/app/dashboard')
+          }
+        },
+      },
+    )
   }
 
   const serverError = preferences.error ? getApiError(preferences.error) : null
+
+  if (insight) {
+    return (
+      <OnboardingLayout
+        currentStep={6}
+        title="BeginablAI has heard you"
+        subtitle="Here's what we see in your story so far."
+      >
+        <InsightCard insight={insight} onContinue={() => navigate('/app/dashboard')} />
+      </OnboardingLayout>
+    )
+  }
 
   return (
     <OnboardingLayout
@@ -85,25 +154,31 @@ export default function Step6Preferences() {
 
         {/* Sectors */}
         <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-gray-700">
-            Sectors you're interested in
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium text-gray-700">Sectors you're interested in</label>
+            <span className="text-xs text-gray-400">{selectedSectors.size}/{MAX_SECTORS}</span>
+          </div>
           <div className="flex flex-wrap gap-2">
-            {SECTORS.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => toggleSector(s)}
-                className={cn(
-                  'px-3 py-1.5 rounded-full border text-xs font-medium transition-all duration-150',
-                  selectedSectors.has(s)
-                    ? 'bg-primary text-white border-primary'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-primary/50',
-                )}
-              >
-                {s}
-              </button>
-            ))}
+            {SECTORS.map((s) => {
+              const isSelected = selectedSectors.has(s)
+              const isDisabled = !isSelected && selectedSectors.size >= MAX_SECTORS
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => toggleSector(s)}
+                  disabled={isDisabled}
+                  className={cn(
+                    'px-3 py-1.5 rounded-full border text-xs font-medium transition-all duration-150',
+                    isSelected && 'bg-primary text-white border-primary',
+                    !isSelected && !isDisabled && 'bg-white text-gray-600 border-gray-200 hover:border-primary/50',
+                    isDisabled && 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed',
+                  )}
+                >
+                  {s}
+                </button>
+              )
+            })}
           </div>
           {errors.sectors && <p className="text-xs text-danger">{errors.sectors}</p>}
         </div>
@@ -221,9 +296,18 @@ export default function Step6Preferences() {
           </p>
         )}
 
-        <Button type="submit" fullWidth size="lg" loading={preferences.isPending} className="mt-2">
-          Continue →
-        </Button>
+        <div className="flex items-center gap-3 mt-2">
+          <button
+            type="button"
+            onClick={() => navigate('/app/dashboard')}
+            className="text-sm font-medium text-gray-500 hover:text-primary transition-colors px-2 py-2 whitespace-nowrap"
+          >
+            Skip for now
+          </button>
+          <Button type="submit" fullWidth size="lg" loading={preferences.isPending}>
+            {preferences.isPending ? 'BeginablAI is listening…' : 'Complete Registration →'}
+          </Button>
+        </div>
       </form>
     </OnboardingLayout>
   )

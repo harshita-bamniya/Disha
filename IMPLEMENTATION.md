@@ -1,4 +1,4 @@
-# DISHA AI — Implementation Tracker
+# BEGINABLAI AI — Implementation Tracker
 
 > Living document. Updated after every module milestone.
 > Philosophy: "Your preparation was never wasted. It made you rare."
@@ -26,7 +26,7 @@
 | 05 | Learning System | ⬜ Not Started | Beta | |
 | 06 | Resume Builder | ⬜ Not Started | Beta | |
 | 07 | Mock Interview | ⬜ Not Started | Beta | |
-| 08 | AI Counsellor (DISHA Bot) | ⬜ Not Started | Beta | |
+| 08 | AI Counsellor (BEGINABLAI Bot) | ⬜ Not Started | Beta | |
 | 09 | Employer Matching | ⬜ Not Started | Scale | |
 | 10 | Admin Dashboard | ⬜ Not Started | MVP (basic) | |
 | 11 | Analytics Engine | ⬜ Not Started | Beta | |
@@ -148,9 +148,9 @@
 |---------|-------|------|--------|
 | postgres | pgvector/pgvector:pg16 | 5432 | ✅ Healthy |
 | redis | redis:7-alpine | 6379 | ✅ Healthy |
-| backend | disha-backend (Python 3.12) | 8000 | ✅ Running |
-| worker | disha-worker (Celery) | — | ✅ Running |
-| frontend | disha-frontend (Node 20) | 5173 | ✅ Running |
+| backend | beginablai-backend (Python 3.12) | 8000 | ✅ Running |
+| worker | beginablai-worker (Celery) | — | ✅ Running |
+| frontend | beginablai-frontend (Node 20) | 5173 | ✅ Running |
 
 ### Tech Stack Locked
 - **Backend:** FastAPI 0.115, SQLAlchemy 2.0, Alembic, pgvector 0.3

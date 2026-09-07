@@ -1,4 +1,4 @@
-# DISHA AI — Quickstart Guide
+# BEGINABLAI AI — Quickstart Guide
 
 > How to run the platform locally and verify everything is working.
 
@@ -22,18 +22,18 @@ Open Docker Desktop from your Start menu. Wait until the whale icon in the syste
 
 ## Step 2 — Start All Services
 
-Open a terminal in the project root (`E:\GalaxyWeblinks\Disha`) and run:
+Open a terminal in the project root (`E:\GalaxyWeblinks\BeginablAI`) and run:
 
 ```bash
 docker compose up -d
 ```
 
 This starts 5 containers:
-- `disha_postgres` — PostgreSQL 16 with pgvector
-- `disha_redis` — Redis 7
-- `disha_backend` — FastAPI (Python 3.12)
-- `disha_worker` — Celery async worker
-- `disha_frontend` — Vite + React dev server
+- `beginablai_postgres` — PostgreSQL 16 with pgvector
+- `beginablai_redis` — Redis 7
+- `beginablai_backend` — FastAPI (Python 3.12)
+- `beginablai_worker` — Celery async worker
+- `beginablai_frontend` — Vite + React dev server
 
 Verify all containers are running:
 
@@ -44,11 +44,11 @@ docker compose ps
 Expected output:
 ```
 NAME             STATUS
-disha_backend    Up
-disha_frontend   Up
-disha_postgres   Up (healthy)
-disha_redis      Up (healthy)
-disha_worker     Up
+beginablai_backend    Up
+beginablai_frontend   Up
+beginablai_postgres   Up (healthy)
+beginablai_redis      Up (healthy)
+beginablai_worker     Up
 ```
 
 ---
@@ -178,7 +178,7 @@ docker compose logs -f backend
 docker compose exec backend bash
 
 # Open psql (database shell)
-docker compose exec postgres psql -U disha -d disha_db
+docker compose exec postgres psql -U beginablai -d beginablai_db
 
 # Run database migrations
 docker compose exec backend alembic upgrade head
@@ -198,7 +198,7 @@ docker compose down -v && docker compose up -d
 
 ```bash
 # Open postgres shell
-docker compose exec postgres psql -U disha -d disha_db
+docker compose exec postgres psql -U beginablai -d beginablai_db
 
 # Useful queries inside psql:
 \dt                          -- list all tables

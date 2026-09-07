@@ -34,7 +34,7 @@ shell-backend:
 
 # Shell into postgres
 shell-db:
-	docker compose exec postgres psql -U disha -d disha_db
+	docker compose exec postgres psql -U beginablai -d beginablai_db
 
 # Run alembic migrations
 migrate:

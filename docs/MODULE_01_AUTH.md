@@ -68,7 +68,7 @@ backend/
 ```
 frontend/src/
 ├── layouts/
-│   └── AuthLayout.tsx           ← Centered card layout with DISHA branding
+│   └── AuthLayout.tsx           ← Centered card layout with BEGINABLAI branding
 ├── components/ui/
 │   ├── Button.tsx               ← Reusable button (5 variants, loading state)
 │   ├── Input.tsx                ← Labeled input with error + hint states
@@ -190,7 +190,7 @@ Creates a new aspirant account. Sends OTP to phone (returns OTP in `dev_otp` whe
 ```json
 {
   "phone": "9876543210",
-  "password": "Disha@2024",
+  "password": "BeginablAI@2024",
   "preferred_language": "hi"
 }
 ```
@@ -255,7 +255,7 @@ Returns a JWT access + refresh token pair.
 ```json
 {
   "phone": "9876543210",
-  "password": "Disha@2024"
+  "password": "BeginablAI@2024"
 }
 ```
 
@@ -403,7 +403,7 @@ docker compose exec backend alembic revision --autogenerate -m "describe_change"
 ## Re-seeding Roles (if you reset the database)
 
 ```bash
-docker compose exec postgres psql -U disha -d disha_db -c "
+docker compose exec postgres psql -U beginablai -d beginablai_db -c "
 INSERT INTO roles (id, name, description) VALUES
   (gen_random_uuid(), 'aspirant', 'UPSC aspirant transitioning to private sector'),
   (gen_random_uuid(), 'admin', 'Platform administrator'),

@@ -3,6 +3,7 @@
 .env.local
 .env.staging
 .env.production
+docker-compose.override.yml
 
 # Python
 __pycache__/
@@ -36,3 +37,14 @@ Thumbs.db
 
 # Docker
 *.log
+
+# Runtime uploads — contains real user-submitted documents (KYC PANs, GST
+# certs, company logos). Never commit these; they're PII.
+backend/uploads/
+
+# Celery beat's scheduling state — local runtime DB, not source
+backend/celerybeat-schedule
+user_credentials.md
+
+# Generated eval output — real LLM responses from evals/*.py runs, not source
+backend/evals/output/

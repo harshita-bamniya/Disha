@@ -1,19 +1,19 @@
-DISHA AI — Complete System Architecture
+BEGINABLAI AI — Complete System Architecture
 EXECUTIVE SUMMARY
-Before diving into specifics: DISHA AI is not a job board with an AI wrapper. It is a psychological + cognitive transformation platform. Every architectural decision must reflect that. The data model is behavior-first, not content-first. The AI is a coach, not a chatbot. This shapes everything below.
+Before diving into specifics: BEGINABLAI AI is not a job board with an AI wrapper. It is a psychological + cognitive transformation platform. Every architectural decision must reflect that. The data model is behavior-first, not content-first. The AI is a coach, not a chatbot. This shapes everything below.
 
 PART 1 — MODULE DIVISION & DEVELOPMENT PHASES
 Module Map
 After deep analysis, I'm identifying 11 core modules with clear ownership boundaries:
 
 ┌─────────────────────────────────────────────────────────────────┐
-│                        DISHA AI PLATFORM                        │
+│                        BEGINABLAI AI PLATFORM                        │
 ├──────────────┬──────────────┬──────────────┬────────────────────┤
 │   IDENTITY   │  ONBOARDING  │  INTELLIGENCE│     LEARNING       │
 │   MODULE     │   MODULE     │   ENGINE     │     MODULE         │
 ├──────────────┼──────────────┼──────────────┼────────────────────┤
 │   RESUME     │    MOCK      │  EMPLOYER    │  AI COUNSELLOR     │
-│   BUILDER    │  INTERVIEW   │  MATCHING    │  (DISHA BOT)       │
+│   BUILDER    │  INTERVIEW   │  MATCHING    │  (BEGINABLAI BOT)       │
 ├──────────────┴──────────────┴──────────────┴────────────────────┤
 │              ADMIN DASHBOARD  │  ANALYTICS ENGINE               │
 └─────────────────────────────────────────────────────────────────┘
@@ -36,7 +36,7 @@ Role: aspirant, admin, super_admin (employer role reserved but not built)
 Soft delete — never hard delete a user
 Login event logging for behavioral analytics seed data
 MODULE 02 — Onboarding & Psychological Assessment
-Purpose: The most important module. This is where DISHA listens before it speaks. Captures UPSC background, psychological state, motivation patterns, and risk tolerance. Powers all downstream AI.
+Purpose: The most important module. This is where BEGINABLAI listens before it speaks. Captures UPSC background, psychological state, motivation patterns, and risk tolerance. Powers all downstream AI.
 
 Attribute	Detail
 Priority	CRITICAL — Phase 1
@@ -57,7 +57,7 @@ Generates the seed data for KRS scoring
 Why this is Phase 1 critical: Without rich onboarding data, the skill extraction engine has nothing to work with. The quality of this module determines the quality of every downstream recommendation.
 
 MODULE 03 — Intelligence Engine (Skill Extraction + KRS Scoring)
-Purpose: The core IP of DISHA AI. Translates a UPSC preparation background into a structured skill taxonomy that private sector employers understand.
+Purpose: The core IP of BEGINABLAI AI. Translates a UPSC preparation background into a structured skill taxonomy that private sector employers understand.
 
 Attribute	Detail
 Priority	CRITICAL — Phase 1
@@ -145,7 +145,7 @@ UPSC-specific calibration: UPSC communication style tends to be formal and verbo
 Feedback dimensions: clarity, conciseness, impact, relevance, STAR method adherence
 Session playback and review
 Text-first MVP, voice capability Phase 3
-MODULE 08 — AI Counsellor (DISHA Bot)
+MODULE 08 — AI Counsellor (BEGINABLAI Bot)
 Purpose: The emotional and strategic backbone of the platform. Not a FAQ bot. A trauma-informed career counsellor that understands the psychological weight of UPSC failure and guides without judgment.
 
 Attribute	Detail
@@ -154,7 +154,7 @@ Complexity	Very High
 Backend	Conversation orchestration, memory management, safety layer, context retrieval
 Frontend	Chat interface, conversation history, suggested prompts, emotional state indicators
 DB Tables	conversations, messages, conversation_context, counsellor_memory, safety_flags
-Dependencies	All modules (DISHA needs full user context)
+Dependencies	All modules (BEGINABLAI needs full user context)
 Critical design note: This module requires a safety layer. Users may express distress, hopelessness, or mental health concerns. The system must detect these signals and respond with empathy + escalation paths, not generic advice.
 
 MODULE 09 — Employer Matching
@@ -619,7 +619,7 @@ interview_feedback
 ├── improvements     JSONB                  -- array of improvement suggestions
 ├── rewritten_answer TEXT NULL              -- AI-suggested better answer
 └── created_at       TIMESTAMPTZ
-GROUP H — AI Counsellor (DISHA Bot)
+GROUP H — AI Counsellor (BEGINABLAI Bot)
 conversations
 ├── id             UUID PK
 ├── user_id        UUID FK → users.id
@@ -819,7 +819,7 @@ Routing Structure
     session/:sessionId     → Active interview
     :sessionId/feedback    → Post-session feedback
     history                → Past sessions
-  counsellor/              → DISHA AI chat
+  counsellor/              → BEGINABLAI AI chat
     :conversationId?       → Chat view
 /admin/                    → Admin dashboard (protected, admin+ role)
   dashboard
@@ -877,7 +877,7 @@ api/
   interview.ts    → createSession, submitResponse, getFeedback
   counsellor.ts   → getConversations, sendMessage, getMemory
 Design System
-Built on ShadCN UI + Tailwind with DISHA-specific tokens:
+Built on ShadCN UI + Tailwind with BEGINABLAI-specific tokens:
 
 Design Tokens:
   Colors:
@@ -957,7 +957,7 @@ Extract skills from the following aspirant profile. Map each skill to the taxono
 provided. Be generous in recognizing implicit skills. For each skill, cite the specific 
 UPSC preparation activity that demonstrates it.
 [Structured JSON output schema]
-AI Counsellor (DISHA Bot) Architecture
+AI Counsellor (BEGINABLAI Bot) Architecture
 Request flow:
   User message → Safety pre-check → Context assembly → AI call → Safety post-check → Store + respond
 Context Assembly:

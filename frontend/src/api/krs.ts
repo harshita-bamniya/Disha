@@ -67,6 +67,33 @@ export interface PrepareJobResponse {
   message: string
 }
 
+export interface ActivePrepJobContext {
+  job_id: string
+  job_title: string
+  company_name: string
+  sector: string
+  location: string | null
+  required_skills: string[]
+  skills_you_have: string[]
+  skills_to_develop: string[]
+  skill_gap_pct: number
+  matched_track_id: string | null
+  matched_track_title: string | null
+  matched_track_slug: string | null
+  match_score: number
+}
+
+export interface JobFitAnalysisRequest {
+  job_title: string
+  company_name: string
+  description?: string | null
+  required_skills: string[]
+  skills_you_have: string[]
+  skills_to_develop: string[]
+  min_k_score: number
+  k_score: number
+}
+
 export const krsApi = {
   getDashboard: () =>
     apiClient.get<KrsDashboard>('/krs/dashboard').then((r) => r.data),
@@ -85,4 +112,16 @@ export const krsApi = {
 
   unprepareJob: (jobId: string) =>
     apiClient.delete<PrepareJobResponse>(`/krs/jobs/${jobId}/prepare`).then((r) => r.data),
+
+  getActivePrep: () =>
+    apiClient.get<ActivePrepJobContext | null>('/krs/jobs/active-prep').then((r) => r.data),
+
+  startPrep: (jobId: string) =>
+    apiClient.post<ActivePrepJobContext>(`/krs/jobs/${jobId}/start-prep`).then((r) => r.data),
+
+  clearPrep: () =>
+    apiClient.delete('/krs/jobs/active-prep').then((r) => r.data),
+
+  getJobFitAnalysis: (body: JobFitAnalysisRequest) =>
+    apiClient.post<{ summary: string }>('/krs/jobs/fit-analysis', body).then((r) => r.data),
 }

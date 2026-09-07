@@ -11,8 +11,20 @@ pgvector==0.3.6
 # Auth & Security
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-bcrypt==4.0.1
+bcrypt==3.2.2
 python-multipart==0.0.17
+google-auth==2.37.0
+google-auth-oauthlib==1.2.1
+google-api-python-client==2.154.0
+pyotp==2.9.0
+qrcode[pil]==8.0
+clamd==1.0.2
+
+# Rate limiting
+slowapi==0.1.9
+
+# HTML sanitization
+bleach==6.2.0
 
 # Config
 pydantic==2.10.3
@@ -29,9 +41,25 @@ httpx==0.28.1
 anthropic==0.40.0
 openai==1.57.4
 
+# YouTube search (no API key needed — used for real video curation in learning plans)
+yt-dlp==2026.6.9
+
+# Article URL resolution (no API key — site: searches via DuckDuckGo for real article links)
+duckduckgo-search==8.0.1
+
 # Embeddings (fastembed — ONNX-based, no API key, ~50 MB vs ~800 MB for PyTorch)
 fastembed==0.4.2
 numpy>=1.24.0
+
+# Monitoring & error tracking
+sentry-sdk[fastapi]==2.19.2
+
+# PDF generation (resume export — pure Python, no system deps)
+reportlab==4.2.5
+
+# Resume import: PDF text extraction + DOCX parsing
+PyMuPDF==1.26.1
+python-docx==1.1.2
 
 # Utilities
 python-dateutil==2.9.0

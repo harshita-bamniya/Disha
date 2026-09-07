@@ -1,0 +1,150 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    environment: production
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Snapshot current image tags before deploy (for rollback) ─────────────
+      - name: Capture pre-deploy image digests
+        id: pre_deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd /opt/disha
+            # Save current running image IDs so we can roll back if needed
+            docker inspect disha_backend_prod --format '{{.Image}}' > /tmp/pre_deploy_backend.txt 2>/dev/null || echo "none" > /tmp/pre_deploy_backend.txt
+            docker inspect disha_nginx       --format '{{.Image}}' > /tmp/pre_deploy_nginx.txt   2>/dev/null || echo "none" > /tmp/pre_deploy_nginx.txt
+            echo "Saved pre-deploy image digests"
+            cat /tmp/pre_deploy_backend.txt
+            cat /tmp/pre_deploy_nginx.txt
+
+      # ── Deploy backend ────────────────────────────────────────────────────────
+      - name: Deploy backend
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/disha
+            git pull origin main
+            docker compose -f docker-compose.prod.yml pull backend worker
+            docker compose -f docker-compose.prod.yml up -d --no-deps backend worker beat
+            # Run DB migrations; on failure the old container is still running (--no-deps)
+            docker compose -f docker-compose.prod.yml exec -T backend alembic upgrade head
+
+      # ── Deploy frontend + nginx ───────────────────────────────────────────────
+      - name: Deploy frontend
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/disha
+            docker compose -f docker-compose.prod.yml pull frontend-build
+            docker compose -f docker-compose.prod.yml up -d --no-deps frontend-build nginx
+
+      # ── Health check ──────────────────────────────────────────────────────────
+      - name: Health check
+        id: health
+        run: |
+          echo "Waiting 20s for containers to stabilise..."
+          sleep 20
+          for i in 1 2 3; do
+            if curl --fail --max-time 10 "${{ secrets.PROD_URL }}/health"; then
+              echo "Health check passed on attempt $i"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying in 10s..."
+            sleep 10
+          done
+          echo "Health check failed after 3 attempts"
+          exit 1
+
+      # ── Rollback if health check fails ────────────────────────────────────────
+      - name: Rollback on failure
+        if: failure() && steps.health.outcome == 'failure'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/disha
+
+            echo "=== ROLLBACK TRIGGERED ==="
+
+            PREV_BACKEND=$(cat /tmp/pre_deploy_backend.txt)
+            PREV_NGINX=$(cat /tmp/pre_deploy_nginx.txt)
+
+            if [ "$PREV_BACKEND" != "none" ]; then
+              echo "Rolling back backend to $PREV_BACKEND"
+              # Start the previous image directly — docker compose will reconcile
+              docker stop disha_backend_prod || true
+              docker run -d \
+                --name disha_backend_rollback \
+                --env-file /opt/disha/.env \
+                --network disha_default \
+                -e ENVIRONMENT=production \
+                "$PREV_BACKEND" || true
+              echo "Rollback container started; manual reconcile may be needed"
+            fi
+
+            echo "=== Rollback attempt complete — manual review required ==="
+            # Always exit 0 so the failure-notify step can run
+            exit 0
+
+      # ── Notify on failure ─────────────────────────────────────────────────────
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = [
+              '❌ **Production deploy failed** and rollback was attempted.',
+              '',
+              `Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`,
+              '',
+              '**Action required:** SSH to the server and verify container health before the next deploy.',
+            ].join('\n');
+
+            // Post to the PR that triggered this push, if one exists
+            const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+            });
+            if (prs.data.length > 0) {
+              await github.rest.issues.createComment({
+                issue_number: prs.data[0].number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body,
+              });
+            }
+
+            // Also create an issue so it's always visible
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 Deploy failed: ${context.sha.substring(0, 7)}`,
+              body,
+              labels: ['deploy-failure'],
+            });

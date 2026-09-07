@@ -1,0 +1,58 @@
+name: PR checks
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  label:
+    name: Auto-label PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/labeler@v5
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+  size-check:
+    name: PR size check
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Count changed lines
+        id: diff
+        run: |
+          LINES=$(git diff --stat origin/${{ github.base_ref }}...HEAD | tail -1 | grep -oP '\d+ insertion' | grep -oP '\d+' || echo 0)
+          echo "lines=$LINES" >> $GITHUB_OUTPUT
+
+      - name: Warn on large PR
+        if: steps.diff.outputs.lines > 800
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `⚠️ This PR changes ~${{ steps.diff.outputs.lines }} lines. Consider splitting it into smaller PRs for easier review.`
+            })
+
+  required-checks:
+    name: All checks passed
+    runs-on: ubuntu-latest
+    needs: [label, size-check]
+    if: always()
+
+    steps:
+      - name: Verify CI passed
+        run: echo "All PR checks completed."

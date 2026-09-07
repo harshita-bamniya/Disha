@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Briefcase } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Briefcase, UserCheck } from 'lucide-react'
 import OnboardingLayout from '@/layouts/OnboardingLayout'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
-import { useOnboardingSteps } from '../hooks/useOnboarding'
+import { useOnboardingSteps, useOnboardingProfile } from '../hooks/useOnboarding'
 import { getApiError } from '@/api/client'
 
 const DOMAINS = [
@@ -17,7 +18,21 @@ export default function Step4WorkExperience() {
   const [hasExp, setHasExp] = useState<boolean | null>(null)
   const [form, setForm] = useState({ work_experience_years: '', work_experience_domain: '', last_designation: '' })
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [prefilled, setPrefilled] = useState(false)
   const { workExperience } = useOnboardingSteps()
+  const { data: profile } = useOnboardingProfile()
+  const navigate = useNavigate()
+
+  // Pre-fill from whatever's already saved — see Step1Personal for why.
+  if (profile && !prefilled) {
+    setPrefilled(true)
+    if (profile.has_work_experience != null) setHasExp(profile.has_work_experience)
+    setForm({
+      work_experience_years: profile.work_experience_years != null ? String(profile.work_experience_years) : '',
+      work_experience_domain: profile.work_experience_domain ?? '',
+      last_designation: profile.last_designation ?? '',
+    })
+  }
 
   const validate = () => {
     const e: Record<string, string> = {}
@@ -50,7 +65,10 @@ export default function Step4WorkExperience() {
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-gray-700">Do you have prior work experience?</label>
           <div className="grid grid-cols-2 gap-3">
-            {[{ val: true, label: 'Yes, I do' }, { val: false, label: 'No, fresher' }].map(({ val, label }) => (
+            {[
+              { val: true,  label: 'Yes, I do',   icon: Briefcase },
+              { val: false, label: 'No, fresher',  icon: UserCheck },
+            ].map(({ val, label, icon: Icon }) => (
               <button
                 key={String(val)}
                 type="button"
@@ -60,7 +78,7 @@ export default function Step4WorkExperience() {
                   hasExp === val ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary/50',
                 )}
               >
-                <Briefcase className="w-4 h-4" />
+                <Icon className="w-4 h-4" />
                 {label}
               </button>
             ))}
@@ -99,7 +117,7 @@ export default function Step4WorkExperience() {
             </div>
 
             <Input
-              label="Last designation (optional)"
+              label="Last designation"
               placeholder="Research Analyst, Junior Manager…"
               value={form.last_designation}
               onChange={(e) => setForm((p) => ({ ...p, last_designation: e.target.value }))}
@@ -115,7 +133,16 @@ export default function Step4WorkExperience() {
 
         {serverError && <p className="text-sm text-danger bg-danger/5 border border-danger/20 rounded-xl px-4 py-3">{serverError}</p>}
 
-        <Button type="submit" fullWidth size="lg" loading={workExperience.isPending} className="mt-2">Continue →</Button>
+        <div className="flex items-center gap-3 mt-2">
+          <button
+            type="button"
+            onClick={() => navigate('/app/onboarding/step/5')}
+            className="text-sm font-medium text-gray-500 hover:text-primary transition-colors px-2 py-2 whitespace-nowrap"
+          >
+            Skip for now
+          </button>
+          <Button type="submit" fullWidth size="lg" loading={workExperience.isPending}>Continue →</Button>
+        </div>
       </form>
     </OnboardingLayout>
   )

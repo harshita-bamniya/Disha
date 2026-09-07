@@ -1,9 +1,10 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import OnboardingLayout from '@/layouts/OnboardingLayout'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
-import { useOnboardingSteps } from '../hooks/useOnboarding'
+import { useOnboardingSteps, useOnboardingProfile } from '../hooks/useOnboarding'
 import { getApiError } from '@/api/client'
 import type { UpscExam, UpscStage } from '@/types'
 
@@ -33,7 +34,22 @@ export default function Step3UpscJourney() {
     optional_subject: '',
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [prefilled, setPrefilled] = useState(false)
   const { upscJourney } = useOnboardingSteps()
+  const { data: profile } = useOnboardingProfile()
+  const navigate = useNavigate()
+
+  // Pre-fill from whatever's already saved — see Step1Personal for why.
+  if (profile && !prefilled) {
+    setPrefilled(true)
+    setForm({
+      upsc_exam: (profile.upsc_exam ?? '') as UpscExam | '',
+      years_preparing: profile.years_preparing != null ? String(profile.years_preparing) : '',
+      upsc_attempts: profile.upsc_attempts != null ? String(profile.upsc_attempts) : '',
+      highest_stage_cleared: (profile.highest_stage_cleared ?? 'none') as UpscStage,
+      optional_subject: profile.optional_subject ?? '',
+    })
+  }
 
   const validate = () => {
     const e: Record<string, string> = {}
@@ -132,7 +148,7 @@ export default function Step3UpscJourney() {
         {/* Optional subject — only for CSE */}
         {form.upsc_exam === 'cse' && (
           <Input
-            label="Optional subject (if applicable)"
+            label="Optional subject"
             placeholder="Sociology, Public Administration, Geography…"
             value={form.optional_subject}
             onChange={(e) => setForm((p) => ({ ...p, optional_subject: e.target.value }))}
@@ -142,7 +158,16 @@ export default function Step3UpscJourney() {
 
         {serverError && <p className="text-sm text-danger bg-danger/5 border border-danger/20 rounded-xl px-4 py-3">{serverError}</p>}
 
-        <Button type="submit" fullWidth size="lg" loading={upscJourney.isPending} className="mt-2">Continue →</Button>
+        <div className="flex items-center gap-3 mt-2">
+          <button
+            type="button"
+            onClick={() => navigate('/app/onboarding/step/4')}
+            className="text-sm font-medium text-gray-500 hover:text-primary transition-colors px-2 py-2 whitespace-nowrap"
+          >
+            Skip for now
+          </button>
+          <Button type="submit" fullWidth size="lg" loading={upscJourney.isPending}>Continue →</Button>
+        </div>
       </form>
     </OnboardingLayout>
   )

@@ -1,18 +1,19 @@
 import logging
 import httpx
+import asyncio
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.models.user import AspirantProfile, PsychologicalAssessment, User
+from app.models.user import AspirantProfile, PsychologicalAssessment, SkillTaxonomy, User
 from app.modules.onboarding.schemas import (
-    EducationRequest, OnboardingStatusResponse, PersonalInfoRequest,
-    PreferencesRequest, ProfileResponse, PsychologicalAssessmentRequest, SkillsRequest,
+    EducationRequest, LearningSetupRequest, OnboardingStatusResponse, PersonalInfoRequest,
+    PreferencesRequest, ProfileResponse, SkillsRequest,
     StepSavedResponse, UpscJourneyRequest, WorkExperienceRequest,
 )
 
 logger = logging.getLogger(__name__)
 
-# ── Score lookup maps for Step 7 options ─────────────────────────────────────
+# ── Score lookup maps for the one-time learning-setup options ────────────────
 
 _BURNOUT_MAP = {
     "fresh": 15,
@@ -25,12 +26,6 @@ _CONFIDENCE_MAP = {
     "reasonably_confident": 65,
     "somewhat_unsure": 40,
     "very_anxious": 20,
-}
-_PRESSURE_MAP = {
-    "no_rush": 10,
-    "some_pressure": 35,
-    "significant_pressure": 65,
-    "urgent": 90,
 }
 
 
@@ -58,10 +53,9 @@ def _get_or_create_profile(user: User, db: Session) -> AspirantProfile:
 def get_profile(user: User, db: Session) -> ProfileResponse:
     """Return full profile data for pre-filling the profile edit page."""
     profile = db.query(AspirantProfile).filter(AspirantProfile.user_id == user.id).first()
-    psych = db.query(PsychologicalAssessment).filter(PsychologicalAssessment.user_id == user.id).first()
 
     if not profile:
-        return ProfileResponse()
+        return ProfileResponse(phone=user.phone)
 
     # date_of_birth may be stored as a date object or a plain string depending on the DB driver
     dob = profile.date_of_birth
@@ -74,6 +68,8 @@ def get_profile(user: User, db: Session) -> ProfileResponse:
 
     return ProfileResponse(
         full_name=profile.full_name,
+        phone=user.phone,
+        current_status=profile.current_status,
         date_of_birth=dob_str,
         gender=profile.gender,
         city=profile.city,
@@ -98,10 +94,16 @@ def get_profile(user: User, db: Session) -> ProfileResponse:
         open_to_relocation=profile.open_to_relocation,
         expected_salary_min=profile.expected_salary_min,
         expected_salary_max=profile.expected_salary_max,
-        motivation_type=psych.motivation_type if psych else None,
-        risk_tolerance=psych.risk_tolerance if psych else None,
-        support_system=psych.support_system if psych else None,
-        disha_insight=psych.disha_insight if psych else None,
+        beginablai_insight=profile.beginablai_insight,
+        has_learning_setup=profile.weekly_study_hours is not None,
+        weekly_study_hours=profile.weekly_study_hours,
+        target_completion_date=(
+            profile.target_completion_date.strftime("%Y-%m-%d")
+            if profile.target_completion_date else None
+        ),
+        skill_proficiency=profile.skill_proficiency or {},
+        preferred_learning_format=profile.preferred_learning_format,
+        learning_challenge=profile.learning_challenge,
     )
 
 
@@ -118,10 +120,16 @@ def get_status(user: User, db: Session) -> OnboardingStatusResponse:
 def save_personal(user: User, data: PersonalInfoRequest, db: Session) -> StepSavedResponse:
     profile = _get_or_create_profile(user, db)
     profile.full_name = data.full_name
-    profile.date_of_birth = data.date_of_birth
-    profile.gender = data.gender
+    profile.current_status = data.current_status
     profile.city = data.city
-    profile.state = data.state
+    # Deferred fields — only overwrite if this submission actually provided them,
+    # so a later "complete your profile" pass doesn't need to resend everything.
+    if data.date_of_birth is not None:
+        profile.date_of_birth = data.date_of_birth
+    if data.gender is not None:
+        profile.gender = data.gender
+    if data.state is not None:
+        profile.state = data.state
     if profile.current_step < 2:
         profile.current_step = 2
     db.commit()
@@ -182,90 +190,113 @@ def save_skills(user: User, data: SkillsRequest, db: Session) -> StepSavedRespon
     db.commit()
     logger.info(f"[ONBOARDING] user={user.id} saved step 5 (skills)")
     _maybe_recompute_krs(user, profile, db)
+    # Cache embeddings for user skills so gap computation is instant at query time
+    if data.skills:
+        from app.tasks.worker import embed_skill_texts, safe_dispatch
+        safe_dispatch(embed_skill_texts, data.skills)
     return StepSavedResponse(message="Skills saved", current_step=profile.current_step, is_completed=profile.is_completed)
 
 
-def save_preferences(user: User, data: PreferencesRequest, db: Session) -> StepSavedResponse:
+def suggest_skills(query: str, db: Session) -> list[str]:
+    """Autocomplete for the Step 5 / Profile custom-skill input. Matches
+    against skill_taxonomy — seeded from the curated list + platform data,
+    and grown over time by validate_skill() below."""
+    q = query.strip()
+    if len(q) < 2:
+        return []
+
+    rows = db.query(SkillTaxonomy.name).filter(SkillTaxonomy.name.ilike(f"%{q}%")).limit(30).all()
+    matches = [r[0] for r in rows]
+    matches.sort(key=lambda s: (not s.lower().startswith(q.lower()), s.lower()))
+    return matches[:8]
+
+
+async def validate_skill(name: str, db: Session) -> str | None:
+    """Confirms a custom skill (not already in skill_taxonomy) is real before
+    it's ever shown to the user as added. See skill_validation.py."""
+    from app.modules.onboarding.skill_validation import validate_and_register_skill
+    return await validate_and_register_skill(name, db)
+
+
+async def save_preferences(user: User, data: PreferencesRequest, db: Session) -> StepSavedResponse:
+    """Step 6: save career preferences — this completes registration.
+    (The former Step 7 psychological assessment now happens once, later, right
+    before a user's first roadmap/plan generation — see save_learning_setup.)"""
     profile = _get_or_create_profile(user, db)
     profile.preferred_sectors = data.preferred_sectors
     profile.preferred_locations = data.preferred_locations
     profile.open_to_relocation = data.open_to_relocation
     profile.expected_salary_min = data.expected_salary_min
     profile.expected_salary_max = data.expected_salary_max
-    # Advance to step 7 — psychological assessment completes onboarding
-    if profile.current_step < 7:
-        profile.current_step = 7
-    db.commit()
-    logger.info(f"[ONBOARDING] user={user.id} saved step 6 (preferences)")
-    _maybe_recompute_krs(user, profile, db)
-    return StepSavedResponse(message="Preferences saved", current_step=profile.current_step, is_completed=profile.is_completed)
-
-
-def save_psychology(user: User, data: PsychologicalAssessmentRequest, db: Session) -> StepSavedResponse:
-    """Step 7: save psychological assessment, generate Groq insight, trigger KRS."""
-    profile = _get_or_create_profile(user, db)
-
-    burnout = _BURNOUT_MAP[data.burnout_level]
-    confidence = _CONFIDENCE_MAP[data.confidence_level]
-    pressure = _PRESSURE_MAP[data.financial_pressure]
-
-    # Generate Groq personalised insight before writing to DB
-    insight = _call_groq_insight(profile, burnout, confidence, pressure, data)
-
-    # Upsert psychological assessment
-    assessment = db.query(PsychologicalAssessment).filter(PsychologicalAssessment.user_id == user.id).first()
-    if not assessment:
-        assessment = PsychologicalAssessment(
-            user_id=user.id,
-            burnout_score=burnout,
-            confidence_index=confidence,
-            financial_pressure_score=pressure,
-            risk_tolerance=data.risk_tolerance,
-            motivation_type=data.motivation_type,
-            identity_attachment=data.identity_attachment,
-            support_system=data.support_system,
-            disha_insight=insight or None,
-        )
-        db.add(assessment)
-    else:
-        assessment.burnout_score = burnout
-        assessment.confidence_index = confidence
-        assessment.financial_pressure_score = pressure
-        assessment.risk_tolerance = data.risk_tolerance
-        assessment.motivation_type = data.motivation_type
-        assessment.identity_attachment = data.identity_attachment
-        assessment.support_system = data.support_system
-        assessment.disha_insight = insight or None
-
-    profile.current_step = 7
+    profile.current_step = 6
     profile.is_completed = True
     db.commit()
-    logger.info(f"[ONBOARDING] user={user.id} completed onboarding (step 7 psychology)")
+    logger.info(f"[ONBOARDING] user={user.id} completed onboarding (step 6 preferences)")
 
-    # Auto-trigger KRS scoring with psychological data
     try:
         from app.modules.krs.service import compute_and_store
         compute_and_store(user, db)
     except Exception as exc:
         logger.warning(f"[KRS] Auto-compute failed for user={user.id}: {exc}")
 
+    # Attempt Groq insight AFTER the commit — if it times out the user still
+    # lands on the dashboard; they just don't see the personalised message.
+    insight = await _call_groq_insight(profile)
+    if insight:
+        profile.beginablai_insight = insight
+        db.commit()
+
     return StepSavedResponse(
         message="Onboarding complete!",
-        current_step=7,
+        current_step=6,
         is_completed=True,
-        disha_insight=insight or None,
+        beginablai_insight=insight or None,
+    )
+
+
+def save_learning_setup(user: User, data: LearningSetupRequest, db: Session) -> StepSavedResponse:
+    """One-time setup, asked before a user's first roadmap/job-plan generation.
+    Not part of registration — burnout/confidence directly shape job-plan
+    pacing and tone (jobs/plan_generator.py), and weekly_study_hours/
+    target_completion_date/skill_proficiency close gaps the roadmap-input
+    audit found: pacing was a hardcoded constant and skill coverage was binary."""
+    profile = _get_or_create_profile(user, db)
+
+    profile.weekly_study_hours = data.weekly_study_hours
+    profile.target_completion_date = data.target_completion_date
+    profile.skill_proficiency = data.skill_proficiency
+    profile.preferred_learning_format = data.preferred_learning_format
+    profile.learning_challenge = data.learning_challenge
+
+    burnout = _BURNOUT_MAP[data.burnout_level]
+    confidence = _CONFIDENCE_MAP[data.confidence_level]
+    assessment = db.query(PsychologicalAssessment).filter(PsychologicalAssessment.user_id == user.id).first()
+    if not assessment:
+        assessment = PsychologicalAssessment(user_id=user.id, burnout_score=burnout, confidence_index=confidence)
+        db.add(assessment)
+    else:
+        assessment.burnout_score = burnout
+        assessment.confidence_index = confidence
+
+    db.commit()
+    logger.info(f"[ONBOARDING] user={user.id} completed learning setup")
+
+    try:
+        from app.modules.krs.service import compute_and_store
+        compute_and_store(user, db)
+    except Exception as exc:
+        logger.warning(f"[KRS] Re-compute after learning setup failed for user={user.id}: {exc}")
+
+    return StepSavedResponse(
+        message="Learning setup saved",
+        current_step=profile.current_step,
+        is_completed=profile.is_completed,
     )
 
 
 # ── Groq helper ───────────────────────────────────────────────────────────────
 
-def _call_groq_insight(
-    profile: AspirantProfile,
-    burnout: int,
-    confidence: int,
-    pressure: int,
-    data: PsychologicalAssessmentRequest,
-) -> str:
+async def _call_groq_insight(profile: AspirantProfile) -> str:
     settings = get_settings()
     if not settings.groq_api_key:
         return ""
@@ -279,12 +310,8 @@ def _call_groq_insight(
     skills_line = ", ".join((profile.skills or [])[:3]) or "not specified"
     sectors_line = ", ".join((profile.preferred_sectors or [])[:2]) or "not specified"
 
-    burnout_label = {15: "fresh", 40: "somewhat tired", 70: "exhausted", 90: "burnt out"}[burnout]
-    confidence_label = {85: "very confident", 65: "reasonably confident", 40: "somewhat unsure", 20: "very anxious"}[confidence]
-    pressure_label = {10: "no financial rush", 35: "some financial pressure", 65: "significant financial pressure", 90: "urgent financial need"}[pressure]
-
     prompt = (
-        "You are DISHA AI — a compassionate, deeply human career counsellor for UPSC aspirants "
+        "You are BeginablAI — a compassionate, deeply human career counsellor for UPSC aspirants "
         "transitioning into private sector roles. You understand the psychological weight of this journey.\n\n"
         "A user has just completed their onboarding. Write a warm, grounding, personalised 2–3 sentence "
         "welcome message. Be specific to their journey — not generic. No bullet points. Second person only.\n\n"
@@ -294,27 +321,25 @@ def _call_groq_insight(
         f"Education: {profile.highest_qualification or 'graduate'} in {profile.field_of_study or 'unspecified'}.\n"
         f"Work: {work_line}.\n"
         f"Skills: {skills_line}.\n"
-        f"Interested in: {sectors_line}.\n"
-        f"Psychological state: {burnout_label} burnout, {confidence_label} about transition, {pressure_label}.\n"
-        f"Motivation: {data.motivation_type}. Support system: {data.support_system}.\n\n"
+        f"Interested in: {sectors_line}.\n\n"
         "Write the message now:"
     )
 
     try:
-        response = httpx.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {settings.groq_api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": "llama-3.1-8b-instant",
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 180,
-                "temperature": 0.75,
-            },
-            timeout=20.0,
-        )
+        async with httpx.AsyncClient(timeout=httpx.Timeout(connect=5.0, read=10.0, write=5.0, pool=2.0)) as client:
+            response = await client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {settings.groq_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "openai/gpt-oss-20b",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 180,
+                    "temperature": 0.75,
+                },
+            )
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"].strip()
     except Exception as exc:

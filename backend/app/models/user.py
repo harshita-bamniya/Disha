@@ -1,23 +1,30 @@
 import uuid
 from datetime import datetime, timezone
+
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
-    Boolean, Column, Date, DateTime, Enum, ForeignKey,
-    Integer, String, Text, UniqueConstraint
+    Boolean,
+    CheckConstraint,
+    Column,
+    Date,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID, INET, JSONB
+from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from pgvector.sqlalchemy import Vector
+
 from app.database import Base
 
 GENDER_ENUM = Enum("male", "female", "other", "prefer_not_to_say", name="gender_enum")
 QUALIFICATION_ENUM = Enum("graduate", "post_graduate", "doctorate", "diploma", "other", name="qualification_enum")
 UPSC_EXAM_ENUM = Enum("cse", "capf", "cds", "ies", "cms", "state_pcs", "other", name="upsc_exam_enum")
 UPSC_STAGE_ENUM = Enum("none", "prelims", "mains", "interview", name="upsc_stage_enum")
-RISK_TOLERANCE_ENUM = Enum("low", "medium", "high", name="risk_tolerance_enum")
-MOTIVATION_TYPE_ENUM = Enum("intrinsic", "extrinsic", "mixed", name="motivation_type_enum")
-IDENTITY_ATTACHMENT_ENUM = Enum("low", "medium", "high", name="identity_attachment_enum")
-SUPPORT_SYSTEM_ENUM = Enum("strong", "moderate", "weak", name="support_system_enum")
 COMPANY_SIZE_ENUM = Enum(
     "1-10", "11-50", "51-200", "201-500", "501-1000", "1000+",
     name="company_size_enum",
@@ -29,11 +36,17 @@ def utcnow():
 
 
 class Role(Base):
+    """Master lookup table for roles. Adding a new role = one INSERT, no schema change.
+
+    Scalability pattern: each role gets its own profile table (aspirant_profiles,
+    employer_profiles, etc.) linked via user_id FK. The users table stays generic.
+    """
     __tablename__ = "roles"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String(50), unique=True, nullable=False)
+    name = Column(String(50), unique=True, nullable=False, index=True)
     description = Column(Text)
+    is_system = Column(Boolean, nullable=False, default=False)  # system roles cannot be deleted via admin UI
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     users = relationship("User", back_populates="role")
@@ -67,23 +80,35 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    phone = Column(String(15), unique=True, nullable=False, index=True)
+    phone = Column(String(15), unique=True, nullable=True, index=True)
     email = Column(String(255), unique=True, nullable=True, index=True)
-    password_hash = Column(Text, nullable=False)
+    full_name = Column(String(150), nullable=True)   # set for admin/sub-admin/platform accounts; aspirants use AspirantProfile.full_name
+    password_hash = Column(Text, nullable=True)
+    google_id = Column(String(255), unique=True, nullable=True, index=True)
     phone_verified = Column(Boolean, default=False, nullable=False)
     email_verified = Column(Boolean, default=False, nullable=False)
     preferred_language = Column(Enum("en", "hi", name="language_enum"), default="hi", nullable=False)
-    role_id = Column(UUID(as_uuid=True), ForeignKey("roles.id"), nullable=True, index=True)
+    role_id = Column(UUID(as_uuid=True), ForeignKey("roles.id"), nullable=False, index=True)
     is_active = Column(Boolean, default=True, nullable=False, index=True)
     last_login_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     deleted_at = Column(DateTime(timezone=True), nullable=True)
 
+    # Account status (suspend/ban) — distinct from is_active, which login still checks.
+    status = Column(String(20), nullable=False, default="active", server_default="active")
+    status_reason = Column(Text, nullable=True)
+    status_changed_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    status_changed_at = Column(DateTime(timezone=True), nullable=True)
+    failed_login_attempts = Column(Integer, nullable=False, default=0, server_default="0")
+
     role = relationship("Role", back_populates="users")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
     otp_verifications = relationship("OtpVerification", back_populates="user", cascade="all, delete-orphan")
     audit_logs = relationship("AuditLog", back_populates="user")
+    login_history = relationship("LoginHistory", back_populates="user", cascade="all, delete-orphan", foreign_keys="LoginHistory.user_id")
+    device_sessions = relationship("DeviceSession", back_populates="user", cascade="all, delete-orphan", foreign_keys="DeviceSession.user_id")
+    two_factor_credential = relationship("TwoFactorCredential", back_populates="user", uselist=False, cascade="all, delete-orphan")
     employer_profile = relationship("EmployerProfile", back_populates="user", uselist=False, foreign_keys="EmployerProfile.user_id")
     aspirant_profile = relationship("AspirantProfile", back_populates="user", uselist=False)
     psychological_assessment = relationship("PsychologicalAssessment", back_populates="user", uselist=False)
@@ -154,15 +179,82 @@ class OtpVerification(Base):
         return self.used_at is not None
 
 
+class LoginHistory(Base):
+    """Every login attempt (success or failure) — surfaced on Admin Profile and user detail."""
+    __tablename__ = "login_history"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    ip_address = Column(INET, nullable=True)
+    user_agent = Column(Text, nullable=True)
+    device_label = Column(String(150), nullable=True)
+    success = Column(Boolean, nullable=False, default=True)
+    failure_reason = Column(String(100), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    user = relationship("User", back_populates="login_history", foreign_keys=[user_id])
+
+
+class DeviceSession(Base):
+    """One row per active refresh-token session — backs 'Device Sessions' + force-logout."""
+    __tablename__ = "device_sessions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    refresh_token_id = Column(UUID(as_uuid=True), ForeignKey("refresh_tokens.id", ondelete="CASCADE"), nullable=False, unique=True)
+    device_label = Column(String(150), nullable=True)
+    ip_address = Column(INET, nullable=True)
+    last_seen_at = Column(DateTime(timezone=True), server_default=func.now())
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="device_sessions", foreign_keys=[user_id])
+    refresh_token = relationship("RefreshToken")
+
+    @property
+    def is_revoked(self) -> bool:
+        return self.revoked_at is not None
+
+
+class TwoFactorCredential(Base):
+    """TOTP 2FA enrollment — one row per user."""
+    __tablename__ = "two_factor_credentials"
+
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    secret_encrypted = Column(Text, nullable=False)
+    is_enabled = Column(Boolean, nullable=False, default=False)
+    backup_codes_hash = Column(JSONB, nullable=True)
+    enabled_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="two_factor_credential")
+
+
+class SkillTaxonomy(Base):
+    """Every skill name the platform recognizes as valid — seeded from the
+    curated onboarding list plus skills already used in job postings/career
+    tracks, and grown over time as new custom skills pass ESCO/LLM validation
+    (see onboarding/skill_validation.py). True uniqueness is enforced by a
+    case-insensitive functional index on lower(name), created in the
+    migration — not by this column alone."""
+    __tablename__ = "skill_taxonomy"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(100), nullable=False, index=True)
+    source = Column(String(20), nullable=False, default="curated")  # curated | platform | esco | llm
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 class AspirantProfile(Base):
     __tablename__ = "aspirant_profiles"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
 
-    # ── Step 1: Personal ──────────────────────────────────────────────────────
+    # ── Step 1: Personal (quick-start: full_name/current_status/city only) ────
     full_name = Column(String(150), nullable=True)
-    date_of_birth = Column(String(10), nullable=True)      # stored as YYYY-MM-DD string
+    current_status = Column(String(20), nullable=True)  # student | fresher | experienced
+    date_of_birth = Column(Date, nullable=True)
     gender = Column(GENDER_ENUM, nullable=True)
     city = Column(String(100), nullable=True)
     state = Column(String(100), nullable=True)
@@ -200,33 +292,45 @@ class AspirantProfile(Base):
     # ── Completion tracking ───────────────────────────────────────────────────
     current_step = Column(Integer, nullable=False, default=1)
     is_completed = Column(Boolean, nullable=False, default=False, index=True)
+    beginablai_insight = Column(Text, nullable=True)  # Groq-generated welcome message, set on Step 6 completion
+
+    # ── Learning setup (one-time, asked before first roadmap/plan generation) ─
+    weekly_study_hours = Column(Integer, nullable=True)
+    target_completion_date = Column(Date, nullable=True)
+    skill_proficiency = Column(JSONB, nullable=True)  # dict[str, "beginner"|"intermediate"|"advanced"]
+    # Both actually change the generated plan — see jobs/plan_generator.py's
+    # PLAN_PROMPT "LEARNING FORMAT RULES" / "LEARNING CHALLENGE RULES".
+    preferred_learning_format = Column(String(20), nullable=True)  # video | reading | hands_on | mixed
+    learning_challenge = Column(String(30), nullable=True)  # motivation | understanding_concepts | getting_started | applying_practically
+
+    # ── Active Prep Job (MVP2) ────────────────────────────────────────────────
+    # The single job the user is currently focusing all tools toward.
+    active_prep_job_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("job_postings.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="aspirant_profile")
+    active_prep_job = relationship("JobPosting", foreign_keys=[active_prep_job_id])
 
 
 class PsychologicalAssessment(Base):
-    """Step 7 of onboarding — captures psychological state for KRS R-score."""
+    """Captures burnout/confidence for KRS R-score and job-plan pacing/tone.
+    Collected once, up front of the first roadmap/learning-plan generation —
+    not during registration."""
     __tablename__ = "psychological_assessments"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
 
-    # Numeric scores (0-100) — derived from option selections in Step 7
+    # Numeric scores (0-100) — derived from option selections
     burnout_score = Column(Integer, nullable=False)             # 0=fresh, 100=burnt out
     confidence_index = Column(Integer, nullable=False)          # 0=very anxious, 100=very confident
-    financial_pressure_score = Column(Integer, nullable=False)  # 0=no rush, 100=urgent
-
-    # Enum dimensions
-    risk_tolerance = Column(RISK_TOLERANCE_ENUM, nullable=False)
-    motivation_type = Column(MOTIVATION_TYPE_ENUM, nullable=False)
-    identity_attachment = Column(IDENTITY_ATTACHMENT_ENUM, nullable=False)
-    support_system = Column(SUPPORT_SYSTEM_ENUM, nullable=False)
-
-    # Groq-generated personalized first message
-    disha_insight = Column(Text, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -240,13 +344,15 @@ class EmployerProfile(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     company_name = Column(String(255), nullable=False, index=True)
-    industry = Column(String(100), nullable=False)
-    company_size = Column(COMPANY_SIZE_ENUM, nullable=False)
+    # Filled at registration only as company_name; the rest are collected later
+    # via the post-login setup wizard and may be null until then.
+    industry = Column(String(100), nullable=True)
+    company_size = Column(COMPANY_SIZE_ENUM, nullable=True)
     website = Column(String(500), nullable=True)
     gst_number = Column(String(20), nullable=True)
-    contact_person = Column(String(150), nullable=False)
+    contact_person = Column(String(150), nullable=True)
     designation = Column(String(100), nullable=True)
-    city = Column(String(100), nullable=False)
+    city = Column(String(100), nullable=True)
     description = Column(Text, nullable=True)
 
     # Admin approval workflow
@@ -255,12 +361,22 @@ class EmployerProfile(Base):
     approved_at = Column(DateTime(timezone=True), nullable=True)
     rejection_reason = Column(Text, nullable=True)
 
+    # Company/team membership (Module 05 Phase 4) — every profile belongs to a
+    # Company; the registering profile is the owner, invited teammates are not.
+    company_id    = Column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True)
+    is_owner      = Column(Boolean, nullable=False, default=False, server_default="false")
+    # Department assignment (Module 06). NULL = company-wide access (owner / hr_manager).
+    # Non-null = scoped to this department only (recruiter / interviewer / hiring_manager).
+    department_id = Column(UUID(as_uuid=True), ForeignKey("company_departments.id", ondelete="SET NULL"), nullable=True, index=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    user = relationship("User", back_populates="employer_profile", foreign_keys=[user_id])
-    approver = relationship("User", foreign_keys=[approved_by])
+    user       = relationship("User", back_populates="employer_profile", foreign_keys=[user_id])
+    approver   = relationship("User", foreign_keys=[approved_by])
     job_postings = relationship("JobPosting", back_populates="employer", cascade="all, delete-orphan")
+    company    = relationship("Company", back_populates="members")
+    department = relationship("CompanyDepartment", foreign_keys=[department_id])
 
 
 class AuditLog(Base):
@@ -274,6 +390,8 @@ class AuditLog(Base):
     ip_address = Column(INET, nullable=True)
     user_agent = Column(Text, nullable=True)
     log_metadata = Column("metadata", JSONB, nullable=True)
+    previous_value = Column(JSONB, nullable=True)
+    new_value = Column(JSONB, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
     user = relationship("User", back_populates="audit_logs")
@@ -317,6 +435,13 @@ class KrsScore(Base):
 
     user = relationship("User", back_populates="krs_score")
 
+    __table_args__ = (
+        CheckConstraint("k_score BETWEEN 0 AND 100", name="ck_krs_k_score"),
+        CheckConstraint("r_score BETWEEN 0 AND 100", name="ck_krs_r_score"),
+        CheckConstraint("s_score BETWEEN 0 AND 100", name="ck_krs_s_score"),
+        CheckConstraint("composite BETWEEN 0 AND 100", name="ck_krs_composite"),
+    )
+
 
 class CareerMatch(Base):
     """Top career track matches for an aspirant, scored 0-100."""
@@ -332,7 +457,11 @@ class CareerMatch(Base):
     user = relationship("User", back_populates="career_matches")
     track = relationship("CareerTrack", back_populates="matches")
 
-    __table_args__ = (UniqueConstraint("user_id", "track_id", name="uq_career_match_user_track"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "track_id", name="uq_career_match_user_track"),
+        CheckConstraint("match_score BETWEEN 0 AND 100", name="ck_career_match_score"),
+        CheckConstraint("skill_overlap BETWEEN 0 AND 100", name="ck_career_skill_overlap"),
+    )
 
 
 # ── Module 04 prep: Employer Job Postings ────────────────────────────────────
@@ -341,8 +470,14 @@ class JobPosting(Base):
     """Live job postings created by approved employers."""
     __tablename__ = "job_postings"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    employer_id = Column(UUID(as_uuid=True), ForeignKey("employer_profiles.id", ondelete="CASCADE"), nullable=False, index=True)
+    id            = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    employer_id   = Column(UUID(as_uuid=True), ForeignKey("employer_profiles.id", ondelete="CASCADE"), nullable=False, index=True)
+    # Direct company FK for owner/hr_admin level queries without joining through EmployerProfile.
+    # Nullable for backwards-compatibility; all new jobs should set this via the service layer.
+    company_id    = Column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=True, index=True)
+    # Department scoping (Module 06) — which department owns this job. Nullable for
+    # backwards-compatibility with pre-department postings; all new jobs should set this.
+    department_id = Column(UUID(as_uuid=True), ForeignKey("company_departments.id", ondelete="SET NULL"), nullable=True, index=True)
 
     title = Column(String(200), nullable=False)
     description = Column(Text, nullable=False)
@@ -357,13 +492,40 @@ class JobPosting(Base):
     employment_type = Column(String(30), nullable=True)    # "full_time" | "part_time" | "internship" | "contract" | "freelance"
     expires_at = Column(Date, nullable=True)               # date the posting closes
     is_active = Column(Boolean, nullable=False, default=True, index=True)
+    # Job lifecycle (Module 05 Phase 7). is_active stays in sync with status == 'published' —
+    # it's kept because aspirant-facing ranker queries and subscription active-job limits
+    # already filter on it; status is the source of truth, is_active is derived from it.
+    status = Column(String(20), nullable=False, default="draft", index=True)
     description_embedding = Column(Vector(384), nullable=True)  # sentence-transformers job vector
+    skill_extraction_status = Column(String(20), nullable=False, default="pending")  # pending | done | failed
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    employer = relationship("EmployerProfile", back_populates="job_postings")
+    employer     = relationship("EmployerProfile", back_populates="job_postings")
+    department   = relationship("CompanyDepartment", foreign_keys=[department_id])
     preparations = relationship("UserJobPreparation", back_populates="job", cascade="all, delete-orphan")
+    applications = relationship("Application", back_populates="job", cascade="all, delete-orphan")
+    hiring_team  = relationship("JobHiringTeam", back_populates="job", cascade="all, delete-orphan")
+
+
+class JobHiringTeam(Base):
+    """Per-job hiring team: maps employer profiles to a specific job with a job-level role.
+    Separate from the company-level role on EmployerProfile — a recruiter can be
+    assigned as hiring_manager on one job and interviewer on another."""
+    __tablename__ = "job_hiring_team"
+
+    id                  = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    job_id              = Column(UUID(as_uuid=True), ForeignKey("job_postings.id", ondelete="CASCADE"), nullable=False, index=True)
+    employer_profile_id = Column(UUID(as_uuid=True), ForeignKey("employer_profiles.id", ondelete="CASCADE"), nullable=False, index=True)
+    # Job-level role — distinct from the company-level role on EmployerProfile
+    job_role            = Column(String(30), nullable=False)  # hiring_manager | interviewer | coordinator | recruiter
+    added_at            = Column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (UniqueConstraint("job_id", "employer_profile_id", name="uq_job_hiring_team_member"),)
+
+    job             = relationship("JobPosting", back_populates="hiring_team")
+    employer_profile = relationship("EmployerProfile")
 
 
 # ── Module 04: Career Mapping ─────────────────────────────────────────────────

@@ -1,585 +1,512 @@
-import { useState } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
+import { colors, radius, shadows } from '@/design-system/tokens'
 import {
-  Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Clock,
-  CheckCircle2, LogOut, LayoutDashboard, Building2,
-  TrendingUp, PauseCircle, X,
+  Plus, Building2,
+  CheckCircle2, ChevronRight, ArrowUpRight,
 } from 'lucide-react'
-import { useEmployerDashboard, useCreateJob, useUpdateJob, useToggleJob, useDeleteJob } from '../hooks/useJobs'
-import { useLogout } from '@/modules/auth/hooks/useAuth'
-import JobForm from '../components/JobForm'
-import type { JobPosting, JobPostingPayload } from '@/api/jobs'
-import { formatSalary, EMPLOYMENT_TYPE_LABELS } from '@/api/jobs'
-import { getApiError } from '@/api/client'
+import {
+  useEmployerDashboard, useDashboardKpis, useApplicationTrend,
+  useUpcomingInterviews, useCompanyProfile, useDepartments,
+} from '../hooks/useJobs'
+import { useState } from 'react'
+import Button from '@/shared/components/primitives/Button'
+import { SkeletonCard } from '@/shared/components/feedback/Skeleton'
+import ErrorState from '@/shared/components/feedback/ErrorState'
+import AlertBanner from '@/shared/components/feedback/AlertBanner'
+import PageHeader from '@/shared/layouts/PageHeader'
 
-type View = 'list' | 'new' | { edit: JobPosting }
+// ── Helpers ────────────────────────────────────────────────────────────────────
 
-const OUTLOOK_STYLE: Record<string, { color: string; bg: string }> = {
-  high:   { color: '#3B82F6', bg: 'rgba(59,130,246,0.08)'  },
-  medium: { color: '#D97706', bg: 'rgba(245,158,11,0.08)' },
-  low:    { color: '#9CA3AF', bg: 'rgba(156,163,175,0.08)' },
+function fmt(n: number | null | undefined, fallback = '—'): string {
+  if (n == null) return fallback
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
+  return String(n)
 }
 
-// ── Sidebar ───────────────────────────────────────────────────────────────────
-function Sidebar({
-  companyName, totalJobs, activeJobs, isApproved, onNewJob, logout, view,
-}: {
-  companyName: string; totalJobs: number; activeJobs: number
-  isApproved: boolean; onNewJob: () => void; logout: () => void; view: View
-}) {
-  const initial = companyName.charAt(0).toUpperCase()
+// ── KPI Strip ─────────────────────────────────────────────────────────────────
 
-  return (
-    <aside style={{
-      width: 260, flexShrink: 0,
-      background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(20px)',
-      borderRight: '1px solid rgba(59,130,246,0.08)',
-      display: 'flex', flexDirection: 'column',
-      position: 'sticky', top: 0, height: '100vh', overflow: 'auto',
-      boxShadow: '4px 0 24px rgba(30,58,95,0.04)',
-    }}>
-      {/* Logo */}
-      <div style={{ padding: '24px 20px 20px', borderBottom: '1px solid rgba(59,130,246,0.06)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 38, height: 38, borderRadius: 11,
-            background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(59,130,246,0.25)',
-          }}>
-            <span style={{ color: 'white', fontWeight: 900, fontSize: 17 }}>D</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ fontFamily: 'Hind, sans-serif', fontWeight: 800, fontSize: 18, color: '#1E3A5F' }}>DISHA AI</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: '#3B82F6', background: 'rgba(59,130,246,0.08)', padding: '2px 7px', borderRadius: 6, letterSpacing: '0.3px' }}>EMPLOYER</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Company card */}
-      <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(59,130,246,0.06)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 40, height: 40, borderRadius: '50%',
-            background: 'linear-gradient(135deg, rgba(59,130,246,0.15), rgba(147,197,253,0.2))',
-            border: '2px solid rgba(59,130,246,0.15)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 900, fontSize: 16, color: '#3B82F6',
-          }}>
-            {initial}
-          </div>
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 700, color: '#1E3A5F', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{companyName}</p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-              {isApproved ? (
-                <><CheckCircle2 size={11} color="#059669" /><span style={{ fontSize: 11, color: '#059669', fontWeight: 600 }}>Verified employer</span></>
-              ) : (
-                <><Clock size={11} color="#D97706" /><span style={{ fontSize: 11, color: '#D97706', fontWeight: 600 }}>Pending approval</span></>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Nav */}
-      <nav style={{ padding: '12px 12px', flex: 1 }}>
-        <p style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.8px', padding: '0 8px', marginBottom: 6 }}>Navigation</p>
-        <button style={{
-          width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-          padding: '10px 12px', borderRadius: 12, marginBottom: 2,
-          background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
-          color: 'white', border: 'none', cursor: 'pointer', textAlign: 'left',
-          fontSize: 14, fontWeight: 600,
-          boxShadow: '0 4px 12px rgba(59,130,246,0.22)',
-        }}>
-          <LayoutDashboard size={16} />Dashboard
-        </button>
-
-        {/* Stats panel in sidebar */}
-        <div style={{
-          marginTop: 20, padding: 16,
-          background: 'rgba(59,130,246,0.05)',
-          border: '1px solid rgba(59,130,246,0.14)',
-          borderRadius: 16,
-        }}>
-          <p style={{ fontSize: 10, color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 14 }}>Job Postings</p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-            {[
-              { label: 'Total', value: totalJobs },
-              { label: 'Active', value: activeJobs },
-              { label: 'Paused', value: totalJobs - activeJobs },
-            ].map(s => (
-              <div key={s.label} style={{
-                background: 'rgba(59,130,246,0.07)', borderRadius: 10, padding: '8px 4px',
-                border: '1px solid rgba(59,130,246,0.1)', textAlign: 'center',
-              }}>
-                <div style={{ fontSize: 18, fontWeight: 900, color: '#1E3A5F', fontFamily: 'Hind, sans-serif', lineHeight: 1 }}>{s.value}</div>
-                <div style={{ fontSize: 9, color: '#94A3B8', fontWeight: 600, marginTop: 3 }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Post job CTA */}
-        {isApproved && view === 'list' && (
-          <button onClick={onNewJob} style={{
-            width: '100%', marginTop: 14,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            padding: '11px 14px', borderRadius: 12,
-            background: 'rgba(59,130,246,0.07)', border: '1.5px dashed rgba(59,130,246,0.25)',
-            color: '#3B82F6', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-            transition: 'all 0.2s',
-          }}
-            onMouseOver={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.12)'; e.currentTarget.style.border = '1.5px dashed rgba(59,130,246,0.4)' }}
-            onMouseOut={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.07)'; e.currentTarget.style.border = '1.5px dashed rgba(59,130,246,0.25)' }}
-          >
-            <Plus size={15} />Post a job
-          </button>
-        )}
-      </nav>
-
-      {/* Logout */}
-      <div style={{ padding: '12px 20px', borderTop: '1px solid rgba(59,130,246,0.06)' }}>
-        <button onClick={logout} style={{
-          display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-          padding: '10px 12px', borderRadius: 10,
-          background: 'none', border: 'none', cursor: 'pointer',
-          fontSize: 13, fontWeight: 500, color: '#9CA3AF', transition: 'all 0.2s',
-        }}
-          onMouseOver={e => { e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.background = 'rgba(220,38,38,0.05)' }}
-          onMouseOut={e => { e.currentTarget.style.color = '#9CA3AF'; e.currentTarget.style.background = 'none' }}
-        >
-          <LogOut size={14} />Log out
-        </button>
-      </div>
-    </aside>
-  )
-}
-
-// ── Job Card ──────────────────────────────────────────────────────────────────
-function JobCard({
-  job, onEdit, onToggle, onDelete, isToggling,
-}: {
-  job: JobPosting
-  onEdit: () => void
-  onToggle: () => void
-  onDelete: () => void
-  isToggling?: boolean
-}) {
-  const outlook = OUTLOOK_STYLE[job.growth_outlook ?? '']
+function KpiStrip({ kpis }: { kpis: Record<string, number> }) {
+  const navigate = useNavigate()
+  const stats = [
+    { label: 'Active Jobs',        value: fmt(kpis.active_jobs),                                                      to: '/app/employer/jobs' },
+    { label: 'Total Applications', value: fmt(kpis.total_applications),                                               to: '/app/employer/applicants' },
+    { label: 'Applied Today',      value: fmt(kpis.applications_today),                                               to: undefined },
+    { label: 'Interviews',         value: fmt(kpis.interviews_scheduled),                                             to: '/app/employer/calendar' },
+    { label: 'Offers Sent',        value: fmt(kpis.offers_sent),                                                      to: '/app/employer/offers' },
+    { label: 'Hires',              value: fmt(kpis.hires),                                                            to: undefined },
+    { label: 'Response Rate',      value: `${kpis.response_rate_pct ?? 0}%`,                                         to: undefined },
+    { label: 'Avg. Time to Hire',  value: kpis.avg_time_to_hire_days != null ? `${kpis.avg_time_to_hire_days}d` : '—', to: undefined },
+  ]
 
   return (
     <div style={{
-      background: job.is_active ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.55)',
-      backdropFilter: 'blur(20px)',
-      border: job.is_active ? '1px solid rgba(255,255,255,0.95)' : '1.5px dashed rgba(156,163,175,0.4)',
-      borderRadius: 20, padding: '20px',
-      boxShadow: '0 4px 20px rgba(30,58,95,0.06)',
-      opacity: job.is_active ? 1 : 0.75,
-      transition: 'all 0.25s',
-      display: 'flex', flexDirection: 'column', gap: 14,
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+      gap: 12,
     }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-              background: 'linear-gradient(135deg, rgba(59,130,246,0.1), rgba(147,197,253,0.15))',
-              border: '1px solid rgba(59,130,246,0.1)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 16,
-            }}>💼</div>
-            <div>
-              <h3 style={{ fontFamily: 'Hind, sans-serif', fontSize: 15, fontWeight: 900, color: '#1E3A5F', lineHeight: 1.2 }}>{job.title}</h3>
-              <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 2 }}>
-                {job.sector}{job.job_type ? ` · ${job.job_type}` : ''}{job.location ? ` · ${job.location}` : ''}
-              </p>
+      {stats.map(s => (
+        <div
+          key={s.label}
+          onClick={() => s.to && navigate(s.to)}
+          style={{
+            background: colors.surface.card,
+            border: `1px solid ${colors.border.default}`,
+            borderRadius: radius.lg,
+            boxShadow: shadows.card,
+            padding: '16px 18px',
+            cursor: s.to ? 'pointer' : 'default',
+            transition: 'box-shadow 0.15s, transform 0.15s',
+          }}
+          onMouseOver={e => { if (s.to) { e.currentTarget.style.boxShadow = shadows.cardHover; e.currentTarget.style.transform = 'translateY(-1px)' } }}
+          onMouseOut={e => { e.currentTarget.style.boxShadow = shadows.card; e.currentTarget.style.transform = 'translateY(0)' }}
+        >
+          <p style={{
+            fontSize: 22, fontWeight: 700, color: colors.text.ink,
+            margin: 0, lineHeight: 1,
+            fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.5px',
+          }}>{s.value}</p>
+          <p style={{ fontSize: 11, color: colors.text.muted, margin: '5px 0 0', fontWeight: 500, whiteSpace: 'nowrap' }}>{s.label}</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ── Application Trend (SVG area chart) ────────────────────────────────────────
+
+function ApplicationTrend() {
+  const { data } = useApplicationTrend(30)
+  const series = data?.series ?? []
+  const total  = series.reduce((s, p) => s + p.count, 0)
+  const max    = Math.max(1, ...series.map(p => p.count))
+
+  const W = 520, H = 120, PAD = { t: 10, r: 8, b: 28, l: 36 }
+  const cw = W - PAD.l - PAD.r
+  const ch = H - PAD.t - PAD.b
+
+  const pts = series.map((p, i) => ({
+    x: PAD.l + (series.length < 2 ? cw / 2 : (i / (series.length - 1)) * cw),
+    y: PAD.t + ch - (p.count / max) * ch,
+    count: p.count,
+    date: p.date,
+  }))
+
+  const pathD = pts.length < 2
+    ? ''
+    : pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+
+  const areaD = pts.length < 2
+    ? ''
+    : `${pathD} L${pts[pts.length - 1].x.toFixed(1)},${(PAD.t + ch).toFixed(1)} L${pts[0].x.toFixed(1)},${(PAD.t + ch).toFixed(1)} Z`
+
+  const gridLines = [0, 0.25, 0.5, 0.75, 1].map(r => ({
+    y: PAD.t + ch * (1 - r),
+    label: r === 0 ? '0' : Math.round(max * r).toString(),
+  }))
+
+  const tickCount = Math.min(6, series.length)
+  const tickIndices = series.length < 2 ? [] : Array.from({ length: tickCount }, (_, i) =>
+    Math.round(i * (series.length - 1) / (tickCount - 1))
+  )
+
+  return (
+    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, boxShadow: shadows.card, padding: '18px 20px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
+        <div>
+          <p style={{ fontSize: 13, fontWeight: 600, color: colors.text.ink, margin: 0 }}>Application Trend</p>
+          <p style={{ fontSize: 12, color: colors.text.muted, margin: '2px 0 0' }}>Last 30 days</p>
+        </div>
+        {total > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 20, fontWeight: 700, color: colors.text.ink, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.5px' }}>{fmt(total)}</span>
+            <span style={{ fontSize: 11, color: colors.text.muted }}>total</span>
+          </div>
+        )}
+      </div>
+
+      {series.length < 2 ? (
+        <div style={{ height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <p style={{ fontSize: 12, color: colors.text.muted }}>No applications yet</p>
+        </div>
+      ) : (
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }}>
+          <defs>
+            <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#2563EB" stopOpacity="0.12" />
+              <stop offset="100%" stopColor="#2563EB" stopOpacity="0.01" />
+            </linearGradient>
+          </defs>
+
+          {/* Grid lines */}
+          {gridLines.map(g => (
+            <g key={g.y}>
+              <line x1={PAD.l} y1={g.y} x2={W - PAD.r} y2={g.y} stroke={colors.surface.elevated} strokeWidth="1" />
+              <text x={PAD.l - 6} y={g.y + 4} fontSize="9" fill={colors.text.muted} textAnchor="end">{g.label}</text>
+            </g>
+          ))}
+
+          {/* Area fill */}
+          {areaD && <path d={areaD} fill="url(#areaGrad)" />}
+
+          {/* Line */}
+          {pathD && <path d={pathD} fill="none" stroke="#2563EB" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />}
+
+          {/* X-axis ticks */}
+          {tickIndices.map(idx => {
+            const p = pts[idx]
+            const d = new Date(series[idx].date)
+            const label = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+            return (
+              <text key={idx} x={p.x} y={H - 4} fontSize="9" fill={colors.text.muted} textAnchor="middle">{label}</text>
+            )
+          })}
+        </svg>
+      )}
+    </div>
+  )
+}
+
+// ── Hiring Funnel ─────────────────────────────────────────────────────────────
+
+function HiringFunnel({ kpis }: { kpis: Record<string, number> }) {
+  const stages = [
+    { label: 'Applications', value: kpis.total_applications,    pct: 100 },
+    { label: 'Screened',     value: kpis.interviews_scheduled,  pct: kpis.total_applications > 0 ? Math.round((kpis.interviews_scheduled / kpis.total_applications) * 100) : 0 },
+    { label: 'Offers',       value: kpis.offers_sent,           pct: kpis.total_applications > 0 ? Math.round((kpis.offers_sent / kpis.total_applications) * 100) : 0 },
+    { label: 'Hired',        value: kpis.hires,                 pct: kpis.total_applications > 0 ? Math.round((kpis.hires / kpis.total_applications) * 100) : 0 },
+  ]
+
+  return (
+    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, boxShadow: shadows.card, padding: '18px 20px' }}>
+      <p style={{ fontSize: 13, fontWeight: 600, color: colors.text.ink, margin: '0 0 16px' }}>Hiring Funnel</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {stages.map((s, i) => (
+          <div key={s.label}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+              <span style={{ fontSize: 12, color: colors.text.inkSoft, fontWeight: 500 }}>{s.label}</span>
+              <div style={{ display: 'flex', align: 'center', gap: 10 }}>
+                <span style={{ fontSize: 11, color: colors.text.muted, fontVariantNumeric: 'tabular-nums' }}>{s.pct}%</span>
+                <span style={{ fontSize: 12, fontWeight: 600, color: colors.text.ink, fontVariantNumeric: 'tabular-nums', minWidth: 24, textAlign: 'right' }}>{s.value}</span>
+              </div>
+            </div>
+            <div style={{ height: 5, background: colors.surface.elevated, borderRadius: 99, overflow: 'hidden' }}>
+              <div style={{
+                width: `${s.pct}%`, height: '100%', borderRadius: 99,
+                background: i === 0 ? '#2563EB' : i === 1 ? '#7C3AED' : i === 2 ? '#0891B2' : '#16A34A',
+                transition: 'width 0.6s ease',
+              }} />
             </div>
           </div>
-        </div>
-        {/* Status badge */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-          {job.is_active ? (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: 'rgba(5,150,105,0.08)', border: '1px solid rgba(5,150,105,0.2)', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#059669' }}>
-              <CheckCircle2 size={10} />Active
-            </span>
-          ) : (
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: 'rgba(156,163,175,0.1)', border: '1px solid rgba(156,163,175,0.25)', borderRadius: 20, fontSize: 11, fontWeight: 700, color: '#9CA3AF' }}>
-              <PauseCircle size={10} />Paused
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Skills */}
-      {(job.required_skills ?? []).length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-          {(job.required_skills ?? []).slice(0, 5).map(skill => (
-            <span key={skill} style={{
-              padding: '3px 9px', background: 'rgba(59,130,246,0.06)',
-              border: '1px solid rgba(59,130,246,0.12)',
-              borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#3B82F6',
-            }}>{skill}</span>
-          ))}
-          {(job.required_skills ?? []).length > 5 && (
-            <span style={{ padding: '3px 9px', background: 'rgba(107,114,128,0.06)', border: '1px solid rgba(107,114,128,0.12)', borderRadius: 20, fontSize: 11, color: '#9CA3AF' }}>
-              +{job.required_skills.length - 5}
-            </span>
-          )}
-        </div>
-      )}
-
-      {/* Meta row */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-        {job.employment_type && (
-          <span style={{ padding: '3px 9px', background: 'rgba(59,130,246,0.07)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#3B82F6' }}>
-            {EMPLOYMENT_TYPE_LABELS[job.employment_type as keyof typeof EMPLOYMENT_TYPE_LABELS] ?? job.employment_type}
-          </span>
-        )}
-        {outlook && (
-          <span style={{ padding: '3px 9px', background: outlook.bg, borderRadius: 20, fontSize: 11, fontWeight: 600, color: outlook.color }}>
-            <TrendingUp size={9} style={{ display: 'inline', marginRight: 3 }} />{job.growth_outlook} growth
-          </span>
-        )}
-        {job.min_k_score > 0 && (
-          <span style={{ padding: '3px 9px', background: 'rgba(30,58,95,0.05)', borderRadius: 20, fontSize: 11, fontWeight: 600, color: '#1E3A5F' }}>
-            K-score ≥ {job.min_k_score}
-          </span>
-        )}
-        {formatSalary(job.salary_min, job.salary_max) && (
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#1E3A5F', marginLeft: 'auto' }}>
-            ₹{formatSalary(job.salary_min, job.salary_max)} LPA
-          </span>
-        )}
-      </div>
-
-      {/* Dates */}
-      <div style={{ display: 'flex', gap: 12, fontSize: 11, color: '#9CA3AF' }}>
-        <span>Posted {new Date(job.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-        {job.expires_at && (
-          <span style={{ fontWeight: 600, color: new Date(job.expires_at) < new Date() ? '#DC2626' : '#6B7280' }}>
-            {new Date(job.expires_at) < new Date() ? '⚠ Expired' : `Closes ${new Date(job.expires_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`}
-          </span>
-        )}
-      </div>
-
-      {/* Actions */}
-      <div style={{ display: 'flex', gap: 8, borderTop: '1px solid rgba(59,130,246,0.06)', paddingTop: 14 }}>
-        <button onClick={onToggle} disabled={isToggling} style={{
-          flex: 1, height: 36, borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-          background: 'transparent', border: '1.5px solid rgba(59,130,246,0.2)',
-          color: '#3B82F6', transition: 'all 0.2s',
-        }}
-          onMouseOver={e => e.currentTarget.style.background = 'rgba(59,130,246,0.05)'}
-          onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-        >
-          {isToggling ? (
-            <div style={{ width: 12, height: 12, border: '2px solid #3B82F6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-          ) : job.is_active ? (
-            <><ToggleRight size={13} />Pause</>
-          ) : (
-            <><ToggleLeft size={13} />Activate</>
-          )}
-        </button>
-        <button onClick={onEdit} style={{
-          flex: 1, height: 36, borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-          background: 'rgba(59,130,246,0.07)', border: '1px solid rgba(59,130,246,0.15)',
-          color: '#3B82F6', transition: 'all 0.2s',
-        }}
-          onMouseOver={e => e.currentTarget.style.background = 'rgba(59,130,246,0.12)'}
-          onMouseOut={e => e.currentTarget.style.background = 'rgba(59,130,246,0.07)'}
-        >
-          <Pencil size={12} />Edit
-        </button>
-        <button onClick={onDelete} style={{
-          height: 36, width: 36, borderRadius: 10, cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'transparent', border: '1px solid rgba(220,38,38,0.2)',
-          color: '#DC2626', transition: 'all 0.2s', flexShrink: 0,
-        }}
-          onMouseOver={e => e.currentTarget.style.background = 'rgba(220,38,38,0.05)'}
-          onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-        >
-          <Trash2 size={13} />
-        </button>
+        ))}
       </div>
     </div>
   )
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
-export default function EmployerDashboardPage() {
-  const { data, isLoading } = useEmployerDashboard()
-  const createJob  = useCreateJob()
-  const updateJob  = useUpdateJob()
-  const toggleJob  = useToggleJob()
-  const deleteJob  = useDeleteJob()
-  const logout     = useLogout()
-  const [view, setView] = useState<View>('list')
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
-  const [togglingId, setTogglingId] = useState<string | null>(null)
+// ── Departments table ─────────────────────────────────────────────────────────
 
-  const handleCreate = (payload: JobPostingPayload) => {
-    createJob.mutate(payload, { onSuccess: () => setView('list') })
-  }
-
-  const handleUpdate = (id: string, payload: JobPostingPayload) => {
-    updateJob.mutate({ id, data: payload }, { onSuccess: () => setView('list') })
-  }
-
-  const handleDelete = (id: string) => {
-    deleteJob.mutate(id, { onSuccess: () => setConfirmDelete(null) })
-  }
-
-  const handleToggle = async (id: string) => {
-    setTogglingId(id)
-    try { await toggleJob.mutateAsync(id) }
-    finally { setTogglingId(null) }
-  }
+function DepartmentsTable() {
+  const { data: departments } = useDepartments()
+  const navigate = useNavigate()
+  if (!departments?.length) return null
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, #F0F7FF 0%, #FFFFFF 55%, #EFF6FF 100%)', display: 'flex' }}>
-
-      {/* ── Sidebar ── */}
-      {data && (
-        <Sidebar
-          companyName={data.company_name}
-          totalJobs={data.total_jobs}
-          activeJobs={data.active_jobs}
-          isApproved={data.is_approved}
-          onNewJob={() => setView('new')}
-          logout={() => logout.mutate()}
-          view={view}
-        />
-      )}
-
-      {/* ── Main content ── */}
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-
-        {/* Top bar */}
-        <header style={{
-          background: 'rgba(255,255,255,0.82)', backdropFilter: 'blur(16px)',
-          borderBottom: '1px solid rgba(59,130,246,0.08)',
-          padding: '0 32px', height: 64,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          position: 'sticky', top: 0, zIndex: 20,
-          boxShadow: '0 2px 16px rgba(30,58,95,0.04)',
+    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, boxShadow: shadows.card, overflow: 'hidden' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '14px 20px', borderBottom: `1px solid ${colors.border.default}`,
+      }}>
+        <p style={{ fontSize: 13, fontWeight: 600, color: colors.text.ink, margin: 0 }}>
+          Departments <span style={{ fontSize: 11, color: colors.text.muted, fontWeight: 400, marginLeft: 4 }}>{departments.length}</span>
+        </p>
+        <Link to="/app/employer/departments" style={{
+          display: 'flex', alignItems: 'center', gap: 3,
+          fontSize: 12, color: colors.state.info, fontWeight: 500, textDecoration: 'none',
         }}>
-          <div>
-            <h1 style={{ fontFamily: 'Hind, sans-serif', fontSize: 18, fontWeight: 900, color: '#1E3A5F' }}>
-              {view === 'list' ? 'Job Postings' : view === 'new' ? 'New Job Posting' : 'Edit Job Posting'}
-            </h1>
-            <p style={{ fontSize: 12, color: '#9CA3AF' }}>
-              {view === 'list'
-                ? `${data?.active_jobs ?? 0} active · ${data?.total_jobs ?? 0} total`
-                : 'Fill in the details below'}
-            </p>
-          </div>
-          {data?.is_approved && view === 'list' && (
-            <button onClick={() => setView('new')} style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '9px 18px', borderRadius: 11,
-              background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
-              color: 'white', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer',
-              boxShadow: '0 4px 14px rgba(59,130,246,0.3)', transition: 'all 0.2s',
-            }}
-              onMouseOver={e => e.currentTarget.style.opacity = '0.9'}
-              onMouseOut={e => e.currentTarget.style.opacity = '1'}
-            >
-              <Plus size={15} />Post a Job
-            </button>
-          )}
-          {view !== 'list' && (
-            <button onClick={() => setView('list')} style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10,
-              background: 'rgba(107,114,128,0.07)', border: '1px solid rgba(107,114,128,0.15)',
-              color: '#6B7280', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            }}>
-              <X size={14} />Cancel
-            </button>
-          )}
-        </header>
-
-        <main style={{ padding: '28px 32px', flex: 1 }}>
-
-          {isLoading && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-              <div style={{ width: 40, height: 40, border: '3px solid rgba(59,130,246,0.2)', borderTopColor: '#3B82F6', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-            </div>
-          )}
-
-          {data && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-
-              {/* ── Pending banner ── */}
-              {!data.is_approved && (
-                <div style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 14,
-                  background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)',
-                  borderRadius: 20, padding: '18px 22px',
-                  boxShadow: '0 2px 12px rgba(245,158,11,0.08)',
-                }}>
-                  <div style={{ width: 38, height: 38, borderRadius: 11, background: 'rgba(245,158,11,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Clock size={18} color="#D97706" />
-                  </div>
-                  <div>
-                    <p style={{ fontSize: 14, fontWeight: 700, color: '#92400E' }}>Account pending approval</p>
-                    <p style={{ fontSize: 13, color: '#B45309', marginTop: 3, lineHeight: 1.5 }}>
-                      Our team is reviewing your registration. You'll be able to post jobs once approved (24–48 hrs).
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* ── Hero banner ── */}
-              {view === 'list' && (
-                <div style={{
-                  background: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 60%, #E0F2FE 100%)',
-                  borderRadius: 24, padding: '28px 32px', position: 'relative', overflow: 'hidden',
-                  border: '1px solid rgba(59,130,246,0.15)',
-                  boxShadow: '0 4px 24px rgba(59,130,246,0.08)',
-                }}>
-                  <div style={{ position: 'absolute', width: 280, height: 280, borderRadius: '50%', background: 'rgba(59,130,246,0.06)', top: '-80px', right: '-60px' }} />
-                  <div style={{ position: 'absolute', width: 160, height: 160, borderRadius: '50%', background: 'rgba(99,102,241,0.04)', bottom: '-40px', left: '30%' }} />
-                  <div style={{ position: 'relative', zIndex: 1 }}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 20, padding: '4px 12px', marginBottom: 12 }}>
-                      <Building2 size={12} color="#3B82F6" />
-                      <span style={{ fontSize: 12, fontWeight: 600, color: '#3B82F6' }}>Employer Portal</span>
-                    </div>
-                    <h2 style={{ fontFamily: 'Hind, sans-serif', fontSize: 26, fontWeight: 900, color: '#1E3A5F', letterSpacing: '-0.5px', marginBottom: 6 }}>
-                      Welcome, {data.company_name} 👋
-                    </h2>
-                    <p style={{ fontSize: 14, color: '#475569', lineHeight: 1.6 }}>
-                      Reach <strong style={{ color: '#1E3A5F' }}>UPSC-prepared talent</strong> with high career readiness scores
-                    </p>
-                    <div style={{ display: 'flex', gap: 20, marginTop: 20 }}>
-                      {[
-                        { label: 'Total Jobs', value: data.total_jobs },
-                        { label: 'Active', value: data.active_jobs },
-                        { label: 'Paused', value: data.total_jobs - data.active_jobs },
-                      ].map(s => (
-                        <div key={s.label} style={{ textAlign: 'center', background: 'rgba(255,255,255,0.7)', borderRadius: 14, padding: '10px 16px', border: '1px solid rgba(59,130,246,0.1)' }}>
-                          <div style={{ fontSize: 26, fontWeight: 900, color: '#1E3A5F', fontFamily: 'Hind, sans-serif', lineHeight: 1 }}>{s.value}</div>
-                          <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 3 }}>{s.label}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ── Form views ── */}
-              {view === 'new' && (
-                <div style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.95)', borderRadius: 24, padding: 32, boxShadow: '0 8px 32px rgba(30,58,95,0.08)' }}>
-                  <JobForm
-                    onSubmit={handleCreate}
-                    loading={createJob.isPending}
-                    onCancel={() => setView('list')}
-                  />
-                  {createJob.error && (
-                    <p style={{ fontSize: 13, color: '#DC2626', marginTop: 12 }}>
-                      {getApiError(createJob.error, 'Could not save. Try again.')}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {typeof view === 'object' && 'edit' in view && (
-                <div style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.95)', borderRadius: 24, padding: 32, boxShadow: '0 8px 32px rgba(30,58,95,0.08)' }}>
-                  <JobForm
-                    initial={view.edit}
-                    onSubmit={(payload) => handleUpdate(view.edit.id, payload)}
-                    loading={updateJob.isPending}
-                    onCancel={() => setView('list')}
-                  />
-                  {updateJob.error && (
-                    <p style={{ fontSize: 13, color: '#DC2626', marginTop: 12 }}>
-                      {getApiError(updateJob.error, 'Could not save. Try again.')}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* ── Job grid ── */}
-              {view === 'list' && (
-                <>
-                  {data.jobs.length === 0 ? (
-                    <div style={{
-                      background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(20px)',
-                      border: '1px solid rgba(255,255,255,0.95)', borderRadius: 24,
-                      padding: '52px 24px', textAlign: 'center',
-                      boxShadow: '0 4px 20px rgba(30,58,95,0.06)',
-                    }}>
-                      <div style={{ width: 64, height: 64, borderRadius: 20, background: 'rgba(59,130,246,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: 28 }}>📋</div>
-                      <p style={{ fontSize: 16, fontWeight: 700, color: '#1E3A5F', marginBottom: 6 }}>No job postings yet</p>
-                      <p style={{ fontSize: 13, color: '#9CA3AF', marginBottom: 24 }}>Post your first job to start reaching UPSC aspirants</p>
-                      {data.is_approved && (
-                        <button onClick={() => setView('new')} style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 8,
-                          padding: '11px 24px', borderRadius: 12, fontSize: 14, fontWeight: 700,
-                          background: 'linear-gradient(135deg, #3B82F6, #1D4ED8)',
-                          color: '#fff', border: 'none', cursor: 'pointer',
-                          boxShadow: '0 4px 14px rgba(59,130,246,0.3)',
-                        }}>
-                          <Plus size={15} />Post your first job
-                        </button>
-                      )}
-                    </div>
-                  ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16 }}>
-                      {data.jobs.map(job => (
-                        <JobCard
-                          key={job.id}
-                          job={job}
-                          onEdit={() => setView({ edit: job })}
-                          onToggle={() => handleToggle(job.id)}
-                          onDelete={() => setConfirmDelete(job.id)}
-                          isToggling={togglingId === job.id}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-        </main>
+          Manage <ChevronRight size={12} />
+        </Link>
       </div>
 
-      {/* ── Delete confirm modal ── */}
-      {confirmDelete && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(30,58,95,0.35)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}>
-          <div style={{ background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(20px)', borderRadius: 24, padding: 28, maxWidth: 380, width: '100%', boxShadow: '0 24px 60px rgba(30,58,95,0.2)' }}>
-            <div style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(220,38,38,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 0 16px', fontSize: 24 }}>🗑</div>
-            <h3 style={{ fontFamily: 'Hind, sans-serif', fontSize: 18, fontWeight: 900, color: '#1E3A5F', marginBottom: 8 }}>Delete job posting?</h3>
-            <p style={{ fontSize: 14, color: '#6B7280', marginBottom: 24 }}>This action cannot be undone. The listing will be permanently removed.</p>
-            <div style={{ display: 'flex', gap: 12 }}>
-              <button
-                onClick={() => setConfirmDelete(null)}
-                style={{ flex: 1, height: 44, borderRadius: 12, border: '1.5px solid rgba(59,130,246,0.2)', fontSize: 14, fontWeight: 600, color: '#374151', background: 'none', cursor: 'pointer', transition: 'all 0.2s' }}
-                onMouseOver={e => e.currentTarget.style.background = 'rgba(107,114,128,0.05)'}
-                onMouseOut={e => e.currentTarget.style.background = 'none'}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleDelete(confirmDelete)}
-                disabled={deleteJob.isPending}
-                style={{ flex: 1, height: 44, borderRadius: 12, background: 'linear-gradient(135deg, #DC2626, #B91C1C)', color: '#fff', fontSize: 14, fontWeight: 700, border: 'none', cursor: deleteJob.isPending ? 'not-allowed' : 'pointer', opacity: deleteJob.isPending ? 0.6 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
-              >
-                {deleteJob.isPending ? (
-                  <><div style={{ width: 14, height: 14, border: '2px solid white', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />Deleting…</>
-                ) : (
-                  <><Trash2 size={14} />Delete</>
-                )}
-              </button>
-            </div>
+      {/* Narrower than ~500px, this table scrolls horizontally rather than
+          squishing columns or overflowing the card — standard pattern for
+          tabular data that doesn't reflow into a single column sensibly. */}
+      <div style={{ overflowX: 'auto' }}>
+        <div style={{ minWidth: 500 }}>
+          {/* Table header */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: '1fr 140px 90px 90px 90px',
+            padding: '8px 20px', background: colors.surface.bg,
+            borderBottom: `1px solid ${colors.border.default}`,
+          }}>
+            {['Department', 'Head', 'Members', 'Active Jobs', 'Applicants'].map(col => (
+              <span key={col} style={{ fontSize: 11, fontWeight: 600, color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{col}</span>
+            ))}
           </div>
+
+          {departments.map((d, i) => (
+            <div
+              key={d.id}
+              onClick={() => navigate(`/app/employer/departments/${d.id}`)}
+              style={{
+                display: 'grid', gridTemplateColumns: '1fr 140px 90px 90px 90px',
+                padding: '11px 20px',
+                borderBottom: i < departments.length - 1 ? `1px solid ${colors.surface.bg}` : 'none',
+                cursor: 'pointer', transition: 'background 0.1s',
+                alignItems: 'center',
+              }}
+              onMouseOver={e => { e.currentTarget.style.background = '#F4F5F7' }}
+              onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: 6,
+                  background: colors.surface.elevated,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Building2 size={13} color={colors.text.muted} />
+                </div>
+                <span style={{ fontSize: 13, fontWeight: 500, color: colors.text.ink }}>{d.name}</span>
+              </div>
+              <span style={{ fontSize: 12, color: colors.text.muted }}>{d.head_name ?? '—'}</span>
+              <span style={{ fontSize: 13, fontWeight: 500, color: colors.text.inkSoft, fontVariantNumeric: 'tabular-nums' }}>{d.member_count}</span>
+              <span style={{ fontSize: 13, fontWeight: 500, color: colors.text.inkSoft, fontVariantNumeric: 'tabular-nums' }}>{d.active_job_count}</span>
+              <span style={{ fontSize: 13, fontWeight: 500, color: colors.text.inkSoft, fontVariantNumeric: 'tabular-nums' }}>{d.total_applicant_count}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Upcoming Interviews ────────────────────────────────────────────────────────
+
+function UpcomingInterviews() {
+  const { data: interviews } = useUpcomingInterviews(5)
+
+  return (
+    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, boxShadow: shadows.card, overflow: 'hidden' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '14px 18px', borderBottom: `1px solid ${colors.border.default}`,
+      }}>
+        <p style={{ fontSize: 13, fontWeight: 600, color: colors.text.ink, margin: 0 }}>Upcoming Interviews</p>
+        <Link to="/app/employer/calendar" style={{
+          display: 'flex', alignItems: 'center', gap: 3,
+          fontSize: 12, color: colors.state.info, fontWeight: 500, textDecoration: 'none',
+        }}>
+          Calendar <ChevronRight size={12} />
+        </Link>
+      </div>
+
+      {!interviews?.length ? (
+        <div style={{ padding: '24px 18px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <p style={{ fontSize: 12, color: colors.text.muted, margin: 0 }}>No upcoming interviews</p>
+        </div>
+      ) : (
+        interviews.map((iv, i) => {
+          const d = new Date(iv.scheduled_at)
+          const timeStr = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+          return (
+            <div key={iv.id} style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '10px 18px',
+              borderBottom: i < interviews.length - 1 ? `1px solid ${colors.surface.bg}` : 'none',
+            }}>
+              <div style={{
+                width: 34, height: 34, borderRadius: 7,
+                background: colors.state.infoBg,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#1D4ED8', lineHeight: 1 }}>{d.getDate()}</span>
+                <span style={{ fontSize: 9, color: '#93C5FD', fontWeight: 600, textTransform: 'uppercase' }}>
+                  {d.toLocaleString('en-IN', { month: 'short' })}
+                </span>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 13, fontWeight: 500, color: colors.text.ink, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{iv.candidate_name ?? 'Candidate'}</p>
+                <p style={{ fontSize: 11, color: colors.text.muted, margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{iv.job_title}</p>
+              </div>
+              <span style={{ fontSize: 11, color: colors.text.muted, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{timeStr}</span>
+            </div>
+          )
+        })
+      )}
+    </div>
+  )
+}
+
+// ── Action Items ──────────────────────────────────────────────────────────────
+
+function ActionItems({ kpis }: { kpis: Record<string, number> }) {
+  const navigate = useNavigate()
+
+  const items: { label: string; count: number; to: string; color: string }[] = []
+  if (kpis.draft_jobs > 0)          items.push({ label: 'draft jobs to publish', count: kpis.draft_jobs,           to: '/app/employer/jobs',     color: '#7C3AED' })
+  if (kpis.interviews_scheduled > 0) items.push({ label: 'interviews scheduled',  count: kpis.interviews_scheduled, to: '/app/employer/calendar', color: '#D97706' })
+  if (kpis.offers_sent > 0)          items.push({ label: 'offers pending response',count: kpis.offers_sent,         to: '/app/employer/offers',   color: '#0891B2' })
+
+  return (
+    <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, boxShadow: shadows.card, overflow: 'hidden' }}>
+      <div style={{ padding: '14px 18px', borderBottom: `1px solid ${colors.border.default}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <p style={{ fontSize: 13, fontWeight: 600, color: colors.text.ink, margin: 0 }}>Action Items</p>
+        <span style={{ fontSize: 11, color: colors.text.muted }}>Needs attention</span>
+      </div>
+
+      {items.length === 0 ? (
+        <div style={{ padding: '18px', display: 'flex', alignItems: 'center', gap: 9 }}>
+          <CheckCircle2 size={15} color="#16A34A" />
+          <p style={{ fontSize: 12, color: colors.text.muted, margin: 0 }}>All caught up</p>
+        </div>
+      ) : (
+        items.map((item, i) => (
+          <div
+            key={i}
+            onClick={() => navigate(item.to)}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '11px 18px',
+              borderBottom: i < items.length - 1 ? `1px solid ${colors.surface.bg}` : 'none',
+              cursor: 'pointer', transition: 'background 0.1s',
+            }}
+            onMouseOver={e => { e.currentTarget.style.background = '#F4F5F7' }}
+            onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                minWidth: 22, height: 20, borderRadius: 4,
+                background: `${item.color}15`, color: item.color,
+                fontSize: 11, fontWeight: 700, padding: '0 5px',
+                fontVariantNumeric: 'tabular-nums',
+              }}>{item.count}</span>
+              <span style={{ fontSize: 12, color: colors.text.inkSoft }}>{item.label}</span>
+            </div>
+            <ArrowUpRight size={13} color={colors.text.muted} />
+          </div>
+        ))
+      )}
+    </div>
+  )
+}
+
+// ── Verification banner ───────────────────────────────────────────────────────
+
+function VerificationBanner() {
+  return (
+    <AlertBanner
+      variant="warning"
+      title="Verification pending"
+      message="Job posting is locked until your company documents are submitted."
+      action={
+        <Link to="/app/employer/verification" style={{
+          padding: '5px 12px', borderRadius: 6,
+          background: colors.state.warning, color: 'white',
+          fontSize: 12, fontWeight: 600, textDecoration: 'none',
+        }}>
+          Start verification
+        </Link>
+      }
+    />
+  )
+}
+
+// ── Setup Banner ──────────────────────────────────────────────────────────────
+
+function SetupBanner() {
+  const { data: company } = useCompanyProfile()
+  const [dismissed, setDismissed] = useState(() => sessionStorage.getItem('setup_banner_v2') === '1')
+  if (!company || company.industry || dismissed) return null
+
+  return (
+    <AlertBanner
+      variant="info"
+      title="Complete your company profile"
+      message="Add industry, logo, and description to attract stronger candidates."
+      action={
+        <Link to="/app/employer/setup" style={{
+          padding: '5px 12px', borderRadius: 6,
+          background: colors.state.info, color: 'white',
+          fontSize: 12, fontWeight: 600, textDecoration: 'none',
+        }}>
+          Complete
+        </Link>
+      }
+      onDismiss={() => { sessionStorage.setItem('setup_banner_v2', '1'); setDismissed(true) }}
+    />
+  )
+}
+
+// ── Skeleton — uses shared SkeletonCard, no local keyframes ──────────────────
+
+function DashboardSkeleton() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <SkeletonCard lines={2} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+        <SkeletonCard lines={4} />
+        <SkeletonCard lines={4} />
+      </div>
+      <SkeletonCard lines={5} />
+    </div>
+  )
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+export default function EmployerDashboardPage() {
+  const { data, isLoading, isError, refetch } = useEmployerDashboard()
+  const { data: kpis, isLoading: kL }         = useDashboardKpis()
+  const navigate                              = useNavigate()
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+      <PageHeader title="Dashboard" subtitle="Your hiring activity at a glance" />
+
+      <main style={{ padding: '20px 28px', background: colors.surface.bg, minHeight: '100%', flex: 1 }}>
+
+      {(isLoading || kL) ? <DashboardSkeleton /> : (isError || !data) ? (
+        <ErrorState title="Could not load dashboard" description="There was an error loading your dashboard data." onRetry={refetch} />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 1280 }}>
+
+          {/* Banners */}
+          {!data.is_approved && <VerificationBanner />}
+          <SetupBanner />
+
+          {/* Post a Job action */}
+          {data.is_approved && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Button size="sm" onClick={() => navigate('/app/employer/jobs')}>
+                <Plus size={13} strokeWidth={2.5} />Post a Job
+              </Button>
+            </div>
+          )}
+
+          {/* KPI strip */}
+          {kpis && <KpiStrip kpis={kpis as unknown as Record<string, number>} />}
+
+          {/* Charts row */}
+          {kpis && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+              <ApplicationTrend />
+              <HiringFunnel kpis={kpis as unknown as Record<string, number>} />
+            </div>
+          )}
+
+          {/* Departments */}
+          <DepartmentsTable />
+
+          {/* Bottom row */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
+            {kpis && <ActionItems kpis={kpis as unknown as Record<string, number>} />}
+            <UpcomingInterviews />
+          </div>
+
         </div>
       )}
-      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      </main>
     </div>
   )
 }

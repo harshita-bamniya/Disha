@@ -447,7 +447,7 @@ The semantic score correctly distinguishes the policy role from the banking/tech
 docker compose exec backend alembic upgrade head
 
 # Verify
-docker compose exec postgres psql -U disha -d disha_db \
+docker compose exec postgres psql -U beginablai -d beginablai_db \
   -c "\d job_postings" | grep embedding
 ```
 

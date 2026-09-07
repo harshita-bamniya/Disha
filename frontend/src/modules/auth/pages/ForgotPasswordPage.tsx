@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { authApi } from '@/api/auth'
 import { getApiError } from '@/api/client'
+import { getRecaptchaToken } from '@/lib/recaptcha'
 
 type Step = 'phone' | 'reset' | 'done'
 
@@ -34,7 +35,8 @@ export default function ForgotPasswordPage() {
 
     setLoading(true)
     try {
-      const res = await authApi.forgotPassword(phone)
+      const recaptcha_token = await getRecaptchaToken('forgot_password')
+      const res = await authApi.forgotPassword(phone, recaptcha_token)
       if (res.dev_otp) setDevOtp(res.dev_otp)
       setStep('reset')
     } catch (err: any) {
@@ -69,7 +71,7 @@ export default function ForgotPasswordPage() {
   // ── Done ─────────────────────────────────────────────────────────────────────
   if (step === 'done') {
     return (
-      <AuthLayout title="Password reset!" subtitle="You can now log in with your new password.">
+      <AuthLayout title="Password reset!" subtitle="You can now log in with your new password." variant="forgot-password">
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, padding: '8px 0' }}>
           <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(5,150,105,0.1)', border: '2px solid rgba(5,150,105,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <CheckCircle2 size={28} color="#059669" />
@@ -88,12 +90,11 @@ export default function ForgotPasswordPage() {
   // ── Step 1: Phone input ───────────────────────────────────────────────────────
   if (step === 'phone') {
     return (
-      <AuthLayout title="Forgot password?" subtitle="Enter your registered phone number and we'll send an OTP.">
+      <AuthLayout title="Forgot password?" subtitle="Enter your registered phone number and we'll send an OTP." variant="forgot-password">
         <form onSubmit={handleSendOtp} className="flex flex-col gap-4">
           <Input
             label="Phone number"
             type="tel"
-            placeholder="9876543210"
             value={phone}
             onChange={e => setPhone(e.target.value)}
             error={fieldErrors.phone}
@@ -126,7 +127,7 @@ export default function ForgotPasswordPage() {
 
   // ── Step 2: OTP + new password ───────────────────────────────────────────────
   return (
-    <AuthLayout title="Set new password" subtitle={`Enter the OTP sent to +91 ${phone}`}>
+    <AuthLayout title="Set new password" subtitle={`Enter the OTP sent to +91 ${phone}`} variant="forgot-password">
       <form onSubmit={handleReset} className="flex flex-col gap-4">
 
         {devOtp && (
@@ -156,6 +157,7 @@ export default function ForgotPasswordPage() {
           onChange={e => setNewPassword(e.target.value)}
           error={fieldErrors.newPassword}
           prefix={<Lock className="w-4 h-4" />}
+          maxLength={128}
         />
 
         <Input
@@ -166,6 +168,7 @@ export default function ForgotPasswordPage() {
           onChange={e => setConfirmPassword(e.target.value)}
           error={fieldErrors.confirmPassword}
           prefix={<Lock className="w-4 h-4" />}
+          maxLength={128}
         />
 
         {error && (

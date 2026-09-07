@@ -1,10 +1,21 @@
 export type Language = 'en' | 'hi'
-export type UserRole = 'aspirant' | 'admin' | 'super_admin' | 'employer'
+export type UserRole =
+  | 'aspirant' | 'admin' | 'super_admin' | 'employer'
+  | 'moderator' | 'verification_officer' | 'finance_manager' | 'support_executive'
+  | 'employer_owner' | 'hr_manager' | 'recruiter' | 'interviewer'
+
+export const PLATFORM_ADMIN_ROLES: UserRole[] = [
+  'admin', 'super_admin', 'moderator', 'verification_officer', 'finance_manager', 'support_executive',
+]
+
+export const EMPLOYER_ROLES: UserRole[] = [
+  'employer', 'employer_owner', 'hr_manager', 'recruiter', 'interviewer', 'hiring_manager',
+]
 export type CompanySize = '1-10' | '11-50' | '51-200' | '201-500' | '501-1000' | '1000+'
 
 export interface User {
   id: string
-  phone: string
+  phone: string | null
   email?: string
   role: UserRole
   preferred_language: Language
@@ -29,14 +40,12 @@ export type Qualification = 'graduate' | 'post_graduate' | 'doctorate' | 'diplom
 export type UpscExam = 'cse' | 'capf' | 'cds' | 'ies' | 'cms' | 'state_pcs' | 'other'
 export type UpscStage = 'none' | 'prelims' | 'mains' | 'interview'
 
-// Step 7 — Psychological Assessment
+// Learning setup — one-time, asked before first roadmap/plan generation
 export type BurnoutLevel = 'fresh' | 'somewhat_tired' | 'exhausted' | 'burnt_out'
 export type ConfidenceLevel = 'very_confident' | 'reasonably_confident' | 'somewhat_unsure' | 'very_anxious'
-export type FinancialPressure = 'no_rush' | 'some_pressure' | 'significant_pressure' | 'urgent'
-export type RiskTolerance = 'low' | 'medium' | 'high'
-export type MotivationType = 'intrinsic' | 'extrinsic' | 'mixed'
-export type IdentityAttachment = 'low' | 'medium' | 'high'
-export type SupportSystem = 'strong' | 'moderate' | 'weak'
+export type SkillProficiency = 'beginner' | 'intermediate' | 'advanced'
+export type LearningFormat = 'video' | 'reading' | 'hands_on' | 'mixed'
+export type LearningChallenge = 'motivation' | 'understanding_concepts' | 'getting_started' | 'applying_practically'
 
 export interface OnboardingStatus {
   current_step: number
@@ -47,5 +56,5 @@ export interface StepSavedResponse {
   message: string
   current_step: number
   is_completed: boolean
-  disha_insight?: string | null
+  beginablai_insight?: string | null
 }

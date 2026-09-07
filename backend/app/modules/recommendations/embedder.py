@@ -47,12 +47,24 @@ def embed(text: str) -> list[float] | None:
     if model is None:
         return None
     try:
-        # fastembed returns a generator; take the first (and only) result
         vec = next(model.embed([text]))
         return vec.tolist()
     except Exception as exc:
         logger.warning(f"[EMBEDDER] embed() failed: {exc}")
         return None
+
+
+def embed_batch(texts: list[str]) -> list[list[float] | None]:
+    """Embed a list of texts in one model pass. Returns parallel list of vectors."""
+    model = _get_model()
+    if model is None:
+        return [None] * len(texts)
+    try:
+        vecs = list(model.embed(texts))
+        return [v.tolist() for v in vecs]
+    except Exception as exc:
+        logger.warning(f"[EMBEDDER] embed_batch() failed: {exc}")
+        return [None] * len(texts)
 
 
 def cosine_similarity(a: list[float] | np.ndarray, b: list[float] | np.ndarray) -> float:
@@ -92,7 +104,7 @@ def build_job_text(job) -> str:
     return " ".join(parts)
 
 
-def build_user_text(profile, psych=None) -> str:
+def build_user_text(profile) -> str:
     """
     Convert structured aspirant profile data into a natural-language paragraph
     that captures UPSC background, education, work experience, skills, and preferences.
@@ -147,24 +159,5 @@ def build_user_text(profile, psych=None) -> str:
     sectors = profile.preferred_sectors or []
     if sectors:
         parts.append(f"Interested in: {', '.join(sectors[:4])}.")
-
-    # Psychological layer (optional — adds nuance to the embedding)
-    if psych:
-        if psych.motivation_type:
-            label = {
-                "intrinsic": "driven by personal satisfaction and meaningful work",
-                "extrinsic": "motivated by recognition, salary, and career impact",
-                "mixed": "motivated by both purpose and external recognition",
-            }.get(psych.motivation_type, psych.motivation_type)
-            parts.append(f"Motivation: {label}.")
-        if psych.risk_tolerance:
-            label = {
-                "low": "prefers stability and predictability",
-                "medium": "open to calculated risks",
-                "high": "willing to take bold career moves",
-            }.get(psych.risk_tolerance, psych.risk_tolerance)
-            parts.append(f"Risk appetite: {label}.")
-        if psych.support_system:
-            parts.append(f"Support system: {psych.support_system}.")
 
     return " ".join(parts)

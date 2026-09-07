@@ -1,0 +1,42 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "BeginablAI Backend",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"],
+      "port": 8000,
+      "cwd": "backend"
+    },
+    {
+      "name": "BeginablAI Frontend Local",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5173,
+      "cwd": "frontend"
+    },
+    {
+      "name": "Frontend Dev Server",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5180,
+      "cwd": "frontend",
+      "autoPort": true
+    },
+    {
+      "name": "BeginablAI Frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5181,
+      "cwd": "frontend",
+      "autoPort": true
+    },
+    {
+      "name": "VayuShield",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "cd /d E:\\GalaxyWeblinks\\Hackathon\\vayushield-ai\\frontend && npm run dev -- --port 5182 --host"],
+      "port": 5182,
+      "autoPort": true
+    }
+  ]
+}

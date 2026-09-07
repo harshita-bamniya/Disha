@@ -1,23 +1,24 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 import re
 
 
 # ── Request schemas ───────────────────────────────────────────────────────────
 
 class RegisterRequest(BaseModel):
-    phone: str
+    email: str
     password: str
     preferred_language: str = "hi"
+    recaptcha_token: str | None = None
 
-    @field_validator("phone")
+    @field_validator("email")
     @classmethod
-    def validate_phone(cls, v: str) -> str:
-        cleaned = re.sub(r"\D", "", v)
-        if cleaned.startswith("91") and len(cleaned) == 12:
-            cleaned = cleaned[2:]
-        if not re.match(r"^[6-9]\d{9}$", cleaned):
-            raise ValueError("Enter a valid 10-digit Indian mobile number")
-        return cleaned
+    def validate_email(cls, v: str) -> str:
+        v = v.strip().lower()
+        if not v:
+            raise ValueError("Email address is required")
+        if not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", v):
+            raise ValueError("Enter a valid email address")
+        return v
 
     @field_validator("password")
     @classmethod
@@ -25,6 +26,8 @@ class RegisterRequest(BaseModel):
         errors = []
         if len(v) < 8:
             errors.append("at least 8 characters")
+        if len(v) > 128:
+            raise ValueError("Password must not exceed 128 characters")
         if not re.search(r"[A-Z]", v):
             errors.append("one uppercase letter")
         if not re.search(r"[a-z]", v):
@@ -46,16 +49,9 @@ class RegisterRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    phone: str
+    identifier: str  # phone number OR email address
     password: str
-
-    @field_validator("phone")
-    @classmethod
-    def validate_phone(cls, v: str) -> str:
-        cleaned = re.sub(r"\D", "", v)
-        if cleaned.startswith("91") and len(cleaned) == 12:
-            cleaned = cleaned[2:]
-        return cleaned
+    recaptcha_token: str | None = None
 
 
 class VerifyPhoneRequest(BaseModel):
@@ -65,7 +61,10 @@ class VerifyPhoneRequest(BaseModel):
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, v: str) -> str:
-        return re.sub(r"\D", "", v)
+        cleaned = re.sub(r"\D", "", v)
+        if cleaned.startswith("91") and len(cleaned) == 12:
+            cleaned = cleaned[2:]
+        return cleaned
 
     @field_validator("otp")
     @classmethod
@@ -82,7 +81,10 @@ class SendOtpRequest(BaseModel):
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, v: str) -> str:
-        return re.sub(r"\D", "", v)
+        cleaned = re.sub(r"\D", "", v)
+        if cleaned.startswith("91") and len(cleaned) == 12:
+            cleaned = cleaned[2:]
+        return cleaned
 
     @field_validator("purpose")
     @classmethod
@@ -92,18 +94,66 @@ class SendOtpRequest(BaseModel):
         return v
 
 
+class VerifyEmailOtpRequest(BaseModel):
+    """Verifies the OTP emailed during registration (aspirants no longer
+    provide a phone number until after this step)."""
+    email: str
+    otp: str
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        return v.strip().lower()
+
+    @field_validator("otp")
+    @classmethod
+    def validate_otp(cls, v: str) -> str:
+        if not re.match(r"^\d{6}$", v):
+            raise ValueError("OTP must be 6 digits")
+        return v
+
+
+class ResendEmailOtpRequest(BaseModel):
+    email: str
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        return v.strip().lower()
+
+
+class AddPhoneRequest(BaseModel):
+    """Collects the phone number right after email verification. Not SMS-
+    verified — just stored (phone_verified stays false)."""
+    phone: str
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        cleaned = re.sub(r"\D", "", v)
+        if cleaned.startswith("91") and len(cleaned) == 12:
+            cleaned = cleaned[2:]
+        if not re.match(r"^[6-9]\d{9}$", cleaned):
+            raise ValueError("Enter a valid 10-digit Indian mobile number")
+        return cleaned
+
+
 class EmployerRegisterRequest(BaseModel):
+    """Minimal employer signup — everything else (industry, size, contact
+    person, GST, branding, verification docs) is collected later via the
+    post-login setup wizard, which every step of can be skipped."""
     phone: str
     password: str
     company_name: str
-    industry: str
-    company_size: str
-    contact_person: str
-    city: str
+    industry: str | None = None
+    company_size: str | None = None
+    contact_person: str | None = None
+    city: str | None = None
     website: str | None = None
     gst_number: str | None = None
     designation: str | None = None
     description: str | None = None
+    recaptcha_token: str | None = None
 
     @field_validator("phone")
     @classmethod
@@ -121,6 +171,8 @@ class EmployerRegisterRequest(BaseModel):
         errors = []
         if len(v) < 8:
             errors.append("at least 8 characters")
+        if len(v) > 128:
+            raise ValueError("Password must not exceed 128 characters")
         if not re.search(r"[A-Z]", v):
             errors.append("one uppercase letter")
         if not re.search(r"[a-z]", v):
@@ -135,18 +187,24 @@ class EmployerRegisterRequest(BaseModel):
 
     @field_validator("company_size")
     @classmethod
-    def validate_company_size(cls, v: str) -> str:
+    def validate_company_size(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
         valid = {"1-10", "11-50", "51-200", "201-500", "501-1000", "1000+"}
         if v not in valid:
             raise ValueError(f"company_size must be one of: {', '.join(sorted(valid))}")
         return v
 
-    @field_validator("company_name", "contact_person", "city", "industry")
+    @field_validator("company_name")
     @classmethod
     def non_empty(cls, v: str) -> str:
         if not v or not v.strip():
             raise ValueError("This field cannot be blank")
         return v.strip()
+
+
+class GoogleLoginRequest(BaseModel):
+    credential: str  # Google ID token from the frontend
 
 
 class RefreshRequest(BaseModel):
@@ -155,11 +213,15 @@ class RefreshRequest(BaseModel):
 
 class ForgotPasswordRequest(BaseModel):
     phone: str
+    recaptcha_token: str | None = None
 
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, v: str) -> str:
-        return re.sub(r"\D", "", v)
+        cleaned = re.sub(r"\D", "", v)
+        if cleaned.startswith("91") and len(cleaned) == 12:
+            cleaned = cleaned[2:]
+        return cleaned
 
 
 class ResetPasswordRequest(BaseModel):
@@ -170,7 +232,10 @@ class ResetPasswordRequest(BaseModel):
     @field_validator("phone")
     @classmethod
     def validate_phone(cls, v: str) -> str:
-        return re.sub(r"\D", "", v)
+        cleaned = re.sub(r"\D", "", v)
+        if cleaned.startswith("91") and len(cleaned) == 12:
+            cleaned = cleaned[2:]
+        return cleaned
 
     @field_validator("otp")
     @classmethod
@@ -185,6 +250,8 @@ class ResetPasswordRequest(BaseModel):
         errors = []
         if len(v) < 8:
             errors.append("at least 8 characters")
+        if len(v) > 128:
+            raise ValueError("Password must not exceed 128 characters")
         if not re.search(r"[A-Z]", v):
             errors.append("one uppercase letter")
         if not re.search(r"[a-z]", v):
@@ -202,7 +269,7 @@ class ResetPasswordRequest(BaseModel):
 
 class UserResponse(BaseModel):
     id: str
-    phone: str
+    phone: str | None
     email: str | None
     role: str | None
     preferred_language: str
@@ -225,10 +292,14 @@ class UserResponse(BaseModel):
 
 
 class TokenResponse(BaseModel):
-    access_token: str
-    refresh_token: str
+    # All three are optional ONLY for the 2FA-challenge branch of /auth/login,
+    # where no tokens are issued yet — every other caller always sets them.
+    access_token: str | None = None
+    refresh_token: str | None = None
     token_type: str = "bearer"
-    user: UserResponse
+    user: UserResponse | None = None
+    requires_2fa: bool = False
+    challenge_token: str | None = None
 
 
 class MessageResponse(BaseModel):
@@ -240,11 +311,11 @@ class MessageResponse(BaseModel):
 class EmployerProfileResponse(BaseModel):
     id: str
     company_name: str
-    industry: str
-    company_size: str
+    industry: str | None
+    company_size: str | None
     website: str | None
-    contact_person: str
-    city: str
+    contact_person: str | None
+    city: str | None
     is_approved: bool
 
     model_config = {"from_attributes": True}
@@ -255,3 +326,59 @@ class EmployerRegisterResponse(BaseModel):
     user: UserResponse
     employer_profile: EmployerProfileResponse
     dev_otp: str | None = None
+
+
+# ── Two-factor authentication (TOTP) ────────────────────────────────────────────
+
+class TwoFactorStatusResponse(BaseModel):
+    is_enabled: bool
+
+
+class TwoFactorSetupResponse(BaseModel):
+    """Step 1 of enrollment — secret is NOT yet active (is_enabled stays
+    false) until the user proves they scanned it correctly via /2fa/enable."""
+    secret: str                # manual-entry fallback if they can't scan
+    qr_code_data_uri: str      # data:image/png;base64,... — render directly in an <img>
+
+
+class TwoFactorEnableRequest(BaseModel):
+    code: str = Field(..., pattern=r"^\d{6}$")
+
+
+class TwoFactorEnableResponse(BaseModel):
+    message: str
+    backup_codes: list[str]    # shown ONCE — not retrievable again after this
+
+
+class TwoFactorDisableRequest(BaseModel):
+    password: str
+
+
+class TwoFactorVerifyLoginRequest(BaseModel):
+    challenge_token: str
+    code: str = Field(..., min_length=6, max_length=9)  # 6-digit TOTP or XXXX-XXXX backup code
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, v: str) -> str:
+        errors = []
+        if len(v) < 8:
+            errors.append("at least 8 characters")
+        if len(v) > 128:
+            raise ValueError("Password must not exceed 128 characters")
+        if not re.search(r"[A-Z]", v):
+            errors.append("one uppercase letter")
+        if not re.search(r"[a-z]", v):
+            errors.append("one lowercase letter")
+        if not re.search(r"\d", v):
+            errors.append("one number")
+        if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", v):
+            errors.append("one special character (!@#$%^&*...)")
+        if errors:
+            raise ValueError("Password must contain: " + ", ".join(errors))
+        return v

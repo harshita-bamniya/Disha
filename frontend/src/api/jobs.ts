@@ -3,6 +3,7 @@ import { apiClient } from './client'
 export type GrowthOutlook = 'high' | 'medium' | 'low'
 export type JobType = 'remote' | 'pan_india' | 'hybrid' | 'onsite'
 export type EmploymentType = 'full_time' | 'part_time' | 'internship' | 'contract' | 'freelance'
+export type JobStatus = 'draft' | 'published' | 'paused' | 'closed' | 'archived'
 
 export interface JobPostingPayload {
   title: string
@@ -16,7 +17,32 @@ export interface JobPostingPayload {
   job_type: JobType
   location: string
   employment_type: EmploymentType
-  expires_at?: string | null      // ISO date string "YYYY-MM-DD"
+  expires_at: string              // ISO date string "YYYY-MM-DD" — required
+  department_id?: string
+  publish?: boolean                // true = publish immediately, false/omitted = save as draft
+}
+
+export interface BulkImportRowError {
+  row: number
+  error: string
+}
+
+export interface BulkImportResponse {
+  created: number
+  failed: BulkImportRowError[]
+}
+
+export interface JobTemplateEntry {
+  id: string
+  name: string
+  title: string
+  description: string
+  sector: string
+  required_skills: string[]
+  job_type: JobType | null
+  employment_type: EmploymentType | null
+  min_k_score: number
+  created_at: string
 }
 
 export interface JobPosting {
@@ -34,8 +60,11 @@ export interface JobPosting {
   employment_type: string | null
   expires_at: string | null       // ISO date string
   is_active: boolean
+  status: JobStatus
   created_at: string
   updated_at: string
+  applicant_count: number
+  department_id: string | null
 }
 
 export interface EmployerDashboard {
@@ -63,19 +92,106 @@ export const EMPLOYMENT_TYPE_LABELS: Record<EmploymentType, string> = {
   freelance:  'Freelance',
 }
 
+export type VerificationDocType = 'gst_certificate' | 'pan_card' | 'company_registration' | 'business_email'
+
+export interface VerificationDocumentOut {
+  id: string
+  doc_type: string
+  file_url: string
+  original_filename: string | null
+  status: string
+  uploaded_at: string
+}
+
+export interface VerificationEventOut {
+  id: string
+  from_status: string | null
+  to_status: string
+  note: string | null
+  created_at: string
+}
+
+export interface VerificationStatusResponse {
+  id: string | null
+  status: 'not_submitted' | 'requested' | 'under_review' | 'approved' | 'rejected'
+  rejection_reason: string | null
+  submitted_at: string | null
+  reviewed_at: string | null
+  documents: VerificationDocumentOut[]
+  events: VerificationEventOut[]
+}
+
+export interface EmployerPermissionsResponse {
+  role_name: string
+  permissions: string[]   // "resource:action"
+  department_id: string | null
+  department_name: string | null
+  is_company_wide: boolean
+}
+
 export const jobsApi = {
-  getDashboard: () =>
-    apiClient.get<EmployerDashboard>('/employer/dashboard').then((r) => r.data),
+  getDashboard: (departmentId?: string) =>
+    apiClient.get<EmployerDashboard>('/employer/dashboard', {
+      params: departmentId ? { department_id: departmentId } : undefined,
+    }).then((r) => r.data),
+
+  getMyPermissions: () =>
+    apiClient.get<EmployerPermissionsResponse>('/employer/permissions').then((r) => r.data),
 
   createJob: (data: JobPostingPayload) =>
     apiClient.post<JobPosting>('/employer/jobs', data).then((r) => r.data),
 
+  suggestSkills: (title: string, description: string) =>
+    apiClient.post<{ suggested_skills: string[] }>('/employer/jobs/suggest-skills', { title, description }).then((r) => r.data),
+
+  generateDescription: (title: string, sector: string, keyPoints: string) =>
+    apiClient.post<{ description: string }>('/employer/jobs/generate-description', { title, sector, key_points: keyPoints }).then((r) => r.data),
+
+  bulkImportJobs: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return apiClient.post<BulkImportResponse>('/employer/jobs/bulk-import', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data)
+  },
+
+  listJobTemplates: () =>
+    apiClient.get<JobTemplateEntry[]>('/employer/jobs/templates').then((r) => r.data),
+
+  createJobTemplate: (payload: Omit<JobTemplateEntry, 'id' | 'created_at'>) =>
+    apiClient.post<JobTemplateEntry>('/employer/jobs/templates', payload).then((r) => r.data),
+
+  deleteJobTemplate: (templateId: string) =>
+    apiClient.delete<{ message: string }>(`/employer/jobs/templates/${templateId}`).then((r) => r.data),
+
   updateJob: (id: string, data: JobPostingPayload) =>
     apiClient.put<JobPosting>(`/employer/jobs/${id}`, data).then((r) => r.data),
 
-  toggleActive: (id: string) =>
-    apiClient.patch<JobPosting>(`/employer/jobs/${id}/toggle`).then((r) => r.data),
+  publishJob: (id: string) =>
+    apiClient.patch<JobPosting>(`/employer/jobs/${id}/publish`).then((r) => r.data),
+
+  pauseJob: (id: string) =>
+    apiClient.patch<JobPosting>(`/employer/jobs/${id}/pause`).then((r) => r.data),
+
+  closeJob: (id: string) =>
+    apiClient.patch<JobPosting>(`/employer/jobs/${id}/close`).then((r) => r.data),
+
+  reopenJob: (id: string) =>
+    apiClient.patch<JobPosting>(`/employer/jobs/${id}/reopen`).then((r) => r.data),
+
+  archiveJob: (id: string) =>
+    apiClient.patch<JobPosting>(`/employer/jobs/${id}/archive`).then((r) => r.data),
+
+  duplicateJob: (id: string) =>
+    apiClient.post<JobPosting>(`/employer/jobs/${id}/duplicate`).then((r) => r.data),
 
   deleteJob: (id: string) =>
     apiClient.delete(`/employer/jobs/${id}`),
+
+  // ── Verification ──────────────────────────────────────────────────────────────
+  getVerificationStatus: () =>
+    apiClient.get<VerificationStatusResponse>('/employer/verification').then((r) => r.data),
+
+  requestVerification: () =>
+    apiClient.post<VerificationStatusResponse>('/employer/verification/request').then((r) => r.data),
 }
