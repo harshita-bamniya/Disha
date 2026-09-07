@@ -7,10 +7,22 @@ from app.database import get_db, get_redis
 from app.models.user import User
 from app.modules.onboarding import service
 from app.modules.onboarding.schemas import (
-    EducationRequest, INDIAN_STATES, LearningSetupRequest, OnboardingStatusResponse, PersonalInfoRequest,
-    PreferencesRequest, ProfileResponse, SKILL_CATEGORIES, SkillsRequest,
-    SkillValidateRequest, SkillValidateResponse,
-    StepSavedResponse, UpscJourneyRequest, VALID_SECTORS, VALID_SKILLS, WorkExperienceRequest,
+    INDIAN_STATES,
+    SKILL_CATEGORIES,
+    VALID_SECTORS,
+    VALID_SKILLS,
+    EducationRequest,
+    LearningSetupRequest,
+    OnboardingStatusResponse,
+    PersonalInfoRequest,
+    PreferencesRequest,
+    ProfileResponse,
+    SkillsRequest,
+    SkillValidateRequest,
+    SkillValidateResponse,
+    StepSavedResponse,
+    UpscJourneyRequest,
+    WorkExperienceRequest,
 )
 
 

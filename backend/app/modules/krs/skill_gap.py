@@ -14,6 +14,7 @@ falls back to case-insensitive exact string match so the system never breaks.
 from __future__ import annotations
 
 import logging
+
 import numpy as np
 from sqlalchemy.orm import Session
 

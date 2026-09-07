@@ -8,7 +8,6 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -409,7 +408,7 @@ async def generate_blueprint(
         if candidate_context else ""
     )
     weak_section = (
-        f"\nPrior Weak Competencies (from the candidate's last session — allocate MORE questions here):\n"
+        "\nPrior Weak Competencies (from the candidate's last session — allocate MORE questions here):\n"
         + ", ".join(prior_weak_areas) + "\n"
         if prior_weak_areas else ""
     )

@@ -237,7 +237,8 @@ def create_prompt(
 
 def _tcp_reachable(host: str, port: int, timeout: float = 2.0) -> tuple[bool, float | None]:
     """Returns (reachable, latency_ms). Never raises."""
-    import socket, time
+    import socket
+    import time
     try:
         t0 = time.monotonic()
         with socket.create_connection((host, port), timeout=timeout):
@@ -257,6 +258,7 @@ def list_integrations(
     for SMTP, ClamAV, and Redis (services that have an addressable host:port).
     """
     from datetime import datetime, timezone
+
     from app.config import get_settings
     from app.database import get_redis_client
 
@@ -380,6 +382,7 @@ def list_integrations(
 # ── System monitoring ─────────────────────────────────────────────────────────
 
 import time as _boot_time_mod
+
 _PROCESS_START = _boot_time_mod.monotonic()
 
 
@@ -397,7 +400,9 @@ def _git_sha() -> str:
 
 def _process_memory_mb() -> float | None:
     try:
-        import psutil, os
+        import os
+
+        import psutil
         return round(psutil.Process(os.getpid()).memory_info().rss / 1024 / 1024, 1)
     except ImportError:
         pass
@@ -417,8 +422,9 @@ def system_status(
 ):
     """Live system health: DB pool, Celery queue depths, Redis memory, process info."""
     from datetime import datetime, timezone
-    from app.database import engine, get_redis_client
+
     from app.config import get_settings
+    from app.database import engine, get_redis_client
     from app.tasks.worker import celery_app
 
     cfg = get_settings()
@@ -500,6 +506,7 @@ def get_prompt(
 ):
     """Return the full content of a single prompt template (not truncated)."""
     import uuid as _uuid
+
     from app.models.prompts import PromptTemplate
     try:
         pid = _uuid.UUID(prompt_id)
@@ -535,6 +542,7 @@ def toggle_prompt_active(
     Deactivating always succeeds.
     """
     import uuid as _uuid
+
     from app.models.prompts import PromptTemplate
     try:
         pid = _uuid.UUID(prompt_id)

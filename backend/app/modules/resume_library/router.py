@@ -3,13 +3,16 @@
 All routes require an authenticated aspirant (candidate) user.
 """
 import mimetypes
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import BadRequestException, ForbiddenException, NotFoundException
+from app.core.exceptions import (
+    BadRequestException,
+    ForbiddenException,
+    NotFoundException,
+)
 from app.core.rbac import get_current_aspirant
 from app.database import get_db
 from app.models.user import User
@@ -17,9 +20,9 @@ from app.modules.resume_library import service
 from app.modules.resume_library.schemas import (
     ResumeFileOut,
     ResumeLibraryOut,
-    ResumeRenameRequest,
-    ResumeRecommendationOut,
     ResumeRecommendation,
+    ResumeRecommendationOut,
+    ResumeRenameRequest,
 )
 
 router = APIRouter(prefix="/candidates/me/resumes", tags=["Resume Library"])

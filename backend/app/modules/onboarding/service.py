@@ -1,14 +1,26 @@
 import logging
+
 import httpx
-import asyncio
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.models.user import AspirantProfile, PsychologicalAssessment, SkillTaxonomy, User
+from app.models.user import (
+    AspirantProfile,
+    PsychologicalAssessment,
+    SkillTaxonomy,
+    User,
+)
 from app.modules.onboarding.schemas import (
-    EducationRequest, LearningSetupRequest, OnboardingStatusResponse, PersonalInfoRequest,
-    PreferencesRequest, ProfileResponse, SkillsRequest,
-    StepSavedResponse, UpscJourneyRequest, WorkExperienceRequest,
+    EducationRequest,
+    LearningSetupRequest,
+    OnboardingStatusResponse,
+    PersonalInfoRequest,
+    PreferencesRequest,
+    ProfileResponse,
+    SkillsRequest,
+    StepSavedResponse,
+    UpscJourneyRequest,
+    WorkExperienceRequest,
 )
 
 logger = logging.getLogger(__name__)

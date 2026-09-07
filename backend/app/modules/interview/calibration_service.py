@@ -10,11 +10,19 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.models.interview import InterviewHumanReview, InterviewOutcome, InterviewSession
+from app.models.interview import (
+    InterviewHumanReview,
+    InterviewOutcome,
+    InterviewSession,
+)
 from app.models.user import User
 from app.modules.interview.schemas import (
-    CalibrationStatsOut, HUMAN_RECOMMENDATION_VALUES, HumanReviewOut,
-    OutcomeCorrelationOut, OutcomeCorrelationRow, ReviewableSessionOut,
+    HUMAN_RECOMMENDATION_VALUES,
+    CalibrationStatsOut,
+    HumanReviewOut,
+    OutcomeCorrelationOut,
+    OutcomeCorrelationRow,
+    ReviewableSessionOut,
 )
 
 

@@ -13,7 +13,8 @@ from app.models.user import (
     User,
 )
 from app.modules.roadmap.schemas import (
-    GapSkillOut, SkillCompetenceOut,
+    GapSkillOut,
+    SkillCompetenceOut,
 )
 from app.modules.roadmap.service import core
 

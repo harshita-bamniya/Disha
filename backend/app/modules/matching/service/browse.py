@@ -17,9 +17,11 @@ from app.modules.matching.schemas import (
     JobDetail,
     JobRecommendationsResponse,
 )
-from app.modules.recommendations.ranker import build_preference_sql_filters, rank_jobs_for_user
-
 from app.modules.matching.service import core
+from app.modules.recommendations.ranker import (
+    build_preference_sql_filters,
+    rank_jobs_for_user,
+)
 
 logger = logging.getLogger(__name__)
 

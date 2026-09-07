@@ -7,15 +7,21 @@ from sqlalchemy.orm import Session
 
 from app.core.rbac import get_current_aspirant
 from app.database import get_db
-from app.models.counsellor import Conversation, Message, CounsellorMemory
-from app.models.companion import CompanionMoodEntry, CompanionMilestone
+from app.models.companion import CompanionMilestone, CompanionMoodEntry
+from app.models.counsellor import CounsellorMemory, Message
 from app.models.user import User
 from app.modules.companion import orchestrator
 from app.modules.companion.schemas import (
-    ConversationDetail, ConversationOut, MessageOut, SendMessageRequest,
-    MoodEntryOut, CreateMoodEntryRequest,
-    MilestoneOut, CreateMilestoneRequest,
-    MemoryOut, WeeklyInsight, TimelineEntry,
+    ConversationDetail,
+    CreateMilestoneRequest,
+    CreateMoodEntryRequest,
+    MemoryOut,
+    MessageOut,
+    MilestoneOut,
+    MoodEntryOut,
+    SendMessageRequest,
+    TimelineEntry,
+    WeeklyInsight,
 )
 
 router = APIRouter(prefix="/companion", tags=["Your Companion"])

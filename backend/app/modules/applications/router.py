@@ -16,8 +16,8 @@ import logging
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.database import get_db
 from app.core.rbac import get_current_aspirant
+from app.database import get_db
 from app.models.user import User
 from app.modules.applications import service
 from app.modules.applications.schemas import (

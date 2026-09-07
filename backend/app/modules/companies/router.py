@@ -1,7 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import AuthException, BadRequestException, ForbiddenException, NotFoundException
+from app.core.exceptions import (
+    AuthException,
+    BadRequestException,
+    ForbiddenException,
+    NotFoundException,
+)
 from app.core.rbac import require_employer, require_permission
 from app.core.storage import save_upload
 from app.database import get_db
@@ -9,13 +14,25 @@ from app.models.user import User
 from app.modules.companies import service
 from app.modules.companies.schemas import (
     AssignDepartmentRequest,
-    CompanyAssetUploadResponse, CompanyProfileResponse, CompanyProfileUpdateRequest,
+    CompanyAssetUploadResponse,
+    CompanyProfileResponse,
+    CompanyProfileUpdateRequest,
     CompanySubscriptionResponse,
-    DepartmentCreateRequest, DepartmentOut, DepartmentOverviewOut, DepartmentUpdateRequest,
-    EmployerProfileSelfResponse, EmployerProfileUpdateRequest,
-    MessageResponse, OfficeCreateRequest, OfficeOut,
-    SubscriptionPlanEntry, SubscriptionUpgradeRequest, SubscriptionUsageResponse,
-    TeamInviteRequest, TeamMemberEntry, TransferOwnershipRequest,
+    DepartmentCreateRequest,
+    DepartmentOut,
+    DepartmentOverviewOut,
+    DepartmentUpdateRequest,
+    EmployerProfileSelfResponse,
+    EmployerProfileUpdateRequest,
+    MessageResponse,
+    OfficeCreateRequest,
+    OfficeOut,
+    SubscriptionPlanEntry,
+    SubscriptionUpgradeRequest,
+    SubscriptionUsageResponse,
+    TeamInviteRequest,
+    TeamMemberEntry,
+    TransferOwnershipRequest,
 )
 
 router = APIRouter(prefix="/employer/company", tags=["Employer Company"])

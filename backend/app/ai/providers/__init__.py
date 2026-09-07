@@ -84,8 +84,8 @@ def create_provider(model: str | None = None, reasoning_effort: str | None = Non
     reasoning_effort only affects Groq's gpt-oss family — passed through as-is,
     Anthropic's fallback provider doesn't take it and ignores the concept entirely.
     """
-    from app.ai.providers.groq import GroqProvider, DEFAULT_MODEL
     from app.ai.providers.anthropic import AnthropicProvider
+    from app.ai.providers.groq import DEFAULT_MODEL, GroqProvider
 
     settings = get_settings()
     primary = GroqProvider(model or DEFAULT_MODEL, reasoning_effort=reasoning_effort)

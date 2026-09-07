@@ -5,15 +5,21 @@ Provides career track exploration, personalised match scores,
 gap analysis, and track selection (max 2 per user).
 """
 import logging
+
 from sqlalchemy.orm import Session
 
 from app.models.user import (
-    AspirantProfile, CareerMatch, CareerTrack,
-    KrsScore, User, UserCareerSelection,
+    AspirantProfile,
+    CareerMatch,
+    CareerTrack,
+    User,
+    UserCareerSelection,
 )
 from app.modules.careers.schemas import (
-    MySelectionsResponse, SelectionResponse,
-    TrackDetailResponse, TrackSummaryResponse,
+    MySelectionsResponse,
+    SelectionResponse,
+    TrackDetailResponse,
+    TrackSummaryResponse,
 )
 
 logger = logging.getLogger(__name__)

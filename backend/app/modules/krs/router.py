@@ -9,8 +9,13 @@ from app.database import get_db, get_redis
 from app.models.user import User
 from app.modules.krs import service
 from app.modules.krs.schemas import (
-    ActivePrepJobContext, JobFitAnalysisRequest, JobFitAnalysisResponse,
-    KrsDashboardResponse, KrsScoreResponse, LiveJobResponse, PrepareJobResponse,
+    ActivePrepJobContext,
+    JobFitAnalysisRequest,
+    JobFitAnalysisResponse,
+    KrsDashboardResponse,
+    KrsScoreResponse,
+    LiveJobResponse,
+    PrepareJobResponse,
 )
 
 router = APIRouter(prefix="/krs", tags=["KRS Intelligence"])

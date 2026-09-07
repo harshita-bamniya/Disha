@@ -8,11 +8,6 @@ keep working completely unchanged. It also re-exports a few "private" names
 (PIPELINE_FORWARD_ORDER, _ALLOWED_BACKWARDS, _employer_display_name) that
 tests/test_qa_failures.py imports directly from app.modules.matching.service.
 """
-from app.modules.matching.service.core import (
-    PIPELINE_FORWARD_ORDER,
-    _employer_display_name,
-)
-from app.modules.matching.service.pipeline import _ALLOWED_BACKWARDS
 from app.modules.matching.service.analytics import (
     get_application_trend,
     get_dashboard_kpis,
@@ -32,6 +27,10 @@ from app.modules.matching.service.applications import (
 from app.modules.matching.service.browse import (
     get_job_detail,
     get_job_recommendations,
+)
+from app.modules.matching.service.core import (
+    PIPELINE_FORWARD_ORDER,
+    _employer_display_name,
 )
 from app.modules.matching.service.cross_job_views import (
     list_all_applicants,
@@ -56,6 +55,7 @@ from app.modules.matching.service.offers import (
     send_offer_letter,
 )
 from app.modules.matching.service.pipeline import (
+    _ALLOWED_BACKWARDS,
     add_candidate_note,
     bulk_update_status,
     export_pipeline_csv,

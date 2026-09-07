@@ -19,10 +19,13 @@ from pathlib import Path
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import BadRequestException, ForbiddenException, NotFoundException
+from app.core.exceptions import (
+    BadRequestException,
+    NotFoundException,
+)
 from app.core.storage import BASE_DIR, _scan_for_viruses
-from app.models.ats import CandidateResumeFile
 from app.models.applications import Application
+from app.models.ats import CandidateResumeFile
 from app.models.user import JobPosting, User
 
 logger = logging.getLogger(__name__)

@@ -26,11 +26,11 @@ def send_announcement_emails(self, announcement_id: str, user_ids: list[str]) ->
     Processes user_ids in batches of 50 and commits after each batch so a
     crash mid-run doesn't lose all progress.
     """
+    from app.core.email import get_email_provider
+    from app.core.notifications import _wrap
     from app.database import SessionLocal
     from app.models.notifications import AdminAnnouncement, Notification
     from app.models.user import User
-    from app.core.email import get_email_provider
-    from app.core.notifications import _wrap
 
     db = SessionLocal()
     sent = 0

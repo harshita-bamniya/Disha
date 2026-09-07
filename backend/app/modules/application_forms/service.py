@@ -15,28 +15,38 @@ Business rules enforced here (not in the router):
 """
 from __future__ import annotations
 
-import json
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.exceptions import (
-    BadRequestException, ConflictException, ForbiddenException, NotFoundException,
+    BadRequestException,
+    ConflictException,
+    ForbiddenException,
+    NotFoundException,
 )
 from app.models.ats import (
-    ApplicationForm, AtsQuestion, AtsQuestionBank,
-    ConditionalRule, FormSection, FormTemplate, KnockoutRule,
+    ApplicationForm,
+    AtsQuestion,
+    AtsQuestionBank,
+    ConditionalRule,
+    FormSection,
+    FormTemplate,
+    KnockoutRule,
 )
 from app.models.user import EmployerProfile, JobPosting, User
 from app.modules.application_forms.schemas import (
-    ApplicationFormCreateIn, ApplicationFormUpdateIn,
-    ConditionalRuleIn, FormSectionIn,
-    FormSettingsIn, FormTemplateSaveIn,
-    KnockoutRuleIn, QuestionIn,
+    ApplicationFormCreateIn,
+    ApplicationFormUpdateIn,
+    ConditionalRuleIn,
+    FormSectionIn,
+    FormSettingsIn,
+    FormTemplateSaveIn,
+    KnockoutRuleIn,
+    QuestionIn,
 )
 
 logger = logging.getLogger(__name__)

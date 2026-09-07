@@ -6,7 +6,6 @@ from typing import Optional
 
 from pydantic import BaseModel, Field
 
-
 # ── Job listing (aspirant-facing) ─────────────────────────────────────────────
 
 class JobListItem(BaseModel):

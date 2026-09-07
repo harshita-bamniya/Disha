@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field, field_validator
-from typing import Literal, Optional
 from datetime import date, datetime
+from typing import Literal, Optional
+
+from pydantic import BaseModel, Field, field_validator
 
 VALID_SKILLS = {
     # Was missing 9 skills the job-posting form actually lets employers pick

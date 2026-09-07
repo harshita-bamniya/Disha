@@ -23,7 +23,6 @@ from app.models.user import (
 from app.modules.matching.schemas import (
     OfferLetterOut,
 )
-
 from app.modules.matching.service import core
 
 logger = logging.getLogger(__name__)

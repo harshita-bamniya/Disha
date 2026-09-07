@@ -5,8 +5,8 @@ import json
 import logging
 import re
 
-from app.models.user import AspirantProfile, User, KrsScore, CareerTrack
 from app.config import get_settings
+from app.models.user import AspirantProfile, CareerTrack
 
 logger = logging.getLogger(__name__)
 settings = get_settings()

@@ -8,7 +8,9 @@ from app.models.applications import Application, EmployerTask
 from app.models.notifications import Notification
 from app.models.user import EmployerProfile, JobPosting, User
 from app.modules.inbox.schemas import (
-    NotificationListResponse, NotificationOut, TaskOut,
+    NotificationListResponse,
+    NotificationOut,
+    TaskOut,
 )
 
 

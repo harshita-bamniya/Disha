@@ -62,6 +62,7 @@ def _plan_cache_key(
 
 def _redis():
     import redis as redis_lib
+
     from app.config import get_settings
     return redis_lib.from_url(get_settings().redis_url, decode_responses=True)
 

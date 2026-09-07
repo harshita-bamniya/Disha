@@ -10,10 +10,11 @@ from app.models.roadmap import (
     UserRoadmap,
 )
 from app.models.user import (
-    AspirantProfile, CareerTrack, JobPosting,
+    AspirantProfile,
+    CareerTrack,
+    JobPosting,
 )
 from app.modules.krs.skill_gap import compute_gap
-
 from app.modules.roadmap.service import core
 
 logger = logging.getLogger(__name__)

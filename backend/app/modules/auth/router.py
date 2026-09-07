@@ -11,13 +11,29 @@ from app.database import get_db
 from app.models.user import User
 from app.modules.auth import service
 from app.modules.auth.schemas import (
-    AddPhoneRequest, ChangePasswordRequest, EmployerRegisterRequest, EmployerRegisterResponse,
-    ForgotPasswordRequest, ResendEmailOtpRequest, ResetPasswordRequest,
-    GoogleLoginRequest, LoginRequest, MessageResponse, RefreshRequest,
-    RegisterRequest, SendOtpRequest, TokenResponse,
-    UserResponse, VerifyEmailOtpRequest, VerifyPhoneRequest,
-    TwoFactorDisableRequest, TwoFactorEnableRequest, TwoFactorEnableResponse,
-    TwoFactorSetupResponse, TwoFactorStatusResponse, TwoFactorVerifyLoginRequest,
+    AddPhoneRequest,
+    ChangePasswordRequest,
+    EmployerRegisterRequest,
+    EmployerRegisterResponse,
+    ForgotPasswordRequest,
+    GoogleLoginRequest,
+    LoginRequest,
+    MessageResponse,
+    RefreshRequest,
+    RegisterRequest,
+    ResendEmailOtpRequest,
+    ResetPasswordRequest,
+    SendOtpRequest,
+    TokenResponse,
+    TwoFactorDisableRequest,
+    TwoFactorEnableRequest,
+    TwoFactorEnableResponse,
+    TwoFactorSetupResponse,
+    TwoFactorStatusResponse,
+    TwoFactorVerifyLoginRequest,
+    UserResponse,
+    VerifyEmailOtpRequest,
+    VerifyPhoneRequest,
 )
 
 router = APIRouter(prefix="/auth", tags=["Auth"])

@@ -9,7 +9,6 @@ from app.core.exceptions import AuthException, BadRequestException, NotFoundExce
 from app.models.user import (
     JobPosting,
 )
-
 from app.modules.matching.service import core
 
 logger = logging.getLogger(__name__)

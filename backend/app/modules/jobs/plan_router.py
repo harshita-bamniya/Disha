@@ -12,11 +12,22 @@ from sqlalchemy.orm import Session
 from app.core.rbac import get_current_aspirant
 from app.database import get_db
 from app.models.job_plan import JobLearningPlan
-from app.models.user import AspirantProfile, JobPosting, KrsScore, PsychologicalAssessment, User
+from app.models.user import (
+    AspirantProfile,
+    JobPosting,
+    KrsScore,
+    PsychologicalAssessment,
+    User,
+)
 from app.modules.jobs.plan_generator import (
-    count_article_resources, count_youtube_resources,
-    enrich_plan_with_real_videos, generate_job_plan, generate_module_quiz,
-    generate_remedial_resource, is_plan_stale, redact_quiz_answers,
+    count_article_resources,
+    count_youtube_resources,
+    enrich_plan_with_real_videos,
+    generate_job_plan,
+    generate_module_quiz,
+    generate_remedial_resource,
+    is_plan_stale,
+    redact_quiz_answers,
 )
 from app.modules.krs.skill_gap import compute_gap
 
@@ -46,6 +57,7 @@ REGENERATE_COOLDOWN_SECONDS = 60
 
 def _redis():
     import redis as redis_lib
+
     from app.config import get_settings
     return redis_lib.from_url(get_settings().redis_url, decode_responses=True)
 
@@ -597,7 +609,9 @@ async def submit_quiz(
             if skill_name and profile:
                 existing = {s.lower().strip() for s in (profile.skills or [])}
                 if skill_name.lower().strip() not in existing:
-                    from app.modules.onboarding.skill_validation import validate_and_register_skill
+                    from app.modules.onboarding.skill_validation import (
+                        validate_and_register_skill,
+                    )
                     canonical = await validate_and_register_skill(skill_name, db)
                     if canonical and canonical.lower().strip() not in existing:
                         profile.skills = [*(profile.skills or []), canonical]

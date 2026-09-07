@@ -437,7 +437,7 @@ def update_application_status(
             db, candidate.id, "application_status_changed",
             f"Update on your application — {job.title}",
             f"Your application to {job.title} at {employer.company_name} is now: {new_status.replace('_', ' ').title()}.",
-            f"/app/jobs/applications",
+            "/app/jobs/applications",
         )
         db.commit()
 

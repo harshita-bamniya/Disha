@@ -5,14 +5,13 @@ import logging
 
 from sqlalchemy.orm import Session
 
+from app.models.learning import LearningPath, LessonCompletion, UserLearningEnrollment
 from app.models.roadmap import (
     TicketSubmission,
 )
 from app.models.user import (
     User,
 )
-from app.models.learning import LearningPath, LessonCompletion, UserLearningEnrollment
-
 from app.modules.roadmap.service import core
 
 logger = logging.getLogger(__name__)
@@ -94,7 +93,7 @@ def get_daily_mission(user: User, db: Session) -> dict:
                 }
         return {
             "type": "enroll",
-            "title": f"Enroll in a Learning Path",
+            "title": "Enroll in a Learning Path",
             "description": f"Find and enroll in a path that covers {top_gap}.",
             "cta_label": "Browse Paths",
             "cta_path": "/app/learn",
@@ -104,7 +103,7 @@ def get_daily_mission(user: User, db: Session) -> dict:
     if stage == 3:
         return {
             "type": "exercise",
-            "title": f"Complete a Practice Exercise",
+            "title": "Complete a Practice Exercise",
             "description": f"Apply your {top_gap} knowledge through a hands-on case study or exercise.",
             "cta_label": "Browse Exercises",
             "cta_path": "/app/roadmap?tab=exercises",

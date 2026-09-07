@@ -1,20 +1,32 @@
 import logging
 import uuid
 from datetime import date, datetime, timezone
+
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import AuthException, BadRequestException
-from app.models.employer_verification import (
-    EmployerVerification, EmployerVerificationEvent,
-)
 from app.models.company import Company, CompanyDepartment
+from app.models.employer_verification import (
+    EmployerVerification,
+    EmployerVerificationEvent,
+)
 from app.models.jobs import JobTemplate
 from app.models.user import AuditLog, EmployerProfile, JobPosting, User
-from sqlalchemy import func
 from app.modules.jobs.schemas import (
-    BulkImportResponse, BulkImportRowError,
-    EmployerDashboardResponse, GenerateDescriptionResponse, JobPostingRequest, JobTemplateCreateRequest, JobTemplateOut, VALID_SKILLS,
-    JobPostingResponse, SuggestSkillsResponse, VerificationDocumentOut, VerificationEventOut, VerificationStatusResponse,
+    VALID_SKILLS,
+    BulkImportResponse,
+    BulkImportRowError,
+    EmployerDashboardResponse,
+    GenerateDescriptionResponse,
+    JobPostingRequest,
+    JobPostingResponse,
+    JobTemplateCreateRequest,
+    JobTemplateOut,
+    SuggestSkillsResponse,
+    VerificationDocumentOut,
+    VerificationEventOut,
+    VerificationStatusResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -202,8 +214,9 @@ async def suggest_skills_for_job(title: str, description: str) -> SuggestSkillsR
     outside VALID_SKILLS, since that's what the submit endpoint accepts."""
     import json
     import re
-    from app.ai.providers.groq import RateLimitedError
+
     from app.ai.providers import create_provider
+    from app.ai.providers.groq import RateLimitedError
 
     provider = create_provider()
     system = _SUGGEST_SKILLS_SYSTEM.format(skills=", ".join(sorted(VALID_SKILLS)))
@@ -248,8 +261,8 @@ async def generate_job_description(title: str, sector: str, key_points: str) -> 
     """First-draft job description from a title + sector — the employer still
     reviews and edits before publishing. Mirrors suggest_skills_for_job's
     provider/error-handling pattern exactly."""
-    from app.ai.providers.groq import RateLimitedError
     from app.ai.providers import create_provider
+    from app.ai.providers.groq import RateLimitedError
 
     provider = create_provider()
     user_prompt = f"Job title: {title}\nSector: {sector}"

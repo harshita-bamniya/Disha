@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal, Optional
-from pydantic import BaseModel, Field, model_validator
 
+from pydantic import BaseModel, Field
 
 # ── Aspirant detail (full profile modal) ─────────────────────────────────────
 

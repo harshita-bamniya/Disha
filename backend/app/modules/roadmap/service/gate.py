@@ -6,7 +6,8 @@ import logging
 from sqlalchemy.orm import Session
 
 from app.models.roadmap import (
-    StageGateEvaluation, UserRoadmap,
+    StageGateEvaluation,
+    UserRoadmap,
 )
 from app.models.user import (
     User,

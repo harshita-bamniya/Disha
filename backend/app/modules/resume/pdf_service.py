@@ -68,7 +68,12 @@ def generate_pdf(
         from reportlab.lib.styles import ParagraphStyle
         from reportlab.lib.units import mm
         from reportlab.platypus import (
-            HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle,
+            HRFlowable,
+            Paragraph,
+            SimpleDocTemplate,
+            Spacer,
+            Table,
+            TableStyle,
         )
     except ImportError as exc:
         raise RuntimeError(

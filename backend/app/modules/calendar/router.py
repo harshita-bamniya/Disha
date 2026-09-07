@@ -159,7 +159,6 @@ def disconnect(
     current_user: User = Depends(require_employer),
     db: Session = Depends(get_db),
 ):
-    from app.models.integrations import GoogleCalendarToken
 
     row = _get_token_row(str(current_user.id), db)
     if not row:
@@ -167,7 +166,9 @@ def disconnect(
 
     # Attempt to revoke with Google (best-effort — don't block on failure)
     try:
-        import httpx, json as _json
+        import json as _json
+
+        import httpx
         data = _json.loads(row.token)
         token = data.get("token") or data.get("access_token")
         if token:

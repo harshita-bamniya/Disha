@@ -1,17 +1,30 @@
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
-from app.core.rbac import get_current_verified_user, require_employer, require_permission
 from app.core.exceptions import AuthException, BadRequestException
+from app.core.rbac import (
+    get_current_verified_user,
+    require_employer,
+    require_permission,
+)
 from app.database import get_db
 from app.models.user import User
 from app.modules.jobs import service
 from app.modules.jobs.schemas import (
     BulkImportResponse,
-    EmployerDashboardResponse, EmployerPermissionsResponse, GenerateDescriptionRequest, GenerateDescriptionResponse,
-    HiringTeamAddRequest, HiringTeamMemberOut,
-    JobPostingRequest, JobPostingResponse, JobTemplateCreateRequest, JobTemplateOut,
-    SuggestSkillsRequest, SuggestSkillsResponse, VerificationStatusResponse,
+    EmployerDashboardResponse,
+    EmployerPermissionsResponse,
+    GenerateDescriptionRequest,
+    GenerateDescriptionResponse,
+    HiringTeamAddRequest,
+    HiringTeamMemberOut,
+    JobPostingRequest,
+    JobPostingResponse,
+    JobTemplateCreateRequest,
+    JobTemplateOut,
+    SuggestSkillsRequest,
+    SuggestSkillsResponse,
+    VerificationStatusResponse,
 )
 
 router = APIRouter(prefix="/employer", tags=["Employer Jobs"])

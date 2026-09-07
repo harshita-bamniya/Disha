@@ -12,23 +12,33 @@ from sqlalchemy.orm import Session
 logger = logging.getLogger(__name__)
 
 from app.core.exceptions import (
-    AuthException, BadRequestException, ConflictException,
-    ForbiddenException, NotFoundException,
+    AuthException,
+    BadRequestException,
+    ConflictException,
+    ForbiddenException,
+    NotFoundException,
 )
-from app.core.rbac import get_current_verified_user, require_employer
+from app.core.rbac import require_employer
 from app.database import get_db
 from app.models.user import User
 from app.modules.application_forms import service
 from app.modules.application_forms.schemas import (
-    ApplicationFormCreateIn, ApplicationFormOut, ApplicationFormSummaryOut,
+    ApplicationFormCreateIn,
+    ApplicationFormOut,
     ApplicationFormUpdateIn,
     AtsQuestionBankOut,
-    ConditionalRuleIn, ConditionalRuleOut,
-    FormSectionIn, FormSectionOut,
-    FormTemplateSaveIn, FormTemplateOut,
-    KnockoutRuleIn, KnockoutRuleOut,
-    QuestionIn, QuestionOut,
-    QuestionReorderItem, SectionReorderItem,
+    ConditionalRuleIn,
+    ConditionalRuleOut,
+    FormSectionIn,
+    FormSectionOut,
+    FormTemplateOut,
+    FormTemplateSaveIn,
+    KnockoutRuleIn,
+    KnockoutRuleOut,
+    QuestionIn,
+    QuestionOut,
+    QuestionReorderItem,
+    SectionReorderItem,
 )
 
 router = APIRouter(tags=["Application Form Builder"])

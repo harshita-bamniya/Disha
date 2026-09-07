@@ -47,7 +47,7 @@ from typing import Any, Optional, Sequence
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.models.user import EmployerProfile, JobPosting, AspirantProfile, KrsScore
+from app.models.user import AspirantProfile, EmployerProfile, JobPosting, KrsScore
 from app.modules.krs.matching import _krs_fit
 
 logger = logging.getLogger(__name__)
@@ -287,7 +287,7 @@ def _build_semantic_overlap_fn(
     """
     try:
         from app.models.skill_vectors import SkillVector
-        from app.modules.krs.skill_gap import _max_cosine, SIMILARITY_THRESHOLD
+        from app.modules.krs.skill_gap import SIMILARITY_THRESHOLD, _max_cosine
 
         user_lower = {s.lower().strip() for s in user_skills}
 

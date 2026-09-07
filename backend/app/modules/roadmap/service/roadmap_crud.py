@@ -10,13 +10,17 @@ from app.models.roadmap import (
     UserRoadmap,
 )
 from app.models.user import (
-    AspirantProfile, CareerTrack, JobPosting, KrsScore,
+    AspirantProfile,
+    CareerTrack,
+    JobPosting,
+    KrsScore,
     User,
 )
-from app.modules.roadmap.personalization import get_personalization_from_user
 from app.modules.krs.skill_gap import compute_gap
+from app.modules.roadmap.personalization import get_personalization_from_user
 from app.modules.roadmap.schemas import (
-    RoadmapOut, RoadmapSummaryOut,
+    RoadmapOut,
+    RoadmapSummaryOut,
 )
 from app.modules.roadmap.service import core
 

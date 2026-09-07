@@ -6,13 +6,16 @@ import logging
 from sqlalchemy.orm import Session
 
 from app.models.roadmap import (
-    TicketSubmission, TicketTemplate,
+    TicketSubmission,
+    TicketTemplate,
 )
 from app.models.user import (
-    CareerTrack, User,
+    CareerTrack,
+    User,
 )
 from app.modules.roadmap.schemas import (
-    TicketSubmissionOut, TicketTemplateOut,
+    TicketSubmissionOut,
+    TicketTemplateOut,
 )
 from app.modules.roadmap.service import core
 

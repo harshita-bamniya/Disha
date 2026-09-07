@@ -128,8 +128,8 @@ def embed_job(self, job_id: str) -> None:
     No external API is called — only the local fastembed model.
     """
     from app.database import SessionLocal
-    from app.models.user import JobPosting
     from app.models.skill_vectors import SkillVector
+    from app.models.user import JobPosting
     from app.modules.recommendations import embedder
 
     db = SessionLocal()
@@ -273,9 +273,11 @@ def prune_counsellor_memories() -> dict:
     (keeping the most recent and highest importance).
     """
     from datetime import datetime, timezone
+
+    from sqlalchemy import func
+
     from app.database import SessionLocal
     from app.models.counsellor import CounsellorMemory
-    from sqlalchemy import func
 
     db = SessionLocal()
     removed = 0
@@ -376,6 +378,7 @@ def reset_weekly_xp() -> dict:
 def revoke_expired_refresh_tokens() -> dict:
     """Hard-delete refresh token rows that expired more than 7 days ago."""
     from datetime import datetime, timedelta, timezone
+
     from app.database import SessionLocal
     from app.models.user import RefreshToken
 
@@ -408,9 +411,10 @@ def send_deadline_reminders() -> dict:
     since it differs from a typical "send once" notification.
     """
     from datetime import date, timedelta
+
     from app.database import SessionLocal
-    from app.models.job_plan import JobLearningPlan
     from app.models.applications import Application
+    from app.models.job_plan import JobLearningPlan
     from app.models.user import JobPosting
     from app.modules.inbox.service import create_notification
 
@@ -468,6 +472,7 @@ def send_interview_outcome_requests() -> dict:
     regardless of whether the candidate ever answers.
     """
     from datetime import datetime, timedelta, timezone
+
     from app.database import SessionLocal
     from app.models.interview import InterviewSession
     from app.modules.inbox.service import create_notification
@@ -526,6 +531,7 @@ def check_plan_resource_links() -> dict:
     checks oldest-updated plans first, so nothing goes permanently unchecked.
     """
     import httpx
+
     from app.database import SessionLocal
     from app.models.job_plan import JobLearningPlan
 
@@ -596,6 +602,7 @@ def send_job_match_digest() -> dict:
     previously an aspirant had no way to learn about a new strong match
     without manually re-browsing the jobs list."""
     from datetime import datetime, timedelta, timezone
+
     from app.database import SessionLocal
     from app.models.user import AspirantProfile, JobPosting, KrsScore
     from app.modules.inbox.service import create_notification
@@ -668,6 +675,7 @@ def send_notification_email(
     on the email provider. Raises on failure so Celery's autoretry kicks in —
     unlike app.core.email.send_email, which swallows errors for direct callers."""
     import asyncio
+
     from app.core.email import get_email_provider
 
     attachment = (ics_filename, ics_content, "calendar") if ics_content else None

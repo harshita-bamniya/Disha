@@ -4,17 +4,22 @@ Employers:  /employer/support/tickets[/{id}[/messages]]
 Candidates: /me/support/tickets[/{id}[/messages]]
 """
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.core.rbac import require_employer, get_current_user
+from app.core.rbac import get_current_user, require_employer
 from app.database import get_db
-from app.models.user import User, EmployerProfile
 from app.models.support import SupportTicket, TicketMessage
-from app.modules.admin.schemas import TicketEntry, TicketDetailResponse, TicketListResponse, TicketMessageEntry
-from app.modules.support.schemas import UserCreateTicketRequest, UserAddMessageRequest
+from app.models.user import EmployerProfile, User
+from app.modules.admin.schemas import (
+    TicketDetailResponse,
+    TicketEntry,
+    TicketListResponse,
+    TicketMessageEntry,
+)
+from app.modules.support.schemas import UserAddMessageRequest, UserCreateTicketRequest
 
 employer_router = APIRouter(prefix="/employer/support", tags=["Employer Support"])
 candidate_router = APIRouter(prefix="/me/support", tags=["Candidate Support"])

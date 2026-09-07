@@ -7,17 +7,29 @@ from typing import Any
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from app.models.interview import InterviewFeedback, InterviewSession
+from app.models.learning import (
+    LearningPath,
+    LessonCompletion,
+    PathModule,
+    UserLearningEnrollment,
+)
+from app.models.resume import Resume
 from app.models.roadmap import (
-    TicketSubmission, UserRoadmap, UserSkillCompetence,
+    TicketSubmission,
+    UserRoadmap,
+    UserSkillCompetence,
 )
 from app.models.user import (
-    AspirantProfile, CareerTrack, JobPosting, User,
+    AspirantProfile,
+    CareerTrack,
+    JobPosting,
+    User,
 )
-from app.models.interview import InterviewFeedback, InterviewSession
-from app.models.learning import LearningPath, LessonCompletion, PathModule, UserLearningEnrollment
-from app.models.resume import Resume
 from app.modules.roadmap.schemas import (
-    JRSBreakdown, StageStatus, SubtopicOut,
+    JRSBreakdown,
+    StageStatus,
+    SubtopicOut,
 )
 
 logger = logging.getLogger(__name__)

@@ -28,10 +28,10 @@ def review_ticket_async(self, submission_id: str) -> dict:
     Fetches submission + ticket template, calls work_reviewer.review_ticket_submission(),
     then stores the result on the TicketSubmission row.
     """
+    from app.ai.work_reviewer import review_ticket_submission
     from app.database import SessionLocal
     from app.models.roadmap import TicketSubmission, TicketTemplate
     from app.models.user import CareerTrack
-    from app.ai.work_reviewer import review_ticket_submission
 
     db = SessionLocal()
     try:

@@ -1,22 +1,35 @@
+import io
 import json
 import logging
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
-import io
 from sqlalchemy.orm import Session
 
 from app.core.rbac import get_current_aspirant
 from app.database import get_db
 from app.models.user import AspirantProfile, User
-from app.modules.resume import service, pdf_service
+from app.modules.resume import pdf_service, service
 from app.modules.resume.schemas import (
-    AIGenerateResumeResponse, AIGenerateStreamRequest, AIImproveSectionRequest,
-    AIImproveSectionResponse, CreateResumeRequest, ResumeDetail, ResumeSummary,
-    ResumeTemplateOut, ResumeSectionOut, UpdateResumeRequest, UpsertSectionRequest,
-    ReorderSectionsRequest, ImportParsedRequest, SetJobTargetRequest,
-    KeywordGapRequest, KeywordGapOut, BulletRewriteRequest, BulletRewriteOut,
+    AIGenerateResumeResponse,
+    AIGenerateStreamRequest,
+    AIImproveSectionRequest,
+    AIImproveSectionResponse,
+    BulletRewriteOut,
+    BulletRewriteRequest,
+    CreateResumeRequest,
+    ImportParsedRequest,
+    KeywordGapOut,
+    KeywordGapRequest,
+    ReorderSectionsRequest,
+    ResumeDetail,
+    ResumeSectionOut,
+    ResumeSummary,
+    ResumeTemplateOut,
+    SetJobTargetRequest,
+    UpdateResumeRequest,
+    UpsertSectionRequest,
 )
 
 router = APIRouter(prefix="/resume", tags=["Resume Builder"])

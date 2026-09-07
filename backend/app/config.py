@@ -1,6 +1,7 @@
+from functools import lru_cache
+
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from functools import lru_cache
 
 _INSECURE_DEFAULTS = {
     "dev_secret_change_in_production_local_only",

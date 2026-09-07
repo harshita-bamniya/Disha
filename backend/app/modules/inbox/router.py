@@ -7,7 +7,10 @@ from app.database import get_db
 from app.models.user import User
 from app.modules.inbox import service
 from app.modules.inbox.schemas import (
-    NotificationListResponse, TaskCreateRequest, TaskOut, TaskUpdateRequest,
+    NotificationListResponse,
+    TaskCreateRequest,
+    TaskOut,
+    TaskUpdateRequest,
 )
 
 router = APIRouter(prefix="/employer", tags=["Employer Inbox"])

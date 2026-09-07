@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Annotated, Any, Optional
+
 from pydantic import BaseModel, BeforeValidator, Field
 
 # UUID columns in SQLAlchemy return uuid.UUID objects; Pydantic v2 won't auto-coerce

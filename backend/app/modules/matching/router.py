@@ -18,33 +18,60 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from pydantic import BaseModel, Field
 from redis import Redis
 from sqlalchemy.orm import Session
 
-from app.core.rbac import get_current_verified_user, require_employer, require_permission, require_role
 from app.core.exceptions import AuthException, BadRequestException, NotFoundException
+from app.core.rbac import (
+    get_current_verified_user,
+    require_employer,
+    require_permission,
+    require_role,
+)
 from app.database import get_db, get_redis
 from app.models.user import User
 from app.modules.matching import service
 from app.modules.matching.schemas import (
-    ApplyRequest, ApplicationDetailOut, ApplicationOut, ApplicationTrendResponse,
+    AllApplicantsResponse,
+    AllInterviewsResponse,
+    AllOffersResponse,
+    ApplicationDetailOut,
+    ApplicationOut,
     ApplicationResponsesOut,
-    BulkEmailRequest, BulkEmailResponse,
-    BulkStatusUpdateRequest, CandidateEmailLogOut, CandidateNoteCreateRequest, CandidateNoteOut,
-    CandidateRatingRequest, DashboardKpis, EmployerFunnelResponse,
-    InterviewFeedbackOut, InterviewFeedbackSubmitRequest,
-    OfferLetterAcceptRequest, OfferLetterDeclineRequest, OfferLetterOut, OfferLetterRequest,
-    RequestRescheduleRequest,
-    ScheduleInterviewRequest, SendCandidateEmailRequest,
-    UpcomingInterviewEntry,
-    AllApplicantsResponse, AllInterviewsResponse, AllOffersResponse,
-    JobDetail, JobPerformanceResponse, JobRecommendationsResponse, JobCandidatePipeline,
+    ApplicationTrendResponse,
+    ApplyRequest,
+    BulkEmailRequest,
+    BulkEmailResponse,
+    BulkStatusUpdateRequest,
+    BulkUpsertPipelineStagesRequest,
+    CandidateEmailLogOut,
+    CandidateNoteCreateRequest,
+    CandidateNoteOut,
+    CandidateRatingRequest,
+    DashboardKpis,
+    EmployerFunnelResponse,
+    InterviewFeedbackOut,
+    InterviewFeedbackSubmitRequest,
+    JobCandidatePipeline,
+    JobDetail,
+    JobPerformanceResponse,
+    JobRecommendationsResponse,
+    OfferLetterAcceptRequest,
+    OfferLetterDeclineRequest,
+    OfferLetterOut,
+    OfferLetterRequest,
+    PipelineStageOut,
+    PipelineTemplateCreateRequest,
+    PipelineTemplateOut,
     RecruiterPerformanceResponse,
-    UpdateApplicationStatusRequest, WithdrawRequest,
-    PipelineStageOut, BulkUpsertPipelineStagesRequest,
-    PipelineTemplateOut, PipelineTemplateCreateRequest,
+    RequestRescheduleRequest,
+    ScheduleInterviewRequest,
+    SendCandidateEmailRequest,
+    UpcomingInterviewEntry,
+    UpdateApplicationStatusRequest,
+    WithdrawRequest,
 )
-from pydantic import BaseModel, Field
 
 
 class UpdateNoteRequest(BaseModel):

@@ -1,20 +1,33 @@
-import uuid
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import AuthException, BadRequestException, ForbiddenException, NotFoundException
+from app.core.exceptions import (
+    AuthException,
+    BadRequestException,
+    ForbiddenException,
+    NotFoundException,
+)
 from app.models.company import Company, CompanyDepartment, CompanyInvite, CompanyOffice
 from app.models.subscription import CompanySubscription, SubscriptionPlan
 from app.models.user import EmployerProfile, JobPosting, Role, User
 from app.modules.companies.schemas import (
-    AssignDepartmentRequest, CompanyProfileResponse, CompanyProfileUpdateRequest,
+    AssignDepartmentRequest,
+    CompanyProfileResponse,
+    CompanyProfileUpdateRequest,
     CompanySubscriptionResponse,
-    DepartmentCreateRequest, DepartmentOut, DepartmentUpdateRequest,
-    EmployerProfileSelfResponse, EmployerProfileUpdateRequest,
-    MessageResponse, OfficeCreateRequest, OfficeOut,
-    SubscriptionPlanEntry, SubscriptionUsageResponse,
-    TeamInviteRequest, TeamMemberEntry, TEAM_ROLE_NAMES,
+    DepartmentCreateRequest,
+    DepartmentOut,
+    DepartmentUpdateRequest,
+    EmployerProfileSelfResponse,
+    EmployerProfileUpdateRequest,
+    MessageResponse,
+    OfficeCreateRequest,
+    OfficeOut,
+    SubscriptionPlanEntry,
+    SubscriptionUsageResponse,
+    TeamInviteRequest,
+    TeamMemberEntry,
 )
 
 
@@ -379,8 +392,8 @@ def delete_office(user: User, office_id: str, db: Session) -> MessageResponse:
 
 
 def _dept_to_out(dept: CompanyDepartment, db: Session) -> DepartmentOut:
-    from app.models.user import JobPosting
     from app.models.applications import Application
+    from app.models.user import JobPosting
 
     member_count = db.query(EmployerProfile).filter(
         EmployerProfile.department_id == dept.id,
@@ -540,8 +553,13 @@ def delete_department(user: User, department_id: str, db: Session) -> MessageRes
 
 def get_department_overview(user: User, department_id: str, db: Session):
     from datetime import timezone as _tz
+
+    from app.models.applications import (
+        Application,
+        CandidateInterviewFeedback,
+        OfferLetter,
+    )
     from app.models.user import JobPosting
-    from app.models.applications import Application, CandidateInterviewFeedback, OfferLetter
     from app.modules.companies.schemas import DepartmentOverviewOut
 
     profile = _get_own_profile(user, db)
@@ -649,9 +667,10 @@ def assign_member_department(
 
 def list_department_jobs(user: User, department_id: str, db: Session) -> list[dict]:
     """Return all jobs (any status) belonging to a department, with applicant counts."""
-    from app.models.user import JobPosting
-    from app.models.applications import Application
     from sqlalchemy import func
+
+    from app.models.applications import Application
+    from app.models.user import JobPosting
 
     profile = _get_own_profile(user, db)
     company = _get_company_or_404(profile, db)

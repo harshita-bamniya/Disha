@@ -9,7 +9,9 @@ skill_overlap now uses vector cosine similarity (threshold 0.78) so free-form
 user skills like "stakeholder management" correctly match "Stakeholder Engagement".
 """
 from __future__ import annotations
+
 from sqlalchemy.orm import Session
+
 from app.models.user import AspirantProfile, CareerTrack
 
 

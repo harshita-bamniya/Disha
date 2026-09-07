@@ -7,7 +7,9 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.models.roadmap import (
-    StageGateEvaluation, TicketSubmission, UserRoadmap,
+    StageGateEvaluation,
+    TicketSubmission,
+    UserRoadmap,
 )
 from app.models.user import (
     User,

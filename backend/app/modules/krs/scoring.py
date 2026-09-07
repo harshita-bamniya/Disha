@@ -31,9 +31,12 @@ S score (fully dynamic):
   score-time; Celery pre-populates the cache when skills are saved/extracted.
 """
 from __future__ import annotations
+
 import logging
+
 import numpy as np
 from sqlalchemy.orm import Session
+
 from app.models.user import AspirantProfile
 
 logger = logging.getLogger(__name__)
@@ -146,8 +149,8 @@ def _fetch_anchor_vectors(db: Session) -> list[list[float]]:
     Using both means the score is immediately meaningful (career tracks) and
     grows more accurate as more employers join the platform (job postings).
     """
-    from app.models.user import CareerTrack, JobPosting
     from app.models.skill_vectors import SkillVector
+    from app.models.user import CareerTrack, JobPosting
 
     all_skills: set[str] = set()
 

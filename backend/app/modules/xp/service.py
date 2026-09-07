@@ -6,7 +6,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.models.xp import UserXP, XPTransaction, XP_AWARDS, compute_level
+from app.models.xp import XP_AWARDS, UserXP, XPTransaction, compute_level
 
 logger = logging.getLogger(__name__)
 

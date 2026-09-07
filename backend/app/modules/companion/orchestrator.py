@@ -17,7 +17,7 @@ from typing import AsyncIterator
 from sqlalchemy.orm import Session
 
 from app.core import safety
-from app.models.companion import CompanionMilestone, CompanionMoodEntry
+from app.models.companion import CompanionMoodEntry
 from app.models.counsellor import Conversation, Message, SafetyFlag
 from app.models.user import User
 from app.modules.companion import memory as memory_svc

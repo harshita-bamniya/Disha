@@ -6,7 +6,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-
 # ── Stage config (per-stage summary returned to frontend) ─────────────────────
 
 class SubtopicOut(BaseModel):

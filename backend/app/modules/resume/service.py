@@ -1,7 +1,6 @@
 """Resume Builder service — Module 06."""
 from __future__ import annotations
 
-import json
 import logging
 from datetime import datetime, timezone
 from typing import Optional
@@ -13,11 +12,21 @@ from app.models.resume import Resume, ResumeSection, ResumeTemplate, ResumeVersi
 from app.models.user import AspirantProfile, CareerTrack, User
 from app.modules.resume import ai_service
 from app.modules.resume.schemas import (
-    AIGenerateResumeResponse, AIImproveSectionResponse,
-    CreateResumeRequest, ResumeDetail, ResumeSummary,
-    ResumeTemplateOut, ResumeSectionOut, UpdateResumeRequest,
-    UpsertSectionRequest, SectionReorderItem, ImportParsedRequest,
-    ParsedResumeData, SetJobTargetRequest, KeywordGapOut, BulletRewriteOut,
+    AIGenerateResumeResponse,
+    AIImproveSectionResponse,
+    BulletRewriteOut,
+    CreateResumeRequest,
+    ImportParsedRequest,
+    KeywordGapOut,
+    ParsedResumeData,
+    ResumeDetail,
+    ResumeSectionOut,
+    ResumeSummary,
+    ResumeTemplateOut,
+    SectionReorderItem,
+    SetJobTargetRequest,
+    UpdateResumeRequest,
+    UpsertSectionRequest,
 )
 
 
@@ -567,6 +576,7 @@ def _extract_text_from_docx(content: bytes) -> str:
     """Extract plain text from a DOCX file using python-docx."""
     try:
         import io
+
         from docx import Document
         doc = Document(io.BytesIO(content))
         paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]

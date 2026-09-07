@@ -8,7 +8,6 @@ from app.models.user import (
     EmployerProfile,
     JobPosting,
 )
-
 from app.modules.matching.service import core
 
 logger = logging.getLogger(__name__)

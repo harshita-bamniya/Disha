@@ -74,8 +74,8 @@ async def extract_and_store_memories_bg(
     db = SessionLocal()
     try:
         from app.ai.providers import create_provider
-        from app.models.counsellor import CounsellorMemory, CounsellorMemoryEmbedding
         from app.models.companion import CompanionMilestone
+        from app.models.counsellor import CounsellorMemory, CounsellorMemoryEmbedding
 
         provider = create_provider()
         user_prompt = _MEMORY_EXTRACTION_USER.format(

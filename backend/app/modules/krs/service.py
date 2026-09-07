@@ -1,14 +1,34 @@
 import logging
 from datetime import datetime, timezone
+
 from sqlalchemy.orm import Session
 
-from app.models.user import AspirantProfile, CareerMatch, CareerTrack, EmployerProfile, JobPosting, KrsScore, PsychologicalAssessment, User, UserCareerSelection, UserJobPreparation
+from app.models.user import (
+    AspirantProfile,
+    CareerMatch,
+    CareerTrack,
+    EmployerProfile,
+    JobPosting,
+    KrsScore,
+    PsychologicalAssessment,
+    User,
+    UserCareerSelection,
+    UserJobPreparation,
+)
 from app.modules.krs import matching, scoring
 from app.modules.krs.schemas import (
-    ActivePrepJobContext, CareerMatchResponse, CareerTrackResponse,
-    KrsDashboardResponse, KrsScoreResponse, LiveJobResponse, PrepareJobResponse,
+    ActivePrepJobContext,
+    CareerMatchResponse,
+    CareerTrackResponse,
+    KrsDashboardResponse,
+    KrsScoreResponse,
+    LiveJobResponse,
+    PrepareJobResponse,
 )
-from app.modules.recommendations.ranker import build_preference_sql_filters, rank_jobs_for_user
+from app.modules.recommendations.ranker import (
+    build_preference_sql_filters,
+    rank_jobs_for_user,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -485,6 +505,7 @@ async def get_job_fit_analysis(
 
     try:
         import asyncio
+
         from app.ai.providers import create_provider
 
         provider = create_provider()

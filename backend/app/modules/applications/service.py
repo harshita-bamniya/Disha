@@ -21,21 +21,31 @@ import random
 import string
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
+from typing import Optional
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.core.exceptions import BadRequestException, ForbiddenException, NotFoundException
-from app.models.ats import (
-    ApplicationDraft, ApplicationDocument, ApplicationForm,
-    ApplicationResponse, AtsQuestion, CandidateResumeFile,
-    FormSection, KnockoutRule,
+from app.core.exceptions import (
+    BadRequestException,
+    NotFoundException,
 )
 from app.models.applications import Application, ApplicationStatusHistory
-from app.models.user import AspirantProfile, EmployerProfile, JobPosting, KrsScore, User
+from app.models.ats import (
+    ApplicationDraft,
+    ApplicationForm,
+    ApplicationResponse,
+    AtsQuestion,
+    CandidateResumeFile,
+    FormSection,
+    KnockoutRule,
+)
+from app.models.user import AspirantProfile, JobPosting, KrsScore, User
 from app.modules.applications.schemas import (
-    AnswerIn, DraftSaveRequest, DraftStartRequest,
-    SubmitApplicationRequest, WithdrawRequest,
+    AnswerIn,
+    DraftSaveRequest,
+    DraftStartRequest,
+    SubmitApplicationRequest,
+    WithdrawRequest,
 )
 
 logger = logging.getLogger(__name__)

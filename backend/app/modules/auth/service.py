@@ -6,27 +6,50 @@ from fastapi import Request
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.core import totp as totp_core
+from app.core.email import get_email_provider, send_otp_email
 from app.core.exceptions import (
-    AuthException, BadRequestException, ConflictException,
-    OtpExpiredException, OtpInvalidException,
+    AuthException,
+    BadRequestException,
+    ConflictException,
+    OtpExpiredException,
+    OtpInvalidException,
 )
 from app.core.security import (
-    generate_otp, generate_raw_refresh_token,
-    hash_otp, hash_password, hash_token,
-    verify_otp, verify_password,
-    create_access_token, create_refresh_token,
-    decode_refresh_token,
-    create_2fa_challenge_token, decode_2fa_challenge_token,
+    create_2fa_challenge_token,
+    create_access_token,
+    create_refresh_token,
+    decode_2fa_challenge_token,
+    generate_otp,
+    generate_raw_refresh_token,
+    hash_otp,
+    hash_password,
+    hash_token,
+    verify_otp,
+    verify_password,
 )
-from app.core.email import get_email_provider, send_otp_email
 from app.core.sms import send_otp_sms
 from app.models.company import Company
-from app.models.user import AuditLog, DeviceSession, EmployerProfile, LoginHistory, OtpVerification, RefreshToken, Role, TwoFactorCredential, User
-from app.core import totp as totp_core
+from app.models.user import (
+    AuditLog,
+    DeviceSession,
+    EmployerProfile,
+    LoginHistory,
+    OtpVerification,
+    RefreshToken,
+    Role,
+    TwoFactorCredential,
+    User,
+)
 from app.modules.auth.schemas import (
-    EmployerProfileResponse, EmployerRegisterResponse,
-    MessageResponse, TokenResponse, UserResponse,
-    TwoFactorEnableResponse, TwoFactorSetupResponse, TwoFactorStatusResponse,
+    EmployerProfileResponse,
+    EmployerRegisterResponse,
+    MessageResponse,
+    TokenResponse,
+    TwoFactorEnableResponse,
+    TwoFactorSetupResponse,
+    TwoFactorStatusResponse,
+    UserResponse,
 )
 
 settings = get_settings()
@@ -704,8 +727,8 @@ def verify_employer_phone(phone: str, otp: str, db: Session, request: Request | 
 
 def google_login(credential: str, db: Session, request: Request | None = None) -> TokenResponse:
     """Verifies a Google ID token, creates account if new, returns JWT token pair."""
-    from google.oauth2 import id_token
     from google.auth.transport import requests as google_requests
+    from google.oauth2 import id_token
 
     try:
         idinfo = id_token.verify_oauth2_token(
