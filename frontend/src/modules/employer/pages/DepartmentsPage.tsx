@@ -190,7 +190,10 @@ export default function DepartmentsPage() {
   const { data: departments, isLoading, isError, refetch } = useDepartments()
   const { data: team } = useTeamMembers()
   const deleteDept = useDeleteDepartment()
-  const canManage  = useHasPermission('departments:write')
+  // Backend guards department create/update/delete with companies:edit, not a
+  // separate departments:* permission (which doesn't exist in the system) —
+  // check the same one the API actually enforces.
+  const canManage  = useHasPermission('companies:edit')
 
   const [showModal, setShowModal]       = useState(false)
   const [editing, setEditing]           = useState<DepartmentEntry | null>(null)

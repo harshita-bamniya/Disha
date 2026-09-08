@@ -216,19 +216,21 @@ def get_candidate_support_tickets(
 @router.post("/users/{user_id}/deactivate", response_model=MessageResponse)
 def deactivate_user(
     user_id: str,
+    request: Request,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    return service.deactivate_user(user_id, db)
+    return service.deactivate_user(user_id, str(admin.id), db, request=request)
 
 
 @router.post("/users/{user_id}/reactivate", response_model=MessageResponse)
 def reactivate_user(
     user_id: str,
+    request: Request,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    return service.reactivate_user(user_id, db)
+    return service.reactivate_user(user_id, str(admin.id), db, request=request)
 
 
 # ── Career track management ───────────────────────────────────────────────────
@@ -244,11 +246,12 @@ def list_career_tracks(
 @router.post("/career-tracks", response_model=CareerTrackAdminEntry, status_code=201)
 def create_career_track(
     body: CareerTrackCreateRequest,
+    request: Request,
     db: Session = Depends(get_db),
     admin: User = Depends(require_permission("career_tracks", "write")),
 ):
     try:
-        return service.create_career_track(body, db)
+        return service.create_career_track(body, str(admin.id), db, request=request)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
 
@@ -257,10 +260,11 @@ def create_career_track(
 def update_career_track(
     track_id: str,
     body: CareerTrackUpdateRequest,
+    request: Request,
     db: Session = Depends(get_db),
     admin: User = Depends(require_permission("career_tracks", "write")),
 ):
-    return service.update_career_track(track_id, body, db)
+    return service.update_career_track(track_id, body, str(admin.id), db, request=request)
 
 
 @router.delete("/career-tracks/{track_id}", response_model=MessageResponse)
@@ -271,7 +275,7 @@ def delete_career_track(
     db: Session = Depends(get_db),
     admin: User = Depends(require_permission("career_tracks", "delete")),
 ):
-    return service.delete_career_track(track_id, db)
+    return service.delete_career_track(track_id, str(admin.id), db, request=request)
 
 
 # ── Jobs management ───────────────────────────────────────────────────────────
@@ -310,10 +314,11 @@ def list_job_applications(
 @router.patch("/jobs/{job_id}/toggle", response_model=AdminJobEntry)
 def toggle_job(
     job_id: str,
+    request: Request,
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    return service.toggle_admin_job(job_id, db)
+    return service.toggle_admin_job(job_id, str(admin.id), db, request=request)
 
 
 @router.delete("/jobs/{job_id}", response_model=MessageResponse)
@@ -324,7 +329,7 @@ def delete_job(
     db: Session = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    return service.delete_admin_job(job_id, db)
+    return service.delete_admin_job(job_id, str(admin.id), db, request=request)
 
 
 # ── Applications ──────────────────────────────────────────────────────────────

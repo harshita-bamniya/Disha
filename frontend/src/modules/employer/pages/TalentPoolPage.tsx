@@ -58,14 +58,14 @@ function CandidateRow({ candidate, labels, allFolders, onToggleLabel }: {
                   <MapPin size={10} />{[candidate.city, candidate.state].filter(Boolean).join(', ')}
                 </span>
               )}
-              {candidate.highest_education && (
+              {candidate.highest_qualification && (
                 <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, color: C.ink3 }}>
-                  <GraduationCap size={10} />{candidate.highest_education}
+                  <GraduationCap size={10} />{candidate.highest_qualification}
                 </span>
               )}
-              {candidate.years_of_experience != null && (
+              {candidate.last_designation && (
                 <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, color: C.ink3 }}>
-                  <Briefcase size={10} />{candidate.years_of_experience}y exp
+                  <Briefcase size={10} />{candidate.last_designation}
                 </span>
               )}
             </div>
@@ -85,13 +85,13 @@ function CandidateRow({ candidate, labels, allFolders, onToggleLabel }: {
         </div>
 
         {/* Skills */}
-        {(candidate.top_skills ?? []).length > 0 && (
+        {(candidate.skills ?? []).length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }}>
-            {(candidate.top_skills ?? []).slice(0, 6).map(skill => (
+            {(candidate.skills ?? []).slice(0, 6).map(skill => (
               <span key={skill} style={{ padding: '2px 8px', background: colors.state.infoBg, color: colors.state.info, fontSize: 11, fontWeight: 500, borderRadius: 4 }}>{skill}</span>
             ))}
-            {(candidate.top_skills ?? []).length > 6 && (
-              <span style={{ padding: '2px 8px', background: colors.surface.elevated, color: C.ink3, fontSize: 11, borderRadius: 4 }}>+{candidate.top_skills.length - 6}</span>
+            {(candidate.skills ?? []).length > 6 && (
+              <span style={{ padding: '2px 8px', background: colors.surface.elevated, color: C.ink3, fontSize: 11, borderRadius: 4 }}>+{candidate.skills.length - 6}</span>
             )}
           </div>
         )}
@@ -150,7 +150,7 @@ export default function TalentPoolPage() {
   const [labels, setLabels]     = useState(loadLabels)
 
   const { data: pool, isLoading, isError, refetch } = useQuery({ queryKey: ['talent-pool'], queryFn: getTalentPool })
-  const candidates = pool?.candidates ?? []
+  const candidates = pool ?? []
 
   const allFolders = useMemo(() => {
     const custom = Object.values(labels).flat()
@@ -159,14 +159,14 @@ export default function TalentPoolPage() {
 
   const allSkills = useMemo(() => {
     const s = new Set<string>()
-    candidates.forEach(c => (c.top_skills ?? []).forEach(sk => s.add(sk)))
+    candidates.forEach(c => (c.skills ?? []).forEach(sk => s.add(sk)))
     return [...s].sort()
   }, [candidates])
 
   const filtered = useMemo(() => {
     return candidates.filter(c => {
       if (search && !(c.full_name ?? '').toLowerCase().includes(search.toLowerCase())) return false
-      if (skillFilter && !(c.top_skills ?? []).includes(skillFilter)) return false
+      if (skillFilter && !(c.skills ?? []).includes(skillFilter)) return false
       if (folderFilter && !(labels[c.aspirant_id] ?? []).includes(folderFilter)) return false
       return true
     })

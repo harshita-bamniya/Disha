@@ -525,11 +525,12 @@ function QuestionCard({
 // ── Section Block ─────────────────────────────────────────────────────────────
 
 function SectionBlock({
-  section, formId, isFirst, isLast, totalSections,
+  section, formId, allSections, isFirst, isLast, totalSections,
   onRefresh,
 }: {
   section: FormSectionOut
   formId: string
+  allSections: FormSectionOut[]
   isFirst: boolean
   isLast: boolean
   totalSections: number
@@ -541,6 +542,7 @@ function SectionBlock({
   const [editingQ, setEditingQ] = useState<QuestionOut | null>(null)
   const [knockoutQ, setKnockoutQ] = useState<QuestionOut | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
+  const [sectionErr, setSectionErr] = useState<string | null>(null)
 
   function invalidate() {
     qc.invalidateQueries({ queryKey: ['form-builder'] })
@@ -550,60 +552,77 @@ function SectionBlock({
   // Section mutations
   const updateSection = useMutation({
     mutationFn: (body: FormSectionIn) => applicationFormsApi.updateSection(section.id, body),
-    onSuccess: () => { setEditingTitle(false); invalidate() },
+    onSuccess: () => { setEditingTitle(false); setSectionErr(null); invalidate() },
+    onError: (e) => setSectionErr(getApiError(e, 'Failed to update section.')),
   })
 
   const deleteSection = useMutation({
     mutationFn: () => applicationFormsApi.deleteSection(section.id),
-    onSuccess: invalidate,
+    onSuccess: () => { setSectionErr(null); invalidate() },
+    onError: (e) => { setDeleteConfirm(false); setSectionErr(getApiError(e, 'Failed to delete section.')) },
   })
 
   const moveSection = useMutation({
     mutationFn: (direction: 'up' | 'down') => {
       const newIdx = direction === 'up' ? section.order_index - 1 : section.order_index + 1
-      return applicationFormsApi.reorderSections(formId, [
-        { section_id: section.id, order_index: newIdx },
-      ])
+      // The backend only updates order_index for the ids present in the payload — the
+      // neighbor currently sitting at newIdx must be sent too (swapped to this section's
+      // old index), or reordering produces a duplicate order_index / index gap instead
+      // of an actual swap.
+      const neighbor = allSections.find(s => s.order_index === newIdx)
+      const updates = [{ section_id: section.id, order_index: newIdx }]
+      if (neighbor) updates.push({ section_id: neighbor.id, order_index: section.order_index })
+      return applicationFormsApi.reorderSections(formId, updates)
     },
-    onSuccess: invalidate,
+    onSuccess: () => { setSectionErr(null); invalidate() },
+    onError: (e) => setSectionErr(getApiError(e, 'Failed to reorder sections.')),
   })
 
   // Question mutations
   const addQuestion = useMutation({
     mutationFn: (body: QuestionIn) => applicationFormsApi.addQuestion(section.id, body),
-    onSuccess: () => { setAddingQ(false); invalidate() },
+    onSuccess: () => { setAddingQ(false); setSectionErr(null); invalidate() },
+    onError: (e) => setSectionErr(getApiError(e, 'Failed to add question.')),
   })
 
   const updateQuestion = useMutation({
     mutationFn: ({ id, body }: { id: string; body: QuestionIn }) => applicationFormsApi.updateQuestion(id, body),
-    onSuccess: () => { setEditingQ(null); invalidate() },
+    onSuccess: () => { setEditingQ(null); setSectionErr(null); invalidate() },
+    onError: (e) => setSectionErr(getApiError(e, 'Failed to update question.')),
   })
 
   const deleteQuestion = useMutation({
     mutationFn: (id: string) => applicationFormsApi.deleteQuestion(id),
-    onSuccess: invalidate,
+    onSuccess: () => { setSectionErr(null); invalidate() },
+    onError: (e) => setSectionErr(getApiError(e, 'Failed to delete question.')),
   })
 
   const moveQuestion = useMutation({
     mutationFn: ({ qId, direction }: { qId: string; direction: 'up' | 'down' }) => {
       const q = section.questions.find(q => q.id === qId)!
       const newIdx = direction === 'up' ? q.order_index - 1 : q.order_index + 1
-      return applicationFormsApi.reorderQuestions(section.id, [
-        { question_id: qId, order_index: newIdx },
-      ])
+      // Same reasoning as moveSection: the backend only updates the ids present in the
+      // payload, so the neighbor at newIdx must be swapped explicitly.
+      const neighbor = section.questions.find(other => other.order_index === newIdx)
+      const updates = [{ question_id: qId, order_index: newIdx }]
+      if (neighbor) updates.push({ question_id: neighbor.id, order_index: q.order_index })
+      return applicationFormsApi.reorderQuestions(section.id, updates)
     },
-    onSuccess: invalidate,
+    onSuccess: () => { setSectionErr(null); invalidate() },
+    onError: (e) => setSectionErr(getApiError(e, 'Failed to reorder questions.')),
   })
 
   const setKnockout = useMutation({
     mutationFn: ({ qId, body }: { qId: string; body: KnockoutRuleIn }) =>
       applicationFormsApi.setKnockoutRule(qId, body),
-    onSuccess: () => { setKnockoutQ(null); invalidate() },
+    onSuccess: () => { setKnockoutQ(null); setSectionErr(null); invalidate() },
+    onError: (e) => setSectionErr(getApiError(e, 'Failed to save knockout rule.')),
   })
 
   const deleteKnockout = useMutation({
     mutationFn: (qId: string) => applicationFormsApi.deleteKnockoutRule(qId),
-    onSuccess: () => { setKnockoutQ(null); invalidate() },
+    onSuccess: () => { setKnockoutQ(null); setSectionErr(null); invalidate() },
+    onError: (e) => setSectionErr(getApiError(e, 'Failed to remove knockout rule.')),
   })
 
   const sorted = [...section.questions].sort((a, b) => a.order_index - b.order_index)
@@ -639,6 +658,14 @@ function SectionBlock({
           </>
         )}
       </div>
+
+      {/* Mutation error banner — shared by every section/question action above */}
+      {sectionErr && (
+        <div style={{ padding: '10px 20px', background: C.redBg, borderBottom: '1px solid #FCA5A5', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <span style={{ fontSize: 12.5, color: C.red }}>{sectionErr}</span>
+          <button onClick={() => setSectionErr(null)} aria-label="Dismiss error" style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.red, fontSize: 12, fontWeight: 600 }}>Dismiss</button>
+        </div>
+      )}
 
       {/* Delete confirm */}
       {deleteConfirm && (
@@ -944,6 +971,7 @@ export default function FormBuilderPage() {
                   key={section.id}
                   section={section}
                   formId={form!.id}
+                  allSections={sortedSections}
                   isFirst={i === 0}
                   isLast={i === sortedSections.length - 1}
                   totalSections={sortedSections.length}

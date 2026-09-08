@@ -1,5 +1,6 @@
 """Admin: career track management."""
 
+from fastapi import Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -14,6 +15,7 @@ from app.modules.admin.schemas import (
     CareerTrackUpdateRequest,
     MessageResponse,
 )
+from app.modules.admin.service import core
 
 
 def list_career_tracks_admin(db: Session) -> list[CareerTrackAdminEntry]:
@@ -46,7 +48,7 @@ def list_career_tracks_admin(db: Session) -> list[CareerTrackAdminEntry]:
     ]
 
 
-def create_career_track(data: CareerTrackCreateRequest, db: Session) -> CareerTrackAdminEntry:
+def create_career_track(data: CareerTrackCreateRequest, admin_user_id: str, db: Session, request: Request | None = None) -> CareerTrackAdminEntry:
     existing = db.query(CareerTrack).filter(CareerTrack.slug == data.slug).first()
     if existing:
         raise ValueError(f"A track with slug '{data.slug}' already exists.")
@@ -63,6 +65,10 @@ def create_career_track(data: CareerTrackCreateRequest, db: Session) -> CareerTr
         example_roles=data.example_roles,
     )
     db.add(track)
+    db.flush()  # assign track.id (Python-side default only fires at flush) before referencing it below
+    core._write_audit(db, admin_user_id, "career_track.created", resource="career_track",
+                 resource_id=str(track.id), previous_value=None,
+                 new_value={"slug": track.slug, "title": track.title}, request=request)
     db.commit()
     db.refresh(track)
 
@@ -74,17 +80,24 @@ def create_career_track(data: CareerTrackCreateRequest, db: Session) -> CareerTr
     )
 
 
-def update_career_track(track_id: str, data: CareerTrackUpdateRequest, db: Session) -> CareerTrackAdminEntry:
+def update_career_track(track_id: str, data: CareerTrackUpdateRequest, admin_user_id: str, db: Session, request: Request | None = None) -> CareerTrackAdminEntry:
     track = db.query(CareerTrack).filter(CareerTrack.id == track_id).first()
     if not track:
         raise NotFoundException("Career track not found.")
 
+    previous = {}
+    new = {}
     for field in ("title", "description", "sector", "required_skills", "min_k_score",
                   "salary_range", "growth_outlook", "example_roles"):
         val = getattr(data, field)
         if val is not None:
+            previous[field] = getattr(track, field)
+            new[field] = val
             setattr(track, field, val)
 
+    core._write_audit(db, admin_user_id, "career_track.updated", resource="career_track",
+                 resource_id=str(track.id), previous_value=previous or None, new_value=new or None,
+                 request=request)
     db.commit()
     db.refresh(track)
 
@@ -96,11 +109,14 @@ def update_career_track(track_id: str, data: CareerTrackUpdateRequest, db: Sessi
     )
 
 
-def delete_career_track(track_id: str, db: Session) -> MessageResponse:
+def delete_career_track(track_id: str, admin_user_id: str, db: Session, request: Request | None = None) -> MessageResponse:
     track = db.query(CareerTrack).filter(CareerTrack.id == track_id).first()
     if not track:
         raise NotFoundException("Career track not found.")
     title = track.title
+    core._write_audit(db, admin_user_id, "career_track.deleted", resource="career_track",
+                 resource_id=str(track.id), previous_value={"title": title}, new_value=None,
+                 request=request)
     db.delete(track)
     db.commit()
     return MessageResponse(message=f"'{title}' deleted.")

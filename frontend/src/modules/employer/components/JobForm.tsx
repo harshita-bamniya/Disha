@@ -606,7 +606,10 @@ export default function JobForm({ initial, onSubmit, loading, onCancel, error }:
     const resolvedLocation =
       jobType === 'remote'    ? 'Remote'    :
       jobType === 'pan_india' ? 'Pan India' :
-      location.trim()
+      // Normalize free-text city entry: drop stray/empty comma segments and
+      // whitespace so "Indore," or "Indore,, Pune" don't reach the backend
+      // (and every surface that renders the job) verbatim.
+      location.split(',').map(c => c.trim()).filter(Boolean).join(', ')
 
     onSubmit({
       title:           title.trim(),

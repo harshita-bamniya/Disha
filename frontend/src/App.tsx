@@ -230,6 +230,21 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+/** Mirrors AdminRoute for the employer portal — without it, a logged-in
+ * aspirant or admin navigating straight to an /app/employer/* URL rendered
+ * the full employer shell (sidebar, page chrome) before every data call
+ * 403'd, instead of being redirected away like /admin/* already does. */
+function EmployerRoute({ children }: { children: React.ReactNode }) {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const user = useAuthStore((s) => s.user)
+  if (!isAuthenticated) return <Navigate to="/auth/login" replace />
+  if (!user || !EMPLOYER_ROLES.includes(user.role)) {
+    if (user && PLATFORM_ADMIN_ROLES.includes(user.role)) return <Navigate to="/admin/dashboard" replace />
+    return <Navigate to="/app/dashboard" replace />
+  }
+  return <>{children}</>
+}
+
 function RoleRoute({ roles, children }: { roles: string[]; children: React.ReactNode }) {
   const user = useAuthStore((s) => s.user)
   if (!user || !roles.includes(user.role)) return <Navigate to="/admin/dashboard" replace />
@@ -309,7 +324,7 @@ function App() {
           <Route path="/app/onboarding" element={<Navigate to="/app/onboarding/step/1" replace />} />
 
           {/* Employer portal — all pages share the sidebar via EmployerLayout */}
-          <Route element={<ProtectedRoute><EmployerLayout /></ProtectedRoute>}>
+          <Route element={<EmployerRoute><EmployerLayout /></EmployerRoute>}>
             <Route path="/app/employer/dashboard" element={<EmployerDashboardPage />} />
             <Route path="/app/employer/jobs" element={<Suspense fallback={<PageLoader />}><EmployerJobsPage /></Suspense>} />
             <Route path="/app/employer/verification" element={<Suspense fallback={<PageLoader />}><EmployerVerificationPage /></Suspense>} />

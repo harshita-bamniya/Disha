@@ -1,6 +1,7 @@
 """Admin: aspirant user management."""
 import uuid
 
+from fastapi import Request
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
@@ -28,7 +29,7 @@ from app.modules.admin.schemas import (
     AspirantWorkExperience,
     MessageResponse,
 )
-from app.modules.admin.service import tickets
+from app.modules.admin.service import core, tickets
 
 
 def list_aspirants(db: Session, search: str | None = None, limit: int = 100, offset: int = 0) -> list[AspirantUserEntry]:
@@ -88,20 +89,28 @@ def list_aspirants(db: Session, search: str | None = None, limit: int = 100, off
     return result
 
 
-def deactivate_user(user_id: str, db: Session) -> MessageResponse:
+def deactivate_user(user_id: str, admin_user_id: str, db: Session, request: Request | None = None) -> MessageResponse:
     user = db.query(User).filter(User.id == user_id, User.deleted_at == None).first()
     if not user:
         raise NotFoundException("User not found.")
+    was_active = user.is_active
     user.is_active = False
+    core._write_audit(db, admin_user_id, "user.deactivated", resource="user",
+                 resource_id=str(user.id), previous_value={"is_active": was_active},
+                 new_value={"is_active": False}, request=request)
     db.commit()
     return MessageResponse(message="User deactivated.")
 
 
-def reactivate_user(user_id: str, db: Session) -> MessageResponse:
+def reactivate_user(user_id: str, admin_user_id: str, db: Session, request: Request | None = None) -> MessageResponse:
     user = db.query(User).filter(User.id == user_id, User.deleted_at == None).first()
     if not user:
         raise NotFoundException("User not found.")
+    was_active = user.is_active
     user.is_active = True
+    core._write_audit(db, admin_user_id, "user.reactivated", resource="user",
+                 resource_id=str(user.id), previous_value={"is_active": was_active},
+                 new_value={"is_active": True}, request=request)
     db.commit()
     return MessageResponse(message="User reactivated.")
 

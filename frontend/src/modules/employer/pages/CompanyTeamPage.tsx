@@ -14,7 +14,7 @@ import {
   useHasPermission, useTeamActivity, useEmployerPermissions,
 } from '../hooks/useJobs'
 import { getApiError } from '@/api/client'
-import type { TeamInvitePayload } from '@/api/company'
+import type { TeamInvitePayload, CompanyProfile } from '@/api/company'
 import { DS, C } from '../ds'
 import PageHeader from '@/shared/layouts/PageHeader'
 
@@ -197,7 +197,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
 // ── Offices Modal ──────────────────────────────────────────────────────────────
 
 function OfficesModal({ onClose }: { onClose: () => void }) {
-  const { data: offices } = useOffices()
+  const { data: offices, isLoading: officesLoading } = useOffices()
   const createOffice = useCreateOffice()
   const deleteOffice = useDeleteOffice()
   const [form, setForm] = useState({ name: '', city: '' })
@@ -215,7 +215,11 @@ function OfficesModal({ onClose }: { onClose: () => void }) {
     <Modal open={true} title="Manage Offices" onClose={onClose} width={480}>
       {/* List */}
       <div style={{ marginBottom: 24 }}>
-        {!offices || offices.length === 0 ? (
+        {officesLoading ? (
+          <div style={{ textAlign: 'center', padding: '24px 0', color: C.ink3, fontSize: 13 }}>
+            Loading offices…
+          </div>
+        ) : !offices || offices.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '24px 0', color: C.ink3, fontSize: 13 }}>
             No offices added yet.
           </div>
@@ -280,7 +284,7 @@ function OfficesModal({ onClose }: { onClose: () => void }) {
 // ── Departments Modal ──────────────────────────────────────────────────────────
 
 function DepartmentsModal({ onClose }: { onClose: () => void }) {
-  const { data: departments } = useDepartments()
+  const { data: departments, isLoading: departmentsLoading } = useDepartments()
   const createDepartment = useCreateDepartment()
   const deleteDepartment = useDeleteDepartment()
   const [name, setName] = useState('')
@@ -298,7 +302,11 @@ function DepartmentsModal({ onClose }: { onClose: () => void }) {
     <Modal open={true} title="Manage Departments" onClose={onClose} width={440}>
       {/* List */}
       <div style={{ marginBottom: 24 }}>
-        {!departments || departments.length === 0 ? (
+        {departmentsLoading ? (
+          <div style={{ textAlign: 'center', padding: '24px 0', color: C.ink3, fontSize: 13 }}>
+            Loading departments…
+          </div>
+        ) : !departments || departments.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '24px 0', color: C.ink3, fontSize: 13 }}>
             No departments yet. Add one below.
           </div>
@@ -350,29 +358,68 @@ function DepartmentsModal({ onClose }: { onClose: () => void }) {
 
 // ── Edit Description Modal ─────────────────────────────────────────────────────
 
-function EditDescriptionModal({ current, onClose }: { current: string; onClose: () => void }) {
+const EDIT_INDUSTRIES = [
+  'IT & Technology', 'Banking & Finance', 'Consulting', 'Education',
+  'Government & PSU', 'Healthcare', 'Legal', 'Manufacturing',
+  'Media & Communication', 'NGO & Social Sector', 'Real Estate',
+  'Research & Analytics', 'Retail', 'Other',
+]
+
+const EDIT_COMPANY_SIZES = ['1-10', '11-50', '51-200', '201-500', '501-1000', '1000+']
+
+function EditDescriptionModal({ company, onClose }: { company: CompanyProfile | undefined; onClose: () => void }) {
   const updateCompany = useUpdateCompanyProfile()
-  const [val, setVal] = useState(current)
+  const [industry, setIndustry]         = useState(company?.industry ?? '')
+  const [companySize, setCompanySize]   = useState(company?.company_size ?? '')
+  const [website, setWebsite]           = useState(company?.website ?? '')
+  const [headquarters, setHeadquarters] = useState(company?.headquarters ?? '')
+  const [description, setDescription]   = useState(company?.description ?? '')
   const [err, setErr] = useState('')
 
   const save = () => {
-    updateCompany.mutate({ description: val }, {
+    updateCompany.mutate({
+      industry: industry || undefined,
+      company_size: companySize || undefined,
+      website: website || undefined,
+      headquarters: headquarters || undefined,
+      description,
+    }, {
       onSuccess: onClose,
       onError: e => setErr(getApiError(e)),
     })
   }
 
   return (
-    <Modal open={true} title="Company Description" onClose={onClose} width={480}>
-      <Field label="Description" hint="Tell candidates what your company is about.">
-        <textarea
-          value={val}
-          onChange={e => setVal(e.target.value)}
-          rows={5}
-          style={{ ...inputStyle, resize: 'vertical' }}
-          placeholder="Describe your company culture, mission, and what makes it a great place to work…"
-        />
-      </Field>
+    <Modal open={true} title="Edit Company Profile" onClose={onClose} width={480}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <Field label="Industry">
+          <select value={industry} onChange={e => setIndustry(e.target.value)} style={{ ...selectStyle, width: '100%' }}>
+            <option value="">— Not set —</option>
+            {EDIT_INDUSTRIES.map(ind => <option key={ind} value={ind}>{ind}</option>)}
+          </select>
+        </Field>
+        <Field label="Company size">
+          <select value={companySize} onChange={e => setCompanySize(e.target.value)} style={{ ...selectStyle, width: '100%' }}>
+            <option value="">— Not set —</option>
+            {EDIT_COMPANY_SIZES.map(sz => <option key={sz} value={sz}>{sz}</option>)}
+          </select>
+        </Field>
+        <Field label="Website">
+          <input value={website} onChange={e => setWebsite(e.target.value)} style={inputStyle} placeholder="https://yourcompany.com" />
+        </Field>
+        <Field label="Location" hint="City / headquarters shown to candidates and admins.">
+          <input value={headquarters} onChange={e => setHeadquarters(e.target.value)} style={inputStyle} placeholder="e.g. New Delhi" />
+        </Field>
+        <Field label="Description" hint="Tell candidates what your company is about.">
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            rows={5}
+            style={{ ...inputStyle, resize: 'vertical' }}
+            placeholder="Describe your company culture, mission, and what makes it a great place to work…"
+          />
+        </Field>
+      </div>
       {err && <p style={{ fontSize: 12, color: C.red, margin: '10px 0 0' }}>{err}</p>}
       <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
         <Button variant="outline" size="sm" style={{ flex: 1, justifyContent: 'center' }} onClick={onClose}>Cancel</Button>
@@ -453,8 +500,8 @@ const COMPANY_TABS: TabItem[] = [
 export default function CompanyTeamPage() {
   const { data: company, isLoading: companyLoading, isError: companyError, refetch: refetchCompany } = useCompanyProfile()
   const { data: team, isLoading: teamLoading } = useTeamMembers()
-  const { data: offices } = useOffices()
-  const { data: departments } = useDepartments()
+  const { data: offices, isLoading: officesLoading } = useOffices()
+  const { data: departments, isLoading: departmentsLoading } = useDepartments()
   const { data: activity, isLoading: activityLoading } = useTeamActivity()
   const { data: perms } = useEmployerPermissions()
   const removeMember = useRemoveTeamMember()
@@ -465,7 +512,9 @@ export default function CompanyTeamPage() {
   const canRemove         = useHasPermission('team:remove')
   const canTransfer       = useHasPermission('team:transfer_ownership')
   const canEditCompany    = useHasPermission('companies:edit')
-  const canManageDepts    = useHasPermission('departments:write')
+  // Backend guards department create/update/delete with companies:edit, not a
+  // separate departments:* permission (which doesn't exist in the system).
+  const canManageDepts    = canEditCompany
   const isOwnerOrHR       = canInvite
 
   const [tab, setTab] = useState<Tab>('overview')
@@ -573,7 +622,11 @@ export default function CompanyTeamPage() {
                     )}
                   </div>
                   <div style={{ padding: '12px 16px' }}>
-                    {!offices || offices.length === 0 ? (
+                    {officesLoading ? (
+                      <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                        <p style={{ fontSize: 12, color: C.ink3, margin: 0 }}>Loading offices…</p>
+                      </div>
+                    ) : !offices || offices.length === 0 ? (
                       <div style={{ textAlign: 'center', padding: '16px 0' }}>
                         <p style={{ fontSize: 12, color: C.ink3, margin: '0 0 10px' }}>No office locations added yet.</p>
                         {canEditCompany && (
@@ -626,7 +679,11 @@ export default function CompanyTeamPage() {
                     </div>
                   </div>
                   <div style={{ padding: '12px 16px' }}>
-                    {!departments || departments.length === 0 ? (
+                    {departmentsLoading ? (
+                      <div style={{ textAlign: 'center', padding: '16px 0' }}>
+                        <p style={{ fontSize: 12, color: C.ink3, margin: 0 }}>Loading departments…</p>
+                      </div>
+                    ) : !departments || departments.length === 0 ? (
                       <div style={{ textAlign: 'center', padding: '16px 0' }}>
                         <p style={{ fontSize: 12, color: C.ink3, margin: '0 0 10px' }}>No departments set up yet.</p>
                         {canManageDepts && (
@@ -846,7 +903,7 @@ export default function CompanyTeamPage() {
       {showInvite     && <InviteModal onClose={() => setShowInvite(false)} />}
       {showOffices    && <OfficesModal onClose={() => setShowOffices(false)} />}
       {showDepts      && <DepartmentsModal onClose={() => setShowDepts(false)} />}
-      {showEditDesc   && <EditDescriptionModal current={company?.description ?? ''} onClose={() => setShowEditDesc(false)} />}
+      {showEditDesc   && <EditDescriptionModal company={company} onClose={() => setShowEditDesc(false)} />}
       {showPerms      && <PermissionsModal onClose={() => setShowPerms(false)} />}
     </div>
   )

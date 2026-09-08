@@ -80,7 +80,11 @@ class JobPostingRequest(BaseModel):
     @field_validator("location")
     @classmethod
     def validate_location(cls, v: str) -> str:
-        v = v.strip()
+        # Normalize comma-separated city entry — drops stray/empty segments
+        # (e.g. a trailing comma) so free-text input from any caller (UI or
+        # direct API) can't leave unformatted punctuation in a field every
+        # job listing renders verbatim.
+        v = ", ".join(part.strip() for part in v.split(",") if part.strip())
         if not v:
             raise ValueError("Location is required. Enter a city or 'Pan India'.")
         if len(v) > 200:

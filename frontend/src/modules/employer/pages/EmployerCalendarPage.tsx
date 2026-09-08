@@ -30,7 +30,7 @@ function groupByDay(items: { scheduled_at: string }[]) {
 function TasksPanel() {
   const [newTitle, setNewTitle] = useState('')
   const qc = useQueryClient()
-  const { data: tasks } = useQuery({ queryKey: ['employer', 'tasks'], queryFn: () => inboxApi.listTasks(false) })
+  const { data: tasks, isLoading: tasksLoading } = useQuery({ queryKey: ['employer', 'tasks'], queryFn: () => inboxApi.listTasks(false) })
 
   const create = useMutation({
     mutationFn: () => inboxApi.createTask(newTitle),
@@ -69,7 +69,9 @@ function TasksPanel() {
         </button>
       </div>
 
-      {!tasks || tasks.length === 0 ? (
+      {tasksLoading ? (
+        <p style={{ fontSize: 12, color: '#94A3B8', margin: 0 }}>Loading tasks…</p>
+      ) : !tasks || tasks.length === 0 ? (
         <p style={{ fontSize: 12, color: '#94A3B8', margin: 0 }}>No open tasks. You're all caught up.</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

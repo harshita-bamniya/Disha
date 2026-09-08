@@ -21,7 +21,7 @@ export default function EmployerLayout() {
   const isMobile = useIsMobile()
   const [collapsed, setCollapsed] = useState(false)
   const navigate = useNavigate()
-  const { data: dashboard } = useEmployerDashboard()
+  const { data: dashboard, isLoading: dashboardLoading } = useEmployerDashboard()
   const { data: perms }     = useEmployerPermissions()
 
   const companyName  = dashboard?.company_name ?? '…'
@@ -62,7 +62,13 @@ export default function EmployerLayout() {
             </div>
             {/* Verification + role badges */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
-              {isApproved ? (
+              {dashboardLoading ? (
+                // Neutral placeholder while the dashboard query is in flight —
+                // never default to "Pending" before we actually know the
+                // verification status, which would misrepresent a Verified
+                // company for a moment on every hard reload.
+                <span style={{ display: 'inline-block', width: 62, height: 18, borderRadius: 6, background: colors.surface.elevated }} />
+              ) : isApproved ? (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: colors.state.success, background: colors.state.successBg, borderRadius: 6, padding: '2px 7px' }}>
                   <ShieldCheck size={10} /> Verified
                 </span>

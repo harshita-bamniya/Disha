@@ -401,7 +401,10 @@ export default function DepartmentDetailPage() {
   const { data: overview } = useDepartmentOverview(id ?? '')
   const { data: jobs, isLoading: jobsLoading } = useDepartmentJobs(id ?? '')
   const { data: allTeam } = useTeamMembers()
-  const canManage    = useHasPermission('departments:write')
+  // Backend guards department create/update/delete with companies:edit, not a
+  // separate departments:* permission (which doesn't exist in the system) —
+  // check the same one the API actually enforces.
+  const canManage    = useHasPermission('companies:edit')
   const canCreateJob = useHasPermission('jobs:create')
 
   const [activeTab, setActiveTab]           = useState<Tab>('overview')

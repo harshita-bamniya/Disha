@@ -1,5 +1,6 @@
 """Admin: job posting management."""
 
+from fastapi import Request
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
@@ -16,6 +17,7 @@ from app.modules.admin.schemas import (
     AdminJobEntry,
     MessageResponse,
 )
+from app.modules.admin.service import core
 
 
 def list_admin_jobs(db: Session, search: str | None = None, active_only: bool = False) -> list[AdminJobEntry]:
@@ -69,14 +71,18 @@ def list_admin_jobs(db: Session, search: str | None = None, active_only: bool = 
     ]
 
 
-def toggle_admin_job(job_id: str, db: Session) -> AdminJobEntry:
+def toggle_admin_job(job_id: str, admin_user_id: str, db: Session, request: Request | None = None) -> AdminJobEntry:
     from app.models.applications import Application
 
     job = db.query(JobPosting).filter(JobPosting.id == job_id).first()
     if not job:
         raise NotFoundException("Job not found.")
     emp = db.query(EmployerProfile).filter(EmployerProfile.id == job.employer_id).first()
+    was_active = job.is_active
     job.is_active = not job.is_active
+    core._write_audit(db, admin_user_id, "job.toggled", resource="job_posting",
+                 resource_id=str(job.id), previous_value={"is_active": was_active},
+                 new_value={"is_active": job.is_active}, request=request)
     db.commit()
     db.refresh(job)
     app_count = db.query(func.count(Application.id)).filter(Application.job_id == job_id).scalar() or 0
@@ -91,11 +97,14 @@ def toggle_admin_job(job_id: str, db: Session) -> AdminJobEntry:
     )
 
 
-def delete_admin_job(job_id: str, db: Session) -> MessageResponse:
+def delete_admin_job(job_id: str, admin_user_id: str, db: Session, request: Request | None = None) -> MessageResponse:
     job = db.query(JobPosting).filter(JobPosting.id == job_id).first()
     if not job:
         raise NotFoundException("Job not found.")
     title = job.title
+    core._write_audit(db, admin_user_id, "job.deleted", resource="job_posting",
+                 resource_id=str(job.id), previous_value={"title": title}, new_value=None,
+                 request=request)
     db.delete(job)
     db.commit()
     return MessageResponse(message=f"'{title}' deleted.")

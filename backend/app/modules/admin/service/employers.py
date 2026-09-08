@@ -12,6 +12,7 @@ from app.models.employer_verification import (
     EmployerVerificationDocument,
     EmployerVerificationEvent,
 )
+from app.models.company import Company
 from app.models.subscription import CompanySubscription, SubscriptionPlan
 from app.models.user import (
     EmployerProfile,
@@ -33,19 +34,25 @@ from app.modules.admin.schemas import (
 from app.modules.admin.service import core, tickets
 
 
-def _employer_to_response(profile: EmployerProfile, user: User, job_count: int = 0, app_count: int = 0) -> PendingEmployerResponse:
+def _employer_to_response(
+    profile: EmployerProfile, user: User, job_count: int = 0, app_count: int = 0,
+    company: Company | None = None,
+) -> PendingEmployerResponse:
+    # Company profile fields are collected onto the shared Company row by the
+    # post-login setup wizard, not onto EmployerProfile — fall back to
+    # `company` whenever the EmployerProfile's own copy is empty.
     return PendingEmployerResponse(
         id=str(profile.id),
         user_id=str(user.id),
         company_name=profile.company_name,
-        industry=profile.industry,
-        company_size=profile.company_size,
-        website=profile.website,
+        industry=profile.industry or (company.industry if company else None),
+        company_size=profile.company_size or (company.company_size if company else None),
+        website=profile.website or (company.website if company else None),
         gst_number=profile.gst_number,
         contact_person=profile.contact_person,
         designation=profile.designation,
-        city=profile.city,
-        description=profile.description,
+        city=profile.city or (company.headquarters if company else None),
+        description=profile.description or (company.description if company else None),
         phone=user.phone,
         phone_verified=user.phone_verified,
         is_approved=profile.is_approved,
@@ -108,11 +115,19 @@ def list_employers(db: Session, status: str = "pending", limit: int = 100, offse
                     if jid in jlist:
                         app_counts[eid] = app_counts.get(eid, 0) + cnt
 
+    company_ids = [p.company_id for p, _ in rows if p.company_id]
+    companies_by_id: dict = {}
+    if company_ids:
+        companies_by_id = {
+            c.id: c for c in db.query(Company).filter(Company.id.in_(company_ids)).all()
+        }
+
     return [
         _employer_to_response(
             profile, user,
             job_count=job_counts.get(str(profile.id), 0),
             app_count=app_counts.get(str(profile.id), 0),
+            company=companies_by_id.get(profile.company_id),
         )
         for profile, user in rows
     ]
@@ -270,13 +285,24 @@ def get_employer_detail(profile_id: str, db: Session) -> EmployerDetailResponse:
         .first()
     )
 
+    # Company profile fields (industry, size, website, description) are
+    # collected by the post-login setup wizard onto the shared Company row,
+    # not onto EmployerProfile — fall back to Company whenever the
+    # EmployerProfile's own copy is empty, so admins can see profiles filled
+    # in through the current wizard as well as legacy/seeded ones.
+    company = db.query(Company).filter(Company.id == profile.company_id).first() if profile.company_id else None
+
     return EmployerDetailResponse(
         id=str(profile.id), user_id=str(user.id),
-        company_name=profile.company_name, industry=profile.industry,
-        company_size=profile.company_size, website=profile.website,
+        company_name=profile.company_name,
+        industry=profile.industry or (company.industry if company else None),
+        company_size=profile.company_size or (company.company_size if company else None),
+        website=profile.website or (company.website if company else None),
         gst_number=profile.gst_number, contact_person=profile.contact_person,
-        designation=profile.designation, city=profile.city,
-        description=profile.description, phone=user.phone,
+        designation=profile.designation,
+        city=profile.city or (company.headquarters if company else None),
+        description=profile.description or (company.description if company else None),
+        phone=user.phone,
         phone_verified=user.phone_verified, is_approved=profile.is_approved,
         rejection_reason=profile.rejection_reason, registered_at=profile.created_at,
         job_count=job_count, application_count=total_app_count,

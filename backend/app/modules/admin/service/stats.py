@@ -10,6 +10,7 @@ from app.models.user import (
     EmployerProfile,
     JobPosting,
     KrsScore,
+    Role,
     User,
 )
 from app.modules.admin.schemas import (
@@ -28,7 +29,16 @@ def get_stats(db: Session) -> AdminStatsResponse:
     now = datetime.now(timezone.utc)
     seven_days_ago = now - timedelta(days=7)
 
-    total_aspirants = db.query(AspirantProfile).count()
+    # Count registered users with the aspirant role, not AspirantProfile rows —
+    # a profile row is only created once onboarding starts, so counting it
+    # directly undercounted against the Candidates list below (which shows
+    # every registered aspirant, onboarded or not, via an outer join).
+    total_aspirants = (
+        db.query(User)
+        .join(Role, Role.id == User.role_id)
+        .filter(User.deleted_at == None, Role.name == "aspirant")
+        .count()
+    )
     completed_onboarding = db.query(AspirantProfile).filter(AspirantProfile.is_completed == True).count()
     total_employers = db.query(EmployerProfile).count()
     pending_employers = (
