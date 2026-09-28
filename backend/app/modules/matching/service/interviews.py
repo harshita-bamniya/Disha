@@ -52,6 +52,7 @@ def _interview_to_out(row: CandidateInterviewFeedback, interviewer: User | None,
         scheduled_at=row.scheduled_at, meeting_link=row.meeting_link, status=row.status,
         recommendation=row.recommendation, feedback=row.feedback, created_at=row.created_at,
         reschedule_requested_at=row.reschedule_requested_at, reschedule_note=row.reschedule_note,
+        proposed_slots=row.proposed_slots,
     )
 
 
@@ -105,6 +106,111 @@ def schedule_interview(application_id: str, scheduled_at, meeting_link: str | No
 
     # Push to recruiter's Google Calendar if they've connected
     _push_interview_to_google_calendar(row, user, db)
+
+    return _interview_to_out(row, user, db)
+
+
+def offer_interview_slots(
+    application_id: str, slots: list, meeting_link: str | None, user: User, db: Session,
+) -> InterviewFeedbackOut:
+    """Candidate self-booking: instead of picking one fixed time, the employer
+    offers several options and the candidate books one themselves (see
+    book_interview_slot in matching/service/applications.py). scheduled_at
+    stays NULL until then; status is 'pending_booking'."""
+    app = core._get_employer_application(application_id, user, db)
+    row = CandidateInterviewFeedback(
+        application_id=app.id, interviewer_id=user.id, scheduled_at=None,
+        meeting_link=meeting_link, status="pending_booking",
+        proposed_slots=[s.isoformat() for s in slots],
+    )
+    db.add(row)
+    _advance_status_if_earlier(app, "interview_scheduled", user, db)
+    db.commit()
+    db.refresh(row)
+
+    from app.core.notifications import interview_slots_offered_email, notify
+    candidate = db.query(User).filter(User.id == app.aspirant_id).first()
+    job = db.query(JobPosting).filter(JobPosting.id == app.job_id).first()
+    employer = db.query(EmployerProfile).filter(EmployerProfile.id == job.employer_id).first() if job else None
+    if candidate and job and employer:
+        subject, html = interview_slots_offered_email(job.title, employer.company_name, len(slots))
+        notify(candidate.email, subject, html)
+
+        from app.modules.inbox.service import create_notification
+        create_notification(
+            db, candidate.id, "interview_slots_offered",
+            f"Pick your interview time — {job.title}",
+            f"{employer.company_name} offered {len(slots)} time options for your interview. Pick one that works for you.",
+            "/app/jobs/applications",
+        )
+        db.commit()
+
+    return _interview_to_out(row, user, db)
+
+
+def mark_interview_no_show(application_id: str, interview_id: str, user: User, db: Session) -> InterviewFeedbackOut:
+    """A deliberate HR action, not an automated detection — there's no call
+    telemetry to tell a genuine no-show apart from feedback simply not being
+    logged yet, so the Celery sweep only nudges HR to check (see
+    app.tasks.worker.flag_stale_interviews); HR confirms it here.
+
+    First no-show for an application: candidate is emailed a one-time rebook
+    offer, application status is untouched. Second no-show for the same
+    application: auto-rejects the application, same as a knockout rule."""
+    row = _get_employer_interview(application_id, interview_id, user, db)
+    if row.status != "scheduled":
+        raise BadRequestException(f"Cannot mark a '{row.status}' interview as a no-show.")
+
+    prior_no_shows = (
+        db.query(CandidateInterviewFeedback)
+        .filter(
+            CandidateInterviewFeedback.application_id == row.application_id,
+            CandidateInterviewFeedback.status == "no_show",
+        )
+        .count()
+    )
+    row.status = "no_show"
+    db.commit()
+    db.refresh(row)
+
+    app = db.query(Application).filter(Application.id == row.application_id).first()
+    job = db.query(JobPosting).filter(JobPosting.id == app.job_id).first() if app else None
+    employer = db.query(EmployerProfile).filter(EmployerProfile.id == job.employer_id).first() if job else None
+    candidate = db.query(User).filter(User.id == app.aspirant_id).first() if app else None
+
+    if app and job and employer and candidate:
+        from app.modules.inbox.service import create_notification
+        if prior_no_shows == 0:
+            from app.core.notifications import interview_no_show_rebook_email, notify
+            subject, html = interview_no_show_rebook_email(job.title, employer.company_name)
+            notify(candidate.email, subject, html)
+            create_notification(
+                db, candidate.id, "interview_no_show",
+                f"We missed you — {job.title}",
+                f"Your interview for {job.title} didn't happen. Request a new time from your applications.",
+                "/app/jobs/applications",
+            )
+        elif app.status not in ("withdrawn", "hired", "rejected", "offer_declined"):
+            from app.core.notifications import application_status_email, notify
+            prev = app.status
+            app.status = "rejected"
+            db.add(ApplicationStatusHistory(
+                application_id=app.id, from_status=prev, to_status="rejected",
+                changed_by=user.id, note="Auto-rejected: second interview no-show", is_automated=True,
+            ))
+            subject, html = application_status_email(job.title, employer.company_name, "rejected")
+            notify(candidate.email, subject, html)
+            create_notification(
+                db, candidate.id, "application_status_changed",
+                f"Update on your application — {job.title}",
+                f"Your application to {job.title} at {employer.company_name} is now: Rejected.",
+                "/app/jobs/applications",
+            )
+        db.commit()
+
+    core._audit_matching(db, "interview.no_show", user.id, "interview", interview_id,
+                    {"application_id": application_id, "prior_no_shows": prior_no_shows})
+    db.commit()
 
     return _interview_to_out(row, user, db)
 

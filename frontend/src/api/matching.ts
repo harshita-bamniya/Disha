@@ -141,12 +141,16 @@ export interface InterviewFeedbackOut {
   interviewer_name: string | null
   scheduled_at: string | null
   meeting_link: string | null
-  status: 'scheduled' | 'completed' | 'canceled'
+  status: 'scheduled' | 'completed' | 'canceled' | 'no_show' | 'pending_booking'
   recommendation: string | null
   feedback: string | null
   created_at: string
   reschedule_requested_at: string | null
   reschedule_note: string | null
+  // Candidate self-booking — set when the employer offered slots instead of
+  // one fixed time; scheduled_at stays null (status='pending_booking') until
+  // the candidate books one of these.
+  proposed_slots: string[] | null
 }
 
 export interface UpcomingInterviewEntry {
@@ -402,6 +406,37 @@ export const rescheduleInterview = (
 ): Promise<InterviewFeedbackOut> =>
   apiClient
     .patch(`/employer/pipeline/applications/${applicationId}/interviews/${interviewId}/reschedule`, payload)
+    .then((r) => r.data)
+
+// Candidate self-booking: offer 2+ time options instead of picking one fixed
+// time — the candidate books via bookInterviewSlot (aspirant-facing, below).
+export const offerInterviewSlots = (
+  applicationId: string,
+  payload: { slots: string[]; meeting_link?: string },
+): Promise<InterviewFeedbackOut> =>
+  apiClient
+    .post(`/employer/pipeline/applications/${applicationId}/interviews/offer-slots`, payload)
+    .then((r) => r.data)
+
+// Deliberate HR confirmation — not automatic detection. First no-show on an
+// application emails the candidate a one-time rebook offer; a second
+// auto-rejects the application.
+export const markInterviewNoShow = (
+  applicationId: string,
+  interviewId: string,
+): Promise<InterviewFeedbackOut> =>
+  apiClient
+    .patch(`/employer/pipeline/applications/${applicationId}/interviews/${interviewId}/no-show`)
+    .then((r) => r.data)
+
+// Aspirant: picks one of the times the employer offered.
+export const bookInterviewSlot = (
+  applicationId: string,
+  interviewId: string,
+  slot: string,
+): Promise<InterviewFeedbackOut> =>
+  apiClient
+    .post(`/jobs/applications/${applicationId}/interviews/${interviewId}/book-slot`, { slot })
     .then((r) => r.data)
 
 export const submitInterviewFeedback = (

@@ -9,6 +9,7 @@ import { useState, useMemo } from 'react'
 import {
   getJobPipeline, updateApplicationStatus, updateApplicationNote, bulkUpdateApplicationStatus,
   scheduleInterview, submitInterviewFeedback, cancelInterview, rescheduleInterview,
+  offerInterviewSlots, markInterviewNoShow,
   sendTestInvite, bulkSendTestInvite,
   sendCandidateEmail, getCandidateEmails, bulkEmailCandidates,
   sendOfferLetter, getOfferLetter, downloadOfferLetterPdf,
@@ -191,6 +192,17 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
     onSuccess:()=>{qc.invalidateQueries({queryKey:['pipeline',jobId]});setShowScheduleForm(false);setScheduleAt('');setMeetingLink('')},
   })
 
+  const [showOfferSlotsForm,setShowOfferSlotsForm]=useState(false)
+  const [offerSlots,setOfferSlots]=useState(['',''])
+  const [offerSlotsLink,setOfferSlotsLink]=useState('')
+  const offerSlotsMutation=useMutation({
+    mutationFn:()=>offerInterviewSlots(candidate.application_id,{
+      slots:offerSlots.filter(Boolean).map(s=>new Date(s).toISOString()),
+      meeting_link:offerSlotsLink||undefined,
+    }),
+    onSuccess:()=>{qc.invalidateQueries({queryKey:['pipeline',jobId]});setShowOfferSlotsForm(false);setOfferSlots(['','']);setOfferSlotsLink('')},
+  })
+
   const [showTestInviteForm,setShowTestInviteForm]=useState(false)
   const [testInviteMessage,setTestInviteMessage]=useState('')
   const [testInviteLink,setTestInviteLink]=useState('')
@@ -212,6 +224,10 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
   })
   const cancelInterviewMutation=useMutation({
     mutationFn:(interviewId:string)=>cancelInterview(candidate.application_id,interviewId),
+    onSuccess:()=>qc.invalidateQueries({queryKey:['pipeline',jobId]}),
+  })
+  const noShowMutation=useMutation({
+    mutationFn:(interviewId:string)=>markInterviewNoShow(candidate.application_id,interviewId),
     onSuccess:()=>qc.invalidateQueries({queryKey:['pipeline',jobId]}),
   })
 
@@ -553,14 +569,22 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
                 <div key={iv.id} style={{border:'1px solid #E2E8F0',borderRadius:radius.xl,padding:'10px 12px'}}>
                   <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
                     <span style={{fontSize:12,fontWeight:700,color:colors.text.ink}}>
-                      {iv.scheduled_at?new Date(iv.scheduled_at).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'—'}
+                      {iv.status==='pending_booking'?'Awaiting candidate':(iv.scheduled_at?new Date(iv.scheduled_at).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'—')}
                     </span>
                     <span style={{fontSize:10,fontWeight:700,padding:'2px 8px',borderRadius:20,
-                      background:iv.status==='scheduled'?'rgba(59,130,246,0.1)':iv.status==='completed'?'rgba(5,150,105,0.1)':'rgba(220,38,38,0.1)',
-                      color:iv.status==='scheduled'?'#3B82F6':iv.status==='completed'?'#059669':'#DC2626'}}>
-                      {iv.status}
+                      background:iv.status==='scheduled'?'rgba(59,130,246,0.1)':iv.status==='completed'?'rgba(5,150,105,0.1)':iv.status==='pending_booking'?'rgba(217,119,6,0.1)':'rgba(220,38,38,0.1)',
+                      color:iv.status==='scheduled'?'#3B82F6':iv.status==='completed'?'#059669':iv.status==='pending_booking'?'#D97706':'#DC2626'}}>
+                      {iv.status.replace('_',' ')}
                     </span>
                   </div>
+                  {iv.status==='pending_booking'&&iv.proposed_slots&&iv.proposed_slots.length>0&&(
+                    <div style={{marginTop:6,display:'flex',flexDirection:'column',gap:3}}>
+                      <p style={{fontSize:10.5,color:'#94A3B8',margin:0}}>Options offered — waiting for the candidate to pick one:</p>
+                      {iv.proposed_slots.map(s=>(
+                        <span key={s} style={{fontSize:11,color:'#475569'}}>• {new Date(s).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</span>
+                      ))}
+                    </div>
+                  )}
                   {iv.meeting_link&&(
                     <a href={iv.meeting_link} target="_blank" rel="noreferrer" style={{fontSize:11,color:'#3B82F6',display:'block',marginTop:4}}>{iv.meeting_link}</a>
                   )}
@@ -610,6 +634,11 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
                         <button onClick={()=>{setRescheduleForId(iv.id);setRescheduleAt('');setRescheduleLink(iv.meeting_link??'')}} style={{fontSize:11,fontWeight:700,color:colors.state.info,background:'none',border:'none',cursor:'pointer'}}>Reschedule</button>
                       )}
                       <button onClick={()=>cancelInterviewMutation.mutate(iv.id)} disabled={cancelInterviewMutation.isPending} style={{fontSize:11,fontWeight:700,color:'#DC2626',background:'none',border:'none',cursor:'pointer',display:'flex',alignItems:'center',gap:3}}><Ban size={11}/>Cancel</button>
+                      <button onClick={()=>{if(window.confirm('Mark this interview as a no-show? The candidate will be emailed a one-time rebook offer (or, if this is their second no-show on this application, the application will be auto-rejected).'))noShowMutation.mutate(iv.id)}}
+                        disabled={noShowMutation.isPending}
+                        style={{fontSize:11,fontWeight:700,color:'#D97706',background:'none',border:'none',cursor:'pointer'}}>
+                        Mark No-Show
+                      </button>
                     </div>
                   )}
                   {feedbackForId===iv.id&&(
@@ -652,6 +681,38 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
               ):(
                 <button onClick={()=>setShowScheduleForm(true)} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:8,borderRadius:8,border:`1px dashed ${colors.brand.navySoft}`,background:'none',color:colors.brand.navy,fontSize:12,fontWeight:700,cursor:'pointer'}}>
                   <CalendarPlus size={13}/>Schedule Interview
+                </button>
+              ))}
+
+              {canInterview&&(showOfferSlotsForm?(
+                <div style={{border:'1px dashed #93C5FD',borderRadius:10,padding:10,display:'flex',flexDirection:'column',gap:6}}>
+                  <p style={{fontSize:11,color:'#64748B',margin:0}}>Offer 2+ times — the candidate picks the one that works for them.</p>
+                  {offerSlots.map((s,i)=>(
+                    <div key={i} style={{display:'flex',gap:6}}>
+                      <input type="datetime-local" value={s} onChange={e=>setOfferSlots(prev=>prev.map((v,idx)=>idx===i?e.target.value:v))}
+                        style={{flex:1,border:'1px solid #E2E8F0',borderRadius:8,padding:'6px 8px',fontSize:12}}/>
+                      {offerSlots.length>2&&(
+                        <button onClick={()=>setOfferSlots(prev=>prev.filter((_,idx)=>idx!==i))} style={{background:'none',border:'none',color:'#94A3B8',cursor:'pointer'}}><X size={13}/></button>
+                      )}
+                    </div>
+                  ))}
+                  {offerSlots.length<10&&(
+                    <button onClick={()=>setOfferSlots(prev=>[...prev,''])} style={{fontSize:11,fontWeight:700,color:colors.brand.navy,background:'none',border:'none',cursor:'pointer',textAlign:'left'}}>+ Add another option</button>
+                  )}
+                  <input type="url" value={offerSlotsLink} onChange={e=>setOfferSlotsLink(e.target.value)} placeholder="Meeting link (optional)"
+                    style={{border:'1px solid #E2E8F0',borderRadius:8,padding:'6px 8px',fontSize:12}}/>
+                  {offerSlotsMutation.isError&&<p style={{fontSize:11,color:'#DC2626',margin:0}}>{getApiError(offerSlotsMutation.error)}</p>}
+                  <div style={{display:'flex',gap:6}}>
+                    <button onClick={()=>setShowOfferSlotsForm(false)} style={{flex:1,padding:6,borderRadius:8,border:'1px solid #E2E8F0',background:'#fff',fontSize:11,fontWeight:600,cursor:'pointer'}}>Cancel</button>
+                    <button onClick={()=>offerSlotsMutation.mutate()} disabled={offerSlots.filter(Boolean).length<2||offerSlotsMutation.isPending}
+                      style={{flex:1,padding:6,borderRadius:8,border:'none',background:colors.brand.navy,color:'#fff',fontSize:11,fontWeight:700,cursor:'pointer',opacity:offerSlots.filter(Boolean).length<2?0.5:1}}>
+                      {offerSlotsMutation.isPending?'Sending…':'Send Options'}
+                    </button>
+                  </div>
+                </div>
+              ):(
+                <button onClick={()=>setShowOfferSlotsForm(true)} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:8,borderRadius:8,border:`1px dashed ${colors.brand.navySoft}`,background:'none',color:colors.brand.navy,fontSize:12,fontWeight:700,cursor:'pointer'}}>
+                  <CalendarDays size={13}/>Offer Interview Slots
                 </button>
               ))}
 

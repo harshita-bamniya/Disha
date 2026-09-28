@@ -297,6 +297,81 @@ def request_interview_reschedule(application_id: str, interview_id: str, note: s
     return interviews._interview_to_out(row, interviewer, db)
 
 
+def book_interview_slot(application_id: str, interview_id: str, slot, user: User, db: Session) -> InterviewFeedbackOut:
+    """Candidate picks one of the times the employer offered via
+    offer_interview_slots — the counterpart of request_interview_reschedule,
+    except here the candidate is choosing the time outright, not just
+    flagging a conflict. Turns pending_booking into a real scheduled
+    interview with the same downstream effects (ics + calendar push +
+    employer notification) as an employer directly scheduling one."""
+    app = (
+        db.query(Application)
+        .filter(Application.id == application_id, Application.aspirant_id == user.id)
+        .first()
+    )
+    if not app:
+        raise NotFoundException("Application not found.")
+    row = (
+        db.query(CandidateInterviewFeedback)
+        .filter(CandidateInterviewFeedback.id == interview_id, CandidateInterviewFeedback.application_id == app.id)
+        .first()
+    )
+    if not row:
+        raise NotFoundException("Interview not found.")
+    if row.status != "pending_booking":
+        raise BadRequestException("This interview isn't waiting on a time to be picked.")
+
+    offered = {datetime.fromisoformat(s) for s in (row.proposed_slots or [])}
+    if slot not in offered:
+        raise BadRequestException("That time wasn't one of the options offered. Please pick a listed slot.")
+
+    row.scheduled_at = slot
+    row.status = "scheduled"
+    db.commit()
+    db.refresh(row)
+
+    job = db.query(JobPosting).filter(JobPosting.id == app.job_id).first()
+    employer = db.query(EmployerProfile).filter(EmployerProfile.id == job.employer_id).first() if job else None
+    interviewer = db.query(User).filter(User.id == row.interviewer_id).first() if row.interviewer_id else None
+
+    if job and employer:
+        from app.core.calendar import build_interview_ics
+        from app.core.notifications import interview_scheduled_email, notify
+        from app.modules.inbox.service import create_notification, notify_company_team
+
+        subject, html = interview_scheduled_email(
+            job.title, employer.company_name, slot.strftime("%d %b %Y, %I:%M %p UTC"), row.meeting_link,
+        )
+        ics_content = None
+        if user.email:
+            ics_content = build_interview_ics(
+                uid=f"interview-{row.id}@beginablai.in",
+                summary=f"Interview: {job.title} at {employer.company_name}",
+                description=f"Interview for {job.title} at {employer.company_name}." + (f"\nJoin: {row.meeting_link}" if row.meeting_link else ""),
+                scheduled_at=slot, location=row.meeting_link,
+                organizer_email=interviewer.email if interviewer else None, attendee_email=user.email,
+            )
+        notify(user.email, subject, html, ics_content, "interview.ics")
+        create_notification(
+            db, user.id, "interview_scheduled",
+            f"Interview confirmed — {job.title}",
+            f"You booked {slot.strftime('%d %b, %I:%M %p')} for your {job.title} interview.",
+            "/app/jobs/applications",
+        )
+        notify_company_team(
+            db, employer, "interview_scheduled",
+            f"Candidate booked a slot: {job.title}",
+            f"{user.email or 'A candidate'} booked {slot.strftime('%d %b, %I:%M %p')} for their interview.",
+            f"/app/employer/pipeline/{job.id}",
+        )
+        db.commit()
+
+    if interviewer:
+        interviews._push_interview_to_google_calendar(row, interviewer, db)
+
+    return interviews._interview_to_out(row, interviewer, db)
+
+
 def reschedule_interview(application_id: str, interview_id: str, scheduled_at, meeting_link: str | None, user: User, db: Session) -> InterviewFeedbackOut:
     """Employer updates the time on an existing interview (rather than
     creating a duplicate row via schedule_interview) — clears any pending

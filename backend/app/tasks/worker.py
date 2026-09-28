@@ -81,6 +81,17 @@ celery_app.conf.update(
             "task": "app.tasks.worker.check_plan_resource_links",
             "schedule": crontab(hour=10, minute=0),
         },
+        # 24h/1h-before interview reminders — runs often since it's matching
+        # a time window, not a fixed clock time; reminder_*_sent_at dedupes.
+        "interview-reminders": {
+            "task": "app.tasks.worker.send_interview_reminders",
+            "schedule": crontab(minute="*/15"),
+        },
+        # Nudge HR about interviews that passed with no feedback logged.
+        "flag-stale-interviews": {
+            "task": "app.tasks.worker.flag_stale_interviews",
+            "schedule": crontab(minute="*/15"),
+        },
     },
 )
 
@@ -655,6 +666,129 @@ def send_job_match_digest() -> dict:
         logger.error("[JOB_MATCH_DIGEST] Failed: %s", exc)
         db.rollback()
         return {"sent": sent, "error": str(exc)}
+    finally:
+        db.close()
+
+
+@celery_app.task(name="app.tasks.worker.send_interview_reminders")
+def send_interview_reminders() -> dict:
+    """24h-before and 1h-before reminders for scheduled interviews, to both
+    candidate and interviewer. Runs every 15 minutes and matches a window
+    around each mark (23h45m-24h15m, 45m-1h15m) rather than an exact instant,
+    since a periodic task can't land on the exact minute; reminder_*_sent_at
+    stamps dedupe so re-running the sweep never double-sends.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from app.database import SessionLocal
+    from app.core.notifications import interview_reminder_email, notify
+    from app.models.applications import Application, CandidateInterviewFeedback
+    from app.models.user import EmployerProfile, JobPosting, User
+
+    db = SessionLocal()
+    sent = 0
+    try:
+        now = datetime.now(timezone.utc)
+        windows = [
+            (24, "reminder_24h_sent_at", timedelta(hours=23, minutes=45), timedelta(hours=24, minutes=15)),
+            (1,  "reminder_1h_sent_at",  timedelta(minutes=45),           timedelta(hours=1, minutes=15)),
+        ]
+        for hours_before, stamp_field, low, high in windows:
+            rows = (
+                db.query(CandidateInterviewFeedback)
+                .filter(
+                    CandidateInterviewFeedback.status == "scheduled",
+                    CandidateInterviewFeedback.scheduled_at != None,
+                    CandidateInterviewFeedback.scheduled_at >= now + low,
+                    CandidateInterviewFeedback.scheduled_at <= now + high,
+                    getattr(CandidateInterviewFeedback, stamp_field) == None,
+                )
+                .all()
+            )
+            for row in rows:
+                app = db.query(Application).filter(Application.id == row.application_id).first()
+                job = db.query(JobPosting).filter(JobPosting.id == app.job_id).first() if app else None
+                employer = db.query(EmployerProfile).filter(EmployerProfile.id == job.employer_id).first() if job else None
+                candidate = db.query(User).filter(User.id == app.aspirant_id).first() if app else None
+                interviewer = db.query(User).filter(User.id == row.interviewer_id).first() if row.interviewer_id else None
+                if not (job and employer and candidate):
+                    continue
+
+                when = row.scheduled_at.strftime("%d %b %Y, %I:%M %p UTC")
+                subject, html = interview_reminder_email(job.title, employer.company_name, when, row.meeting_link, hours_before)
+                if candidate.email:
+                    notify(candidate.email, subject, html)
+                if interviewer and interviewer.email:
+                    notify(interviewer.email, subject, html)
+
+                setattr(row, stamp_field, now)
+                sent += 1
+            db.commit()
+        logger.info("[INTERVIEW_REMINDERS] Sent %d reminders", sent)
+        return {"sent": sent}
+    except Exception as exc:
+        logger.error("[INTERVIEW_REMINDERS] Failed: %s", exc)
+        db.rollback()
+        return {"sent": sent, "error": str(exc)}
+    finally:
+        db.close()
+
+
+@celery_app.task(name="app.tasks.worker.flag_stale_interviews")
+def flag_stale_interviews() -> dict:
+    """Nudges the employer team about an interview whose time passed over an
+    hour ago with no feedback logged and no status change — HR either logs
+    feedback or marks it a no-show (mark_interview_no_show), a deliberate
+    action. This task never changes application/interview status itself:
+    there's no call telemetry to tell a genuine no-show apart from a busy
+    recruiter simply not having logged feedback yet, and auto-rejecting a
+    real candidate on that basis would be a serious, hard-to-reverse mistake.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from app.database import SessionLocal
+    from app.models.applications import CandidateInterviewFeedback
+    from app.models.user import EmployerProfile, JobPosting
+    from app.modules.inbox.service import notify_company_team
+
+    db = SessionLocal()
+    flagged = 0
+    try:
+        now = datetime.now(timezone.utc)
+        cutoff = now - timedelta(hours=1)
+        rows = (
+            db.query(CandidateInterviewFeedback)
+            .filter(
+                CandidateInterviewFeedback.status == "scheduled",
+                CandidateInterviewFeedback.scheduled_at != None,
+                CandidateInterviewFeedback.scheduled_at <= cutoff,
+                CandidateInterviewFeedback.stale_nudge_sent_at == None,
+            )
+            .all()
+        )
+        for row in rows:
+            from app.models.applications import Application
+            app = db.query(Application).filter(Application.id == row.application_id).first()
+            job = db.query(JobPosting).filter(JobPosting.id == app.job_id).first() if app else None
+            employer = db.query(EmployerProfile).filter(EmployerProfile.id == job.employer_id).first() if job else None
+            if not (job and employer):
+                continue
+            notify_company_team(
+                db, employer, "interview_needs_followup",
+                f"Did this interview happen? — {job.title}",
+                f"The interview scheduled for {row.scheduled_at.strftime('%d %b, %I:%M %p')} has passed. "
+                "Log feedback, or mark it a no-show if the candidate didn't join.",
+                f"/app/employer/pipeline/{job.id}",
+            )
+            row.stale_nudge_sent_at = now
+            flagged += 1
+        db.commit()
+        logger.info("[STALE_INTERVIEWS] Flagged %d for follow-up", flagged)
+        return {"flagged": flagged}
+    except Exception as exc:
+        logger.error("[STALE_INTERVIEWS] Failed: %s", exc)
+        db.rollback()
+        return {"flagged": flagged, "error": str(exc)}
     finally:
         db.close()
 

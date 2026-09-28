@@ -12,7 +12,7 @@ import { toast } from '@/shared/components/feedback/Toast'
 import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors, shadows } from '@/design-system/tokens'
 import {
   getMyApplications, getApplicationDetail, withdrawApplication,
-  getMyInterviews, requestInterviewReschedule,
+  getMyInterviews, requestInterviewReschedule, bookInterviewSlot,
   getMyOfferLetter, downloadMyOfferLetterPdf, acceptOfferLetter, declineOfferLetter,
   type ApplicationOut, type ApplicationStatusHistoryItem,
 } from '@/api/matching'
@@ -209,6 +209,11 @@ function InterviewsSection({ applicationId }: { applicationId: string }) {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['my-interviews', applicationId] }); setRequestingId(null); setNote('') },
     onError: () => toast.danger('Could not send your reschedule request. Please try again.'),
   })
+  const bookMutation = useMutation({
+    mutationFn: ({ ivId, slot }: { ivId: string; slot: string }) => bookInterviewSlot(applicationId, ivId, slot),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['my-interviews', applicationId] }),
+    onError: () => toast.danger('Could not book that time. Please try again.'),
+  })
   if (!interviews || interviews.length === 0) return null
   return (
     <div>
@@ -220,12 +225,27 @@ function InterviewsSection({ applicationId }: { applicationId: string }) {
           <div key={iv.id} style={{ border: `1px solid ${BORDER}`, borderRadius: 9, padding: '9px 11px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <span style={{ fontSize: 12.5, fontWeight: 700, color: INK }}>
-                {iv.scheduled_at ? new Date(iv.scheduled_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
+                {iv.status === 'pending_booking' ? 'Pick a time below' : (iv.scheduled_at ? new Date(iv.scheduled_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—')}
               </span>
-              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: iv.status === 'scheduled' ? 'rgba(59,130,246,0.1)' : iv.status === 'completed' ? 'rgba(5,150,105,0.1)' : 'rgba(220,38,38,0.1)', color: iv.status === 'scheduled' ? '#3B82F6' : iv.status === 'completed' ? '#059669' : '#DC2626' }}>
-                {iv.status}
+              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: iv.status === 'scheduled' ? 'rgba(59,130,246,0.1)' : iv.status === 'completed' ? 'rgba(5,150,105,0.1)' : iv.status === 'pending_booking' ? 'rgba(217,119,6,0.1)' : 'rgba(220,38,38,0.1)', color: iv.status === 'scheduled' ? '#3B82F6' : iv.status === 'completed' ? '#059669' : iv.status === 'pending_booking' ? '#D97706' : '#DC2626' }}>
+                {iv.status.replace('_', ' ')}
               </span>
             </div>
+            {iv.status === 'pending_booking' && iv.proposed_slots && iv.proposed_slots.length > 0 && (
+              <div style={{ marginTop: 7, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {iv.proposed_slots.map(s => (
+                  <Button key={s} variant="outline" size="sm" disabled={bookMutation.isPending}
+                    onClick={() => bookMutation.mutate({ ivId: iv.id, slot: s })}>
+                    {new Date(s).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </Button>
+                ))}
+              </div>
+            )}
+            {iv.status === 'no_show' && (
+              <p style={{ fontSize: 11, color: '#92400E', background: '#FFFBEB', borderRadius: 7, padding: '5px 7px', marginTop: 5 }}>
+                This interview didn't happen. Check your email for a one-time rebook offer.
+              </p>
+            )}
             {iv.meeting_link && <a href={iv.meeting_link} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: '#3B82F6', display: 'block', marginTop: 3 }}>{iv.meeting_link}</a>}
             {iv.reschedule_requested_at
               ? <p style={{ fontSize: 11, color: '#92400E', background: '#FFFBEB', borderRadius: 7, padding: '5px 7px', marginTop: 5 }}>Reschedule requested — waiting on employer.</p>

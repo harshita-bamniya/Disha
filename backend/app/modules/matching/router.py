@@ -41,6 +41,7 @@ from app.modules.matching.schemas import (
     ApplicationResponsesOut,
     ApplicationTrendResponse,
     ApplyRequest,
+    BookInterviewSlotRequest,
     BulkEmailRequest,
     BulkEmailResponse,
     BulkStatusUpdateRequest,
@@ -59,6 +60,7 @@ from app.modules.matching.schemas import (
     JobDetail,
     JobPerformanceResponse,
     JobRecommendationsResponse,
+    OfferInterviewSlotsRequest,
     OfferLetterAcceptRequest,
     OfferLetterDeclineRequest,
     OfferLetterOut,
@@ -289,6 +291,24 @@ def request_interview_reschedule(
     with the candidate's note; the candidate can't change the time directly."""
     try:
         return service.request_interview_reschedule(application_id, interview_id, body.note, current_user, db)
+    except NotFoundException as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except BadRequestException as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/jobs/applications/{application_id}/interviews/{interview_id}/book-slot", response_model=InterviewFeedbackOut)
+def book_interview_slot(
+    application_id: str,
+    interview_id: str,
+    body: BookInterviewSlotRequest,
+    current_user: User = Depends(_aspirant),
+    db: Session = Depends(get_db),
+):
+    """Candidate self-booking — picks one of the times the employer offered
+    via offer_interview_slots."""
+    try:
+        return service.book_interview_slot(application_id, interview_id, body.slot, current_user, db)
     except NotFoundException as e:
         raise HTTPException(status_code=404, detail=str(e))
     except BadRequestException as e:
@@ -658,6 +678,21 @@ def bulk_send_test_invite(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/employer/pipeline/applications/{application_id}/interviews/offer-slots", response_model=InterviewFeedbackOut, status_code=201)
+def offer_interview_slots(
+    application_id: str,
+    body: OfferInterviewSlotsRequest,
+    current_user: User = Depends(require_permission("candidates", "interview")),
+    db: Session = Depends(get_db),
+):
+    """Candidate self-booking — offers 2+ time options instead of picking one
+    fixed time; the candidate books via book_interview_slot."""
+    try:
+        return service.offer_interview_slots(application_id, body.slots, body.meeting_link, current_user, db)
+    except (AuthException, NotFoundException) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
 @router.patch("/employer/pipeline/applications/{application_id}/interviews/{interview_id}/reschedule", response_model=InterviewFeedbackOut)
 def reschedule_interview(
     application_id: str,
@@ -712,6 +747,24 @@ def submit_interview_feedback(
         )
     except (AuthException, NotFoundException) as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.patch("/employer/pipeline/applications/{application_id}/interviews/{interview_id}/no-show", response_model=InterviewFeedbackOut)
+def mark_interview_no_show(
+    application_id: str,
+    interview_id: str,
+    current_user: User = Depends(require_permission("candidates", "interview")),
+    db: Session = Depends(get_db),
+):
+    """A deliberate HR confirmation, not automatic detection. First no-show on
+    an application emails the candidate a one-time rebook offer; a second
+    auto-rejects the application."""
+    try:
+        return service.mark_interview_no_show(application_id, interview_id, current_user, db)
+    except (AuthException, NotFoundException) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except BadRequestException as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.patch("/employer/pipeline/applications/{application_id}/interviews/{interview_id}/cancel", response_model=InterviewFeedbackOut)

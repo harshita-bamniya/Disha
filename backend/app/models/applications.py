@@ -12,7 +12,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -157,7 +157,8 @@ class CandidateInterviewFeedback(Base):
     Distinct from InterviewFeedback (models/interview.py), which scores the AI
     mock-interview practice feature — this table is recruiter-scheduled interviews
     with real candidates.
-    Lifecycle: scheduled -> completed (feedback added) | canceled.
+    Lifecycle: pending_booking (slots offered, unpicked) -> scheduled -> completed
+    (feedback added) | canceled | no_show (HR-confirmed, never auto-set).
     """
     __tablename__ = "candidate_interview_feedback"
 
@@ -166,7 +167,7 @@ class CandidateInterviewFeedback(Base):
     interviewer_id  = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     scheduled_at    = Column(DateTime(timezone=True), nullable=True)
     meeting_link    = Column(Text, nullable=True)
-    status          = Column(String(20), nullable=False, default="scheduled")  # scheduled|completed|canceled
+    status          = Column(String(20), nullable=False, default="scheduled")  # pending_booking|scheduled|completed|canceled|no_show
     recommendation  = Column(String(20), nullable=True)   # strong_yes|yes|no|strong_no
     feedback        = Column(Text, nullable=True)
     created_at      = Column(DateTime(timezone=True), server_default=func.now())
@@ -177,6 +178,17 @@ class CandidateInterviewFeedback(Base):
     reschedule_requested_at = Column(DateTime(timezone=True), nullable=True)
     reschedule_note         = Column(Text, nullable=True)
 
+    # Candidate self-booking (Module: interview automation). When an employer
+    # "Offers Slots" instead of picking one fixed time, this holds the
+    # candidate's options and scheduled_at stays NULL (status=pending_booking)
+    # until the candidate books one via book_interview_slot.
+    proposed_slots       = Column(JSONB, nullable=True)   # list[ISO datetime str]
+    # Dedupe stamps for the Celery beat sweeps — let a periodic task run
+    # often without double-sending the same reminder/nudge.
+    reminder_24h_sent_at = Column(DateTime(timezone=True), nullable=True)
+    reminder_1h_sent_at  = Column(DateTime(timezone=True), nullable=True)
+    stale_nudge_sent_at  = Column(DateTime(timezone=True), nullable=True)
+
     application     = relationship("Application")
     interviewer     = relationship("User", foreign_keys=[interviewer_id])
 
@@ -186,7 +198,7 @@ class CandidateInterviewFeedback(Base):
             name="ck_interview_feedback_recommendation",
         ),
         CheckConstraint(
-            "status IN ('scheduled','completed','canceled')",
+            "status IN ('scheduled','completed','canceled','no_show','pending_booking')",
             name="ck_interview_feedback_status",
         ),
     )

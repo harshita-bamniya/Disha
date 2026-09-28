@@ -79,6 +79,43 @@ def test_invite_email(
     return subject, html
 
 
+def interview_slots_offered_email(job_title: str, company_name: str, slot_count: int) -> tuple[str, str]:
+    subject = f"Pick your interview time — {job_title}"
+    html = _wrap(
+        "Choose a time that works for you",
+        f"<p>{company_name} has offered {slot_count} time options for your "
+        f"<strong>{job_title}</strong> interview. Sign in to your applications "
+        f"to pick the one that works best for you.</p>",
+    )
+    return subject, html
+
+
+def interview_reminder_email(
+    job_title: str, company_name: str, scheduled_at: str, meeting_link: str | None, hours_before: int,
+) -> tuple[str, str]:
+    when = "tomorrow" if hours_before >= 24 else "in about an hour"
+    subject = f"Reminder: your interview is {when} — {job_title}"
+    link_html = f'<p><a href="{meeting_link}">{meeting_link}</a></p>' if meeting_link else ""
+    html = _wrap(
+        "Interview reminder",
+        f"<p>Your interview for <strong>{job_title}</strong> at <strong>{company_name}</strong> "
+        f"is coming up.</p><p><strong>When:</strong> {scheduled_at}</p>{link_html}",
+    )
+    return subject, html
+
+
+def interview_no_show_rebook_email(job_title: str, company_name: str) -> tuple[str, str]:
+    subject = f"We missed you — {job_title}"
+    html = _wrap(
+        "Let's find a new time",
+        f"<p>We had an interview scheduled for your application to <strong>{job_title}</strong> "
+        f"at <strong>{company_name}</strong>, but it looks like it didn't happen.</p>"
+        f"<p>If you'd still like to be considered, sign in to your applications and request a "
+        f"new time — we're happy to reschedule once.</p>",
+    )
+    return subject, html
+
+
 def employer_verification_request_email(company_name: str) -> tuple[str, str]:
     subject = "Thank you for choosing BeginablAI — next steps for verification"
     html = _wrap(

@@ -282,10 +282,23 @@ class InterviewFeedbackOut(BaseModel):
     created_at: datetime
     reschedule_requested_at: Optional[datetime] = None
     reschedule_note: Optional[str] = None
+    # Candidate self-booking — set when the employer offered slots instead of
+    # picking one time. scheduled_at stays null (status=pending_booking) until
+    # the candidate books one of these.
+    proposed_slots: Optional[list[datetime]] = None
 
 
 class RequestRescheduleRequest(BaseModel):
     note: str = Field(..., min_length=1, max_length=500)
+
+
+class OfferInterviewSlotsRequest(BaseModel):
+    slots: list[datetime] = Field(..., min_length=2, max_length=10)
+    meeting_link: Optional[str] = Field(None, max_length=500)
+
+
+class BookInterviewSlotRequest(BaseModel):
+    slot: datetime
 
 
 class UpcomingInterviewEntry(BaseModel):
