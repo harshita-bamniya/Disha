@@ -151,7 +151,17 @@ export interface InterviewFeedbackOut {
   // one fixed time; scheduled_at stays null (status='pending_booking') until
   // the candidate books one of these.
   proposed_slots: string[] | null
+  // Structured scorecard — dict[criterion, 1-5], keys from SCORECARD_CRITERIA.
+  scorecard_ratings: Record<string, number> | null
 }
+
+export const SCORECARD_CRITERIA: { key: string; label: string }[] = [
+  { key: 'communication',       label: 'Communication' },
+  { key: 'structured_thinking', label: 'Structured Thinking' },
+  { key: 'business_sense',      label: 'Business Sense' },
+  { key: 'ownership',           label: 'Ownership' },
+  { key: 'culture_fit',         label: 'Culture Fit' },
+]
 
 export interface UpcomingInterviewEntry {
   id: string
@@ -442,7 +452,7 @@ export const bookInterviewSlot = (
 export const submitInterviewFeedback = (
   applicationId: string,
   interviewId: string,
-  payload: { recommendation?: string; feedback?: string },
+  payload: { recommendation?: string; feedback?: string; ratings?: Record<string, number> },
 ): Promise<InterviewFeedbackOut> =>
   apiClient
     .patch(`/employer/pipeline/applications/${applicationId}/interviews/${interviewId}/feedback`, payload)

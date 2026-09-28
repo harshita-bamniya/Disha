@@ -104,6 +104,17 @@ def interview_reminder_email(
     return subject, html
 
 
+def scorecard_nudge_email(job_title: str, candidate_name: str | None) -> tuple[str, str]:
+    subject = f"Scorecard needed — {job_title}"
+    html = _wrap(
+        "Your interview scorecard is waiting",
+        f"<p>Your interview with <strong>{candidate_name or 'a candidate'}</strong> for "
+        f"<strong>{job_title}</strong> has passed. Submit your scorecard so the hiring "
+        f"team can move the candidate forward.</p>",
+    )
+    return subject, html
+
+
 def interview_no_show_rebook_email(job_title: str, company_name: str) -> tuple[str, str]:
     subject = f"We missed you — {job_title}"
     html = _wrap(

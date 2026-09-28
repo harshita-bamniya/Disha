@@ -15,6 +15,7 @@ import {
   sendOfferLetter, getOfferLetter, downloadOfferLetterPdf,
   saveCandidate, unsaveCandidate, checkCandidateSaved,
   downloadInterviewIcs,
+  SCORECARD_CRITERIA,
   type CandidateOut,
 } from '@/api/matching'
 import type { PipelineStage } from '@/api/matching'
@@ -186,6 +187,7 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
   const [feedbackForId,setFeedbackForId]=useState<string|null>(null)
   const [feedbackRecommendation,setFeedbackRecommendation]=useState('')
   const [feedbackText,setFeedbackText]=useState('')
+  const [feedbackRatings,setFeedbackRatings]=useState<Record<string,number>>({})
 
   const scheduleMutation=useMutation({
     mutationFn:()=>scheduleInterview(candidate.application_id,{scheduled_at:new Date(scheduleAt).toISOString(),meeting_link:meetingLink||undefined}),
@@ -219,8 +221,12 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
     onSuccess:()=>{qc.invalidateQueries({queryKey:['pipeline',jobId]});setRescheduleForId(null);setRescheduleAt('');setRescheduleLink('')},
   })
   const feedbackMutation=useMutation({
-    mutationFn:(interviewId:string)=>submitInterviewFeedback(candidate.application_id,interviewId,{recommendation:feedbackRecommendation||undefined,feedback:feedbackText||undefined}),
-    onSuccess:()=>{qc.invalidateQueries({queryKey:['pipeline',jobId]});setFeedbackForId(null);setFeedbackRecommendation('');setFeedbackText('')},
+    mutationFn:(interviewId:string)=>submitInterviewFeedback(candidate.application_id,interviewId,{
+      recommendation:feedbackRecommendation||undefined,
+      feedback:feedbackText||undefined,
+      ratings:Object.keys(feedbackRatings).length>0?feedbackRatings:undefined,
+    }),
+    onSuccess:()=>{qc.invalidateQueries({queryKey:['pipeline',jobId]});setFeedbackForId(null);setFeedbackRecommendation('');setFeedbackText('');setFeedbackRatings({})},
   })
   const cancelInterviewMutation=useMutation({
     mutationFn:(interviewId:string)=>cancelInterview(candidate.application_id,interviewId),
@@ -626,6 +632,15 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
 
                   {iv.recommendation&&<p style={{fontSize:11,color:'#475569',marginTop:6}}><strong>Recommendation:</strong> {iv.recommendation.replace('_',' ')}</p>}
                   {iv.feedback&&<p style={{fontSize:11,color:'#475569',marginTop:2}}>{iv.feedback}</p>}
+                  {iv.scorecard_ratings&&Object.keys(iv.scorecard_ratings).length>0&&(
+                    <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:4}}>
+                      {SCORECARD_CRITERIA.filter(c=>iv.scorecard_ratings![c.key]!=null).map(c=>(
+                        <span key={c.key} style={{fontSize:10,fontWeight:700,color:'#92400E',background:'rgba(217,119,6,0.1)',padding:'2px 7px',borderRadius:20}}>
+                          {c.label}: {iv.scorecard_ratings![c.key]}/5
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
                   {iv.status==='scheduled'&&feedbackForId!==iv.id&&rescheduleForId!==iv.id&&canInterview&&(
                     <div style={{display:'flex',gap:8,marginTop:8}}>
@@ -643,6 +658,22 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
                   )}
                   {feedbackForId===iv.id&&(
                     <div style={{marginTop:8,display:'flex',flexDirection:'column',gap:6}}>
+                      <div style={{display:'flex',flexDirection:'column',gap:4,padding:'8px 9px',borderRadius:8,background:'#F8FAFC',border:'1px solid #E2E8F0'}}>
+                        {SCORECARD_CRITERIA.map(c=>(
+                          <div key={c.key} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:8}}>
+                            <span style={{fontSize:11,color:'#475569'}}>{c.label}</span>
+                            <div style={{display:'flex',gap:2}}>
+                              {[1,2,3,4,5].map(n=>(
+                                <button key={n} type="button"
+                                  onClick={()=>setFeedbackRatings(prev=>({...prev,[c.key]:n}))}
+                                  style={{background:'none',border:'none',cursor:'pointer',padding:1,lineHeight:0}}>
+                                  <Star size={13} color={(feedbackRatings[c.key]??0)>=n?'#D97706':'#CBD5E1'} fill={(feedbackRatings[c.key]??0)>=n?'#D97706':'none'}/>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                       <select value={feedbackRecommendation} onChange={e=>setFeedbackRecommendation(e.target.value)}
                         style={{border:'1px solid #E2E8F0',borderRadius:8,padding:'6px 8px',fontSize:12}}>
                         <option value="">Recommendation…</option>

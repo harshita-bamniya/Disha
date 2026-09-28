@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # ── Job listing (aspirant-facing) ─────────────────────────────────────────────
 
@@ -265,9 +265,31 @@ class BulkTestInviteResponse(BaseModel):
     skipped: int
 
 
+# Structured scorecard rubric (Module: interview scorecards) — a fixed
+# default set of criteria rather than a per-job-configurable rubric, to keep
+# scoring comparable across every interview without needing setup per role.
+SCORECARD_CRITERIA = (
+    "communication", "structured_thinking", "business_sense", "ownership", "culture_fit",
+)
+
+
 class InterviewFeedbackSubmitRequest(BaseModel):
     recommendation: Optional[str] = Field(None, pattern="^(strong_yes|yes|no|strong_no)$")
     feedback: Optional[str] = Field(None, max_length=4000)
+    # dict[criterion, 1-5] — keys must be from SCORECARD_CRITERIA, entirely optional.
+    ratings: Optional[dict[str, int]] = None
+
+    @field_validator("ratings")
+    @classmethod
+    def validate_ratings(cls, v: Optional[dict[str, int]]) -> Optional[dict[str, int]]:
+        if v is None:
+            return v
+        for key, score in v.items():
+            if key not in SCORECARD_CRITERIA:
+                raise ValueError(f"'{key}' is not a valid scorecard criterion")
+            if not isinstance(score, int) or score < 1 or score > 5:
+                raise ValueError(f"Rating for '{key}' must be an integer from 1 to 5")
+        return v
 
 
 class InterviewFeedbackOut(BaseModel):
@@ -286,6 +308,7 @@ class InterviewFeedbackOut(BaseModel):
     # picking one time. scheduled_at stays null (status=pending_booking) until
     # the candidate books one of these.
     proposed_slots: Optional[list[datetime]] = None
+    scorecard_ratings: Optional[dict[str, int]] = None
 
 
 class RequestRescheduleRequest(BaseModel):

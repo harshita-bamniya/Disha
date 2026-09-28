@@ -744,6 +744,7 @@ def submit_interview_feedback(
     try:
         return service.submit_interview_feedback(
             application_id, interview_id, body.recommendation, body.feedback, current_user, db,
+            ratings=body.ratings,
         )
     except (AuthException, NotFoundException) as e:
         raise HTTPException(status_code=404, detail=str(e))

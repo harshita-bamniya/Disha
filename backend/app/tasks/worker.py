@@ -92,6 +92,11 @@ celery_app.conf.update(
             "task": "app.tasks.worker.flag_stale_interviews",
             "schedule": crontab(minute="*/15"),
         },
+        # Nudge the assigned interviewer specifically to submit their scorecard.
+        "scorecard-nudges": {
+            "task": "app.tasks.worker.send_scorecard_nudges",
+            "schedule": crontab(minute="*/15"),
+        },
     },
 )
 
@@ -789,6 +794,68 @@ def flag_stale_interviews() -> dict:
         logger.error("[STALE_INTERVIEWS] Failed: %s", exc)
         db.rollback()
         return {"flagged": flagged, "error": str(exc)}
+    finally:
+        db.close()
+
+
+@celery_app.task(name="app.tasks.worker.send_scorecard_nudges")
+def send_scorecard_nudges() -> dict:
+    """Nudges the assigned interviewer to submit their scorecard, 2h and 24h
+    after the interview's scheduled time — separate from flag_stale_interviews
+    (which nudges the whole employer team, once, to confirm the interview
+    even happened). This one is per-interviewer and keyed off the structured
+    scorecard the blueprint wants filled in, not just a status check.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    from app.database import SessionLocal
+    from app.core.notifications import notify, scorecard_nudge_email
+    from app.models.applications import Application, CandidateInterviewFeedback
+    from app.models.user import AspirantProfile, User
+
+    db = SessionLocal()
+    sent = 0
+    try:
+        now = datetime.now(timezone.utc)
+        windows = [
+            ("nudge_2h_sent_at",  timedelta(hours=2)),
+            ("nudge_24h_sent_at", timedelta(hours=24)),
+        ]
+        for stamp_field, delay in windows:
+            rows = (
+                db.query(CandidateInterviewFeedback)
+                .filter(
+                    CandidateInterviewFeedback.status == "scheduled",
+                    CandidateInterviewFeedback.scheduled_at != None,
+                    CandidateInterviewFeedback.scheduled_at <= now - delay,
+                    CandidateInterviewFeedback.interviewer_id != None,
+                    getattr(CandidateInterviewFeedback, stamp_field) == None,
+                )
+                .all()
+            )
+            for row in rows:
+                interviewer = db.query(User).filter(User.id == row.interviewer_id).first()
+                if not interviewer or not interviewer.email:
+                    setattr(row, stamp_field, now)  # nothing to send to — don't retry forever
+                    continue
+                app = db.query(Application).filter(Application.id == row.application_id).first()
+                job = app.job if app else None
+                candidate_name = None
+                if app:
+                    profile = db.query(AspirantProfile).filter(AspirantProfile.user_id == app.aspirant_id).first()
+                    candidate_name = profile.full_name if profile else None
+
+                subject, html = scorecard_nudge_email(job.title if job else "the role", candidate_name)
+                notify(interviewer.email, subject, html)
+                setattr(row, stamp_field, now)
+                sent += 1
+            db.commit()
+        logger.info("[SCORECARD_NUDGES] Sent %d nudges", sent)
+        return {"sent": sent}
+    except Exception as exc:
+        logger.error("[SCORECARD_NUDGES] Failed: %s", exc)
+        db.rollback()
+        return {"sent": sent, "error": str(exc)}
     finally:
         db.close()
 

@@ -189,6 +189,14 @@ class CandidateInterviewFeedback(Base):
     reminder_1h_sent_at  = Column(DateTime(timezone=True), nullable=True)
     stale_nudge_sent_at  = Column(DateTime(timezone=True), nullable=True)
 
+    # Structured scorecard (Module: interview scorecards) — alongside the
+    # single recommendation/feedback above, not replacing them.
+    # dict[str, int], keys from SCORECARD_CRITERIA, values 1-5.
+    scorecard_ratings = Column(JSONB, nullable=True)
+    # Dedupe stamps for the interviewer submission-nudge sweep.
+    nudge_2h_sent_at  = Column(DateTime(timezone=True), nullable=True)
+    nudge_24h_sent_at = Column(DateTime(timezone=True), nullable=True)
+
     application     = relationship("Application")
     interviewer     = relationship("User", foreign_keys=[interviewer_id])
 

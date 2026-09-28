@@ -52,7 +52,7 @@ def _interview_to_out(row: CandidateInterviewFeedback, interviewer: User | None,
         scheduled_at=row.scheduled_at, meeting_link=row.meeting_link, status=row.status,
         recommendation=row.recommendation, feedback=row.feedback, created_at=row.created_at,
         reschedule_requested_at=row.reschedule_requested_at, reschedule_note=row.reschedule_note,
-        proposed_slots=row.proposed_slots,
+        proposed_slots=row.proposed_slots, scorecard_ratings=row.scorecard_ratings,
     )
 
 
@@ -408,11 +408,12 @@ def get_interview_ics(application_id: str, interview_id: str, user: User, db: Se
 
 def submit_interview_feedback(
     application_id: str, interview_id: str, recommendation: str | None, feedback: str | None,
-    user: User, db: Session,
+    user: User, db: Session, ratings: dict | None = None,
 ) -> InterviewFeedbackOut:
     row = _get_employer_interview(application_id, interview_id, user, db)
     row.recommendation = recommendation
     row.feedback = feedback
+    row.scorecard_ratings = ratings
     row.status = "completed"
 
     app = db.query(Application).filter(Application.id == row.application_id).first()
