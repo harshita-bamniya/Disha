@@ -46,6 +46,7 @@ const STATUS_OPTIONS = [
   { value: 'shortlisted',         label: 'Shortlist',          color: '#059669' },
   { value: 'interview_scheduled', label: 'Schedule Interview', color: '#3B82F6' },
   { value: 'interview_completed', label: 'Mark Interviewed',   color: '#0EA5E9' },
+  { value: 'hold',                label: 'Put on Hold',        color: '#64748B' },
   { value: 'offer_sent',          label: 'Send Offer',         color: '#7C3AED' },
   { value: 'rejected',            label: 'Reject',             color: '#DC2626' },
   { value: 'hired',               label: 'Mark as Hired',      color: '#7C3AED' },
@@ -59,6 +60,7 @@ const STATUS_STYLE: Record<string, { bg: string; text: string }> = {
   interview_scheduled:  { bg: 'rgba(59,130,246,0.1)',   text: '#3B82F6' },
   interview_completed:  { bg: 'rgba(14,165,233,0.1)',   text: '#0EA5E9' },
   assessment:           { bg: 'rgba(217,119,6,0.1)',    text: '#D97706' },
+  hold:                 { bg: 'rgba(100,116,139,0.12)', text: '#64748B' },
   offer_sent:           { bg: 'rgba(124,58,237,0.1)',   text: '#7C3AED' },
   rejected:             { bg: 'rgba(220,38,38,0.1)',    text: '#DC2626' },
   hired:                { bg: 'rgba(124,58,237,0.1)',   text: '#7C3AED' },
@@ -73,9 +75,10 @@ const DEFAULT_KANBAN_STAGES: PipelineStage[] = [
   { id: '', stage_key: 'assessment',           display_name: 'Test Invited',  color: '#D97706', position: 3, is_visible: true },
   { id: '', stage_key: 'interview_scheduled',  display_name: 'Interview',     color: '#6366F1', position: 4, is_visible: true },
   { id: '', stage_key: 'interview_completed',  display_name: 'Interviewed',   color: '#0EA5E9', position: 5, is_visible: true },
-  { id: '', stage_key: 'offer_sent',           display_name: 'Offer Sent',    color: '#7C3AED', position: 6, is_visible: true },
-  { id: '', stage_key: 'hired',                display_name: 'Hired',         color: '#059669', position: 7, is_visible: true },
-  { id: '', stage_key: 'rejected',             display_name: 'Rejected',      color: '#DC2626', position: 8, is_visible: true },
+  { id: '', stage_key: 'hold',                 display_name: 'Hold',          color: '#64748B', position: 6, is_visible: true },
+  { id: '', stage_key: 'offer_sent',           display_name: 'Offer Sent',    color: '#7C3AED', position: 7, is_visible: true },
+  { id: '', stage_key: 'hired',                display_name: 'Hired',         color: '#059669', position: 8, is_visible: true },
+  { id: '', stage_key: 'rejected',             display_name: 'Rejected',      color: '#DC2626', position: 9, is_visible: true },
 ]
 
 const SORT_OPTIONS = [
@@ -856,6 +859,133 @@ function CandidateCard({candidate,jobId,selected,onSelect}:{candidate:CandidateO
   )
 }
 
+// ── Comparison Screen ────────────────────────────────────────────────────────
+
+function scorecardAverages(c:CandidateOut):Record<string,number>{
+  const sums:Record<string,{total:number;count:number}>={}
+  c.interview_feedback.forEach(iv=>{
+    if(!iv.scorecard_ratings)return
+    Object.entries(iv.scorecard_ratings).forEach(([k,v])=>{
+      sums[k]=sums[k]??{total:0,count:0}
+      sums[k].total+=v;sums[k].count+=1
+    })
+  })
+  const out:Record<string,number>={}
+  Object.entries(sums).forEach(([k,{total,count}])=>{out[k]=Math.round((total/count)*10)/10})
+  return out
+}
+
+function recommendationTally(c:CandidateOut):Record<string,number>{
+  const tally:Record<string,number>={}
+  c.interview_feedback.forEach(iv=>{if(iv.recommendation)tally[iv.recommendation]=(tally[iv.recommendation]??0)+1})
+  return tally
+}
+
+const RECOMMENDATION_LABELS:Record<string,string>={strong_yes:'Strong Yes',yes:'Yes',no:'No',strong_no:'Strong No'}
+
+function ComparisonModal({candidates,jobId,onClose}:{candidates:CandidateOut[];jobId:string;onClose:()=>void}){
+  const qc=useQueryClient()
+  const [viewingProfile,setViewingProfile]=useState<CandidateOut|null>(null)
+  const holdMutation=useMutation({
+    mutationFn:(id:string)=>updateApplicationStatus(id,'hold','Held as a backup candidate from the comparison screen'),
+    onSuccess:()=>qc.invalidateQueries({queryKey:['pipeline',jobId]}),
+  })
+  const sorted=[...candidates].sort((a,b)=>(b.match_score??0)-(a.match_score??0))
+
+  return(
+    <div style={{position:'fixed',inset:0,zIndex:200,background:'rgba(15,23,42,0.55)',backdropFilter:'blur(2px)',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}
+      onClick={e=>{if(e.target===e.currentTarget)onClose()}}>
+      <div style={{background:'#fff',borderRadius:18,width:'100%',maxWidth:1240,maxHeight:'90vh',display:'flex',flexDirection:'column',boxShadow:'0 24px 64px rgba(15,23,42,0.3)'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'18px 24px',borderBottom:`1px solid ${colors.border.default}`}}>
+          <div>
+            <h2 style={{margin:0,fontSize:17,fontWeight:800,color:colors.text.ink}}>Compare {sorted.length} candidates</h2>
+            <p style={{margin:'3px 0 0',fontSize:12,color:colors.text.inkSoft}}>Ranked by match score. Keep your pick moving forward, put the rest on hold as backups.</p>
+          </div>
+          <button onClick={onClose} style={{width:32,height:32,border:'none',background:'#F1F5F9',borderRadius:8,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}><X size={16} color="#64748B"/></button>
+        </div>
+
+        <div style={{padding:20,overflow:'auto',display:'grid',gridTemplateColumns:`repeat(${sorted.length},minmax(260px,1fr))`,gap:14}}>
+          {sorted.map((c,i)=>{
+            const avgs=scorecardAverages(c)
+            const tally=recommendationTally(c)
+            const st=STATUS_STYLE[c.status]??{bg:'#F3F4F6',text:colors.text.inkSoft}
+            const latestNote=c.notes?.[0]
+            return(
+              <div key={c.application_id} style={{border:i===0?'2px solid #059669':`1px solid ${colors.border.default}`,borderRadius:14,padding:16,display:'flex',flexDirection:'column',gap:12,background:i===0?'rgba(5,150,105,0.03)':'#fff'}}>
+                {i===0&&<span style={{alignSelf:'flex-start',fontSize:10,fontWeight:800,color:'#059669',background:'rgba(5,150,105,0.12)',padding:'3px 9px',borderRadius:20,letterSpacing:'.3px'}}>RECOMMENDED #1</span>}
+                <div>
+                  <h3 style={{margin:0,fontSize:15,fontWeight:800,color:colors.text.ink}}>{c.full_name??'Anonymous'}</h3>
+                  <p style={{margin:'2px 0 0',fontSize:11,color:colors.text.inkSoft}}>{[c.city,c.state].filter(Boolean).join(', ')||'Location N/A'}</p>
+                  <span style={{display:'inline-block',marginTop:6,fontSize:10,fontWeight:700,padding:'2px 9px',borderRadius:20,background:st.bg,color:st.text,textTransform:'capitalize'}}>{c.status.replace('_',' ')}</span>
+                </div>
+
+                <div>
+                  {c.match_score!=null&&<ScoreBar label="Match Score" score={c.match_score} color={c.match_score>=70?'#059669':c.match_score>=40?'#D97706':'#DC2626'}/>}
+                  {c.composite!=null&&<ScoreBar label="KRS Composite" score={c.composite} color="#7C3AED"/>}
+                  {c.k_score!=null&&<ScoreBar label="Knowledge (K)" score={c.k_score} color="#3B82F6"/>}
+                  {c.r_score!=null&&<ScoreBar label="Readiness (R)" score={c.r_score} color="#0EA5E9"/>}
+                  {c.s_score!=null&&<ScoreBar label="Skills (S)" score={c.s_score} color="#D97706"/>}
+                </div>
+
+                {Object.keys(avgs).length>0&&(
+                  <div>
+                    <p style={{margin:'0 0 5px',fontSize:10,fontWeight:700,color:'#94A3B8',textTransform:'uppercase',letterSpacing:'.4px'}}>Scorecard averages</p>
+                    <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+                      {SCORECARD_CRITERIA.filter(sc=>avgs[sc.key]!=null).map(sc=>(
+                        <span key={sc.key} style={{fontSize:10,fontWeight:700,color:'#92400E',background:'rgba(217,119,6,0.1)',padding:'2px 8px',borderRadius:20}}>{sc.label}: {avgs[sc.key]}/5</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {Object.keys(tally).length>0&&(
+                  <div>
+                    <p style={{margin:'0 0 5px',fontSize:10,fontWeight:700,color:'#94A3B8',textTransform:'uppercase',letterSpacing:'.4px'}}>Interviewer recommendations</p>
+                    <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
+                      {Object.entries(tally).map(([k,n])=>(
+                        <span key={k} style={{fontSize:10,fontWeight:700,color:k.includes('strong_no')||k==='no'?'#DC2626':'#059669',background:k.includes('strong_no')||k==='no'?'rgba(220,38,38,0.08)':'rgba(5,150,105,0.08)',padding:'2px 8px',borderRadius:20}}>{RECOMMENDATION_LABELS[k]??k} × {n}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <p style={{margin:'0 0 5px',fontSize:10,fontWeight:700,color:'#94A3B8',textTransform:'uppercase',letterSpacing:'.4px'}}>Salary & commitment</p>
+                  <InfoRow label="Expected salary" value={c.expected_salary_min!=null||c.expected_salary_max!=null?`₹${c.expected_salary_min??'?'}–${c.expected_salary_max??'?'} LPA`:'Not shared'}/>
+                  <InfoRow label="UPSC attempts" value={c.upsc_attempts!=null?String(c.upsc_attempts):'—'}/>
+                  <InfoRow label="Highest stage" value={c.highest_stage_cleared??'—'}/>
+                  <InfoRow label="Years preparing" value={c.years_preparing!=null?String(c.years_preparing):'—'}/>
+                  <InfoRow label="Open to relocation" value={c.open_to_relocation==null?'—':c.open_to_relocation?'Yes':'No'}/>
+                </div>
+
+                {latestNote&&(
+                  <div style={{background:colors.surface.elevated,borderRadius:8,padding:'8px 10px'}}>
+                    <p style={{margin:0,fontSize:10,fontWeight:700,color:'#94A3B8',textTransform:'uppercase',letterSpacing:'.4px'}}>Latest note</p>
+                    <p style={{margin:'3px 0 0',fontSize:11.5,color:colors.text.ink}}>{latestNote.note}</p>
+                  </div>
+                )}
+
+                <div style={{display:'flex',flexDirection:'column',gap:6,marginTop:'auto',paddingTop:8}}>
+                  <button onClick={()=>setViewingProfile(c)} style={{padding:8,borderRadius:8,border:`1px solid ${colors.border.default}`,background:'#fff',fontSize:12,fontWeight:700,color:colors.text.ink,cursor:'pointer'}}>
+                    View Full Profile
+                  </button>
+                  {c.status!=='hold'&&!['hired','rejected','withdrawn','offer_sent'].includes(c.status)&&(
+                    <button onClick={()=>holdMutation.mutate(c.application_id)} disabled={holdMutation.isPending}
+                      style={{padding:8,borderRadius:8,border:'none',background:'#F1F5F9',fontSize:12,fontWeight:700,color:'#64748B',cursor:'pointer'}}>
+                      Put on Hold (backup)
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+      {viewingProfile&&<ProfileDrawer candidate={viewingProfile} jobId={jobId} onClose={()=>setViewingProfile(null)}/>}
+    </div>
+  )
+}
+
 // ── Kanban Board ──────────────────────────────────────────────────────────────
 
 function KanbanCard({ candidate, jobId, onDragStart }: {
@@ -1180,6 +1310,7 @@ export default function CandidatePipelinePage() {
   const [bulkEmailSubject,setBulkEmailSubject]=useState('')
   const [bulkEmailBody,setBulkEmailBody]=useState('')
   const [showBulkTestInvite,setShowBulkTestInvite]=useState(false)
+  const [showComparison,setShowComparison]=useState(false)
   const [bulkTestInviteMessage,setBulkTestInviteMessage]=useState('')
   const [bulkTestInviteLink,setBulkTestInviteLink]=useState('')
   const [showFilters,setShowFilters]=useState(false)
@@ -1303,6 +1434,13 @@ export default function CandidatePipelinePage() {
         </>}
       />
       {showManageStages&&jobId&&<ManageStagesModal jobId={jobId} stages={activeStages} onClose={()=>setShowManageStages(false)}/>}
+      {showComparison&&jobId&&(
+        <ComparisonModal
+          candidates={pipeline.candidates.filter(c=>selectedIds.has(c.application_id))}
+          jobId={jobId}
+          onClose={()=>setShowComparison(false)}
+        />
+      )}
 
       <div style={{maxWidth:1100,margin:'0 auto',padding:24}}>
         {/* Resume-not-required jobs skip shortlisting entirely — candidates go
@@ -1372,6 +1510,11 @@ export default function CandidatePipelinePage() {
             <button onClick={()=>setShowBulkTestInvite(true)} style={{height:32,padding:'0 14px',borderRadius:8,border:'none',background:'#D97706',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
               <FileText size={13}/>Send Test Invite
             </button>
+            {selectedIds.size>=2&&(
+              <button onClick={()=>setShowComparison(true)} style={{height:32,padding:'0 14px',borderRadius:8,border:'none',background:'#7C3AED',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+                <Users size={13}/>Compare ({selectedIds.size})
+              </button>
+            )}
             <button onClick={()=>setSelectedIds(new Set())} style={{height:32,padding:'0 12px',borderRadius:8,border:'1px solid #475569',background:'none',color:'#94A3B8',fontSize:12,cursor:'pointer'}}>Cancel</button>
           </div>
         )}

@@ -146,7 +146,7 @@ class CandidateOut(BaseModel):
 
 _VALID_ATS_STATUSES = (
     "^(screening|shortlisted|assessment|hr_interview|technical_interview|manager_interview"
-    "|interview_scheduled|interview_completed|offer_sent|offer_declined|rejected|hired)$"
+    "|interview_scheduled|interview_completed|hold|offer_sent|offer_declined|rejected|hired)$"
 )
 
 
