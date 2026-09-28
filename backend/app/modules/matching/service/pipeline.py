@@ -172,6 +172,8 @@ def get_job_pipeline(
                     interviewer_name=core._employer_display_name(interviewer, db) if interviewer else None,
                     scheduled_at=f.scheduled_at, meeting_link=f.meeting_link, status=f.status,
                     recommendation=f.recommendation, feedback=f.feedback, created_at=f.created_at,
+                    reschedule_requested_at=f.reschedule_requested_at, reschedule_note=f.reschedule_note,
+                    proposed_slots=f.proposed_slots, scorecard_ratings=f.scorecard_ratings,
                 )
             )
 

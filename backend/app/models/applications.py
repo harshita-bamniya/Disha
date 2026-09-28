@@ -25,9 +25,14 @@ def _uuid():
 
 # Full ATS pipeline (Module 05 Phase 3) — superset of the original 6 statuses.
 # 'under_review' kept as a legacy alias for screening (existing rows may use it).
+# Mirrors the DB check constraint (ck_application_status) exactly — keep both
+# in sync; a status accepted here but not in that constraint 500s on write
+# (see migration u9v0w1x2y3z4 for the incident that caught this drifting).
 APPLICATION_STATUSES = (
-    "applied", "under_review", "screening", "shortlisted", "interview_scheduled",
-    "interview_completed", "offer_sent", "hired", "rejected", "withdrawn",
+    "applied", "under_review", "screening", "shortlisted",
+    "assessment", "hr_interview", "technical_interview", "manager_interview",
+    "interview_scheduled", "interview_completed", "hold",
+    "offer_sent", "offer_declined", "rejected", "hired", "withdrawn",
 )
 
 
