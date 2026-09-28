@@ -166,6 +166,10 @@ export interface JobCandidatePipeline {
   total_applications: number
   by_status: Record<string, number>
   candidates: CandidateOut[]
+  // Resume-gating + auto-shortlist config for this job.
+  resume_required: boolean
+  auto_shortlist_threshold: number | null
+  shortlist_review_floor: number | null
 }
 
 export interface SavedCandidateOut {
@@ -371,6 +375,24 @@ export const scheduleInterview = (
 ): Promise<InterviewFeedbackOut> =>
   apiClient
     .post(`/employer/pipeline/applications/${applicationId}/interviews`, payload)
+    .then((r) => r.data)
+
+// Direct 2nd-phase invite for jobs that don't require a resume (those
+// applications skip shortlisting — see JobCandidatePipeline.resume_required).
+export const sendTestInvite = (
+  applicationId: string,
+  payload: { message?: string; test_link?: string },
+): Promise<{ application_id: string; status: string }> =>
+  apiClient
+    .post(`/employer/pipeline/applications/${applicationId}/test-invite`, payload)
+    .then((r) => r.data)
+
+export const bulkSendTestInvite = (
+  applicationIds: string[],
+  payload: { message?: string; test_link?: string },
+): Promise<{ sent: number; skipped: number }> =>
+  apiClient
+    .post('/employer/pipeline/applications/bulk-test-invite', { application_ids: applicationIds, ...payload })
     .then((r) => r.data)
 
 export const rescheduleInterview = (

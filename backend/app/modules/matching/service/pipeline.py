@@ -71,7 +71,7 @@ def get_job_pipeline(
       search             — substring match on candidate full_name (via AspirantProfile)
       knockout_triggered — True/False filter
       knockout_action    — exact match on Application.knockout_action
-      score_min/max      — inclusive filter on Application.application_score
+      score_min/max      — inclusive filter on Application.match_score
     """
     employer = core._get_employer_profile_approved(user, db)
     company_employer_ids = core._get_company_employer_ids(employer, db)
@@ -96,10 +96,17 @@ def get_job_pipeline(
         apps_q = apps_q.filter(Application.knockout_triggered == knockout_triggered)
     if knockout_action:
         apps_q = apps_q.filter(Application.knockout_action == knockout_action)
+    # Filters on match_score, not application_score: application_score is an
+    # AI-quality-score field nothing in the codebase ever populates (always
+    # NULL), so filtering on it silently returned zero rows. match_score is
+    # computed and stored on every application at submission time and is what
+    # the pipeline is already sorted by, so it's the real usable score here —
+    # also what the "needs review" auto-shortlist band (jobs.shortlist_review_floor
+    # .. auto_shortlist_threshold) is filtered on from the employer UI.
     if score_min is not None:
-        apps_q = apps_q.filter(Application.application_score >= score_min)
+        apps_q = apps_q.filter(Application.match_score >= score_min)
     if score_max is not None:
-        apps_q = apps_q.filter(Application.application_score <= score_max)
+        apps_q = apps_q.filter(Application.match_score <= score_max)
 
     if search:
         # Join to AspirantProfile for name search
@@ -257,12 +264,23 @@ def get_job_pipeline(
             application_score=app.application_score,
         ))
 
+    from app.models.ats import ApplicationForm
+    form = (
+        db.query(ApplicationForm)
+        .filter(ApplicationForm.job_id == job.id, ApplicationForm.status == "published")
+        .first()
+    )
+    resume_required = (form.settings_json or {}).get("resume_config", "required") == "required" if form else True
+
     return JobCandidatePipeline(
         job_id=str(job.id),
         job_title=job.title,
         total_applications=total_applications,
         by_status=by_status,
         candidates=candidates,
+        resume_required=resume_required,
+        auto_shortlist_threshold=job.auto_shortlist_threshold,
+        shortlist_review_floor=job.shortlist_review_floor,
     )
 
 
@@ -453,6 +471,7 @@ def update_application_status(
 
 def bulk_update_status(application_ids: list[str], status: str, note: str | None, user: User, db: Session) -> dict:
     """Move multiple applications to the same stage in one transaction."""
+    from app.core.notifications import application_status_email, notify
     from app.modules.inbox.service import create_notification
 
     employer = core._get_employer_profile_approved(user, db)
@@ -480,6 +499,9 @@ def bulk_update_status(application_ids: list[str], status: str, note: str | None
         ))
         job = jobs_by_id.get(app.job_id)
         if job:
+            if app.aspirant and app.aspirant.email:
+                subject, html = application_status_email(job.title, employer.company_name, status)
+                notify(app.aspirant.email, subject, html)
             create_notification(
                 db, app.aspirant_id, "application_status_changed",
                 f"Update on your application — {job.title}",

@@ -249,6 +249,22 @@ class ScheduleInterviewRequest(BaseModel):
     meeting_link: Optional[str] = Field(None, max_length=500)
 
 
+class TestInviteRequest(BaseModel):
+    message: Optional[str] = Field(None, max_length=4000)
+    test_link: Optional[str] = Field(None, max_length=500)
+
+
+class BulkTestInviteRequest(BaseModel):
+    application_ids: list[str] = Field(..., min_length=1, max_length=100)
+    message: Optional[str] = Field(None, max_length=4000)
+    test_link: Optional[str] = Field(None, max_length=500)
+
+
+class BulkTestInviteResponse(BaseModel):
+    sent: int
+    skipped: int
+
+
 class InterviewFeedbackSubmitRequest(BaseModel):
     recommendation: Optional[str] = Field(None, pattern="^(strong_yes|yes|no|strong_no)$")
     feedback: Optional[str] = Field(None, max_length=4000)
@@ -289,6 +305,12 @@ class JobCandidatePipeline(BaseModel):
     total_applications: int
     by_status: dict[str, int]
     candidates: list[CandidateOut]
+    # Resume-gating + auto-shortlist config for this job (drives the employer
+    # UI's "needs review" band and whether shortlisting happens automatically
+    # or candidates go straight to a direct interview/test invite).
+    resume_required: bool = True
+    auto_shortlist_threshold: Optional[int] = None
+    shortlist_review_floor: Optional[int] = None
 
 
 # ── ATS: form response viewer (Phase 5) ──────────────────────────────────────
@@ -373,6 +395,7 @@ class DashboardKpis(BaseModel):
     total_applications: int
     interviews_scheduled: int
     offers_sent: int
+    offers_pending: int = 0
     hires: int
     rejected_count: int = 0
     response_rate_pct: float

@@ -13,6 +13,11 @@ export interface JobPostingPayload {
   min_k_score: number
   salary_min?: number
   salary_max?: number
+  // Auto-shortlist rule (applies only when the job's application form
+  // requires a resume — resume_config === 'required'). Both omitted/null
+  // keeps shortlisting fully manual, same as before this feature existed.
+  auto_shortlist_threshold?: number | null
+  shortlist_review_floor?: number | null
   growth_outlook?: GrowthOutlook
   job_type: JobType
   location: string
@@ -54,6 +59,8 @@ export interface JobPosting {
   min_k_score: number
   salary_min: number | null
   salary_max: number | null
+  auto_shortlist_threshold: number | null
+  shortlist_review_floor: number | null
   growth_outlook: string | null
   job_type: string | null
   location: string | null
@@ -194,4 +201,13 @@ export const jobsApi = {
 
   requestVerification: () =>
     apiClient.post<VerificationStatusResponse>('/employer/verification/request').then((r) => r.data),
+
+  uploadVerificationDocument: (docType: VerificationDocType, file: File) => {
+    const form = new FormData()
+    form.append('doc_type', docType)
+    form.append('file', file)
+    return apiClient.post<VerificationStatusResponse>('/employer/verification/documents', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then((r) => r.data)
+  },
 }

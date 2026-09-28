@@ -40,6 +40,11 @@ class JobPostingRequest(BaseModel):
     # Salary stored as integers (LPA); both optional but max must be ≥ min
     salary_min: int | None = None
     salary_max: int | None = None
+    # Auto-shortlist rule (applies only to resume-required jobs — see
+    # applications/service.py submit_application). Both null = fully manual
+    # shortlisting (today's default behavior).
+    auto_shortlist_threshold: int | None = None
+    shortlist_review_floor: int | None = None
     growth_outlook: Literal["high", "medium", "low"] | None = None
     # Work arrangement type — required
     job_type: Literal["remote", "pan_india", "hybrid", "onsite"]
@@ -53,8 +58,11 @@ class JobPostingRequest(BaseModel):
     # If True, the job goes live immediately (status=published); if False (default),
     # it's saved as a draft — visible only to the employer, not to aspirants.
     publish: bool = False
-    # Department this job belongs to. Required for dept-scoped recruiters (auto-filled
-    # from their profile); optional for company admins who post cross-dept jobs.
+    # Department this job belongs to. A department-scoped poster (recruiter/HM)
+    # always has this overridden to their own department (see
+    # _resolve_department_id in jobs/service.py). A company-wide poster (owner/
+    # hr_admin) sets this explicitly — e.g. the currently-open department
+    # workspace — or leaves it null for a company-wide posting.
     department_id: str | None = None
 
     @field_validator("title")
@@ -133,6 +141,21 @@ class JobPostingRequest(BaseModel):
                 raise ValueError("Max salary must be ≥ min salary")
             if v > 500:
                 raise ValueError("Salary must be in LPA (max 500)")
+        return v
+
+    @field_validator("auto_shortlist_threshold", "shortlist_review_floor")
+    @classmethod
+    def validate_shortlist_bounds(cls, v: int | None) -> int | None:
+        if v is not None and (v < 0 or v > 100):
+            raise ValueError("Must be between 0 and 100")
+        return v
+
+    @field_validator("shortlist_review_floor")
+    @classmethod
+    def validate_review_floor_below_threshold(cls, v: int | None, info) -> int | None:
+        threshold = info.data.get("auto_shortlist_threshold")
+        if v is not None and threshold is not None and v > threshold:
+            raise ValueError("Review band floor must be ≤ the auto-shortlist threshold")
         return v
 
 
@@ -220,6 +243,8 @@ class JobPostingResponse(BaseModel):
     min_k_score: int
     salary_min: int | None
     salary_max: int | None
+    auto_shortlist_threshold: int | None = None
+    shortlist_review_floor: int | None = None
     growth_outlook: str | None
     job_type: str | None
     location: str | None

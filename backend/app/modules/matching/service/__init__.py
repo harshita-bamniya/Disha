@@ -38,10 +38,12 @@ from app.modules.matching.service.cross_job_views import (
     list_all_offers,
 )
 from app.modules.matching.service.interviews import (
+    bulk_send_test_invite,
     cancel_interview,
     get_interview_ics,
     list_upcoming_interviews,
     schedule_interview,
+    send_test_invite,
     submit_interview_feedback,
 )
 from app.modules.matching.service.offers import (
@@ -86,6 +88,7 @@ __all__ = [
     "list_all_applicants", "list_all_interviews", "list_all_offers",
     "cancel_interview", "get_interview_ics", "list_upcoming_interviews",
     "schedule_interview", "submit_interview_feedback",
+    "bulk_send_test_invite", "send_test_invite",
     "accept_offer_letter", "bulk_email_candidates", "decline_offer_letter",
     "download_my_offer_letter_pdf", "download_offer_letter_pdf_employer",
     "get_my_offer_letter", "get_offer_letter_for_employer", "send_offer_letter",

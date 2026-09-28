@@ -29,7 +29,7 @@ from app.core.rbac import (
     require_permission,
     require_role,
 )
-from app.database import get_db, get_redis
+from app.database import get_db, get_redis, get_redis_client
 from app.models.user import User
 from app.modules.matching import service
 from app.modules.matching.schemas import (
@@ -44,6 +44,8 @@ from app.modules.matching.schemas import (
     BulkEmailRequest,
     BulkEmailResponse,
     BulkStatusUpdateRequest,
+    BulkTestInviteRequest,
+    BulkTestInviteResponse,
     BulkUpsertPipelineStagesRequest,
     CandidateEmailLogOut,
     CandidateNoteCreateRequest,
@@ -68,6 +70,7 @@ from app.modules.matching.schemas import (
     RequestRescheduleRequest,
     ScheduleInterviewRequest,
     SendCandidateEmailRequest,
+    TestInviteRequest,
     UpcomingInterviewEntry,
     UpdateApplicationStatusRequest,
     WithdrawRequest,
@@ -88,6 +91,7 @@ _employer = require_employer
 
 
 _VERSION_KEY_PREFIX = "jobs:recs:ver:"
+_GLOBAL_VERSION_KEY = "jobs:recs:global_ver"
 _CACHE_TTL = 300  # seconds
 
 
@@ -100,7 +104,19 @@ def _get_user_cache_version(user_id, redis: Redis) -> int:
         return 0
 
 
-def _jobs_cache_key(user_id, sector, job_type, min_salary, q, limit, offset, version: int) -> str:
+def _get_global_jobs_version(redis: Redis) -> int:
+    """Return the current catalog-wide version counter (0 if not set). Bumped
+    whenever any job posting's visibility changes — a per-user version alone
+    can't catch that, since a newly-published job affects every aspirant's
+    cached list, not just the employer's own."""
+    try:
+        v = redis.get(_GLOBAL_VERSION_KEY)
+        return int(v) if v else 0
+    except Exception:
+        return 0
+
+
+def _jobs_cache_key(user_id, sector, job_type, min_salary, q, limit, offset, version) -> str:
     sig = hashlib.md5(
         json.dumps(
             {"s": sector, "jt": job_type, "ms": min_salary, "q": q, "l": limit, "o": offset, "v": version},
@@ -121,6 +137,22 @@ def invalidate_jobs_cache(user_id, redis: Redis) -> None:
         pass  # Cache eviction failure is never fatal
 
 
+def bump_global_jobs_version(redis: Redis | None = None) -> None:
+    """Increment the catalog-wide cache version — every aspirant's cached job
+    list becomes stale instantly. Call this whenever a job posting's
+    visibility changes (create+publish, publish/pause/close/reopen/archive,
+    edit, delete) — previously nothing did, so a newly-published job (or an
+    edit to one) could take up to _CACHE_TTL (5 min) to appear on the aspirant
+    Jobs page, and stayed invisible indefinitely if that TTL kept getting
+    reset by other traffic re-priming the same stale cache key."""
+    try:
+        r = redis or get_redis_client()
+        r.incr(_GLOBAL_VERSION_KEY)
+        r.expire(_GLOBAL_VERSION_KEY, 86400)
+    except Exception:
+        pass  # Cache eviction failure is never fatal — never block the write it's attached to
+
+
 # ── Aspirant: job discovery ───────────────────────────────────────────────────
 
 @router.get("/jobs", response_model=JobRecommendationsResponse)
@@ -136,7 +168,10 @@ def list_jobs(
     redis: Redis = Depends(get_redis),
 ):
     """Browse active job postings ranked by match score for the current aspirant."""
-    version = _get_user_cache_version(current_user.id, redis)
+    # Combine the user's own version (bumped on their profile/preference
+    # changes) with the catalog-wide version (bumped on any job posting
+    # change) — either one moving invalidates this cache key.
+    version = f"{_get_user_cache_version(current_user.id, redis)}:{_get_global_jobs_version(redis)}"
     cache_key = _jobs_cache_key(current_user.id, sector, job_type, min_salary, q, limit, offset, version)
 
     # Skip cache for keyword searches — results should be fresh
@@ -589,6 +624,38 @@ def schedule_interview(
         return service.schedule_interview(application_id, body.scheduled_at, body.meeting_link, current_user, db)
     except (AuthException, NotFoundException) as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/employer/pipeline/applications/{application_id}/test-invite", status_code=200)
+def send_test_invite(
+    application_id: str,
+    body: TestInviteRequest,
+    current_user: User = Depends(require_permission("candidates", "interview")),
+    db: Session = Depends(get_db),
+):
+    """Direct 2nd-phase invite for jobs that don't require a resume (those
+    applications skip shortlisting entirely — see applications/service.py
+    submit_application). HR picks this instead of schedule_interview when
+    the next step is a test."""
+    try:
+        return service.send_test_invite(application_id, body.message, body.test_link, current_user, db)
+    except (AuthException, NotFoundException) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except BadRequestException as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/employer/pipeline/applications/bulk-test-invite", response_model=BulkTestInviteResponse, status_code=200)
+def bulk_send_test_invite(
+    body: BulkTestInviteRequest,
+    current_user: User = Depends(require_permission("candidates", "interview")),
+    db: Session = Depends(get_db),
+):
+    """Same as send_test_invite, for multiple candidates selected from the pipeline at once."""
+    try:
+        return service.bulk_send_test_invite(body.application_ids, body.message, body.test_link, current_user, db)
+    except (AuthException, BadRequestException) as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.patch("/employer/pipeline/applications/{application_id}/interviews/{interview_id}/reschedule", response_model=InterviewFeedbackOut)

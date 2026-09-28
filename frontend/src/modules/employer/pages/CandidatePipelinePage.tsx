@@ -9,6 +9,7 @@ import { useState, useMemo } from 'react'
 import {
   getJobPipeline, updateApplicationStatus, updateApplicationNote, bulkUpdateApplicationStatus,
   scheduleInterview, submitInterviewFeedback, cancelInterview, rescheduleInterview,
+  sendTestInvite, bulkSendTestInvite,
   sendCandidateEmail, getCandidateEmails, bulkEmailCandidates,
   sendOfferLetter, getOfferLetter, downloadOfferLetterPdf,
   saveCandidate, unsaveCandidate, checkCandidateSaved,
@@ -55,6 +56,7 @@ const STATUS_STYLE: Record<string, { bg: string; text: string }> = {
   shortlisted:          { bg: 'rgba(5,150,105,0.1)',    text: '#059669' },
   interview_scheduled:  { bg: 'rgba(59,130,246,0.1)',   text: '#3B82F6' },
   interview_completed:  { bg: 'rgba(14,165,233,0.1)',   text: '#0EA5E9' },
+  assessment:           { bg: 'rgba(217,119,6,0.1)',    text: '#D97706' },
   offer_sent:           { bg: 'rgba(124,58,237,0.1)',   text: '#7C3AED' },
   rejected:             { bg: 'rgba(220,38,38,0.1)',    text: '#DC2626' },
   hired:                { bg: 'rgba(124,58,237,0.1)',   text: '#7C3AED' },
@@ -66,11 +68,12 @@ const DEFAULT_KANBAN_STAGES: PipelineStage[] = [
   { id: '', stage_key: 'applied',              display_name: 'Applied',       color: '#3B82F6', position: 0, is_visible: true },
   { id: '', stage_key: 'screening',            display_name: 'Screening',     color: '#D97706', position: 1, is_visible: true },
   { id: '', stage_key: 'shortlisted',          display_name: 'Shortlisted',   color: '#059669', position: 2, is_visible: true },
-  { id: '', stage_key: 'interview_scheduled',  display_name: 'Interview',     color: '#6366F1', position: 3, is_visible: true },
-  { id: '', stage_key: 'interview_completed',  display_name: 'Interviewed',   color: '#0EA5E9', position: 4, is_visible: true },
-  { id: '', stage_key: 'offer_sent',           display_name: 'Offer Sent',    color: '#7C3AED', position: 5, is_visible: true },
-  { id: '', stage_key: 'hired',                display_name: 'Hired',         color: '#059669', position: 6, is_visible: true },
-  { id: '', stage_key: 'rejected',             display_name: 'Rejected',      color: '#DC2626', position: 7, is_visible: true },
+  { id: '', stage_key: 'assessment',           display_name: 'Test Invited',  color: '#D97706', position: 3, is_visible: true },
+  { id: '', stage_key: 'interview_scheduled',  display_name: 'Interview',     color: '#6366F1', position: 4, is_visible: true },
+  { id: '', stage_key: 'interview_completed',  display_name: 'Interviewed',   color: '#0EA5E9', position: 5, is_visible: true },
+  { id: '', stage_key: 'offer_sent',           display_name: 'Offer Sent',    color: '#7C3AED', position: 6, is_visible: true },
+  { id: '', stage_key: 'hired',                display_name: 'Hired',         color: '#059669', position: 7, is_visible: true },
+  { id: '', stage_key: 'rejected',             display_name: 'Rejected',      color: '#DC2626', position: 8, is_visible: true },
 ]
 
 const SORT_OPTIONS = [
@@ -186,6 +189,14 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
   const scheduleMutation=useMutation({
     mutationFn:()=>scheduleInterview(candidate.application_id,{scheduled_at:new Date(scheduleAt).toISOString(),meeting_link:meetingLink||undefined}),
     onSuccess:()=>{qc.invalidateQueries({queryKey:['pipeline',jobId]});setShowScheduleForm(false);setScheduleAt('');setMeetingLink('')},
+  })
+
+  const [showTestInviteForm,setShowTestInviteForm]=useState(false)
+  const [testInviteMessage,setTestInviteMessage]=useState('')
+  const [testInviteLink,setTestInviteLink]=useState('')
+  const testInviteMutation=useMutation({
+    mutationFn:()=>sendTestInvite(candidate.application_id,{message:testInviteMessage||undefined,test_link:testInviteLink||undefined}),
+    onSuccess:()=>{qc.invalidateQueries({queryKey:['pipeline',jobId]});setShowTestInviteForm(false);setTestInviteMessage('');setTestInviteLink('')},
   })
 
   const [rescheduleForId,setRescheduleForId]=useState<string|null>(null)
@@ -643,6 +654,27 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
                   <CalendarPlus size={13}/>Schedule Interview
                 </button>
               ))}
+
+              {canInterview&&(showTestInviteForm?(
+                <div style={{border:'1px dashed #D97706',borderRadius:10,padding:10,display:'flex',flexDirection:'column',gap:6}}>
+                  <textarea value={testInviteMessage} onChange={e=>setTestInviteMessage(e.target.value)} placeholder="Message to candidate (optional)…" rows={2}
+                    style={{border:'1px solid #E2E8F0',borderRadius:8,padding:'6px 8px',fontSize:12,resize:'none',fontFamily:'inherit'}}/>
+                  <input type="url" value={testInviteLink} onChange={e=>setTestInviteLink(e.target.value)} placeholder="Test link (optional)"
+                    style={{border:'1px solid #E2E8F0',borderRadius:8,padding:'6px 8px',fontSize:12}}/>
+                  {testInviteMutation.isError&&<p style={{fontSize:11,color:'#DC2626',margin:0}}>{getApiError(testInviteMutation.error)}</p>}
+                  <div style={{display:'flex',gap:6}}>
+                    <button onClick={()=>setShowTestInviteForm(false)} style={{flex:1,padding:6,borderRadius:8,border:'1px solid #E2E8F0',background:'#fff',fontSize:11,fontWeight:600,cursor:'pointer'}}>Cancel</button>
+                    <button onClick={()=>testInviteMutation.mutate()} disabled={testInviteMutation.isPending}
+                      style={{flex:1,padding:6,borderRadius:8,border:'none',background:'#D97706',color:'#fff',fontSize:11,fontWeight:700,cursor:'pointer'}}>
+                      {testInviteMutation.isPending?'Sending…':'Send Invite'}
+                    </button>
+                  </div>
+                </div>
+              ):(
+                <button onClick={()=>setShowTestInviteForm(true)} style={{display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:8,borderRadius:8,border:'1px dashed #D97706',background:'none',color:'#D97706',fontSize:12,fontWeight:700,cursor:'pointer'}}>
+                  <FileText size={13}/>Send Test Invite
+                </button>
+              ))}
             </div>
           </Section>
 
@@ -1055,6 +1087,9 @@ export default function CandidatePipelinePage() {
   const [showBulkEmail,setShowBulkEmail]=useState(false)
   const [bulkEmailSubject,setBulkEmailSubject]=useState('')
   const [bulkEmailBody,setBulkEmailBody]=useState('')
+  const [showBulkTestInvite,setShowBulkTestInvite]=useState(false)
+  const [bulkTestInviteMessage,setBulkTestInviteMessage]=useState('')
+  const [bulkTestInviteLink,setBulkTestInviteLink]=useState('')
   const [showFilters,setShowFilters]=useState(false)
   const [minKrs,setMinKrs]=useState(0)
   const [view,setView]=useState<'list'|'kanban'>('kanban')
@@ -1080,15 +1115,41 @@ export default function CandidatePipelinePage() {
     onSuccess:()=>{setShowBulkEmail(false);setBulkEmailSubject('');setBulkEmailBody('')},
   })
 
+  const bulkTestInviteMutation=useMutation({
+    mutationFn:()=>bulkSendTestInvite([...selectedIds],{message:bulkTestInviteMessage||undefined,test_link:bulkTestInviteLink||undefined}),
+    onSuccess:()=>{qc.invalidateQueries({queryKey:['pipeline',jobId]})},
+  })
+
   const moveMutation=useMutation({
     mutationFn:({id,status}:{id:string;status:string})=>updateApplicationStatus(id,status),
     onSuccess:()=>qc.invalidateQueries({queryKey:['pipeline',jobId]}),
   })
 
+  // "Needs review" isn't a real pipeline status — it's the score band between
+  // shortlist_review_floor and auto_shortlist_threshold, where the auto-shortlist
+  // engine (submit_application) left the candidate as "applied" for HR to
+  // approve/reject by hand rather than auto-shortlisting or skipping them.
+  const needsReviewCount=useMemo(()=>{
+    if(!pipeline||pipeline.auto_shortlist_threshold==null||pipeline.shortlist_review_floor==null)return 0
+    return pipeline.candidates.filter(c=>
+      c.status==='applied'&&c.match_score!=null
+      &&c.match_score>=pipeline.shortlist_review_floor!
+      &&c.match_score<pipeline.auto_shortlist_threshold!
+    ).length
+  },[pipeline])
+
   const filtered=useMemo(()=>{
     if(!pipeline)return[]
     let list=pipeline.candidates
-    if(statusFilter!=='all')list=list.filter(c=>c.status===statusFilter)
+    if(statusFilter==='__needs_review__'){
+      list=list.filter(c=>
+        c.status==='applied'&&c.match_score!=null
+        &&pipeline.shortlist_review_floor!=null&&pipeline.auto_shortlist_threshold!=null
+        &&c.match_score>=pipeline.shortlist_review_floor&&c.match_score<pipeline.auto_shortlist_threshold
+      )
+    } else if(statusFilter!=='all'){
+      list=list.filter(c=>c.status===statusFilter)
+    }
     if(searchQuery.trim()){
       const q=searchQuery.toLowerCase()
       list=list.filter(c=>(c.full_name??'').toLowerCase().includes(q)||(c.skills??[]).some(s=>s.toLowerCase().includes(q))||(c.work_experience_domain??'').toLowerCase().includes(q)||(c.last_designation??'').toLowerCase().includes(q))
@@ -1152,9 +1213,22 @@ export default function CandidatePipelinePage() {
       {showManageStages&&jobId&&<ManageStagesModal jobId={jobId} stages={activeStages} onClose={()=>setShowManageStages(false)}/>}
 
       <div style={{maxWidth:1100,margin:'0 auto',padding:24}}>
+        {/* Resume-not-required jobs skip shortlisting entirely — candidates go
+            straight to a direct interview/test invite (see the Interview
+            section in each candidate's profile drawer). */}
+        {!pipeline.resume_required&&(
+          <div style={{display:'flex',alignItems:'center',gap:8,padding:'10px 14px',borderRadius:10,background:'rgba(217,119,6,0.08)',border:'1px solid rgba(217,119,6,0.2)',marginBottom:16,fontSize:12,color:'#92400E'}}>
+            <FileText size={14}/>
+            This job doesn't require a resume — shortlisting is skipped. Open a candidate and send a direct <strong>Interview</strong> or <strong>Test</strong> invite.
+          </div>
+        )}
+
         {/* Status tabs */}
         <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:16}}>
           <FilterTab label={`All (${pipeline.total_applications})`} active={statusFilter==='all'} onClick={()=>setStatusFilter('all')}/>
+          {needsReviewCount>0&&(
+            <FilterTab label={`Needs Review (${needsReviewCount})`} active={statusFilter==='__needs_review__'} onClick={()=>setStatusFilter('__needs_review__')}/>
+          )}
           {Object.entries(pipeline.by_status).map(([s,count])=>{
             const stageName = activeStages.find(st => st.stage_key === s)?.display_name ?? s.replace(/_/g,' ')
             return <FilterTab key={s} label={`${stageName} (${count})`} active={statusFilter===s} onClick={()=>setStatusFilter(s)}/>
@@ -1203,7 +1277,63 @@ export default function CandidatePipelinePage() {
             <button onClick={()=>setShowBulkEmail(true)} style={{height:32,padding:'0 14px',borderRadius:8,border:'none',background:'#0EA5E9',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
               <Mail size={13}/>Email All
             </button>
+            <button onClick={()=>setShowBulkTestInvite(true)} style={{height:32,padding:'0 14px',borderRadius:8,border:'none',background:'#D97706',color:'#fff',fontSize:12,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:6}}>
+              <FileText size={13}/>Send Test Invite
+            </button>
             <button onClick={()=>setSelectedIds(new Set())} style={{height:32,padding:'0 12px',borderRadius:8,border:'1px solid #475569',background:'none',color:'#94A3B8',fontSize:12,cursor:'pointer'}}>Cancel</button>
+          </div>
+        )}
+
+        {/* Bulk test-invite modal — direct 2nd-phase invite for jobs that don't require a resume */}
+        {showBulkTestInvite&&(
+          <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:50,padding:16}}>
+            <div style={{background:'#fff',borderRadius:18,padding:28,width:'100%',maxWidth:480,display:'flex',flexDirection:'column',gap:16}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <div>
+                  <h3 style={{margin:0,fontSize:16,fontWeight:800,color:colors.text.ink}}>Send test invite to {selectedIds.size} candidate{selectedIds.size!==1?'s':''}</h3>
+                  <p style={{margin:'4px 0 0',fontSize:12,color:'#94A3B8'}}>Moves each candidate to "Test Invited" and emails them the details below.</p>
+                </div>
+                <button onClick={()=>setShowBulkTestInvite(false)} style={{background:'none',border:'none',cursor:'pointer',color:colors.text.muted,padding:4}}>
+                  <X size={18}/>
+                </button>
+              </div>
+              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                <textarea
+                  value={bulkTestInviteMessage}
+                  onChange={e=>setBulkTestInviteMessage(e.target.value)}
+                  placeholder="Message to candidates (optional)…"
+                  rows={4}
+                  maxLength={4000}
+                  style={{padding:'10px 12px',borderRadius:10,border:`1px solid ${colors.border.default}`,fontSize:13,resize:'vertical',outline:'none',fontFamily:'inherit'}}
+                />
+                <input
+                  type="url"
+                  value={bulkTestInviteLink}
+                  onChange={e=>setBulkTestInviteLink(e.target.value)}
+                  placeholder="Test link (optional)"
+                  style={{height:38,padding:'0 12px',borderRadius:10,border:`1px solid ${colors.border.default}`,fontSize:13,outline:'none'}}
+                />
+              </div>
+              {bulkTestInviteMutation.isError&&(
+                <p style={{fontSize:12,color:'#DC2626',margin:0}}>{getApiError(bulkTestInviteMutation.error)}</p>
+              )}
+              {bulkTestInviteMutation.isSuccess&&(
+                <p style={{fontSize:12,color:'#059669',margin:0}}>
+                  ✓ Sent to {bulkTestInviteMutation.data.sent} candidate{bulkTestInviteMutation.data.sent!==1?'s':''}
+                  {bulkTestInviteMutation.data.skipped>0&&` · ${bulkTestInviteMutation.data.skipped} skipped (no email on file)`}
+                </p>
+              )}
+              <div style={{display:'flex',gap:10}}>
+                <button onClick={()=>{setShowBulkTestInvite(false);setSelectedIds(new Set())}} style={{flex:1,height:40,borderRadius:10,border:`1px solid ${colors.border.default}`,background:'none',fontSize:13,fontWeight:600,color:colors.text.inkSoft,cursor:'pointer'}}>Close</button>
+                <button
+                  onClick={()=>bulkTestInviteMutation.mutate()}
+                  disabled={bulkTestInviteMutation.isPending}
+                  style={{flex:1,height:40,borderRadius:10,border:'none',background:'#D97706',color:'#fff',fontSize:13,fontWeight:700,cursor:bulkTestInviteMutation.isPending?'not-allowed':'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:6}}
+                >
+                  <FileText size={13}/>{bulkTestInviteMutation.isPending?'Sending…':'Send Invite'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

@@ -9,6 +9,7 @@ from app.core.exceptions import BadRequestException, NotFoundException
 from app.models.applications import (
     Application,
     ApplicationStatusHistory,
+    CandidateEmailLog,
     CandidateInterviewFeedback,
 )
 from app.models.user import (
@@ -36,7 +37,7 @@ def _advance_status_if_earlier(app: Application, to_status: str, user: User, db:
     app.status = to_status
     db.add(ApplicationStatusHistory(
         application_id=app.id, from_status=prev, to_status=to_status, changed_by=user.id,
-        note=f"Auto-advanced by interview {to_status.replace('_', ' ')}.",
+        note=f"Auto-advanced by {to_status.replace('_', ' ')}.",
     ))
 
 
@@ -164,6 +165,104 @@ def _push_interview_to_google_calendar(interview_row, user: User, db: Session) -
 
     except Exception as exc:
         logger.warning("[GCAL] Could not push interview to Google Calendar (non-fatal): %s", exc)
+
+
+def send_test_invite(
+    application_id: str, message: str | None, test_link: str | None, user: User, db: Session,
+) -> dict:
+    """The direct 2nd-phase invite for jobs that don't require a resume (see
+    applications/service.py submit_application — those applications skip
+    shortlisting entirely). HR picks this instead of schedule_interview when
+    the next step is a test rather than an interview. Moves the application
+    to the existing 'assessment' pipeline stage rather than a new status."""
+    from app.core.notifications import notify, test_invite_email
+
+    app = core._get_employer_application(application_id, user, db)
+    if app.status in ("withdrawn", "hired", "rejected", "offer_declined"):
+        raise BadRequestException(f"Cannot send a test invite — application is {app.status}.")
+    if not app.aspirant or not app.aspirant.email:
+        raise BadRequestException("This candidate has no email address on file.")
+
+    employer = core._get_employer_profile_approved(user, db)
+    job = db.query(JobPosting).filter(JobPosting.id == app.job_id).first()
+    if not job:
+        raise NotFoundException("Job not found.")
+
+    _advance_status_if_earlier(app, "assessment", user, db)
+    db.commit()
+
+    subject, html = test_invite_email(job.title, employer.company_name, message, test_link)
+    notify(app.aspirant.email, subject, html)
+    db.add(CandidateEmailLog(
+        application_id=app.id, sender_id=user.id,
+        recipient_email=app.aspirant.email, subject=subject,
+        body=message or "You've been invited to complete a test." + (f" {test_link}" if test_link else ""),
+    ))
+
+    from app.modules.inbox.service import create_notification
+    create_notification(
+        db, app.aspirant_id, "application_status_changed",
+        f"Next step for your application — {job.title}",
+        f"{employer.company_name or 'The employer'} invited you to complete a test for {job.title}.",
+        "/app/jobs/applications",
+    )
+    core._audit_matching(db, "application.test_invite_sent", user.id, "application", application_id,
+                    {"job_id": str(job.id)})
+    db.commit()
+
+    return {"application_id": application_id, "status": app.status}
+
+
+def bulk_send_test_invite(
+    application_ids: list[str], message: str | None, test_link: str | None, user: User, db: Session,
+) -> dict:
+    """Same as send_test_invite, for multiple candidates at once (HR sends
+    the 2nd-phase test invite to a batch of no-resume-required applicants)."""
+    from app.core.notifications import notify, test_invite_email
+
+    employer = core._get_employer_profile_approved(user, db)
+    company_employer_ids = core._get_company_employer_ids(employer, db)
+    job_ids = core._get_scoped_job_ids(employer, company_employer_ids, user.role_name, db)
+    apps = (
+        db.query(Application)
+        .filter(Application.id.in_(application_ids), Application.job_id.in_(job_ids))
+        .all()
+    )
+    jobs_by_id = {
+        j.id: j for j in db.query(JobPosting).filter(JobPosting.id.in_({a.job_id for a in apps})).all()
+    }
+
+    from app.modules.inbox.service import create_notification
+    sent = 0
+    skipped = 0
+    for app in apps:
+        job = jobs_by_id.get(app.job_id)
+        if app.status in ("withdrawn", "hired", "rejected", "offer_declined"):
+            skipped += 1
+            continue
+        if not job or not app.aspirant or not app.aspirant.email:
+            skipped += 1
+            continue
+        _advance_status_if_earlier(app, "assessment", user, db)
+        subject, html = test_invite_email(job.title, employer.company_name, message, test_link)
+        notify(app.aspirant.email, subject, html)
+        db.add(CandidateEmailLog(
+            application_id=app.id, sender_id=user.id,
+            recipient_email=app.aspirant.email, subject=subject,
+            body=message or "You've been invited to complete a test." + (f" {test_link}" if test_link else ""),
+        ))
+        create_notification(
+            db, app.aspirant_id, "application_status_changed",
+            f"Next step for your application — {job.title}",
+            f"{employer.company_name or 'The employer'} invited you to complete a test for {job.title}.",
+            "/app/jobs/applications",
+        )
+        sent += 1
+
+    if sent:
+        db.commit()
+
+    return {"sent": sent, "skipped": skipped}
 
 
 def _get_employer_interview(application_id: str, interview_id: str, user: User, db: Session) -> CandidateInterviewFeedback:

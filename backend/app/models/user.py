@@ -258,6 +258,9 @@ class AspirantProfile(Base):
     gender = Column(GENDER_ENUM, nullable=True)
     city = Column(String(100), nullable=True)
     state = Column(String(100), nullable=True)
+    # Curated icon avatar id (e.g. "fox"), chosen from a fixed set in the Profile
+    # page — replaces requiring an uploaded profile photo. Null = show initials.
+    avatar_id = Column(String(30), nullable=True)
 
     # ── Step 2: Education ─────────────────────────────────────────────────────
     highest_qualification = Column(QUALIFICATION_ENUM, nullable=True)
@@ -419,6 +422,25 @@ class CareerTrack(Base):
     selections = relationship("UserCareerSelection", back_populates="track")
 
 
+class ExamSkillAffinity(Base):
+    """Low-confidence transferable-skill prior per UPSC exam (cse/capf/cds/ies/cms/state_pcs/other).
+
+    Used only as a small, capped boost in job-match ranking (see
+    app/modules/krs/matching.py) — never merged into an aspirant's actual
+    skills_you_have/skills_to_develop, since the exam alone doesn't prove a
+    real skill the way a self-reported one does. Editable at runtime (like
+    prompt_templates) so this can be tuned without a redeploy as real outcome
+    data comes in.
+    """
+    __tablename__ = "exam_skill_affinities"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    exam = Column(String(20), unique=True, nullable=False, index=True)
+    implied_skills = Column(JSONB, nullable=False, default=list)  # list[str]
+    is_active = Column(Boolean, nullable=False, default=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
 class KrsScore(Base):
     """Computed KRS score for an aspirant — recalculated on each profile update."""
     __tablename__ = "krs_scores"
@@ -491,6 +513,10 @@ class JobPosting(Base):
     location = Column(String(200), nullable=True)          # city/cities e.g. "New Delhi, Mumbai"
     employment_type = Column(String(30), nullable=True)    # "full_time" | "part_time" | "internship" | "contract" | "freelance"
     expires_at = Column(Date, nullable=True)               # date the posting closes
+    # Auto-shortlist rule (resume-required jobs only — see applications/service.py
+    # submit_application). NULL = feature off, shortlisting stays fully manual.
+    auto_shortlist_threshold = Column(Integer, nullable=True)  # match_score ≥ this → auto-shortlisted
+    shortlist_review_floor   = Column(Integer, nullable=True)  # match_score ≥ this (but < threshold) → "needs review" band
     is_active = Column(Boolean, nullable=False, default=True, index=True)
     # Job lifecycle (Module 05 Phase 7). is_active stays in sync with status == 'published' —
     # it's kept because aspirant-facing ranker queries and subscription active-job limits

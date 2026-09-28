@@ -15,15 +15,7 @@ import { getApiError } from '@/api/client'
 import type { JobPostingPayload, GrowthOutlook, JobPosting, JobType, EmploymentType } from '@/api/jobs'
 import type { HiringTeamMember } from '@/api/company'
 import { colors } from '@/design-system/tokens'
-
-const SECTORS = [
-  'Government & Civil Services', 'Public Sector Undertakings (PSU)',
-  'Management Consulting', 'Education & Training', 'NGO & Social Sector',
-  'Banking & Finance', 'Legal', 'Research & Analytics', 'Media & Journalism',
-  'Healthcare & Public Health', 'IT & Technology', 'Defence & Security',
-  'International Organizations', 'Think Tanks & Policy', 'Entrepreneurship',
-  'Corporate Affairs', 'Government & Policy', 'Consulting',
-]
+import { SECTORS } from '@/shared/config/sectors'
 
 const ALL_SKILLS = [
   'Analytical Reasoning', 'Research & Analysis', 'Data Interpretation',
@@ -83,6 +75,12 @@ interface JobFormProps {
   loading: boolean
   onCancel: () => void
   error?: string
+  /** When set, the job is always posted to this department and the picker
+   * is hidden entirely — used when authoring from inside a department's own
+   * workspace, where the department is implicit (and the backend ignores
+   * whatever department a dept-scoped caller's request specifies anyway, so
+   * showing a changeable picker there would just be misleading). */
+  lockedDepartmentId?: string
 }
 
 function FieldLabel({ children, required, hint }: { children: React.ReactNode; required?: boolean; hint?: string }) {
@@ -466,7 +464,7 @@ function HiringTeamSection({ jobId }: { jobId: string }) {
   )
 }
 
-export default function JobForm({ initial, onSubmit, loading, onCancel, error }: JobFormProps) {
+export default function JobForm({ initial, onSubmit, loading, onCancel, error, lockedDepartmentId }: JobFormProps) {
   const [title,          setTitle]          = useState(initial?.title ?? '')
   const [description,    setDescription]    = useState(initial?.description ?? '')
   const [sector,         setSector]         = useState(initial?.sector ?? '')
@@ -480,6 +478,11 @@ export default function JobForm({ initial, onSubmit, loading, onCancel, error }:
   })
   const [salaryMin,      setSalaryMin]      = useState<string>(initial?.salary_min?.toString() ?? '')
   const [salaryMax,      setSalaryMax]      = useState<string>(initial?.salary_max?.toString() ?? '')
+  // Auto-shortlist rule — only takes effect for jobs whose application form
+  // requires a resume (see ScreeningQuestionsSection's "Resume" setting).
+  // Both blank = fully manual shortlisting, same as before this existed.
+  const [autoShortlistThreshold, setAutoShortlistThreshold] = useState<string>(initial?.auto_shortlist_threshold?.toString() ?? '')
+  const [shortlistReviewFloor,   setShortlistReviewFloor]   = useState<string>(initial?.shortlist_review_floor?.toString() ?? '')
   const [growthOutlook,  setGrowthOutlook]  = useState<GrowthOutlook | ''>(initial?.growth_outlook as GrowthOutlook ?? '')
   const [jobType,        setJobType]        = useState<JobType | ''>(initial?.job_type as JobType ?? '')
   const [employmentType, setEmploymentType] = useState<EmploymentType | ''>(initial?.employment_type as EmploymentType ?? '')
@@ -489,8 +492,13 @@ export default function JobForm({ initial, onSubmit, loading, onCancel, error }:
       ? ''
       : (initial?.location ?? '')
   )
-  const [departmentId, setDepartmentId] = useState<string>(initial?.department_id ?? '')
-  const [isCustomSector, setIsCustomSector] = useState(!SECTORS.includes(initial?.sector ?? '') && !!initial?.sector)
+  // '' = not chosen yet (blocks submit once departments exist); '__none__' =
+  // explicitly not tied to a department. Editing a job that predates
+  // department scoping should land on the explicit choice, not the blocking
+  // placeholder.
+  const [departmentId, setDepartmentId] = useState<string>(
+    lockedDepartmentId ? lockedDepartmentId : initial ? (initial.department_id ?? '__none__') : ''
+  )
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const { data: departments } = useDepartments()
@@ -508,8 +516,11 @@ export default function JobForm({ initial, onSubmit, loading, onCancel, error }:
     if (!t) return
     setTitle(t.title)
     setDescription(t.description)
-    setSector(t.sector)
-    setIsCustomSector(!SECTORS.includes(t.sector))
+    // Defensive: templates saved before JobTemplatesPage validated its sector
+    // dropdown against this same list may still carry a stale value. Drop it
+    // rather than carrying over a value that will fail the actual submit with
+    // a confusing backend error.
+    setSector(SECTORS.includes(t.sector) ? t.sector : '')
     setSelectedSkills(new Set(t.required_skills))
     setMinKScore(t.min_k_score)
     if (t.job_type) handleJobTypeChange(t.job_type)
@@ -581,6 +592,8 @@ export default function JobForm({ initial, onSubmit, loading, onCancel, error }:
     if (!jobType)                            e.jobType        = 'Please select a work type'
     if (!employmentType)                     e.employmentType = 'Please select an employment type'
     if (needsLocation && !location.trim())   e.location       = 'Enter at least one city for hybrid / on-site roles'
+    if (!lockedDepartmentId && departments && departments.length > 0 && !departmentId)
+      e.department = 'Select a department, or "Not tied to a department"'
 
     const sMin = salaryMin ? parseInt(salaryMin) : null
     const sMax = salaryMax ? parseInt(salaryMax) : null
@@ -588,6 +601,15 @@ export default function JobForm({ initial, onSubmit, loading, onCancel, error }:
       e.salary = 'Enter valid numbers for salary'
     } else if (sMin !== null && sMax !== null && sMax < sMin) {
       e.salary = 'Max salary must be ≥ min salary'
+    }
+
+    const astVal = autoShortlistThreshold ? parseInt(autoShortlistThreshold) : null
+    const srfVal = shortlistReviewFloor ? parseInt(shortlistReviewFloor) : null
+    if ((autoShortlistThreshold && (isNaN(astVal!) || astVal! < 0 || astVal! > 100))
+      || (shortlistReviewFloor && (isNaN(srfVal!) || srfVal! < 0 || srfVal! > 100))) {
+      e.autoShortlist = 'Enter values between 0 and 100'
+    } else if (astVal !== null && srfVal !== null && srfVal > astVal) {
+      e.autoShortlist = 'Review band floor must be ≤ the auto-shortlist threshold'
     }
 
     if (!expiresAt) {
@@ -619,12 +641,14 @@ export default function JobForm({ initial, onSubmit, loading, onCancel, error }:
       min_k_score:     minKScore,
       salary_min:      salaryMin ? parseInt(salaryMin) : undefined,
       salary_max:      salaryMax ? parseInt(salaryMax) : undefined,
+      auto_shortlist_threshold: autoShortlistThreshold ? parseInt(autoShortlistThreshold) : null,
+      shortlist_review_floor:   shortlistReviewFloor ? parseInt(shortlistReviewFloor) : null,
       growth_outlook:  growthOutlook as GrowthOutlook,
       job_type:        jobType as JobType,
       location:        resolvedLocation,
       employment_type: employmentType as EmploymentType,
       expires_at:      expiresAt,
-      department_id:   departmentId || undefined,
+      department_id:   lockedDepartmentId ?? ((departmentId && departmentId !== '__none__') ? departmentId : undefined),
       publish,
     })
   }
@@ -706,15 +730,9 @@ export default function JobForm({ initial, onSubmit, loading, onCancel, error }:
         <div className="flex flex-col gap-1.5">
           <FieldLabel required>Sector</FieldLabel>
           <select
-            value={isCustomSector ? '__other__' : sector}
+            value={sector}
             onChange={e => {
-              if (e.target.value === '__other__') {
-                setIsCustomSector(true)
-                setSector('')
-              } else {
-                setIsCustomSector(false)
-                setSector(e.target.value)
-              }
+              setSector(e.target.value)
               setErrors(p => ({ ...p, sector: '' }))
             }}
             className={cn(
@@ -725,36 +743,30 @@ export default function JobForm({ initial, onSubmit, loading, onCancel, error }:
           >
             <option value="">Select sector…</option>
             {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
-            <option value="__other__">Other (specify below)</option>
           </select>
-          {isCustomSector && (
-            <input
-              type="text"
-              value={sector}
-              onChange={e => { setSector(e.target.value); setErrors(p => ({ ...p, sector: '' })) }}
-              placeholder="e.g. Fintech, Agritech, Space Technology"
-              autoFocus
-              className={cn(
-                'w-full h-11 rounded-xl border-[1.5px] bg-white/80 px-4 text-sm text-gray-900 placeholder:text-gray-400',
-                'outline-none transition-all duration-200 focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/8',
-                errors.sector ? 'border-[#DC2626]' : 'border-gray-200',
-              )}
-            />
-          )}
           {errors.sector && <p className="text-xs text-danger">{errors.sector}</p>}
         </div>
 
-        {departments && departments.length > 0 && (
+        {!lockedDepartmentId && departments && departments.length > 0 && (
           <div className="flex flex-col gap-1.5">
-            <FieldLabel hint="Scope this job to a specific team">Department</FieldLabel>
+            <FieldLabel required hint="Scope this job to the team that will own its applicants">Department</FieldLabel>
             <select
               value={departmentId}
-              onChange={e => setDepartmentId(e.target.value)}
-              className="w-full h-12 rounded-xl border-[1.5px] border-gray-200 bg-white/80 px-4 text-sm text-gray-900 outline-none transition-all duration-200 focus:border-[#3B82F6] hover:border-gray-300"
+              onChange={e => {
+                setDepartmentId(e.target.value)
+                setErrors(p => ({ ...p, department: '' }))
+              }}
+              className={cn(
+                'w-full h-12 rounded-xl border-[1.5px] bg-white/80 px-4 text-sm text-gray-900 outline-none transition-all duration-200',
+                'focus:border-[#3B82F6] hover:border-gray-300',
+                errors.department ? 'border-[#DC2626]' : 'border-gray-200',
+              )}
             >
-              <option value="">— No department (company-wide) —</option>
+              <option value="" disabled>Select a department…</option>
               {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              <option value="__none__">Not tied to a department</option>
             </select>
+            {errors.department && <p className="text-xs text-danger">{errors.department}</p>}
           </div>
         )}
       </FormSection>
@@ -969,6 +981,49 @@ export default function JobForm({ initial, onSubmit, loading, onCancel, error }:
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <FieldLabel hint="Only applies to jobs where the application form requires a resume (see the Resume setting below, after saving). Leave blank to keep shortlisting fully manual.">
+            Auto-shortlist rule <span className="text-gray-400 font-normal">(optional)</span>
+          </FieldLabel>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="relative flex items-center">
+              <CheckCircle2 className="absolute left-3 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+              <input
+                type="number" min={0} max={100}
+                value={autoShortlistThreshold}
+                onChange={e => { setAutoShortlistThreshold(e.target.value); setErrors(p => ({ ...p, autoShortlist: '' })) }}
+                placeholder="Auto-shortlist at, e.g. 75"
+                className={cn(
+                  'w-full h-11 rounded-xl border-[1.5px] bg-white/80 pl-8 pr-2 text-sm text-gray-900 placeholder:text-gray-400',
+                  'outline-none transition-all duration-200 focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/8',
+                  errors.autoShortlist ? 'border-[#DC2626]' : 'border-gray-200',
+                )}
+              />
+            </div>
+            <div className="relative flex items-center">
+              <CheckCircle2 className="absolute left-3 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+              <input
+                type="number" min={0} max={100}
+                value={shortlistReviewFloor}
+                onChange={e => { setShortlistReviewFloor(e.target.value); setErrors(p => ({ ...p, autoShortlist: '' })) }}
+                placeholder="Review band from, e.g. 55"
+                className={cn(
+                  'w-full h-11 rounded-xl border-[1.5px] bg-white/80 pl-8 pr-2 text-sm text-gray-900 placeholder:text-gray-400',
+                  'outline-none transition-all duration-200 focus:border-[#3B82F6] focus:ring-4 focus:ring-[#3B82F6]/8',
+                  errors.autoShortlist ? 'border-[#DC2626]' : 'border-gray-200',
+                )}
+              />
+            </div>
+          </div>
+          {errors.autoShortlist && <p className="text-xs text-danger">{errors.autoShortlist}</p>}
+          {autoShortlistThreshold && !errors.autoShortlist && (
+            <p className="text-xs text-primary font-medium">
+              Candidates scoring {autoShortlistThreshold}+ are shortlisted and emailed automatically.
+              {shortlistReviewFloor && ` ${shortlistReviewFloor}–${parseInt(autoShortlistThreshold) - 1} goes to a "needs review" queue for you to approve.`}
+            </p>
+          )}
         </div>
       </FormSection>
 

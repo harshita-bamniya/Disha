@@ -70,12 +70,14 @@ def _get_company_employer_ids(profile: EmployerProfile, db: Session) -> list:
 
 
 def _is_company_wide(profile: EmployerProfile, role_name: str | None) -> bool:
-    """Company-wide access: owner OR hr_manager OR no department assigned.
-    Everyone else (recruiter, interviewer, hiring_manager) with a department_id
-    is scoped to their department only — LinkedIn Recruiter / Naukri style."""
+    """Company-wide access: the owner, or anyone (including hr_manager) with
+    no department assigned. An hr_manager CAN be scoped to one department —
+    they're the "department head" role (full jobs CRUD/publish + team invite,
+    see role_permissions), it's their own department_id that decides whether
+    that authority is company-wide or scoped, same as recruiter/hiring_manager."""
     if profile.is_owner:
         return True
-    if role_name in ("hr_manager", "admin", "super_admin"):
+    if role_name in ("admin", "super_admin"):
         return True
     if profile.department_id is None:
         return True
@@ -108,6 +110,8 @@ def _job_to_response(job: JobPosting, applicant_count: int = 0) -> JobPostingRes
         min_k_score=job.min_k_score,
         salary_min=job.salary_min,
         salary_max=job.salary_max,
+        auto_shortlist_threshold=job.auto_shortlist_threshold,
+        shortlist_review_floor=job.shortlist_review_floor,
         growth_outlook=job.growth_outlook,
         job_type=job.job_type,
         location=job.location,
@@ -285,11 +289,11 @@ async def generate_job_description(title: str, sector: str, key_points: str) -> 
 def _resolve_department_id(profile: EmployerProfile, requested_id: str | None, db: Session):
     """Determine the department_id for a new job posting.
 
-    Rules (mirrors LinkedIn Recruiter / Naukri employer portal):
     - Dept-scoped user (recruiter/HM with dept assigned): always use their own
       department. They cannot post to a different dept or bypass scoping.
-    - Company-wide user (owner / hr_manager / no dept): use the explicitly
-      requested department_id, or leave NULL if none provided.
+    - Company-wide user (owner / hr_admin / no dept): use the explicitly
+      requested department_id (e.g. the department workspace they posted
+      from), or leave NULL for a company-wide posting with no department.
     """
     if profile.department_id:
         # Dept-scoped: ignore any requested_id — always inherit from profile
@@ -306,6 +310,20 @@ def _resolve_department_id(profile: EmployerProfile, requested_id: str | None, d
     if not dept:
         raise BadRequestException("Department not found in this company.")
     return dept.id
+
+
+def _bump_jobs_cache() -> None:
+    """Invalidate every aspirant's cached Jobs-page results. Call this after
+    any change to a job posting's visibility or content — a newly-published
+    or edited job otherwise doesn't show up on the aspirant Jobs page until
+    that user's own cache key happens to expire (deferred import avoids a
+    service->router circular import; same pattern as krs/router.py's own
+    call to invalidate_jobs_cache)."""
+    try:
+        from app.modules.matching.router import bump_global_jobs_version
+        bump_global_jobs_version()
+    except Exception:
+        pass  # Cache eviction failure is never fatal
 
 
 def create_job(user: User, data: JobPostingRequest, db: Session) -> JobPostingResponse:
@@ -327,6 +345,8 @@ def create_job(user: User, data: JobPostingRequest, db: Session) -> JobPostingRe
         min_k_score=data.min_k_score,
         salary_min=data.salary_min,
         salary_max=data.salary_max,
+        auto_shortlist_threshold=data.auto_shortlist_threshold,
+        shortlist_review_floor=data.shortlist_review_floor,
         growth_outlook=data.growth_outlook,
         job_type=data.job_type,
         location=data.location,
@@ -343,6 +363,8 @@ def create_job(user: User, data: JobPostingRequest, db: Session) -> JobPostingRe
     db.commit()
     logger.info(f"[JOBS] {profile.company_name} {'published' if data.publish else 'saved draft'}: {job.title}")
     _embed_job(job)
+    if data.publish:
+        _bump_jobs_cache()
     return _job_to_response(job)
 
 
@@ -463,6 +485,8 @@ def update_job(user: User, job_id: str, data: JobPostingRequest, db: Session) ->
     job.min_k_score = data.min_k_score
     job.salary_min = data.salary_min
     job.salary_max = data.salary_max
+    job.auto_shortlist_threshold = data.auto_shortlist_threshold
+    job.shortlist_review_floor = data.shortlist_review_floor
     job.growth_outlook = data.growth_outlook
     job.job_type = data.job_type
     job.location = data.location
@@ -477,6 +501,8 @@ def update_job(user: User, job_id: str, data: JobPostingRequest, db: Session) ->
     db.commit()
     logger.info(f"[JOBS] Updated job {job_id}: {job.title}")
     _embed_job(job)
+    if job.status == "published":
+        _bump_jobs_cache()
     return _job_to_response(job)
 
 
@@ -526,6 +552,10 @@ def _transition_job(user: User, job_id: str, to_status: str, db: Session) -> Job
     db.commit()
     db.refresh(job)
     logger.info(f"[JOBS] Job {job_id} -> {to_status}")
+    # Any transition either makes the job newly visible (-> published) or
+    # removes it from view (paused/closed/archived) — both change what
+    # aspirants should see, so both need the cache bumped.
+    _bump_jobs_cache()
     return _job_to_response(job)
 
 
@@ -602,18 +632,26 @@ def delete_job(user: User, job_id: str, db: Session) -> None:
         )
 
     job_title = job.title
+    was_published = job.status == "published"
     _audit_job(db, "job.deleted", user.id, job.id, {"title": job_title})
     db.delete(job)
     db.commit()
     logger.info(f"[JOBS] Deleted job {job_id}")
+    if was_published:
+        _bump_jobs_cache()
 
 
 # ── Employer KYC verification (self-service) ──────────────────────────────────
 
-def _latest_verification(profile_id, db: Session) -> EmployerVerification | None:
+def _latest_verification(company_id, db: Session) -> EmployerVerification | None:
+    """Verification is a company-level fact (one KYC review per company), not
+    a per-teammate one — join through EmployerProfile so every teammate sees
+    the same status instead of only whoever's own profile.id the original
+    request/approval happened to be recorded under."""
     return (
         db.query(EmployerVerification)
-        .filter(EmployerVerification.employer_id == profile_id)
+        .join(EmployerProfile, EmployerVerification.employer_id == EmployerProfile.id)
+        .filter(EmployerProfile.company_id == company_id)
         .order_by(EmployerVerification.submitted_at.desc())
         .first()
     )
@@ -644,7 +682,7 @@ def _verification_to_response(v: EmployerVerification | None) -> VerificationSta
 
 def get_verification_status(user: User, db: Session) -> VerificationStatusResponse:
     profile = _get_employer_profile(user, db)
-    return _verification_to_response(_latest_verification(profile.id, db))
+    return _verification_to_response(_latest_verification(profile.company_id, db))
 
 
 def request_verification(user: User, db: Session) -> VerificationStatusResponse:
@@ -652,7 +690,7 @@ def request_verification(user: User, db: Session) -> VerificationStatusResponse:
     and sends them a welcome email with the document list. Our team then contacts
     them offline and the admin approves once satisfied."""
     profile = _get_employer_profile(user, db)
-    v = _latest_verification(profile.id, db)
+    v = _latest_verification(profile.company_id, db)
 
     if v and v.status in ("requested", "under_review", "approved"):
         raise BadRequestException(
@@ -677,6 +715,48 @@ def request_verification(user: User, db: Session) -> VerificationStatusResponse:
         subject, html = employer_verification_request_email(profile.company_name or "your company")
         notify(recipient.email, subject, html)
 
+    return _verification_to_response(v)
+
+
+async def upload_verification_document(user: User, doc_type: str, file, db: Session) -> VerificationStatusResponse:
+    """Employer uploads a KYC document (GST certificate, PAN, etc.) themselves
+    instead of waiting for our team to collect it over email — this is what
+    actually makes verification self-serve. Uploading a document before ever
+    clicking "Request Verification" implicitly starts the request, since
+    attaching a document is a clearer signal of intent than the button itself.
+    """
+    from app.core.storage import save_upload
+    from app.models.employer_verification import DOCUMENT_TYPES, EmployerVerificationDocument
+
+    if doc_type not in DOCUMENT_TYPES:
+        raise BadRequestException(f"Invalid document type. Must be one of: {', '.join(DOCUMENT_TYPES)}.")
+
+    profile = _get_employer_profile(user, db)
+    v = _latest_verification(profile.company_id, db)
+
+    if v and v.status == "approved":
+        raise BadRequestException("Your company is already verified.")
+
+    if not v or v.status == "rejected":
+        prev_status = v.status if v else None
+        v = EmployerVerification(employer_id=profile.id, status="requested")
+        db.add(v)
+        db.flush()
+        db.add(EmployerVerificationEvent(
+            verification_id=v.id, actor_id=user.id, from_status=prev_status, to_status="requested",
+            note="Verification requested (document uploaded).",
+        ))
+
+    try:
+        file_url, original_filename = await save_upload(file, "employer_verification")
+    except ValueError as e:
+        raise BadRequestException(str(e))
+
+    db.add(EmployerVerificationDocument(
+        verification_id=v.id, doc_type=doc_type, file_url=file_url, original_filename=original_filename,
+    ))
+    db.commit()
+    db.refresh(v)
     return _verification_to_response(v)
 
 

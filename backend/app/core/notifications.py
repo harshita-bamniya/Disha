@@ -62,6 +62,23 @@ def interview_scheduled_email(job_title: str, company_name: str, scheduled_at: s
     return subject, html
 
 
+def test_invite_email(
+    job_title: str, company_name: str, message: str | None, test_link: str | None,
+) -> tuple[str, str]:
+    subject = f"Next step for your application — {job_title}"
+    message_html = "".join(f"<p>{line}</p>" for line in (message or "").split("\n") if line.strip())
+    link_html = (
+        f'<p><a href="{test_link}">{test_link}</a></p>' if test_link else ""
+    )
+    html = _wrap(
+        "You've been invited to the next round",
+        f"<p>{company_name} has invited you to complete a test as the next step "
+        f"for your application to <strong>{job_title}</strong>.</p>"
+        f"{message_html}{link_html}",
+    )
+    return subject, html
+
+
 def employer_verification_request_email(company_name: str) -> tuple[str, str]:
     subject = "Thank you for choosing BeginablAI — next steps for verification"
     html = _wrap(
@@ -76,6 +93,30 @@ def employer_verification_request_email(company_name: str) -> tuple[str, str]:
         </ul>
         <p>One of our team members will contact you shortly at the email / phone number on record to guide you through the next steps.</p>
         <p style="color:#6B7280;font-size:12px;">Questions? Reply to this email and we'll be happy to help.</p>
+        """,
+    )
+    return subject, html
+
+
+def team_invite_email(
+    company_name: str, contact_person: str, role_name: str,
+    login_identifier: str, password: str, department_name: str | None,
+) -> tuple[str, str]:
+    role_label = role_name.replace("_", " ").title()
+    dept_html = f"<p><strong>Department:</strong> {department_name}</p>" if department_name else ""
+    subject = f"You've been added to {company_name} on BeginablAI"
+    html = _wrap(
+        f"Welcome to {company_name}",
+        f"""
+        <p>Hi {contact_person or ''}, you've been added as a <strong>{role_label}</strong>
+        on <strong>{company_name}</strong>'s BeginablAI hiring workspace.</p>
+        {dept_html}
+        <p>Sign in with these credentials:</p>
+        <ul style="line-height:1.8;padding-left:20px;">
+          <li><strong>Login:</strong> {login_identifier}</li>
+          <li><strong>Temporary password:</strong> {password}</li>
+        </ul>
+        <p style="color:#6B7280;font-size:12px;">We recommend changing your password after your first sign-in.</p>
         """,
     )
     return subject, html

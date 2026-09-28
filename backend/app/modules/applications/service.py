@@ -303,6 +303,33 @@ def submit_application(job_id: str, body: SubmitApplicationRequest, user: User, 
             if ko_action == "auto_reject":
                 application.status = "rejected"
 
+    # Resume-based auto-shortlist (only for jobs where the form requires a
+    # resume — jobs.auto_shortlist_threshold opts a job into this; both null
+    # keeps a job's shortlisting fully manual, matching prior behavior).
+    # Jobs that don't require a resume skip shortlisting entirely — those
+    # applications stay "applied" and the employer sends a direct 2nd-phase
+    # invite (interview or test) themselves; see interviews.send_test_invite
+    # and matching.service.interviews.schedule_interview.
+    auto_shortlisted = False
+    if application.status == "applied" and form:
+        resume_config = (form.settings_json or {}).get("resume_config", "required")
+        if (
+            resume_config == "required"
+            and job.auto_shortlist_threshold is not None
+            and match_score is not None
+            and match_score >= job.auto_shortlist_threshold
+        ):
+            application.status = "shortlisted"
+            auto_shortlisted = True
+            db.add(ApplicationStatusHistory(
+                application_id=application.id,
+                from_status="applied",
+                to_status="shortlisted",
+                changed_by=None,
+                note=f"Auto-shortlisted: match score {match_score} ≥ threshold {job.auto_shortlist_threshold}",
+                is_automated=True,
+            ))
+
     # Generate unique reference number
     for _ in range(10):
         ref = _ref_number()
@@ -347,6 +374,23 @@ def submit_application(job_id: str, body: SubmitApplicationRequest, user: User, 
 
     # Fire async notifications (never blocks the response)
     _fire_notifications(application, job, user, db)
+
+    # Auto-shortlist email/notification — same content a manual shortlist sends.
+    if auto_shortlisted:
+        from app.core.notifications import application_status_email, notify
+        from app.models.user import EmployerProfile
+        from app.modules.inbox.service import create_notification
+        employer = db.query(EmployerProfile).filter(EmployerProfile.id == job.employer_id).first()
+        if employer:
+            subject, html = application_status_email(job.title, employer.company_name, "shortlisted")
+            notify(user.email, subject, html)
+            create_notification(
+                db, user.id, "application_status_changed",
+                f"Update on your application — {job.title}",
+                f"Your application to {job.title} at {employer.company_name} is now: Shortlisted.",
+                "/app/jobs/applications",
+            )
+            db.commit()
 
     logger.info(
         "[APPLICATION] Submitted: user=%s job=%s app=%s ref=%s knockout=%s",
