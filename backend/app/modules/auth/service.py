@@ -169,19 +169,23 @@ def _audit(db: Session, action: str, user_id=None, resource: str | None = None,
 # ── Public service functions ──────────────────────────────────────────────────
 
 async def register_user(
-    email: str, password: str, preferred_language: str, db: Session,
+    email: str, phone: str, password: str, preferred_language: str, db: Session,
     request: Request | None = None
 ) -> str:
-    """Creates a new aspirant account (no phone number yet — that's collected
-    right after email verification, see add_phone below) and sends a
-    verification OTP by email. Returns dev_otp in local env."""
+    """Creates a new aspirant account and sends a verification OTP by email.
+    Phone is collected right here too, but not SMS-verified — phone_verified
+    stays false, same as add_phone. Returns dev_otp in local env."""
     email_taken = db.query(User).filter(User.email == email, User.deleted_at == None).first()
     if email_taken:
         raise ConflictException("An account with this email address already exists.")
+    phone_taken = db.query(User).filter(User.phone == phone, User.deleted_at == None).first()
+    if phone_taken:
+        raise ConflictException("An account with this phone number already exists.")
 
     role = _get_aspirant_role(db)
     user = User(
         email=email,
+        phone=phone,
         password_hash=hash_password(password),
         preferred_language=preferred_language,
         role_id=role.id,
@@ -205,7 +209,7 @@ async def register_user(
     await send_otp_email(email, otp)
     logger.info("[REGISTER] New user email=%s", email)
 
-    return otp if settings.environment == "local" else ""
+    return otp if (settings.environment == "local" and not settings.uses_real_email()) else ""
 
 
 def verify_phone(phone: str, otp: str, db: Session, request: Request | None = None) -> TokenResponse:
@@ -245,8 +249,9 @@ def verify_phone(phone: str, otp: str, db: Session, request: Request | None = No
 
 def verify_email_otp(email: str, otp: str, db: Session, request: Request | None = None) -> TokenResponse:
     """Registration counterpart of verify_phone — verifies the OTP emailed at
-    signup, marks the email verified, and auto-logs in. The account has no
-    phone number yet at this point; add_phone collects it next."""
+    signup, marks the email verified, and auto-logs in. Role-agnostic: reused
+    by both aspirant and employer registration, since both collect a phone
+    number up front now and only need the email OTP checked here."""
     user = db.query(User).filter(User.email == email, User.deleted_at == None).first()
     if not user:
         raise AuthException("No account found for this email address.")
@@ -299,7 +304,7 @@ async def resend_register_email_otp(email: str, db: Session) -> str:
     db.commit()
 
     await send_otp_email(email, otp)
-    return otp if settings.environment == "local" else ""
+    return otp if (settings.environment == "local" and not settings.uses_real_email()) else ""
 
 
 def add_phone(user: User, phone: str, db: Session, request: Request | None = None) -> User:
@@ -341,11 +346,17 @@ async def send_otp(phone: str, purpose: str, db: Session) -> str:
     db.add(otp_record)
     db.commit()
 
+    delivered_for_real = False
     if purpose == "register" and user.email:
         await send_otp_email(user.email, otp)
+        delivered_for_real = settings.uses_real_email()
     else:
         await send_otp_sms(phone, otp)
-    return otp if settings.environment == "local" else ""
+        # SMS always falls back to console-only in local/test/development
+        # (see get_sms_provider() in app/core/sms.py), so there's never a
+        # real delivery to rely on outside those environments.
+        delivered_for_real = settings.environment not in ("local", "test", "development")
+    return otp if (settings.environment == "local" and not delivered_for_real) else ""
 
 
 def _check_lockout(user: User, db: Session) -> None:
@@ -594,7 +605,8 @@ def _get_employer_role(db: Session) -> Role:
 
 
 async def register_employer(
-    phone: str,
+    email: str,
+    phone: str | None,
     password: str,
     company_name: str,
     industry: str | None,
@@ -611,12 +623,17 @@ async def register_employer(
     """Creates an employer account + profile. Account is active immediately
     (instant access, like LinkedIn/Naukri) — job posting itself is gated
     separately on profile completion + KYC verification, not account access."""
-    existing = db.query(User).filter(User.phone == phone, User.deleted_at == None).first()
-    if existing:
-        raise ConflictException("An account with this phone number already exists.")
+    email_taken = db.query(User).filter(User.email == email, User.deleted_at == None).first()
+    if email_taken:
+        raise ConflictException("An account with this email address already exists.")
+    if phone:
+        phone_taken = db.query(User).filter(User.phone == phone, User.deleted_at == None).first()
+        if phone_taken:
+            raise ConflictException("An account with this phone number already exists.")
 
     role = _get_employer_role(db)
     user = User(
+        email=email,
         phone=phone,
         password_hash=hash_password(password),
         preferred_language="en",
@@ -658,7 +675,7 @@ async def register_employer(
     otp = generate_otp()
     otp_record = OtpVerification(
         user_id=user.id,
-        target=phone,
+        target=email,
         otp_hash=hash_otp(otp),
         purpose="register",
         expires_at=datetime.now(timezone.utc) + timedelta(minutes=OTP_TTL_MINUTES),
@@ -669,11 +686,11 @@ async def register_employer(
     db.commit()
     db.refresh(profile)
 
-    await send_otp_sms(phone, otp)
-    logger.info("[EMPLOYER-REGISTER] company=%s phone=%s", company_name, phone)
+    await send_otp_email(email, otp)
+    logger.info("[EMPLOYER-REGISTER] company=%s email=%s", company_name, email)
 
     return EmployerRegisterResponse(
-        message="Company account created. Please verify your phone to log in.",
+        message="Company account created. Please verify your email to log in.",
         user=UserResponse.from_user(user),
         employer_profile=EmployerProfileResponse(
             id=str(profile.id),
@@ -685,7 +702,7 @@ async def register_employer(
             city=profile.city,
             is_approved=profile.is_approved,
         ),
-        dev_otp=otp if settings.environment == "local" else None,
+        dev_otp=otp if (settings.environment == "local" and not settings.uses_real_email()) else None,
     )
 
 
@@ -783,16 +800,16 @@ def google_login(credential: str, db: Session, request: Request | None = None) -
     return _issue_token_pair(user, db, request)
 
 
-async def request_password_reset(phone: str, db: Session) -> str:
-    """Sends a reset OTP to the phone. Returns dev_otp in local env."""
-    user = db.query(User).filter(User.phone == phone, User.deleted_at == None, User.is_active == True).first()
+async def request_password_reset(email: str, db: Session) -> str:
+    """Sends a reset OTP to the email. Returns dev_otp in local env."""
+    user = db.query(User).filter(User.email == email, User.deleted_at == None, User.is_active == True).first()
     if not user:
-        raise AuthException("No active account found for this phone number.")
+        raise AuthException("No active account found for this email address.")
 
     otp = generate_otp()
     otp_record = OtpVerification(
         user_id=user.id,
-        target=phone,
+        target=email,
         otp_hash=hash_otp(otp),
         purpose="reset",
         expires_at=datetime.now(timezone.utc) + timedelta(minutes=OTP_TTL_MINUTES),
@@ -800,16 +817,16 @@ async def request_password_reset(phone: str, db: Session) -> str:
     db.add(otp_record)
     db.commit()
 
-    await send_otp_sms(phone, otp)
-    logger.info("[RESET] Password reset OTP sent for phone=%s", phone)
-    return otp if settings.environment == "local" else ""
+    await send_otp_email(email, otp)
+    logger.info("[RESET] Password reset OTP sent for email=%s", email)
+    return otp if (settings.environment == "local" and not settings.uses_real_email()) else ""
 
 
-def reset_password(phone: str, otp: str, new_password: str, db: Session) -> None:
+def reset_password(email: str, otp: str, new_password: str, db: Session) -> None:
     """Verifies reset OTP and updates the user's password."""
-    user = db.query(User).filter(User.phone == phone, User.deleted_at == None, User.is_active == True).first()
+    user = db.query(User).filter(User.email == email, User.deleted_at == None, User.is_active == True).first()
     if not user:
-        raise AuthException("No active account found for this phone number.")
+        raise AuthException("No active account found for this email address.")
 
     otp_record = (
         db.query(OtpVerification)

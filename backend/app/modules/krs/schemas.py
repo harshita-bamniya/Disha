@@ -41,6 +41,7 @@ class KrsDashboardResponse(BaseModel):
     selected_tracks: list[CareerMatchResponse] = []   # user's manually chosen career paths (0-2)
     full_name: str | None = None       # aspirant's name — for personalised greeting
     skills: list[str] = []             # aspirant's skills — for job card skill-gap preview
+    avatar_id: str | None = None       # curated icon avatar chosen in the Profile page
 
 
 class LiveJobResponse(BaseModel):

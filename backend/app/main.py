@@ -18,6 +18,7 @@ from app.config import get_settings
 from app.core.storage import BASE_DIR as UPLOAD_BASE_DIR
 from app.modules.admin.platform_router import router as platform_router
 from app.modules.admin.router import router as admin_router
+from app.modules.roadmap_engine.admin_router import router as roadmap_blueprint_admin_router
 from app.modules.analytics.router import router as analytics_router
 from app.modules.application_forms.router import router as application_forms_router
 from app.modules.applications.router import router as applications_router
@@ -36,7 +37,11 @@ from app.modules.jobs.router import router as jobs_router
 from app.modules.krs.router import router as krs_router
 from app.modules.matching.router import router as matching_router
 from app.modules.onboarding.router import router as onboarding_router
+from app.modules.payments.router import router as payments_router
+from app.modules.payments.router import webhook_router as payments_webhook_router
 from app.modules.resume.router import router as resume_router
+from app.modules.resume_match.router import router as resume_match_router
+from app.modules.market_roles.router import router as reference_roles_router
 from app.modules.resume_library.router import router as resume_library_router
 from app.modules.roadmap.router import router as roadmap_router
 from app.modules.support.router import candidate_router as support_candidate_router
@@ -230,8 +235,11 @@ app.include_router(jobs_router, prefix="/api")
 app.include_router(companies_router, prefix="/api")
 app.include_router(subscription_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
+app.include_router(roadmap_blueprint_admin_router, prefix="/api")
 app.include_router(careers_router, prefix="/api")
 app.include_router(resume_router, prefix="/api")
+app.include_router(resume_match_router, prefix="/api")
+app.include_router(reference_roles_router, prefix="/api")
 app.include_router(interview_router, prefix="/api")
 app.include_router(counsellor_router, prefix="/api")
 app.include_router(analytics_router, prefix="/api")
@@ -250,6 +258,8 @@ app.include_router(support_candidate_router, prefix="/api")
 app.include_router(resume_library_router, prefix="/api")
 app.include_router(application_forms_router, prefix="/api")
 app.include_router(applications_router, prefix="/api")
+app.include_router(payments_router, prefix="/api")
+app.include_router(payments_webhook_router, prefix="/api")
 
 
 # ── Health ────────────────────────────────────────────────────────────────────

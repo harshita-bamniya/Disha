@@ -13,8 +13,11 @@ class SubscriptionPlan(Base):
     __tablename__ = "subscription_plans"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String(50), unique=True, nullable=False)   # free|standard|premium|enterprise
+    name = Column(String(50), unique=True, nullable=False)   # free|standard|premium|enterprise|aspirant_free|aspirant_premium_monthly|...
+    plan_type = Column(String(20), nullable=False, default="employer")   # employer|aspirant
+    billing_interval = Column(String(20), nullable=False, default="monthly")   # monthly|annual
     price_monthly = Column(Integer, nullable=False, default=0)   # in paise (INR smallest unit)
+    razorpay_plan_id = Column(String(64), nullable=True)   # Razorpay Plan id — null for free plans
     max_active_jobs = Column(Integer, nullable=True)             # null = unlimited
     max_recruiter_seats = Column(Integer, nullable=True)
     resume_access = Column(Boolean, nullable=False, default=False)
@@ -30,6 +33,24 @@ class CompanySubscription(Base):
     company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     plan_id = Column(UUID(as_uuid=True), ForeignKey("subscription_plans.id"), nullable=False)
     status = Column(String(20), nullable=False, default="active")   # active|past_due|canceled
+    razorpay_customer_id = Column(String(64), nullable=True)
+    razorpay_subscription_id = Column(String(64), nullable=True, index=True)
+    current_period_start = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    current_period_end = Column(DateTime(timezone=True), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    plan = relationship("SubscriptionPlan")
+
+
+class AspirantSubscription(Base):
+    __tablename__ = "aspirant_subscriptions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    plan_id = Column(UUID(as_uuid=True), ForeignKey("subscription_plans.id"), nullable=False)
+    status = Column(String(20), nullable=False, default="active")   # active|past_due|canceled
+    razorpay_customer_id = Column(String(64), nullable=True)
+    razorpay_subscription_id = Column(String(64), nullable=True, index=True)
     current_period_start = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
     current_period_end = Column(DateTime(timezone=True), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

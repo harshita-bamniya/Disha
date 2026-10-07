@@ -9,6 +9,11 @@ import json
 import logging
 import re
 
+from app.ai.language import feedback_instruction
+from app.ai.language import instruction as language_instruction
+from app.ai.untrusted import DATA_NOTICE, fence
+from app.ai.usage import tracked_complete
+
 logger = logging.getLogger(__name__)
 
 # ─── Role → Competency Matrix ──────────────────────────────────────────────────
@@ -163,10 +168,37 @@ _QUESTION_TYPE_TO_PANELIST = {
 }
 
 
-def panelist_for_question_type(question_type: str | None) -> dict | None:
+def is_technical_breakdown(question_breakdown: dict | None) -> bool:
+    """True if this role's question mix actually includes technical/system-design
+    questions. Roles like policy research or social-impact consulting get zero of
+    either from the blueprint LLM — calling their second panelist a "Technical
+    Lead" who "goes deep on technical questions" in that case is a leftover from
+    a generic template, not something this specific interview will actually do."""
+    breakdown = question_breakdown or {}
+    return (breakdown.get("technical", 0) or 0) + (breakdown.get("system_design", 0) or 0) > 0
+
+
+def _second_panelist(is_technical_role: bool) -> dict:
+    """The "digs deep on the hard parts" panelist — labelled for technical
+    roles, or a neutral domain-lead label otherwise. Same person/name either
+    way so panel continuity holds; only the title and framing change."""
+    base = PANEL_PERSONAS["technical_lead"]
+    if is_technical_role:
+        return dict(base)
+    return {**base, "role": "Domain Lead"}
+
+
+def panelist_for_question_type(question_type: str | None, is_technical_role: bool = True) -> dict | None:
     """Deterministic question_type -> panelist mapping, so the same style of
-    question always comes from the same persona within a session."""
+    question always comes from the same persona within a session.
+
+    `is_technical_role` should reflect the same blueprint used to generate this
+    session's questions (see _is_technical_breakdown) — it only changes the
+    "technical_lead" persona's displayed title, not who they are.
+    """
     key = _QUESTION_TYPE_TO_PANELIST.get((question_type or "").lower())
+    if key == "technical_lead":
+        return _second_panelist(is_technical_role)
     return PANEL_PERSONAS.get(key) if key else None
 
 
@@ -174,11 +206,13 @@ def _with_panel_intro(blueprint: dict, job_role: str) -> dict:
     """Computed deterministically from PANEL_PERSONAS rather than asked of the
     LLM — guarantees the same three names/roles every session instead of the
     model inventing slightly different ones each time."""
-    hm, tl, fp = PANEL_PERSONAS["hiring_manager"], PANEL_PERSONAS["technical_lead"], PANEL_PERSONAS["future_peer"]
+    is_technical_role = is_technical_breakdown(blueprint.get("question_breakdown"))
+    hm, tl, fp = PANEL_PERSONAS["hiring_manager"], _second_panelist(is_technical_role), PANEL_PERSONAS["future_peer"]
+    deep_dive = "go deep on technical questions" if is_technical_role else "go deep on role-specific domain questions"
     blueprint["panel"] = [hm, tl, fp]
     blueprint["panel_intro"] = (
         f"Today's panel for this {job_role} interview: {hm['name']} ({hm['role']}) will cover culture "
-        f"and behavioral fit, {tl['name']} ({tl['role']}) will go deep on technical questions, and "
+        f"and behavioral fit, {tl['name']} ({tl['role']}) will {deep_dive}, and "
         f"{fp['name']} ({fp['role']}) will explore how you'd handle real day-to-day situations."
     )
     return blueprint
@@ -222,9 +256,10 @@ async def generate_dynamic_competencies(job_role: str) -> list[dict]:
         from app.ai.providers import create_provider
         from app.ai.providers.groq import LIGHT_MODEL
         provider = create_provider(model=LIGHT_MODEL, reasoning_effort="low")
-        result = await provider.complete(
-            system=_COMPETENCY_GEN_SYSTEM,
-            messages=[{"role": "user", "content": f"Job Role: {job_role}\n\nGenerate the competency matrix."}],
+        result = await tracked_complete(
+            provider, "competencies",
+            system=_COMPETENCY_GEN_SYSTEM + "\n\n" + DATA_NOTICE,
+            messages=[{"role": "user", "content": f"Job Role: {fence('target_role', job_role, 200)}\n\nGenerate the competency matrix."}],
             max_tokens=500,
             temperature=0.4,
         )
@@ -296,7 +331,7 @@ Return ONLY valid JSON:
   "focus_areas": ["area1", "area2"],
   "interview_style": "conversational" | "technical_deep_dive" | "case_study",
   "opening_greeting": "A professional 2-sentence greeting the AI interviewer will say to open the interview",
-  "ice_breaker_question": "A warm, professional opening question to ease the candidate"
+  "ice_breaker_question": "The actual FIRST question asked in this interview — not a generic 'tell me about yourself'. It must read as one natural, warm question that blends: (1) the target role/title, (2) one or two of the top skills_to_assess for this role, and (3) something concrete from the Candidate Background section below if one is provided (a named project, employer, tool, or skill they listed) — inviting them to connect their own experience to what this role actually needs. If no Candidate Background is provided, blend just (1) and (2)."
 }"""
 
 _QUESTIONS_SYSTEM = """You are a Senior Technical Interviewer generating interview questions.
@@ -392,6 +427,16 @@ Rules:
   an earlier answer. Return an empty list if you find none — do not invent one that isn't really there."""
 
 
+# Appended after _READINESS_SYSTEM; these win over its harsher wording. Scores
+# stay exactly as accurate; only how they are communicated changes.
+REPORT_STYLE_RULES = """TONE AND FORMAT RULES (these take priority over any earlier wording):
+- Start candidate_summary and readiness_message by naming one specific thing the candidate did well.
+- Give at most 3 strengths and at most 3 critical_gaps, ordered by impact. Phrase each gap as what to build next.
+- Never describe the candidate with the words "failed", "failure", "weak" or "poor". Honest does not mean harsh.
+- Never comment on accent, pronunciation, age, background or any gap in the candidate's career history.
+- overall_readiness_score is advisory: it is recomputed in code from the per-answer scores."""
+
+
 async def generate_blueprint(
     job_role: str,
     experience_level: str,
@@ -400,10 +445,18 @@ async def generate_blueprint(
     candidate_context: str | None = None,
     prior_weak_areas: list[str] | None = None,
     competencies: list[dict] | None = None,
+    tone: str = "standard",
+    language: str = "en",
+    session_type: str = "practice",
 ) -> dict:
     """Generate an interview blueprint for a given role and experience level."""
+    tone_section = (
+        "\nTone: gentle. Use a warm, unhurried opening_greeting and make the ice_breaker_question easy to answer. "
+        "Rigour and scoring stay identical.\n"
+        if tone == "gentle" else ""
+    )
     candidate_section = (
-        f"\nCandidate Background:\n{candidate_context}\n"
+        f"\nCandidate Background:\n{fence('candidate_background', candidate_context, 3000)}\n"
         f"Use this to calibrate difficulty_ramp and focus_areas appropriately.\n"
         if candidate_context else ""
     )
@@ -413,20 +466,29 @@ async def generate_blueprint(
         if prior_weak_areas else ""
     )
     canonical_names = [c["skill"] for c in (competencies or get_competencies(job_role))]
-    user_msg = f"""Job Role: {job_role}
+    if session_type == "stress":
+        tone_section += (
+            "\nStyle: stress interview. A sceptical panel with tougher, more probing questions and a firmer "
+            "opening, but always professional and respectful, and never about the candidate's personal "
+            "background, age or career gap.\n"
+        )
+    user_msg = f"""Job Role: {fence('target_role', job_role, 200)}
 Experience Level: {experience_level}
 Total Questions Planned: {total_questions}
-Job Description: {job_description or 'Not provided'}
+Job Description: {fence('job_description', job_description, 4000) if job_description else 'Not provided'}
 Canonical Skills (skills_to_assess must be chosen only from this list, exact spelling): {", ".join(canonical_names)}
-{candidate_section}{weak_section}
+{candidate_section}{weak_section}{tone_section}
 Generate the interview blueprint."""
+    if language_instruction(language):
+        user_msg += "\n\n" + language_instruction(language) + " This applies to opening_greeting and ice_breaker_question."
 
     try:
         from app.ai.providers import create_provider
         from app.ai.providers.groq import LIGHT_MODEL
         provider = create_provider(model=LIGHT_MODEL, reasoning_effort="low")
-        result = await provider.complete(
-            system=_BLUEPRINT_SYSTEM,
+        result = await tracked_complete(
+            provider, "blueprint",
+            system=_BLUEPRINT_SYSTEM + "\n\n" + DATA_NOTICE,
             messages=[{"role": "user", "content": user_msg}],
             max_tokens=800,
             temperature=0.4,
@@ -450,6 +512,7 @@ async def generate_questions(
     count: int,
     competencies: list[dict] | None = None,
     candidate_context: str | None = None,
+    language: str = "en",
 ) -> list[dict]:
     """Generate dynamic, role-specific interview questions."""
     canonical_names = [c["skill"] for c in (competencies or get_competencies(job_role))]
@@ -459,25 +522,28 @@ async def generate_questions(
     candidate_section = (
         f"\nCandidate Background (weave at least one question that references a specific "
         f"named project, employer, or tool from this background, if present — never invent "
-        f"specifics that aren't actually in it):\n{candidate_context}\n"
+        f"specifics that aren't actually in it):\n{fence('candidate_background', candidate_context, 3000)}\n"
         if candidate_context else ""
     )
 
-    user_msg = f"""Job Role: {job_role}
+    user_msg = f"""Job Role: {fence('target_role', job_role, 200)}
 Experience Level: {experience_level}
 Skills to Assess: {skills_focus}
 Question Breakdown: {breakdown_str}
 Focus Areas: {", ".join(blueprint.get("focus_areas", []))}
 {candidate_section}
 Generate exactly {count} questions."""
+    if language_instruction(language):
+        user_msg += "\n\n" + language_instruction(language) + " Apply this to question_text and expected_answer_hints."
 
-    prompt = _QUESTIONS_SYSTEM.replace("{count}", str(count))
+    prompt = _QUESTIONS_SYSTEM.replace("{count}", str(count)) + "\n\n" + DATA_NOTICE
 
     try:
         from app.ai.providers import create_provider
         from app.ai.providers.groq import LIGHT_MODEL
         provider = create_provider(model=LIGHT_MODEL, reasoning_effort="low")
-        result = await provider.complete(
+        result = await tracked_complete(
+            provider, "questions",
             system=prompt,
             messages=[{"role": "user", "content": user_msg}],
             max_tokens=2000,
@@ -503,13 +569,15 @@ async def generate_job_readiness_report(
     transcript: list[dict],
     total_questions_planned: int = 0,
     temperature: float = 0.3,
+    language: str = "en",
 ) -> dict:
     """Generate a comprehensive job readiness report from interview transcript.
 
     transcript: list of { question, question_type, skill_assessed, response, clarity, impact, overall }
     total_questions_planned: how many questions the session was supposed to have
     """
-    answers_given = len(transcript)
+    # Follow-ups probe a question; they don't count toward interview completeness.
+    answers_given = sum(1 for t in transcript if not t.get('is_followup'))
     planned = total_questions_planned or answers_given  # avoid division by zero
     completion_pct = round((answers_given / planned) * 100) if planned else 100
 
@@ -523,7 +591,7 @@ async def generate_job_readiness_report(
 
     competency_list = "\n".join(f"- {c['skill']} ({c['weight']}% weight)" for c in competencies)
 
-    user_msg = f"""Role: {job_role}
+    user_msg = f"""Role: {fence('target_role', job_role, 200)}
 Experience Level: {experience_level}
 Interview Completeness: {answers_given} of {planned} questions answered ({completion_pct}% complete)
 
@@ -531,7 +599,7 @@ Expected Competencies:
 {competency_list}
 
 Interview Transcript:
-{transcript_text}
+{fence('transcript', transcript_text, 30000)}
 
 IMPORTANT: Apply the completeness cap rule from your instructions if {completion_pct}% < 70%.
 Generate the job readiness report based strictly on what was actually demonstrated above."""
@@ -551,8 +619,9 @@ Generate the job readiness report based strictly on what was actually demonstrat
     provider = create_provider(reasoning_effort="low")
 
     async def _attempt() -> dict:
-        result = await provider.complete(
-            system=_READINESS_SYSTEM,
+        result = await tracked_complete(
+            provider, "report",
+            system=_READINESS_SYSTEM + "\n\n" + REPORT_STYLE_RULES + "\n\n" + feedback_instruction(language) + "\n\n" + DATA_NOTICE,
             messages=[{"role": "user", "content": user_msg}],
             max_tokens=3000,
             temperature=temperature,

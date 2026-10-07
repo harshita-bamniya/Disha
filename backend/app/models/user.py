@@ -305,6 +305,15 @@ class AspirantProfile(Base):
     # PLAN_PROMPT "LEARNING FORMAT RULES" / "LEARNING CHALLENGE RULES".
     preferred_learning_format = Column(String(20), nullable=True)  # video | reading | hands_on | mixed
     learning_challenge = Column(String(30), nullable=True)  # motivation | understanding_concepts | getting_started | applying_practically
+    learning_stage = Column(String(20), nullable=True)      # new_to_field | some_exposure | working_in_field
+    learning_budget = Column(String(20), nullable=True)     # free_only | flexible
+    resume_scan_consent_at = Column(DateTime(timezone=True), nullable=True)  # agreed to resume-vs-job analysis (see resume_match/privacy.py)
+    preferred_language = Column(String(5), nullable=True)   # video language: en | hi | ta | te | bn | mr | gu | kn | ml | pa
+    # Each of these four shapes the generated schedule — see roadmap_engine/prefs.py and personalizer.build_schedule.
+    session_length = Column(String(10), nullable=True)      # short (30 min) | medium (1 h) | long (2 h+)
+    study_days = Column(String(12), nullable=True)          # weekdays | weekends | every_day
+    deadline_reason = Column(String(12), nullable=True)     # interview | application | no_rush
+    practice_style = Column(String(10), nullable=True)      # quizzes | projects | both | none
 
     # ── Active Prep Job (MVP2) ────────────────────────────────────────────────
     # The single job the user is currently focusing all tools toward.

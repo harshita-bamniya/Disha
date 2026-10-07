@@ -52,6 +52,12 @@ logger = logging.getLogger(__name__)
 
 _DRAFT_TTL_DAYS = 30
 _APPLICATION_LIMIT = 10
+
+# Application.resume_fit_status values
+RESUME_FIT_NONE = "no_resume"
+RESUME_FIT_PENDING = "pending"
+RESUME_FIT_READY = "ready"
+RESUME_FIT_FAILED = "failed"
 _KNOCKOUT_PRIORITY = {"auto_reject": 5, "auto_tag": 4, "alert": 3, "label": 2, "auto_advance": 1}
 
 
@@ -271,14 +277,13 @@ def submit_application(job_id: str, body: SubmitApplicationRequest, user: User, 
     if body.selected_resume_id:
         resume_id = _resolve_resume_id(body.selected_resume_id, user.id, db)
 
-    # Compute match score (reuse existing ranker)
-    match_score = _compute_match_score(user, job, db)
-
-    # Create Application row
+    # Create Application row. Its score is the RESUME FIT: how well the attached resume matches this
+    # job. There is deliberately no profile-based number here; without a resume there is no score.
     application = Application(
         aspirant_id=user.id,
         job_id=job.id,
-        match_score=match_score,
+        match_score=None,
+        resume_fit_status=RESUME_FIT_PENDING if resume_id else RESUME_FIT_NONE,
         cover_note=body.cover_note,
         status="applied",
         resume_id=resume_id,
@@ -289,6 +294,12 @@ def submit_application(job_id: str, body: SubmitApplicationRequest, user: User, 
     )
     db.add(application)
     db.flush()  # get application.id
+
+    # If the candidate already checked this exact resume against this job, the score is known now.
+    # Otherwise it is computed in the background (see score_application_resume) so submitting stays fast.
+    if resume_id:
+        from app.modules.resume_match import application_fit
+        application_fit.try_cached(application, job, user, db)
 
     # Persist responses
     if form:
@@ -303,32 +314,7 @@ def submit_application(job_id: str, body: SubmitApplicationRequest, user: User, 
             if ko_action == "auto_reject":
                 application.status = "rejected"
 
-    # Resume-based auto-shortlist (only for jobs where the form requires a
-    # resume — jobs.auto_shortlist_threshold opts a job into this; both null
-    # keeps a job's shortlisting fully manual, matching prior behavior).
-    # Jobs that don't require a resume skip shortlisting entirely — those
-    # applications stay "applied" and the employer sends a direct 2nd-phase
-    # invite (interview or test) themselves; see interviews.send_test_invite
-    # and matching.service.interviews.schedule_interview.
-    auto_shortlisted = False
-    if application.status == "applied" and form:
-        resume_config = (form.settings_json or {}).get("resume_config", "required")
-        if (
-            resume_config == "required"
-            and job.auto_shortlist_threshold is not None
-            and match_score is not None
-            and match_score >= job.auto_shortlist_threshold
-        ):
-            application.status = "shortlisted"
-            auto_shortlisted = True
-            db.add(ApplicationStatusHistory(
-                application_id=application.id,
-                from_status="applied",
-                to_status="shortlisted",
-                changed_by=None,
-                note=f"Auto-shortlisted: match score {match_score} ≥ threshold {job.auto_shortlist_threshold}",
-                is_automated=True,
-            ))
+    auto_shortlisted = _auto_shortlist(application, job, form, db)
 
     # Generate unique reference number
     for _ in range(10):
@@ -375,22 +361,12 @@ def submit_application(job_id: str, body: SubmitApplicationRequest, user: User, 
     # Fire async notifications (never blocks the response)
     _fire_notifications(application, job, user, db)
 
-    # Auto-shortlist email/notification — same content a manual shortlist sends.
     if auto_shortlisted:
-        from app.core.notifications import application_status_email, notify
-        from app.models.user import EmployerProfile
-        from app.modules.inbox.service import create_notification
-        employer = db.query(EmployerProfile).filter(EmployerProfile.id == job.employer_id).first()
-        if employer:
-            subject, html = application_status_email(job.title, employer.company_name, "shortlisted")
-            notify(user.email, subject, html)
-            create_notification(
-                db, user.id, "application_status_changed",
-                f"Update on your application — {job.title}",
-                f"Your application to {job.title} at {employer.company_name} is now: Shortlisted.",
-                "/app/jobs/applications",
-            )
-            db.commit()
+        _notify_auto_shortlisted(job, user, db)
+
+    # Resume not scored yet: score it in the background, then auto-shortlist if it qualifies.
+    if application.resume_fit_status == RESUME_FIT_PENDING:
+        _enqueue_resume_scoring(application.id)
 
     logger.info(
         "[APPLICATION] Submitted: user=%s job=%s app=%s ref=%s knockout=%s",
@@ -562,16 +538,87 @@ def _rule_matches(rule: KnockoutRule, answer: AnswerIn) -> bool:
 
 # ── Match score ────────────────────────────────────────────────────────────────
 
-def _compute_match_score(user: User, job: JobPosting, db: Session) -> int:
+def _enqueue_resume_scoring(application_id) -> None:
+    """Fire-and-forget: a queue outage must never fail a submitted application."""
     try:
-        from app.modules.recommendations.ranker import rank_jobs_for_user
-        profile = db.query(AspirantProfile).filter(AspirantProfile.user_id == user.id).first()
-        krs = db.query(KrsScore).filter(KrsScore.user_id == user.id).first()
-        snap, _ = rank_jobs_for_user(profile, krs, db, extra_sql_filters=[JobPosting.id == job.id], limit=1)
-        return snap[0].match_score if snap else 0
+        from app.tasks.application_tasks import score_application_resume
+        score_application_resume.delay(str(application_id))
     except Exception as exc:
-        logger.warning("[APPLICATION] Match score computation failed: %s", exc)
-        return 0
+        logger.error("[APPLICATION] Failed to enqueue resume scoring for %s: %s", application_id, exc)
+
+
+def _auto_shortlist(application: Application, job: JobPosting, form: Optional[ApplicationForm], db: Session) -> bool:
+    """Resume-based auto-shortlist (only for jobs where the form requires a resume).
+
+    jobs.auto_shortlist_threshold opts a job into this; both null keeps a job's shortlisting fully
+    manual. Jobs that don't require a resume skip shortlisting entirely: those applications stay
+    "applied" and the employer sends a direct 2nd-phase invite (interview or test) themselves; see
+    interviews.send_test_invite and matching.service.interviews.schedule_interview.
+
+    Runs when the resume-fit score becomes known: at submit if it was cached, otherwise when the
+    background scoring finishes. Returns True if the application was moved to "shortlisted".
+    """
+    if application.status != "applied" or not form:
+        return False
+    match_score = application.match_score
+    resume_config = (form.settings_json or {}).get("resume_config", "required")
+    if not (
+        resume_config == "required"
+        and job.auto_shortlist_threshold is not None
+        and match_score is not None
+        and match_score >= job.auto_shortlist_threshold
+    ):
+        return False
+    application.status = "shortlisted"
+    db.add(ApplicationStatusHistory(
+        application_id=application.id,
+        from_status="applied",
+        to_status="shortlisted",
+        changed_by=None,
+        note=f"Auto-shortlisted: resume fit {match_score} ≥ threshold {job.auto_shortlist_threshold}",
+        is_automated=True,
+    ))
+    return True
+
+
+def _notify_auto_shortlisted(job: JobPosting, user: User, db: Session) -> None:
+    """Auto-shortlist email/notification — same content a manual shortlist sends."""
+    from app.core.notifications import application_status_email, notify
+    from app.models.user import EmployerProfile
+    from app.modules.inbox.service import create_notification
+    employer = db.query(EmployerProfile).filter(EmployerProfile.id == job.employer_id).first()
+    if employer:
+        subject, html = application_status_email(job.title, employer.company_name, "shortlisted")
+        notify(user.email, subject, html)
+        create_notification(
+            db, user.id, "application_status_changed",
+            f"Update on your application — {job.title}",
+            f"Your application to {job.title} at {employer.company_name} is now: Shortlisted.",
+            "/app/jobs/applications",
+        )
+        db.commit()
+
+
+def finalize_scored_application(application_id: str) -> None:
+    """Called by the background task once an application's resume has been scored."""
+    from app.database import SessionLocal
+    db = SessionLocal()
+    try:
+        application = db.query(Application).filter(Application.id == application_id).first()
+        if application is None or application.resume_fit_status != RESUME_FIT_READY:
+            return
+        job = db.query(JobPosting).filter(JobPosting.id == application.job_id).first()
+        user = db.query(User).filter(User.id == application.aspirant_id).first()
+        form = (
+            db.query(ApplicationForm).filter(ApplicationForm.id == application.form_version_id).first()
+            if application.form_version_id else None
+        )
+        if _auto_shortlist(application, job, form, db):
+            db.commit()
+            _notify_auto_shortlisted(job, user, db)
+    finally:
+        db.close()
+
 
 
 # ── Notifications ──────────────────────────────────────────────────────────────

@@ -102,6 +102,29 @@ services:
     command: celery -A app.tasks.worker.celery_app worker --beat --loglevel=info
     restart: unless-stopped
 
+  # Dedicated worker for roadmap generation (long, LLM-bound). Keeps emails/notifications
+  # on the default worker unaffected and lets generation survive web-container restarts.
+  roadmap_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: beginablai_roadmap_worker
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-beginablai}:${POSTGRES_PASSWORD:-beginablai_dev}@postgres:5432/${POSTGRES_DB:-beginablai_db}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_dev}@redis:6379/0
+      ENVIRONMENT: local
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.tasks.worker.celery_app worker -Q roadmap -n roadmap@%h --concurrency=3 --loglevel=info
+    restart: unless-stopped
+
   frontend:
     build:
       context: ./frontend

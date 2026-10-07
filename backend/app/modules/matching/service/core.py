@@ -121,10 +121,12 @@ def _get_company_employer_ids(profile: EmployerProfile, db: Session) -> list:
 
 
 def _is_company_wide(profile: EmployerProfile, role_name: str | None) -> bool:
-    """Company-wide access: owner, hr_manager, or no department assigned."""
+    """Company-wide access: the owner, or anyone (including hr_manager) with
+    no department assigned — an hr_manager scoped to a department is scoped
+    here too, mirroring jobs/service.py's _is_company_wide."""
     if profile.is_owner:
         return True
-    if role_name in ("hr_manager", "admin", "super_admin"):
+    if role_name in ("admin", "super_admin"):
         return True
     if profile.department_id is None:
         return True

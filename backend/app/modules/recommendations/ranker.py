@@ -13,6 +13,8 @@ Stage 2 — Re-rank
         k_fit         20%  (K-score vs job's min_k_score)
     + collaborative boost up to +5 pts (item-item co-occurrence)
     + sector-affinity bonus +8 pts for user-selected career track sectors.
+    + exam-affinity bonus +6 pts when the job overlaps with skills implied by
+      the aspirant's UPSC exam (low-confidence prior — see krs/exam_affinity.py).
     All capped at 100.
 
 Stage 3 — MMR Diversity Re-ranking  [NEW]
@@ -57,6 +59,12 @@ _SECTOR_BONUS = 8
 _RECENCY_DAYS = 7
 _RECENCY_BONUS = 5
 _COLLAB_MAX_BOOST = 5   # collaborative filtering adds at most +5 pts
+# Flat bonus when a job's required skills meaningfully overlap with the
+# aspirant's exam-implied transferable skills (see krs/exam_affinity.py) —
+# smaller than _SECTOR_BONUS since this is inferred from the exam alone,
+# not a sector the user actually chose.
+_EXAM_AFFINITY_BONUS = 6
+_EXAM_AFFINITY_THRESHOLD = 40  # min overlap % before the bonus kicks in
 
 
 # ── Dynamic λ ─────────────────────────────────────────────────────────────────
@@ -279,58 +287,92 @@ def _build_semantic_overlap_fn(
     user_skills: set[str],
     candidate_jobs: list,
     db: Session,
+    implied_skills: list[str] | None = None,
 ):
-    """Pre-load all skill vectors for user + all candidate job required skills in ONE DB query.
+    """Pre-load all skill vectors for user + implied + all candidate job required skills in ONE DB query.
 
-    Returns a callable: (required: list[str]) -> int (0-100 %).
-    Falls back to exact-string overlap if embeddings are unavailable.
+    Returns (user_overlap_fn, implied_overlap_fn):
+      - user_overlap_fn: (required: list[str]) -> int (0-100 %) — real skill_overlap, unchanged.
+      - implied_overlap_fn: same shape but against the aspirant's exam-implied
+        skills instead of their real ones, or None if there are no implied
+        skills / no vectors for them. Kept fully separate from user_overlap_fn
+        so exam-implied skills never leak into skills_you_have/skills_to_develop.
+    Falls back to exact-string overlap for the user function if embeddings are
+    unavailable; the implied function is simply None in that case (a stretch
+    inference isn't worth a string-match approximation).
     """
+    implied_lower = [s.lower().strip() for s in (implied_skills or [])]
+
+    def _fallback():
+        return (lambda req: _skill_overlap_pct(user_skills, req)), None
+
     try:
         from app.models.skill_vectors import SkillVector
         from app.modules.krs.skill_gap import SIMILARITY_THRESHOLD, _max_cosine
 
         user_lower = {s.lower().strip() for s in user_skills}
 
-        # Collect every unique skill we'll need — user's + every job's required_skills
-        all_unique: set[str] = set(user_lower)
+        # Collect every unique skill we'll need — user's + implied + every job's required_skills
+        all_unique: set[str] = set(user_lower) | set(implied_lower)
         for item in candidate_jobs:
             job = item[0]
             for s in (job.required_skills or []):
                 all_unique.add(s.lower().strip())
 
         if not all_unique:
-            return lambda req: _skill_overlap_pct(user_skills, req)
+            return _fallback()
 
         rows = db.query(SkillVector).filter(SkillVector.skill_text.in_(list(all_unique))).all()
         vec_cache: dict[str, list[float]] = {r.skill_text: r.embedding for r in rows}
+
+        # Implied skills are a small, fixed set reused across every aspirant on
+        # the same exam (not one-off like a job's required_skills), so it's
+        # worth embedding any not yet cached right here — a one-time cost per
+        # phrase, cached in skill_vectors forever after. Without this, a
+        # freshly-added or never-seen implied-skill phrase would silently
+        # never contribute any bonus, since it would never appear in vec_cache.
+        missing_implied = [s for s in implied_lower if s not in vec_cache]
+        if missing_implied:
+            from app.modules.krs.skill_gap import _embed_missing
+            vec_cache.update(_embed_missing(missing_implied, db))
 
         user_vecs = [vec_cache[s] for s in user_lower if s in vec_cache]
 
         if not user_vecs:
             logger.debug("[RANKER] No user skill vectors in cache — using exact-string overlap")
-            return lambda req: _skill_overlap_pct(user_skills, req)
+            return _fallback()
 
-        def _semantic_overlap(required: list[str]) -> int:
-            if not required:
-                return 100
-            matched = 0
-            for s in required:
-                s_key = s.lower().strip()
-                req_vec = vec_cache.get(s_key)
-                if req_vec is None:
-                    # Not cached — fall back to string match for this individual skill
-                    if s_key in user_lower:
-                        matched += 1
-                else:
-                    if _max_cosine(req_vec, user_vecs) >= SIMILARITY_THRESHOLD:
-                        matched += 1
-            return round(matched / len(required) * 100)
+        def _make_overlap_fn(vecs: list, fallback_lower: set[str]):
+            def _overlap(required: list[str]) -> int:
+                if not required:
+                    return 100
+                matched = 0
+                for s in required:
+                    s_key = s.lower().strip()
+                    req_vec = vec_cache.get(s_key)
+                    if req_vec is None:
+                        # Not cached — fall back to string match for this individual skill
+                        if s_key in fallback_lower:
+                            matched += 1
+                    else:
+                        if _max_cosine(req_vec, vecs) >= SIMILARITY_THRESHOLD:
+                            matched += 1
+                return round(matched / len(required) * 100)
+            return _overlap
 
-        return _semantic_overlap
+        user_overlap_fn = _make_overlap_fn(user_vecs, user_lower)
+
+        implied_overlap_fn = None
+        if implied_lower:
+            implied_vecs = [vec_cache[s] for s in implied_lower if s in vec_cache]
+            if implied_vecs:
+                implied_overlap_fn = _make_overlap_fn(implied_vecs, set())
+
+        return user_overlap_fn, implied_overlap_fn
 
     except Exception as exc:
         logger.warning("[RANKER] Semantic overlap pre-load failed: %s — using exact-string fallback", exc)
-        return lambda req: _skill_overlap_pct(user_skills, req)
+        return _fallback()
 
 
 def _blended_score(
@@ -346,6 +388,16 @@ def _blended_score(
 def _apply_sector_bonus(score: int, job: JobPosting, selected_sectors: frozenset[str]) -> int:
     if selected_sectors and job.sector and job.sector.lower() in selected_sectors:
         return min(100, score + _SECTOR_BONUS)
+    return score
+
+
+def _apply_exam_affinity_bonus(score: int, implied_overlap_pct: int) -> int:
+    """`implied_overlap_pct` is how much of the job's required skills match
+    the aspirant's exam-implied transferable skills — only nudges the score
+    when that overlap clears a real threshold, not on a single coincidental
+    match, since this is an inferred signal rather than one the user chose."""
+    if implied_overlap_pct >= _EXAM_AFFINITY_THRESHOLD:
+        return min(100, score + _EXAM_AFFINITY_BONUS)
     return score
 
 
@@ -428,6 +480,7 @@ def _vector_rank(
     extra_sql_filters: Sequence,
     user_salary_min: Optional[int] = None,
     user_salary_max: Optional[int] = None,
+    implied_skills: list[str] | None = None,
 ) -> list[RankedJob]:
     distance_col = JobPosting.description_embedding.cosine_distance(profile_emb)
 
@@ -440,8 +493,9 @@ def _vector_rank(
         .all()
     )
 
-    # Build semantic overlap function — pre-loads ALL skill vectors in one DB query
-    semantic_overlap = _build_semantic_overlap_fn(user_skills, candidates, db)
+    # Build semantic overlap functions — pre-loads ALL skill vectors (user's +
+    # exam-implied + every candidate's required_skills) in one DB query
+    semantic_overlap, implied_overlap = _build_semantic_overlap_fn(user_skills, candidates, db, implied_skills)
 
     results: list[RankedJob] = []
     for job, employer, dist in candidates:
@@ -456,6 +510,8 @@ def _vector_rank(
 
         score = _blended_score_with_salary(semantic_score, overlap, k_fit, sal_fit)
         score = _apply_sector_bonus(score, job, selected_sectors)
+        if implied_overlap is not None:
+            score = _apply_exam_affinity_bonus(score, implied_overlap(required))
 
         # Collaborative boost
         collab_raw = collab_scores.get(str(job.id), 0.0)
@@ -491,14 +547,16 @@ def _rule_rank(
     extra_sql_filters: Sequence,
     user_salary_min: Optional[int] = None,
     user_salary_max: Optional[int] = None,
+    implied_skills: list[str] | None = None,
 ) -> list[RankedJob]:
     now = datetime.now(timezone.utc)
     recency_cutoff = now - timedelta(days=_RECENCY_DAYS)
 
     rows = _base_q(db, extra_sql_filters).all()
 
-    # Build semantic overlap function — pre-loads ALL skill vectors in one DB query
-    semantic_overlap = _build_semantic_overlap_fn(user_skills, rows, db)
+    # Build semantic overlap functions — pre-loads ALL skill vectors (user's +
+    # exam-implied + every candidate's required_skills) in one DB query
+    semantic_overlap, implied_overlap = _build_semantic_overlap_fn(user_skills, rows, db, implied_skills)
 
     results: list[RankedJob] = []
     for job, employer in rows:
@@ -510,6 +568,8 @@ def _rule_rank(
 
         score = _blended_score_with_salary(None, overlap, k_fit, sal_fit)
         score = _apply_sector_bonus(score, job, selected_sectors)
+        if implied_overlap is not None:
+            score = _apply_exam_affinity_bonus(score, implied_overlap(required))
 
         if job.created_at and job.created_at >= recency_cutoff:
             score = min(100, score + _RECENCY_BONUS)
@@ -640,6 +700,9 @@ def rank_jobs_for_user(
     salary_min    = profile.expected_salary_min if profile else None
     salary_max    = profile.expected_salary_max if profile else None
 
+    from app.modules.krs.exam_affinity import get_implied_skills
+    implied_skills = get_implied_skills(profile.upsc_exam if profile else None, db)
+
     # ── Collaborative filtering ────────────────────────────────────────────────
     collab_scores: dict[str, float] = {}
     if application_history and applied_job_ids:
@@ -661,6 +724,7 @@ def rank_jobs_for_user(
                 selected_sectors, prepared_job_ids, collab_scores,
                 db, extra_sql_filters,
                 user_salary_min=salary_min, user_salary_max=salary_max,
+                implied_skills=implied_skills,
             )
             # Vector path only matches jobs with embeddings; fall back to
             # rule-based when no embedded jobs exist (e.g. fresh seed data).
@@ -671,6 +735,7 @@ def rank_jobs_for_user(
                     selected_sectors, prepared_job_ids, collab_scores,
                     db, extra_sql_filters,
                     user_salary_min=salary_min, user_salary_max=salary_max,
+                    implied_skills=implied_skills,
                 )
         else:
             all_results = _rule_rank(
@@ -678,6 +743,7 @@ def rank_jobs_for_user(
                 selected_sectors, prepared_job_ids, collab_scores,
                 db, extra_sql_filters,
                 user_salary_min=salary_min, user_salary_max=salary_max,
+                implied_skills=implied_skills,
             )
     except Exception:
         logger.exception("[RANKER] Ranking failed — falling back to rule-based")
@@ -686,6 +752,7 @@ def rank_jobs_for_user(
             selected_sectors, prepared_job_ids, collab_scores,
             db, extra_sql_filters,
             user_salary_min=salary_min, user_salary_max=salary_max,
+            implied_skills=implied_skills,
         )
 
     total = len(all_results)

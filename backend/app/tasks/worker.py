@@ -14,7 +14,7 @@ celery_app = Celery(
     "beginablai_worker",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.tasks.roadmap_tasks", "app.tasks.announcements", "app.tasks.application_tasks"],
+    include=["app.tasks.roadmap_tasks", "app.tasks.announcements", "app.tasks.application_tasks", "app.tasks.roadmap_engine_tasks", "app.tasks.privacy_tasks"],
 )
 
 celery_app.conf.update(
@@ -23,6 +23,8 @@ celery_app.conf.update(
     accept_content=["json"],
     timezone="Asia/Kolkata",
     enable_utc=True,
+    # Roadmap generation is long-running and LLM-bound: its own queue + dedicated worker service.
+    task_routes={"app.tasks.roadmap_engine_tasks.*": {"queue": "roadmap"}},
     task_acks_late=True,          # Only ack after task completes (safer on crash)
     task_reject_on_worker_lost=True,
     worker_prefetch_multiplier=1,  # Fair dispatch — don't over-prefetch
@@ -33,6 +35,11 @@ celery_app.conf.update(
         "prune-counsellor-memories": {
             "task": "app.tasks.worker.prune_counsellor_memories",
             "schedule": crontab(hour=2, minute=0),
+        },
+        # Delete resume-match scans past the retention window, daily at 2:30am IST
+        "purge-resume-scans": {
+            "task": "app.tasks.privacy_tasks.purge_resume_scans",
+            "schedule": crontab(hour=2, minute=30),
         },
         # Revoke expired refresh tokens weekly
         "revoke-expired-tokens": {
@@ -96,6 +103,16 @@ celery_app.conf.update(
         "scorecard-nudges": {
             "task": "app.tasks.worker.send_scorecard_nudges",
             "schedule": crontab(minute="*/15"),
+        },
+        # Opt-in answer audio is deleted after the retention period. Daily 3:30am IST.
+        "purge-interview-audio": {
+            "task": "app.tasks.worker.purge_interview_audio",
+            "schedule": crontab(hour=3, minute=30),
+        },
+        # Verified interviews are deleted after their retention period. Daily 4am IST.
+        "purge-verified-interviews": {
+            "task": "app.tasks.worker.purge_verified_interviews",
+            "schedule": crontab(hour=4, minute=0),
         },
     },
 )
@@ -527,6 +544,72 @@ def send_interview_outcome_requests() -> dict:
         logger.error("[INTERVIEW_OUTCOME_REQUEST] Failed: %s", exc)
         db.rollback()
         return {"sent": sent, "error": str(exc)}
+    finally:
+        db.close()
+
+
+# Grading makes several slow LLM calls per answer (a long interview took 2+ minutes in
+# live testing), so it gets its own limits instead of the 2/3-minute global ones. They
+# stay under GRADING_STALE_AFTER (15 min), after which a stuck grade is retryable.
+@celery_app.task(name="app.tasks.worker.grade_interview_session", soft_time_limit=780, time_limit=840)
+def grade_interview_session(session_id: str) -> None:
+    """Score a completed AI interview (per-answer feedback, readiness report,
+    XP) in the background so /complete can return immediately. run_grading
+    claims the session atomically and records done/failed on it itself, so a
+    duplicate delivery is a no-op and nothing here needs a retry policy — the
+    candidate can retry a failed grade from the report page."""
+    import asyncio
+
+    from app.modules.interview.service.feedback import run_grading
+
+    asyncio.run(run_grading(session_id))
+
+
+@celery_app.task(name="app.tasks.worker.purge_interview_audio")
+def purge_interview_audio() -> dict:
+    """Delete saved interview answer audio older than the retention period
+    (interview_audio_retention_days), and cached interviewer speech older than
+    the same window. Audio is only ever stored when the candidate opted in."""
+    import time
+    from pathlib import Path
+
+    from app.config import get_settings
+    from app.modules.interview import audio_store
+
+    settings = get_settings()
+    days = settings.interview_audio_retention_days
+    removed_audio = audio_store.purge_older_than(days)
+
+    removed_tts = 0
+    cache_dir = Path(settings.upload_dir) / "tts_cache"
+    if cache_dir.is_dir():
+        cutoff = time.time() - days * 86400
+        for f in cache_dir.iterdir():
+            if f.is_file() and f.stat().st_mtime < cutoff:
+                f.unlink(missing_ok=True)
+                removed_tts += 1
+    logger.info("[INTERVIEW_AUDIO_PURGE] removed %d audio dirs, %d cached speech files", removed_audio, removed_tts)
+    return {"audio_dirs": removed_audio, "tts_files": removed_tts}
+
+
+@celery_app.task(name="app.tasks.worker.purge_verified_interviews")
+def purge_verified_interviews() -> dict:
+    """Delete verified interviews (answers, report, audio) older than
+    verified_interview_retention_days. The employer's access already ended
+    when the share grant expired; this removes the data itself."""
+    from app.config import get_settings
+    from app.database import SessionLocal
+    from app.modules.interview.service import verified
+
+    db = SessionLocal()
+    try:
+        removed = verified.purge_expired(db, get_settings().verified_interview_retention_days)
+        logger.info("[VERIFIED_PURGE] removed %d verified interviews", removed)
+        return {"removed": removed}
+    except Exception as exc:
+        logger.error("[VERIFIED_PURGE] failed: %s", exc)
+        db.rollback()
+        return {"removed": 0, "error": str(exc)}
     finally:
         db.close()
 

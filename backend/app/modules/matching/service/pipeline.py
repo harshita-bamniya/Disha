@@ -117,7 +117,7 @@ def get_job_pipeline(
             .filter(AspirantProfile.full_name.ilike(search_term))
         )
 
-    apps_q = apps_q.order_by(Application.match_score.desc())
+    apps_q = apps_q.order_by(Application.match_score.desc().nullslast(), Application.created_at.desc())
     total_applications = apps_q.count()
     apps = apps_q.offset(offset).limit(limit).all()
 
@@ -250,6 +250,7 @@ def get_job_pipeline(
             open_to_relocation=profile.open_to_relocation if profile else None,
             preferred_locations=profile.preferred_locations if profile else None,
             match_score=app.match_score,
+            resume_fit_status=app.resume_fit_status,
             status=app.status,
             cover_note=app.cover_note,
             employer_note=app.employer_note,
@@ -594,3 +595,19 @@ def list_candidate_emails(application_id: str, user: User, db: Session) -> list[
         for r in rows
     ]
 
+
+
+def get_application_resume_fit(application_id: str, user: User, db: Session) -> dict:
+    """The resume-fit snapshot for one application (employer-facing). Same scoping as the answers view."""
+    employer = core._get_employer_profile_approved(user, db)
+    company_employer_ids = core._get_company_employer_ids(employer, db)
+    job_ids = core._get_scoped_job_ids(employer, company_employer_ids, user.role_name, db)
+
+    app = (
+        db.query(Application)
+        .filter(Application.id == application_id, Application.job_id.in_(job_ids))
+        .first()
+    )
+    if not app:
+        raise NotFoundException("Application not found.")
+    return {"status": app.resume_fit_status, "score": app.match_score, "report": app.resume_fit}

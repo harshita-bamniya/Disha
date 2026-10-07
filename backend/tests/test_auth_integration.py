@@ -163,7 +163,7 @@ class TestAccountLockout:
                 r = client.post("/api/auth/send-otp", json={"phone": phone, "purpose": "login"})
             dev_otp = r.json().get("dev_otp", "000000")
             r = client.post("/api/auth/login", json={
-                "phone": phone, "otp": dev_otp, "password": "WrongPassword!",
+                "identifier": phone, "password": "WrongPassword!",
             })
             statuses.append(r.status_code)
 

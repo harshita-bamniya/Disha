@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import AuthException, BadRequestException
@@ -10,6 +10,7 @@ from app.core.rbac import (
 from app.database import get_db
 from app.models.user import User
 from app.modules.jobs import service
+from app.modules.payments.service import require_active_employer_subscription
 from app.modules.jobs.schemas import (
     BulkImportResponse,
     EmployerDashboardResponse,
@@ -31,6 +32,11 @@ router = APIRouter(prefix="/employer", tags=["Employer Jobs"])
 
 # All routes require the caller to be a company-side user (owner or team member)
 _employer = require_employer
+# Dashboard/job-management routes additionally require an active subscription (free
+# or paid) — verification and permissions stay accessible even pre-signup (see
+# PaymentRequiredException). Free-tier usage is capped by the plan's own limits
+# (e.g. max_active_jobs, enforced in service._check_active_job_limit).
+_active_employer = require_active_employer_subscription
 
 
 @router.get("/dashboard", response_model=EmployerDashboardResponse)
@@ -39,6 +45,7 @@ def get_dashboard(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_verified_user),
+    _sub: User = Depends(_active_employer),
     db: Session = Depends(get_db),
 ):
     try:
@@ -59,6 +66,7 @@ def get_my_permissions(
 async def suggest_skills(
     body: SuggestSkillsRequest,
     current_user: User = Depends(require_permission("jobs", "create")),
+    _sub: User = Depends(_active_employer),
 ):
     try:
         return await service.suggest_skills_for_job(body.title, body.description)
@@ -70,6 +78,7 @@ async def suggest_skills(
 async def generate_description(
     body: GenerateDescriptionRequest,
     current_user: User = Depends(require_permission("jobs", "create")),
+    _sub: User = Depends(_active_employer),
 ):
     """AI first-draft of the job description from title + sector — employer
     reviews/edits before publishing. Skill suggestion already existed
@@ -86,6 +95,7 @@ async def generate_description(
 def create_job(
     body: JobPostingRequest,
     current_user: User = Depends(require_permission("jobs", "create")),
+    _sub: User = Depends(_active_employer),
     db: Session = Depends(get_db),
 ):
     try:
@@ -98,6 +108,7 @@ def create_job(
 async def bulk_import_jobs(
     file: UploadFile = File(...),
     current_user: User = Depends(require_permission("jobs", "create")),
+    _sub: User = Depends(_active_employer),
     db: Session = Depends(get_db),
 ):
     """Bulk-create job postings from a CSV — all saved as drafts for the
@@ -118,6 +129,7 @@ async def bulk_import_jobs(
 @router.get("/jobs/templates", response_model=list[JobTemplateOut])
 def list_job_templates(
     current_user: User = Depends(_employer),
+    _sub: User = Depends(_active_employer),
     db: Session = Depends(get_db),
 ):
     try:
@@ -130,6 +142,7 @@ def list_job_templates(
 def create_job_template(
     body: JobTemplateCreateRequest,
     current_user: User = Depends(require_permission("jobs", "create")),
+    _sub: User = Depends(_active_employer),
     db: Session = Depends(get_db),
 ):
     try:
@@ -142,6 +155,7 @@ def create_job_template(
 def delete_job_template(
     template_id: str,
     current_user: User = Depends(require_permission("jobs", "create")),
+    _sub: User = Depends(_active_employer),
     db: Session = Depends(get_db),
 ):
     try:
@@ -155,6 +169,7 @@ def update_job(
     job_id: str,
     body: JobPostingRequest,
     current_user: User = Depends(require_permission("jobs", "edit")),
+    _sub: User = Depends(_active_employer),
     db: Session = Depends(get_db),
 ):
     try:
@@ -167,6 +182,7 @@ def update_job(
 def publish_job(
     job_id: str,
     current_user: User = Depends(require_permission("jobs", "publish")),
+    _sub: User = Depends(_active_employer),
     db: Session = Depends(get_db),
 ):
     try:
@@ -179,6 +195,7 @@ def publish_job(
 def pause_job(
     job_id: str,
     current_user: User = Depends(require_permission("jobs", "publish")),
+    _sub: User = Depends(_active_employer),
     db: Session = Depends(get_db),
 ):
     try:
@@ -191,6 +208,7 @@ def pause_job(
 def close_job(
     job_id: str,
     current_user: User = Depends(require_permission("jobs", "publish")),
+    _sub: User = Depends(_active_employer),
     db: Session = Depends(get_db),
 ):
     try:
@@ -203,6 +221,7 @@ def close_job(
 def reopen_job(
     job_id: str,
     current_user: User = Depends(require_permission("jobs", "publish")),
+    _sub: User = Depends(_active_employer),
     db: Session = Depends(get_db),
 ):
     try:
@@ -215,6 +234,7 @@ def reopen_job(
 def archive_job(
     job_id: str,
     current_user: User = Depends(require_permission("jobs", "publish")),
+    _sub: User = Depends(_active_employer),
     db: Session = Depends(get_db),
 ):
     try:
@@ -227,6 +247,7 @@ def archive_job(
 def duplicate_job(
     job_id: str,
     current_user: User = Depends(require_permission("jobs", "create")),
+    _sub: User = Depends(_active_employer),
     db: Session = Depends(get_db),
 ):
     try:
@@ -239,6 +260,7 @@ def duplicate_job(
 def delete_job(
     job_id: str,
     current_user: User = Depends(require_permission("jobs", "delete")),
+    _sub: User = Depends(_active_employer),
     db: Session = Depends(get_db),
 ):
     try:
@@ -268,12 +290,26 @@ def request_verification(
         raise HTTPException(status_code=400, detail=e.detail)
 
 
+@router.post("/verification/documents", response_model=VerificationStatusResponse)
+async def upload_verification_document(
+    doc_type: str = Form(...),
+    file: UploadFile = File(...),
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return await service.upload_verification_document(current_user, doc_type, file, db)
+    except (AuthException, BadRequestException) as e:
+        raise HTTPException(status_code=400, detail=e.detail)
+
+
 # ── Hiring Team ────────────────────────────────────────────────────────────────
 
 @router.get("/jobs/{job_id}/hiring-team", response_model=list[HiringTeamMemberOut])
 def list_hiring_team(
     job_id: str,
     current_user: User = Depends(_employer),
+    _sub: User = Depends(_active_employer),
     db: Session = Depends(get_db),
 ):
     try:
@@ -287,6 +323,7 @@ def add_hiring_team_member(
     job_id: str,
     body: HiringTeamAddRequest,
     current_user: User = Depends(require_permission("jobs", "edit")),
+    _sub: User = Depends(_active_employer),
     db: Session = Depends(get_db),
 ):
     try:
@@ -300,6 +337,7 @@ def remove_hiring_team_member(
     job_id: str,
     member_id: str,
     current_user: User = Depends(require_permission("jobs", "edit")),
+    _sub: User = Depends(_active_employer),
     db: Session = Depends(get_db),
 ):
     try:

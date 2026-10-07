@@ -60,6 +60,7 @@ class ApplicationOut(BaseModel):
     department_name: Optional[str] = None
     status: str
     match_score: Optional[int]
+    resume_fit_status: Optional[str] = None
     cover_note: Optional[str]
     employer_note: Optional[str]
     created_at: datetime
@@ -126,6 +127,7 @@ class CandidateOut(BaseModel):
     preferred_locations: Optional[list[str]] = None
     # Application info
     match_score: Optional[int]
+    resume_fit_status: Optional[str] = None  # no_resume | pending | ready | failed
     status: str
     cover_note: Optional[str]
     employer_note: Optional[str] = None
@@ -554,3 +556,11 @@ class PipelineTemplateOut(BaseModel):
 class PipelineTemplateCreateRequest(BaseModel):
     name: str
     stages: list[PipelineTemplateStage]
+
+
+
+class ResumeFitOut(BaseModel):
+    """Employer-facing resume-fit snapshot for one application."""
+    status: Optional[str] = None   # no_resume | pending | ready | failed
+    score: Optional[int] = None
+    report: Optional[dict] = None

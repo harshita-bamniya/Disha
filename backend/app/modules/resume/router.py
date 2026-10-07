@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.rbac import get_current_aspirant
 from app.database import get_db
 from app.models.user import AspirantProfile, User
+from app.modules.payments.service import consume_feature_credit
 from app.modules.resume import pdf_service, service
 from app.modules.resume.schemas import (
     AIGenerateResumeResponse,
@@ -182,6 +183,7 @@ async def ai_generate(
     user: User = Depends(get_current_aspirant),
     db: Session = Depends(get_db),
 ):
+    consume_feature_credit(user, "resume_builder", db)
     try:
         return await service.ai_generate_resume(resume_id, user, db, job_context=body)
     except ValueError as e:
@@ -200,6 +202,7 @@ async def ai_generate_stream(
     Events. Pauses with a 'question' event when critical info is missing;
     the frontend resends the same request with 'answers' filled in to resume.
     """
+    consume_feature_credit(user, "resume_builder", db)
     body = body or AIGenerateStreamRequest()
     job_context = service.AiGenerateJobContext(
         job_title=body.job_title,
@@ -307,19 +310,9 @@ async def rewrite_bullet(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/{resume_id}/export")
-def export_resume_pdf(
-    resume_id: str,
-    user: User = Depends(get_current_aspirant),
-    db: Session = Depends(get_db),
-):
-    """
-    Download the resume as a PDF file.
-
-    Returns a streaming PDF with Content-Disposition: attachment so the browser
-    triggers a save-as dialog.  The candidate's name is pulled from their
-    AspirantProfile; falls back to their phone number if the profile is incomplete.
-    """
+def _render_resume_pdf(resume_id: str, user: User, db: Session) -> tuple[bytes, str]:
+    """Shared by /export and /save-to-library: load the resume, resolve the
+    candidate's name, and render the PDF. Returns (pdf_bytes, filename)."""
     try:
         resume_detail = service.get_resume(resume_id, user, db)
     except ValueError as e:
@@ -363,9 +356,49 @@ def export_resume_pdf(
     # Build a safe filename: "Rahul_Sharma_Resume.pdf"
     safe_name = re.sub(r"[^\w\s-]", "", candidate_name).strip().replace(" ", "_")
     filename = f"{safe_name}_Resume.pdf" if safe_name else "Resume.pdf"
+    return pdf_bytes, filename
 
+
+@router.get("/{resume_id}/export")
+def export_resume_pdf(
+    resume_id: str,
+    user: User = Depends(get_current_aspirant),
+    db: Session = Depends(get_db),
+):
+    """
+    Download the resume as a PDF file.
+
+    Returns a streaming PDF with Content-Disposition: attachment so the browser
+    triggers a save-as dialog.  The candidate's name is pulled from their
+    AspirantProfile; falls back to their phone number if the profile is incomplete.
+    """
+    pdf_bytes, filename = _render_resume_pdf(resume_id, user, db)
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.post("/{resume_id}/save-to-library")
+def save_to_library(
+    resume_id: str,
+    user: User = Depends(get_current_aspirant),
+    db: Session = Depends(get_db),
+):
+    """
+    Render this builder resume to PDF and add it straight to the candidate's
+    resume library, so it shows up as an option in the Apply flow's resume
+    picker — no manual download + re-upload needed.
+    """
+    from app.core.exceptions import BadRequestException
+    from app.modules.resume_library import service as library_service
+    from app.modules.resume_library.schemas import ResumeFileOut
+
+    pdf_bytes, filename = _render_resume_pdf(resume_id, user, db)
+    resume_detail = service.get_resume(resume_id, user, db)
+    try:
+        record = library_service.add_builder_pdf(pdf_bytes, filename, user, db, label=resume_detail.title)
+    except BadRequestException as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return ResumeFileOut.model_validate(record)

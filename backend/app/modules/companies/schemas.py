@@ -105,6 +105,8 @@ class MessageResponse(BaseModel):
 class SubscriptionPlanEntry(BaseModel):
     id: str
     name: str
+    plan_type: str
+    billing_interval: str
     price_monthly: int
     max_active_jobs: Optional[int] = None
     max_recruiter_seats: Optional[int] = None

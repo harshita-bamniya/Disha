@@ -39,6 +39,7 @@ from app.modules.matching.schemas import (
     ApplicationDetailOut,
     ApplicationOut,
     ApplicationResponsesOut,
+    ResumeFitOut,
     ApplicationTrendResponse,
     ApplyRequest,
     BookInterviewSlotRequest,
@@ -455,6 +456,19 @@ def get_application_responses(
     """Return the form question answers submitted by a candidate for a specific application."""
     try:
         return service.get_application_responses(application_id, current_user, db)
+    except (AuthException, NotFoundException) as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/employer/pipeline/applications/{application_id}/resume-fit", response_model=ResumeFitOut)
+def get_application_resume_fit(
+    application_id: str,
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    """How well the resume this candidate attached fits the job: score, must-haves and evidence."""
+    try:
+        return service.get_application_resume_fit(application_id, current_user, db)
     except (AuthException, NotFoundException) as e:
         raise HTTPException(status_code=404, detail=str(e))
 

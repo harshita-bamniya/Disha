@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 
 class RegisterRequest(BaseModel):
     email: str
+    phone: str
     password: str
     preferred_language: str = "hi"
     recaptcha_token: str | None = None
@@ -19,6 +20,16 @@ class RegisterRequest(BaseModel):
         if not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", v):
             raise ValueError("Enter a valid email address")
         return v
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        cleaned = re.sub(r"\D", "", v)
+        if cleaned.startswith("91") and len(cleaned) == 12:
+            cleaned = cleaned[2:]
+        if not re.match(r"^[6-9]\d{9}$", cleaned):
+            raise ValueError("Enter a valid 10-digit Indian mobile number")
+        return cleaned
 
     @field_validator("password")
     @classmethod
@@ -139,10 +150,11 @@ class AddPhoneRequest(BaseModel):
 
 
 class EmployerRegisterRequest(BaseModel):
-    """Minimal employer signup — everything else (industry, size, contact
-    person, GST, branding, verification docs) is collected later via the
-    post-login setup wizard, which every step of can be skipped."""
-    phone: str
+    """Minimal employer signup — everything else (phone, industry, size,
+    contact person, GST, branding, verification docs) is collected later via
+    the post-login setup wizard, which every step of can be skipped."""
+    email: str
+    phone: str | None = None
     password: str
     company_name: str
     industry: str | None = None
@@ -155,9 +167,21 @@ class EmployerRegisterRequest(BaseModel):
     description: str | None = None
     recaptcha_token: str | None = None
 
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v: str) -> str:
+        v = v.strip().lower()
+        if not v:
+            raise ValueError("Email address is required")
+        if not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", v):
+            raise ValueError("Enter a valid email address")
+        return v
+
     @field_validator("phone")
     @classmethod
-    def validate_phone(cls, v: str) -> str:
+    def validate_phone(cls, v: str | None) -> str | None:
+        if v is None or not v.strip():
+            return None
         cleaned = re.sub(r"\D", "", v)
         if cleaned.startswith("91") and len(cleaned) == 12:
             cleaned = cleaned[2:]
@@ -212,30 +236,24 @@ class RefreshRequest(BaseModel):
 
 
 class ForgotPasswordRequest(BaseModel):
-    phone: str
+    email: str
     recaptcha_token: str | None = None
 
-    @field_validator("phone")
+    @field_validator("email")
     @classmethod
-    def validate_phone(cls, v: str) -> str:
-        cleaned = re.sub(r"\D", "", v)
-        if cleaned.startswith("91") and len(cleaned) == 12:
-            cleaned = cleaned[2:]
-        return cleaned
+    def validate_email(cls, v: str) -> str:
+        return v.strip().lower()
 
 
 class ResetPasswordRequest(BaseModel):
-    phone: str
+    email: str
     otp: str
     new_password: str
 
-    @field_validator("phone")
+    @field_validator("email")
     @classmethod
-    def validate_phone(cls, v: str) -> str:
-        cleaned = re.sub(r"\D", "", v)
-        if cleaned.startswith("91") and len(cleaned) == 12:
-            cleaned = cleaned[2:]
-        return cleaned
+    def validate_email(cls, v: str) -> str:
+        return v.strip().lower()
 
     @field_validator("otp")
     @classmethod

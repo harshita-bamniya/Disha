@@ -223,10 +223,18 @@ RULES:
 1. Use ONLY the candidate's actual name, degree, institution, skills, and UPSC stage.
 2. Translate UPSC preparation into concrete corporate skills with specifics.
 3. All bullet points must start with a strong action verb (Led, Analysed, Developed…).
-4. Include at least one number or metric per experience bullet where plausible.
+4. Only include a number or metric in a bullet if the candidate explicitly gave it in \
+the profile or their own descriptions below. NEVER invent, estimate, or guess a metric, \
+percentile, rank, candidate count, citation count, publication detail, or any other \
+statistic. If a bullet would otherwise need a number to sound strong, write it without \
+one instead of guessing.
 5. Return ONLY valid minified JSON — no markdown, no code fences, no explanation.
 6. All arrays use the key "items" (never "entries").
-7. NEVER use these phrases anywhere in the resume: "dedicated", "passionate", "leveraging", "poised to", "aspiring", "eager to", "looking to", "seeking a role", "with a strong foundation in", "honed", "dynamic professional". These are meaningless filler — replace them with specific facts.\
+7. NEVER use these phrases anywhere in the resume: "dedicated", "passionate", "leveraging", "poised to", "aspiring", "eager to", "looking to", "seeking a role", "with a strong foundation in", "honed", "dynamic professional". These are meaningless filler — replace them with specific facts.
+8. NEVER fabricate achievements, reports, publications, review counts, or outcomes that \
+are not directly stated in the candidate data below. Every claim in the resume must be \
+traceable to a specific fact given in the CANDIDATE PROFILE section or the candidate's \
+own descriptions — if in doubt, leave it out rather than inventing something plausible.\
 """
 
 
@@ -318,9 +326,9 @@ Target Role: {target_role}
         "start_date": "<year they started — {years_prep} years ago>",
         "end_date": "Present",
         "bullets": [
-          "<Action verb + specific task from {optional_subj} study + quantified outcome>",
-          "<Action verb + governance/policy skill demonstrated + metric>",
-          "<Action verb + competitive achievement — e.g. cleared {stage} out of how many candidates>",
+          "<Action verb + specific task from {optional_subj} study — add a number ONLY if the candidate gave one below>",
+          "<Action verb + governance/policy skill demonstrated — add a number ONLY if the candidate gave one below>",
+          "<Action verb + factual statement that the candidate cleared {stage} of UPSC — do NOT add a percentile, rank, or candidate count unless it is explicitly given below>",
           "<Action verb + transferable skill relevant to {target_role}>"
         ]
       }}
@@ -343,13 +351,16 @@ Target Role: {target_role}
   }},
   "achievements": {{
     "items": [
-      "<Third-person factual statement: Cleared UPSC {stage} — add percentile or competitive context e.g. top X% of Y lakh candidates>",
-      "<Third-person factual statement: one concrete achievement from their study or work — NO first-person 'me/my/I', NO 'making me an ideal candidate' phrases>"
+      "<Third-person factual statement: cleared UPSC {stage}. Do NOT add a percentile, rank, or number of candidates unless the candidate explicitly provided one below.>",
+      "<Third-person factual statement: one concrete achievement drawn directly from the candidate's own description below — NO first-person 'me/my/I', NO 'making me an ideal candidate' phrases, and NO invented numbers, reports, or outcomes>"
     ]
   }}{",\n  \"projects\": {{\n    \"items\": [\n      {{\n        \"name\": \"<short project name based on the candidate's description below>\",\n        \"bullets\": [\"<bullet point: what was built, using the candidate's own description>\", \"<bullet point: the outcome/impact, if mentioned>\"],\n        \"tech\": [<tech stack mentioned by the candidate>],\n        \"url\": \"\"\n      }}\n    ]\n  }}" if project_str else ""}
 }}
 
-CRITICAL: Replace every <…> placeholder with real personalised content. \
+CRITICAL: Replace every <…> placeholder with real personalised content, using ONLY facts \
+given above. Do not invent numbers, percentiles, rankings, report or publication details, \
+district/peer counts, or any other statistic that was not explicitly provided — a bullet \
+without a number is always better than one with a guessed number. \
 The experience bullets array must have exactly 4 strings, and any projects bullets array \
 must have 2-3 strings — each starting with a strong action verb, \
 each specific to this candidate's {optional_subj} background and {target_role} target.\
@@ -580,10 +591,15 @@ def parsed_resume_to_sections(parsed: dict) -> list[dict]:
 
 _IMPROVE_SYSTEM = """\
 You are a professional resume editor. Improve the given resume section to be:
-- More impact-driven and quantified
+- More impact-driven, using any numbers/metrics already present in the input
 - ATS-friendly with strong action verbs
 - Concise and corporate-appropriate
 - Free of bureaucratic or overly academic language
+
+CRITICAL: NEVER invent or add a number, metric, percentile, rank, or outcome that is not \
+already present in the input content. You may rephrase or better highlight an existing \
+number, but a fact must already be in the input to appear in your output. When in doubt, \
+leave a claim as-is rather than adding invented specifics.
 
 Return ONLY the improved JSON in the exact same structure as the input. No explanation.\
 """

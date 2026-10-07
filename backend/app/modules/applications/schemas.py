@@ -68,6 +68,7 @@ class ApplicationOut(BaseModel):
     status: str
     reference_number: Optional[str]
     match_score: Optional[int]
+    resume_fit_status: Optional[str] = None
     knockout_triggered: bool
     application_score: Optional[int]
     created_at: datetime

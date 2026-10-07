@@ -27,6 +27,16 @@ class BadRequestException(HTTPException):
         super().__init__(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
 
+class PaymentRequiredException(HTTPException):
+    def __init__(self, detail: str = "A subscription is required to access this feature."):
+        super().__init__(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail=detail)
+
+
+class ServiceUnavailableException(HTTPException):
+    def __init__(self, detail: str = "This service is temporarily unavailable."):
+        super().__init__(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=detail)
+
+
 class OtpExpiredException(BadRequestException):
     def __init__(self):
         super().__init__(detail="OTP has expired. Please request a new one.")

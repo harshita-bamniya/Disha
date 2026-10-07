@@ -40,14 +40,27 @@ from app.models.employer_verification import (  # noqa: F401
 )
 from app.models.integrations import GoogleCalendarToken  # noqa: F401
 from app.models.interview import (  # noqa: F401
+    InterviewConsent,
     InterviewFeedback,
     InterviewHumanReview,
     InterviewOutcome,
+    InterviewSafetyEvent,
     InterviewSession,
+    ModelRun,
     QuestionBank,
     SessionResponse,
 )
+from app.models.interview_verified import (  # noqa: F401
+    EmployerDecision,
+    IntegrityEvent,
+    InterviewAppeal,
+    InterviewInvitation,
+    InterviewTemplate,
+    ShareGrant,
+)
 from app.models.job_plan import JobLearningPlan  # noqa: F401
+from app.models.role_blueprint import RoleBlueprint, SkillResource  # noqa: F401
+from app.models.resume_match import JobRequirementsRecord, ResumeMatchScan  # noqa: F401
 from app.models.jobs import JobTemplate  # noqa: F401
 from app.models.learning import (  # noqa: F401
     LearningPath,
@@ -59,6 +72,7 @@ from app.models.learning import (  # noqa: F401
 )
 from app.models.notifications import AdminAnnouncement, Notification  # noqa: F401
 from app.models.pipeline import CompanyPipelineTemplate, JobPipelineStage  # noqa: F401
+from app.models.payment import FeatureUsage, Payment, RazorpayWebhookEvent  # noqa: F401
 from app.models.platform import FeatureFlag, PlatformSetting  # noqa: F401
 from app.models.prompts import PromptTemplate  # noqa: F401
 from app.models.resume import (  # noqa: F401
@@ -75,7 +89,11 @@ from app.models.roadmap import (  # noqa: F401
     UserSkillCompetence,
 )
 from app.models.skill_vectors import SkillVector  # noqa: F401
-from app.models.subscription import CompanySubscription, SubscriptionPlan  # noqa: F401
+from app.models.subscription import (  # noqa: F401
+    AspirantSubscription,
+    CompanySubscription,
+    SubscriptionPlan,
+)
 from app.models.support import (  # noqa: F401
     SupportTicket,
     TicketAttachment,
@@ -87,6 +105,7 @@ from app.models.user import (  # noqa: F401
     CareerMatch,
     CareerTrack,
     EmployerProfile,
+    ExamSkillAffinity,
     JobPosting,
     KrsScore,
     OtpVerification,
@@ -100,3 +119,7 @@ from app.models.user import (  # noqa: F401
     UserJobPreparation,
 )
 from app.models.xp import UserXP, XPTransaction  # noqa: F401
+from app.models.market_role import MarketRole  # noqa: F401
+from app.models.reference_data import (  # noqa: F401
+    CandidateSegment, IndustryAnalysis, SalaryBenchmark, UpscEcosystemEntry, UpscSkillFramework,
+)

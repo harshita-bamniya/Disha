@@ -172,6 +172,16 @@ def get_dashboard(
     )
 
 
+def _prepare_roadmap_blueprint(job: JobPosting) -> None:
+    """Queue role-blueprint preparation for a newly published job (never raises, never blocks)."""
+    try:
+        from app.tasks.roadmap_engine_tasks import prepare_blueprint_for_job_task
+        from app.tasks.worker import safe_dispatch
+        safe_dispatch(prepare_blueprint_for_job_task, str(job.id))
+    except Exception as exc:  # publishing must never fail because of this
+        logger.warning("Could not queue blueprint preparation for job %s: %s", job.id, exc)
+
+
 def _embed_job(job: JobPosting) -> None:
     """Dispatch description embedding + required_skills caching to Celery."""
     from app.tasks.worker import embed_job
@@ -360,6 +370,8 @@ def create_job(user: User, data: JobPostingRequest, db: Session) -> JobPostingRe
     db.commit()
     db.refresh(job)
     _audit_job(db, "job.created", user.id, job.id, {"title": job.title, "status": job.status})
+    if job.status == "published":
+        _prepare_roadmap_blueprint(job)
     db.commit()
     logger.info(f"[JOBS] {profile.company_name} {'published' if data.publish else 'saved draft'}: {job.title}")
     _embed_job(job)
@@ -552,6 +564,8 @@ def _transition_job(user: User, job_id: str, to_status: str, db: Session) -> Job
     db.commit()
     db.refresh(job)
     logger.info(f"[JOBS] Job {job_id} -> {to_status}")
+    if to_status == "published":
+        _prepare_roadmap_blueprint(job)
     # Any transition either makes the job newly visible (-> published) or
     # removes it from view (paused/closed/archived) — both change what
     # aspirants should see, so both need the cache bumped.

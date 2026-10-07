@@ -169,7 +169,9 @@ class TestEnrichmentCircuitBreaker:
 
         async def failing_search(query, n=2):
             call_count["n"] += 1
-            return []  # yt-dlp found nothing — simulates a broken extractor
+            # None = the search itself failed (broken extractor); [] would only
+            # mean "nothing relevant" and deliberately doesn't trip the breaker.
+            return None
 
         plan = {"modules": [_youtube_module(5)]}
         with patch.object(plan_generator, "search_youtube", side_effect=failing_search):

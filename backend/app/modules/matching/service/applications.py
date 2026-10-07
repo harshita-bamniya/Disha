@@ -68,16 +68,15 @@ def apply_to_job(
             "Withdraw an existing application before applying to a new one."
         )
 
-    # Compute match score at time of application using the shared ranker
     profile = db.query(AspirantProfile).filter(AspirantProfile.user_id == user.id).first()
-    krs = db.query(KrsScore).filter(KrsScore.user_id == user.id).first()
-    snap, _ = rank_jobs_for_user(profile, krs, db, extra_sql_filters=[JobPosting.id == job.id], limit=1)
-    ms = snap[0].match_score if snap else 0
 
+    # This legacy quick-apply carries no resume, so there is nothing to score. Employers see resume
+    # fit only; the profile-based ranking number is not stored on the application.
     application = Application(
         aspirant_id=user.id,
         job_id=job.id,
-        match_score=ms,
+        match_score=None,
+        resume_fit_status="no_resume",
         cover_note=body.cover_note,
         status="applied",
     )
@@ -118,6 +117,7 @@ def apply_to_job(
         company_name=employer.company_name if employer else "Unknown",
         status=application.status,
         match_score=application.match_score,
+        resume_fit_status=application.resume_fit_status,
         cover_note=application.cover_note,
         employer_note=None,
         created_at=application.created_at,
@@ -150,6 +150,7 @@ def list_my_applications(user: User, db: Session) -> list[ApplicationOut]:
             department_name=dept.name if dept else None,
             status=app.status,
             match_score=app.match_score,
+            resume_fit_status=app.resume_fit_status,
             cover_note=app.cover_note,
             employer_note=app.employer_note,
             created_at=app.created_at,
@@ -186,6 +187,7 @@ def get_application_detail(application_id: str, user: User, db: Session) -> Appl
         department_name=dept.name if dept else None,
         status=app.status,
         match_score=app.match_score,
+        resume_fit_status=app.resume_fit_status,
         cover_note=app.cover_note,
         employer_note=app.employer_note,
         created_at=app.created_at,

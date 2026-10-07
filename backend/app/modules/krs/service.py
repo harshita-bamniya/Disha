@@ -42,6 +42,17 @@ def compute_and_store(user: User, db: Session) -> KrsScore:
     psych = db.query(PsychologicalAssessment).filter(PsychologicalAssessment.user_id == user.id).first()
     scores = scoring.compute_all(profile, psych, db)
 
+    # Compute career matches. This loops over every CareerTrack doing
+    # per-track embedding lookups (skill_gap.skill_overlap_pct), which can be
+    # slow — deliberately done before the krs_scores upsert below so that
+    # write's row lock is only held for the fast final commit, not across
+    # this whole computation. Concurrent requests for the same user (double
+    # effect fires, two tabs, a retried request) upsert-then-compute used to
+    # race on the krs_scores unique(user_id) constraint and queue up behind
+    # whichever request's slow computation ran first, sometimes for minutes.
+    tracks = db.query(CareerTrack).all()
+    ranked = matching.rank_tracks(profile, tracks, scores["k_score"], top_n=5, db=db)
+
     # Upsert krs_scores
     krs = db.query(KrsScore).filter(KrsScore.user_id == user.id).first()
     if krs:
@@ -54,10 +65,6 @@ def compute_and_store(user: User, db: Session) -> KrsScore:
         krs = KrsScore(user_id=user.id, **scores)
         db.add(krs)
     db.flush()
-
-    # Compute career matches
-    tracks = db.query(CareerTrack).all()
-    ranked = matching.rank_tracks(profile, tracks, scores["k_score"], top_n=5, db=db)
 
     # Delete old matches, insert fresh
     db.query(CareerMatch).filter(CareerMatch.user_id == user.id).delete()
@@ -194,6 +201,7 @@ def get_dashboard(user: User, db: Session) -> KrsDashboardResponse:
         selected_tracks=selected_tracks,
         full_name=profile.full_name,
         skills=list(profile.skills or []),
+        avatar_id=profile.avatar_id,
     )
 
 

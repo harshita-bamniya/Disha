@@ -812,3 +812,101 @@ def get_interview_outcome_correlation(
     admin: User = Depends(require_admin),
 ):
     return calibration_service.get_outcome_correlation(db)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# AI Interviewer — safety events. A crisis signal in a candidate's answer
+# halts the interview; the human team reviews it here.
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.get("/interview-safety-events")
+def list_interview_safety_events(
+    unreviewed_only: bool = Query(False),
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    from app.models.interview import InterviewSafetyEvent
+
+    q = db.query(InterviewSafetyEvent).order_by(InterviewSafetyEvent.created_at.desc())
+    if unreviewed_only:
+        q = q.filter(InterviewSafetyEvent.reviewed_by.is_(None))
+    return [
+        {
+            "id": str(e.id),
+            "user_id": str(e.user_id),
+            "session_id": str(e.session_id) if e.session_id else None,
+            "severity": e.severity,
+            "triggered_by": e.triggered_by,
+            "action_taken": e.action_taken,
+            "reviewed": e.reviewed_by is not None,
+            "created_at": e.created_at.isoformat() if e.created_at else None,
+        }
+        for e in q.limit(limit).all()
+    ]
+
+
+@router.post("/interview-safety-events/{event_id}/reviewed", response_model=MessageResponse)
+def mark_interview_safety_event_reviewed(
+    event_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    from app.models.interview import InterviewSafetyEvent
+
+    event = db.query(InterviewSafetyEvent).filter(InterviewSafetyEvent.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Safety event not found.")
+    event.reviewed_by = admin.id
+    db.commit()
+    return {"message": "Marked as reviewed."}
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Verified Interview — appeals and technical-failure retries
+# ═══════════════════════════════════════════════════════════════════════════
+
+@router.get("/interview-appeals")
+def list_interview_appeals(
+    status: Optional[Literal["open", "resolved"]] = Query(None),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    from app.modules.interview.service import verified
+
+    return verified.list_appeals(db, status)
+
+
+@router.post("/interview-appeals/{appeal_id}/resolve", response_model=MessageResponse)
+def resolve_interview_appeal(
+    appeal_id: str,
+    req: dict,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    from app.modules.interview.service import verified
+    from app.modules.interview.verified_schemas import ResolveAppealIn
+
+    try:
+        body = ResolveAppealIn(**req)
+        verified.resolve_appeal(admin, appeal_id, body.note, db)
+    except verified.VerifiedError as e:
+        raise HTTPException(status_code=e.status, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    return {"message": "Appeal resolved."}
+
+
+@router.post("/interview-invitations/{invitation_id}/allow-retry", response_model=MessageResponse)
+def allow_interview_retry(
+    invitation_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    from app.modules.interview.service import verified
+
+    try:
+        verified.allow_retry(invitation_id, db)
+    except verified.VerifiedError as e:
+        raise HTTPException(status_code=e.status, detail=str(e))
+    return {"message": "One more attempt granted. The previous result has been withdrawn."}

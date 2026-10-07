@@ -14,7 +14,8 @@ from app.modules.admin.service import core
 
 def _plan_to_admin_entry(plan: SubscriptionPlan) -> SubscriptionPlanAdminEntry:
     return SubscriptionPlanAdminEntry(
-        id=str(plan.id), name=plan.name, price_monthly=plan.price_monthly,
+        id=str(plan.id), name=plan.name, plan_type=plan.plan_type, billing_interval=plan.billing_interval,
+        price_monthly=plan.price_monthly, razorpay_plan_id=plan.razorpay_plan_id,
         max_active_jobs=plan.max_active_jobs, max_recruiter_seats=plan.max_recruiter_seats,
         resume_access=plan.resume_access, candidate_search_limit=plan.candidate_search_limit,
         is_active=plan.is_active,
@@ -32,7 +33,7 @@ def update_subscription_plan(plan_id: str, data: SubscriptionPlanUpdateRequest, 
         raise NotFoundException("Subscription plan not found.")
 
     before = _plan_to_admin_entry(plan).model_dump()
-    for field in ("price_monthly", "max_active_jobs", "max_recruiter_seats", "resume_access", "candidate_search_limit", "is_active"):
+    for field in ("price_monthly", "razorpay_plan_id", "max_active_jobs", "max_recruiter_seats", "resume_access", "candidate_search_limit", "is_active"):
         val = getattr(data, field)
         if val is not None:
             setattr(plan, field, val)

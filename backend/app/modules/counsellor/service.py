@@ -364,7 +364,17 @@ def get_nudge(user: User, db: Session) -> dict:
     # Check streak
     streak = db.query(UserStreak).filter(UserStreak.user_id == user.id).first()
 
-    if not last_interview or _is_older(last_interview.created_at, five_days_ago):
+    if not last_interview:
+        # Never done one at all — a different situation from "went quiet after
+        # starting", so it needs its own message rather than claiming a 5+ day
+        # lapse that can't have happened yet.
+        nudge = {
+            "type": "interview",
+            "message": "You haven't tried a mock interview yet — a quick 10-minute session is a great way to see where you stand.",
+            "cta": "Start Mock Interview",
+            "cta_path": "/app/interview/setup",
+        }
+    elif _is_older(last_interview.created_at, five_days_ago):
         nudge = {
             "type": "interview",
             "message": "You haven't practiced a mock interview in 5+ days. Even a quick 10-minute session keeps your confidence sharp.",

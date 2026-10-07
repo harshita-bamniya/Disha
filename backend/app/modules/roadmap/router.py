@@ -10,6 +10,7 @@ from app.ai.narrative_coach import evaluate_narrative
 from app.core.rbac import get_current_user
 from app.database import get_db
 from app.models.user import AspirantProfile, PsychologicalAssessment, User
+from app.modules.payments.service import consume_feature_credit
 from app.modules.roadmap import service
 from app.modules.roadmap.schemas import (
     GapSkillOut,
@@ -47,6 +48,7 @@ def generate_roadmap(
 
     Idempotent — calling again recalibrates the existing roadmap.
     """
+    consume_feature_credit(user, "roadmap", db)
     try:
         roadmap = service.generate_roadmap(career_track_id, user, db)
         return service.get_roadmap_out(roadmap, db)

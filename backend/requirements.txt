@@ -54,6 +54,10 @@ numpy>=1.24.0
 # Monitoring & error tracking
 sentry-sdk[fastapi]==2.19.2
 
+# Payments (Razorpay — recurring subscriptions, UPI Autopay/e-mandate)
+# 1.4.2 imports pkg_resources (removed from modern setuptools) — use 2.x.
+razorpay==2.0.1
+
 # PDF generation (resume export — pure Python, no system deps)
 reportlab==4.2.5
 

@@ -100,6 +100,26 @@ services:
     command: celery -A app.tasks.worker.celery_app worker --loglevel=info --concurrency=2
     restart: unless-stopped
 
+  # Roadmap generation runs on its own queue (long, LLM-bound). Without this service the
+  # default worker never consumes the `roadmap` queue and roadmaps would not be generated.
+  roadmap_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: disha_roadmap_worker_prod
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+      ENVIRONMENT: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.tasks.worker.celery_app worker -Q roadmap -n roadmap@%h --loglevel=info --concurrency=2
+    restart: unless-stopped
+
   beat:
     build:
       context: ./backend

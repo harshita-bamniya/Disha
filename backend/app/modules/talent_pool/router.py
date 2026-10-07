@@ -5,10 +5,14 @@ from app.core.exceptions import AuthException, NotFoundException
 from app.core.rbac import require_employer
 from app.database import get_db
 from app.models.user import User
+from app.modules.payments.service import require_active_employer_subscription
 from app.modules.talent_pool import service
 from app.modules.talent_pool.schemas import SaveCandidateRequest, SavedCandidateOut
 
-router = APIRouter(prefix="/employer/talent-pool", tags=["Employer Talent Pool"])
+router = APIRouter(
+    prefix="/employer/talent-pool", tags=["Employer Talent Pool"],
+    dependencies=[Depends(require_active_employer_subscription)],
+)
 
 _employer = require_employer
 

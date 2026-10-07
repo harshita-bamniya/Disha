@@ -263,6 +263,11 @@ def get_dashboard_kpis(user: User, db: Session) -> DashboardKpis:
     applications_today = sum(1 for _, created_at in apps if created_at and created_at >= today_start)
     interviews_scheduled = sum(1 for status, _ in apps if status == "interview_scheduled")
     offers_sent = sum(1 for status, _ in apps if status in ("offer_sent", "hired"))
+    # Distinct from offers_sent (lifetime total, includes resolved ones) — this
+    # is specifically offers still awaiting the candidate's response, so the
+    # "Action Items" widget stops nagging about an offer once it's been
+    # accepted (hired) or declined.
+    offers_pending = sum(1 for status, _ in apps if status == "offer_sent")
     hires = sum(1 for status, _ in apps if status == "hired")
     rejected_count = sum(1 for status, _ in apps if status == "rejected")
     responded = sum(1 for status, _ in apps if status in RESPONDED_STATUSES)
@@ -291,6 +296,7 @@ def get_dashboard_kpis(user: User, db: Session) -> DashboardKpis:
         total_applications=total_applications,
         interviews_scheduled=interviews_scheduled,
         offers_sent=offers_sent,
+        offers_pending=offers_pending,
         hires=hires,
         rejected_count=rejected_count,
         response_rate_pct=response_rate_pct,

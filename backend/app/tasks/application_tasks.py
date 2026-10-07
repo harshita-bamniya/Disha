@@ -128,3 +128,42 @@ def send_recruiter_new_application_alert(self, application_id: str, job_id: str)
         raise
     finally:
         db.close()
+
+
+@celery_app.task(
+    bind=True,
+    name="app.tasks.application_tasks.score_application_resume",
+    max_retries=3,
+    default_retry_delay=60,
+)
+def score_application_resume(self, application_id: str) -> None:
+    """Score the resume attached to an application against its job, then auto-shortlist if it qualifies.
+
+    Retries on failure (the AI service can be rate limited). When retries run out the application is
+    marked 'failed' so employers see "score unavailable" instead of a permanent "scoring...".
+    """
+    from app.database import SessionLocal
+    from app.models.applications import Application
+    from app.modules.applications.service import (
+        RESUME_FIT_FAILED, RESUME_FIT_READY, finalize_scored_application,
+    )
+    from app.modules.resume_match.application_fit import score_application_sync
+
+    try:
+        ok, reason = score_application_sync(application_id)
+        if not ok:
+            raise RuntimeError(reason)
+        finalize_scored_application(application_id)
+    except Exception as exc:
+        logger.warning("[RESUME_FIT] scoring %s failed (attempt %s): %s", application_id, self.request.retries + 1, exc)
+        if self.request.retries >= self.max_retries:
+            db = SessionLocal()
+            try:
+                app = db.query(Application).filter(Application.id == application_id).first()
+                if app is not None and app.resume_fit_status != RESUME_FIT_READY:
+                    app.resume_fit_status = RESUME_FIT_FAILED
+                    db.commit()
+            finally:
+                db.close()
+            return
+        raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1))

@@ -328,6 +328,18 @@ async def handle_message(
             language="Hindi (hi)" if lang == "hi" else "English (en)",
         ) + prev_session_ctx
 
+    # Every chat surface that renders this response (JobPlanChatWidget, ChatBubble,
+    # etc.) displays it as plain text with no markdown parsing — so markdown syntax
+    # from the model shows up as literal asterisks/hashes/dashes instead of actual
+    # formatting. Append this to every branch above rather than duplicating it in
+    # each prompt.
+    system_prompt += (
+        "\n\nFORMATTING: Write in plain text only — this is rendered with no markdown "
+        "parsing. NEVER use **bold**, *italics*, # headers, or `code` syntax. For a list, "
+        "write each item on its own line starting with a plain dash and a space "
+        "(- like this), not a numbered or asterisk bullet. Keep paragraphs short."
+    )
+
     # Build message history (exclude the message we just stored to avoid duplication)
     ai_messages = [
         {"role": m.role, "content": m.content}

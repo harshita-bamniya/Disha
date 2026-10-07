@@ -20,6 +20,8 @@ def make_profile(**kwargs):
     p.has_work_experience = kwargs.get("has_work_experience", False)
     p.work_experience_years = kwargs.get("work_experience_years", 0)
     p.skills = kwargs.get("skills", [])
+    p.upsc_attempts = kwargs.get("upsc_attempts", 0)
+    p.optional_subject = kwargs.get("optional_subject", None)
     return p
 
 
@@ -150,8 +152,9 @@ class TestSScore:
 class TestComposite:
     def test_weighted_average(self):
         result = scoring.compute_composite(k=80, r=60, s=40)
-        # 80*0.40 + 60*0.35 + 40*0.25 = 32 + 21 + 10 = 63
-        assert result == 63
+        # 80*0.35 + 60*0.30 + 40*0.35 = 28 + 18 + 14 = 60
+        # (skills share equal weight with K; see compute_composite)
+        assert result == 60
 
     def test_all_100(self):
         assert scoring.compute_composite(100, 100, 100) == 100
@@ -208,8 +211,10 @@ class TestMatching:
         fit = matching._krs_fit(k_score=30, min_k=60)
         assert fit < 80
 
-    def test_krs_fit_zero_threshold_always_100(self):
-        assert matching._krs_fit(k_score=0, min_k=0) == 100
+    def test_krs_fit_zero_threshold_uses_k_score_directly(self):
+        # No threshold set: K score is used directly so UPSC depth still differentiates.
+        assert matching._krs_fit(k_score=0, min_k=0) == 0
+        assert matching._krs_fit(k_score=74, min_k=0) == 74
 
     def test_rank_tracks_returns_top_n(self):
         profile = make_profile(skills=["Leadership", "Communication"])

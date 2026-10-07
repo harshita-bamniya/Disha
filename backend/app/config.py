@@ -52,7 +52,45 @@ class Settings(BaseSettings):
     # AI providers
     groq_api_key: str = ""
     anthropic_api_key: str = ""
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-3.1-flash-lite"
+    # When true, roadmaps are only generated from blueprints an expert has marked reviewed.
+    roadmap_require_reviewed_blueprint: bool = False
+    # Stored resume-vs-job scans (parsed resume profile + report) are deleted after this many days. 0 disables the purge.
+    resume_match_retention_days: int = 180
+    # Which provider the roadmap engine tries first: "groq" or "gemini". The other is the automatic
+    # failover on rate limits / 413 / 5xx. Flip via ROADMAP_LLM_PRIMARY in .env without a code change.
+    roadmap_llm_primary: str = "groq"
+    # Model for the heavy, once-per-role blueprint drafting. The cheap default (gemini_model) drafted
+    # 6 coarse skills where 12-16 were required, so drafting gets a stronger model.
+    gemini_strong_model: str = "gemini-3.8-flash"
+    # Tried in order when the strong model hits its (free-tier, per-model) daily cap. Each model has its
+    # own quota. For production, enable billing on the Google AI project instead of relying on this.
+    gemini_strong_fallback_models: str = "gemini-3.7-flash,gemini-2.5-flash"
     openai_api_key: str = ""
+
+    # AI interview voice. Server-side speech-to-text uses Groq Whisper (falls back to Gemini audio
+    # input), text-to-speech uses Gemini TTS. With none of these keys set, the interview uses the
+    # browser's own speech recognition/synthesis instead. Model names are config so a vendor rename
+    # is an .env change, not a code change.
+    interview_stt_groq_model: str = "whisper-large-v3-turbo"
+    interview_stt_gemini_model: str = ""          # empty = use gemini_model
+    # Fastest first (~4 s for a sentence vs ~6 s on the old preview model). Each model has its own
+    # rate-limit quota, so a 429 on one moves on to the next instead of dropping to the browser voice.
+    interview_tts_gemini_model: str = "gemini-3.8-flash-lite-tts"
+    interview_tts_gemini_fallback_models: str = "gemini-3.8-flash-tts,gemini-2.5-flash-preview-tts"
+    interview_tts_voice: str = "Kore"
+    interview_max_audio_mb: int = 10
+    interview_tts_max_chars: int = 800
+    interview_tts_calls_per_session: int = 80
+    # Answer audio is only kept when the candidate opts in; it is deleted after this many days.
+    interview_audio_retention_days: int = 30
+    # Verified (employer-shared) interviews are deleted after this many days.
+    verified_interview_retention_days: int = 180
+
+    # YouTube Data API v3 (roadmap video ranking). Optional: without it the
+    # video library falls back to yt-dlp search, which has no likes/subscriber data.
+    youtube_api_key: str = ""
 
     # SMS (MSG91)
     msg91_api_key: str = ""
@@ -82,6 +120,12 @@ class Settings(BaseSettings):
     # Monitoring
     sentry_dsn: str = ""
 
+    # Payments (Razorpay) — empty = payments disabled, checkout endpoints
+    # return 503 (same graceful-degradation pattern as clamav_host/brevo_smtp_key).
+    razorpay_key_id: str = ""
+    razorpay_key_secret: str = ""
+    razorpay_webhook_secret: str = ""
+
     @field_validator("jwt_secret_key", "jwt_refresh_secret_key", mode="before")
     @classmethod
     def _validate_jwt_secrets(cls, v: str, info) -> str:
@@ -107,10 +151,22 @@ class Settings(BaseSettings):
                 raise ValueError("At least one AI provider key (GROQ_API_KEY or ANTHROPIC_API_KEY) must be set in production.")
             if not self.sentry_dsn:
                 raise ValueError("SENTRY_DSN must be set in production for error monitoring.")
+            if not (self.razorpay_key_id and self.razorpay_key_secret and self.razorpay_webhook_secret):
+                raise ValueError(
+                    "RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET and RAZORPAY_WEBHOOK_SECRET must all be set in production."
+                )
         return self
 
     def get_allowed_origins(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins.split(",") if o.strip()]
+
+    def uses_real_email(self) -> bool:
+        """True once Brevo SMTP credentials are configured — mirrors
+        get_email_provider()'s own check in app/core/email.py. Used to hide
+        the dev-mode OTP (which exists so you can register without a real
+        inbox) once real emails are actually going out, so it doesn't linger
+        just because ENVIRONMENT is still 'local'."""
+        return bool(self.brevo_smtp_login and self.brevo_smtp_key)
 
 
 @lru_cache

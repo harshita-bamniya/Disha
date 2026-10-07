@@ -40,6 +40,8 @@ NOTIFICATION_TYPES = (
     # AI Interviewer predictive-validity flywheel — asks a candidate what
     # happened with the role they practiced for, ~2 weeks after the interview
     "interview_outcome_request",
+    # Verified Interview: an employer invited a candidate; the candidate finished
+    "verified_interview_invite", "verified_interview_done",
 )
 
 

@@ -42,10 +42,13 @@ _settings = get_settings()
 
 
 def _dev_otp(otp: str | None) -> str | None:
-    """Return the OTP only in local development. Belt-and-suspenders guard —
-    the service layer already filters this, but we enforce it here too so no
-    code path can accidentally leak a live OTP into a production response."""
-    return otp if _settings.environment == "local" else None
+    """Return the OTP only in local development, and only while no real
+    email provider is configured — once Brevo credentials are set, OTPs are
+    actually delivered to the inbox, so there's nothing to fall back on
+    showing. Belt-and-suspenders guard — the service layer already filters
+    this, but we enforce it here too so no code path can accidentally leak
+    a live OTP into a production response."""
+    return otp if (_settings.environment == "local" and not _settings.uses_real_email()) else None
 
 
 @router.post("/register", response_model=MessageResponse, status_code=201)
@@ -57,6 +60,7 @@ async def register(body: RegisterRequest, request: Request, db: Session = Depend
         raise HTTPException(status_code=400, detail=str(e))
     dev_otp = await service.register_user(
         email=body.email,
+        phone=body.phone,
         password=body.password,
         preferred_language=body.preferred_language,
         db=db,
@@ -153,9 +157,9 @@ async def forgot_password(body: ForgotPasswordRequest, request: Request, db: Ses
         await verify_recaptcha(body.recaptcha_token, "forgot_password")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    dev_otp = await service.request_password_reset(phone=body.phone, db=db)
+    dev_otp = await service.request_password_reset(email=body.email, db=db)
     return MessageResponse(
-        message="OTP sent to your phone. Use it to reset your password.",
+        message="OTP sent to your email. Use it to reset your password.",
         dev_otp=_dev_otp(dev_otp),
     )
 
@@ -163,7 +167,7 @@ async def forgot_password(body: ForgotPasswordRequest, request: Request, db: Ses
 @router.post("/reset-password", response_model=MessageResponse)
 @limiter.limit("5/minute")
 def reset_password(body: ResetPasswordRequest, request: Request, db: Session = Depends(get_db)):
-    service.reset_password(phone=body.phone, otp=body.otp, new_password=body.new_password, db=db)
+    service.reset_password(email=body.email, otp=body.otp, new_password=body.new_password, db=db)
     return MessageResponse(message="Password reset successfully. You can now log in.")
 
 
@@ -175,6 +179,7 @@ async def register_employer(body: EmployerRegisterRequest, request: Request, db:
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return await service.register_employer(
+        email=body.email,
         phone=body.phone,
         password=body.password,
         company_name=body.company_name,

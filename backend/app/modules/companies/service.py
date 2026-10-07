@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import (
@@ -162,7 +163,11 @@ def invite_team_member(user: User, data: TeamInviteRequest, db: Session) -> Team
 
     seat_limit = _get_recruiter_seat_limit(company.id, db)
     if seat_limit is not None:
-        current_seats = db.query(EmployerProfile).filter(EmployerProfile.company_id == company.id).count()
+        # The owner isn't a "recruiter seat" — they're the account itself, not
+        # part of the hired/invited team the plan's seat limit is metering.
+        current_seats = db.query(EmployerProfile).filter(
+            EmployerProfile.company_id == company.id, EmployerProfile.is_owner == False,  # noqa: E712
+        ).count()
         if current_seats >= seat_limit:
             raise BadRequestException(
                 f"Your plan allows {seat_limit} recruiter seat(s). Upgrade your subscription to add more."
@@ -176,15 +181,22 @@ def invite_team_member(user: User, data: TeamInviteRequest, db: Session) -> Team
     if not role:
         raise BadRequestException(f"Role '{data.role_name}' not seeded in database.")
 
+    import secrets
+
     from app.core.security import hash_password
+    # Password reset is phone-OTP based and invited teammates have no phone
+    # on file, so an omitted password would leave the account permanently
+    # unable to sign in. Always generate one and email it.
+    plain_password = data.password or secrets.token_urlsafe(9)
     new_user = User(
         email=data.email, role_id=role.id, email_verified=True, is_active=True,
-        password_hash=hash_password(data.password) if data.password else None,
+        password_hash=hash_password(plain_password),
     )
     db.add(new_user)
     db.flush()
 
     dept_id = None
+    dept_name = None
     if data.department_id:
         dept = db.query(CompanyDepartment).filter(
             CompanyDepartment.id == data.department_id,
@@ -193,6 +205,7 @@ def invite_team_member(user: User, data: TeamInviteRequest, db: Session) -> Team
         if not dept:
             raise BadRequestException("Department not found in this company.")
         dept_id = dept.id
+        dept_name = dept.name
 
     new_profile = EmployerProfile(
         user_id=new_user.id,
@@ -210,6 +223,13 @@ def invite_team_member(user: User, data: TeamInviteRequest, db: Session) -> Team
     ))
     db.commit()
     db.refresh(new_profile)
+
+    from app.core.notifications import notify, team_invite_email
+    subject, html = team_invite_email(
+        company.name, data.contact_person, data.role_name,
+        data.email, plain_password, dept_name,
+    )
+    notify(data.email, subject, html)
 
     return _member_to_entry(new_profile, new_user)
 
@@ -260,7 +280,8 @@ def transfer_ownership(user: User, new_owner_employer_profile_id: str, db: Sessi
 
 def _plan_to_entry(plan: SubscriptionPlan) -> SubscriptionPlanEntry:
     return SubscriptionPlanEntry(
-        id=str(plan.id), name=plan.name, price_monthly=plan.price_monthly,
+        id=str(plan.id), name=plan.name, plan_type=plan.plan_type, billing_interval=plan.billing_interval,
+        price_monthly=plan.price_monthly,
         max_active_jobs=plan.max_active_jobs, max_recruiter_seats=plan.max_recruiter_seats,
         resume_access=plan.resume_access, candidate_search_limit=plan.candidate_search_limit,
         is_active=plan.is_active,
@@ -285,8 +306,19 @@ def _get_company_subscription(company_id, db: Session) -> CompanySubscription:
             current_period_start=now, current_period_end=now + timedelta(days=365 * 100),
         )
         db.add(sub)
-        db.commit()
-        db.refresh(sub)
+        try:
+            db.commit()
+        except IntegrityError:
+            # Lost the race against another lazy-provisioner (e.g. payments
+            # service's own _get_or_create_company_subscription) firing for
+            # the same company at the same time — read back its row instead
+            # of crashing the request.
+            db.rollback()
+            sub = db.query(CompanySubscription).filter(CompanySubscription.company_id == company_id).first()
+            if not sub:
+                raise
+        else:
+            db.refresh(sub)
     return sub
 
 
@@ -322,7 +354,12 @@ def get_subscription_usage(user: User, db: Session) -> SubscriptionUsageResponse
     active_jobs = db.query(JobPosting).filter(
         JobPosting.employer_id.in_(company_employer_ids), JobPosting.is_active == True,
     ).count()
-    recruiter_seats = len(company_employer_ids)
+    # Recruiter seats used = invited teammates only, not the owner — mirrors
+    # the same exclusion in invite_team_member's seat-limit check, so the
+    # Billing page's usage bar and the actual invite gate always agree.
+    recruiter_seats = db.query(EmployerProfile).filter(
+        EmployerProfile.company_id == company.id, EmployerProfile.is_owner == False,  # noqa: E712
+    ).count()
 
     return SubscriptionUsageResponse(
         active_jobs_used=active_jobs, active_jobs_limit=plan.max_active_jobs if plan else None,
@@ -339,6 +376,8 @@ def upgrade_subscription(user: User, plan_id: str, db: Session) -> CompanySubscr
     plan = db.query(SubscriptionPlan).filter(SubscriptionPlan.id == plan_id, SubscriptionPlan.is_active == True).first()
     if not plan:
         raise NotFoundException("Subscription plan not found.")
+    if plan.price_monthly > 0:
+        raise BadRequestException("Paid plans require checkout — use POST /api/payments/checkout instead.")
 
     sub = _get_company_subscription(company.id, db)
     sub.plan_id = plan.id
@@ -354,7 +393,12 @@ def upgrade_subscription(user: User, plan_id: str, db: Session) -> CompanySubscr
 
 
 def list_subscription_plans(db: Session) -> list[SubscriptionPlanEntry]:
-    plans = db.query(SubscriptionPlan).order_by(SubscriptionPlan.price_monthly).all()
+    plans = (
+        db.query(SubscriptionPlan)
+        .filter(SubscriptionPlan.plan_type == "employer")
+        .order_by(SubscriptionPlan.price_monthly)
+        .all()
+    )
     return [_plan_to_entry(p) for p in plans]
 
 
@@ -753,17 +797,24 @@ def get_team_activity_log(user: User, db: Session, limit: int = 50) -> list[dict
             "resource_id": str(log.resource_id) if log.resource_id else None,
             "actor_email": actor.email if actor else None,
             "actor_name": None,  # EmployerProfile.contact_person looked up below if needed
+            "department_id": None,
+            "department_name": None,
             "created_at": log.created_at,
         })
 
-    # Enrich with contact_person names via a single batch lookup
-    actor_names: dict = {}
+    # Enrich with contact_person names + department via a single batch lookup
+    # over the same company_profiles list already fetched above.
+    profile_by_user: dict = {}
     for p in company_profiles:
-        if p.contact_person:
-            actor_names[p.user_id] = p.contact_person
+        profile_by_user[p.user_id] = p
 
     for i, (log, actor) in enumerate(rows):
-        if actor and actor.id in actor_names:
-            result[i]["actor_name"] = actor_names[actor.id]
+        p = profile_by_user.get(actor.id) if actor else None
+        if p:
+            if p.contact_person:
+                result[i]["actor_name"] = p.contact_person
+            if p.department_id:
+                result[i]["department_id"] = str(p.department_id)
+                result[i]["department_name"] = p.department.name if p.department else None
 
     return result

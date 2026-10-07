@@ -13,6 +13,9 @@ import json
 import logging
 import re
 
+from app.ai.untrusted import DATA_NOTICE, fence
+from app.ai.usage import tracked_complete
+
 logger = logging.getLogger(__name__)
 
 _SYSTEM_PROMPT = """You are an expert interview evaluator and adaptive interview conductor.
@@ -54,9 +57,17 @@ DECISION RULES:
 
 CRITICAL: If follow_up_question is set, make it sound natural and conversational — like a real interviewer, not a checklist.
 
+If a TARGET ROLE is given below, a follow-up must go deep on what THAT role actually demands —
+not a generic "can you elaborate?" or "give me an example". Tie the probe to a real responsibility,
+tool, or stakes of that specific role (e.g. for a policy analyst role, push on how a claimed number
+was actually derived or who would contest it; for an engineering role, push on a concrete design
+trade-off or failure mode) rather than restating the original question in different words.
+
 UPSC context: Many candidates will use bureaucratic language (notings, district administration, IAS, etc.).
 For "hr" interviews, gently reflect that commercial framing is better.
 For "technical" interviews, probe whether they can translate public-sector skills to private-sector outputs.
+
+SECURITY: """ + DATA_NOTICE + """
 
 Return ONLY the JSON. No explanation outside JSON."""
 
@@ -69,22 +80,26 @@ async def decide_next_action(
     skill_topic: str | None = None,
     already_probed: bool = False,
     recent_history: str | None = None,
+    job_role: str | None = None,
 ) -> dict:
     """
     Returns decision dict. Falls back to next_question on any AI failure.
     """
     from app.ai.providers import create_provider
 
-    # Always move on if we already probed or very few questions left
-    if already_probed or questions_remaining <= 1:
+    # Always move on if we already probed. Whether a probe is allowed at all
+    # (caps, time) is decided by the caller's rules in interview.policy.
+    if already_probed:
         return _fast_next(question_text, response_text)
 
     history_section = (
-        f"\nRECENT CONVERSATION HISTORY (earlier in this same interview):\n{recent_history}\n"
+        "\nRECENT CONVERSATION HISTORY (earlier in this same interview):\n"
+        f"{fence('recent_history', recent_history, 3000)}\n"
         if recent_history else ""
     )
 
     user_msg = f"""INTERVIEW TYPE: {interview_type}
+TARGET ROLE: {fence('target_role', job_role or 'Not specified', 200)}
 SKILL/TOPIC: {skill_topic or 'General'}
 QUESTIONS REMAINING: {questions_remaining}
 ALREADY PROBED THIS QUESTION: {already_probed}
@@ -93,13 +108,20 @@ QUESTION ASKED:
 {question_text}
 
 CANDIDATE RESPONSE:
-{response_text}
+{fence('candidate_response', response_text)}
 
 Evaluate and return your decision JSON."""
+    if interview_type == "stress":
+        user_msg += (
+            "\n\nSTRESS MODE: this candidate chose a tougher, sceptical panel. Prefer to challenge a specific "
+            "claim or ask a firm 'why' instead of moving on, and push back politely. Always stay professional "
+            "and respectful, and never touch the candidate's personal background, age or career gap."
+        )
 
     try:
         provider = create_provider()
-        result = await provider.complete(
+        result = await tracked_complete(
+            provider, "live_decision",
             system=_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_msg}],
             max_tokens=500,

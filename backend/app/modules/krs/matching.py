@@ -1,7 +1,10 @@
 """
 Career Track Matching Engine.
 
-Match score (0-100) = 0.60 * skill_overlap + 0.40 * krs_fit
+Match score (0-100) = 0.60 * skill_overlap + 0.40 * krs_fit, plus a small flat
+bonus when the aspirant's UPSC exam implies transferable skills that overlap
+with the track (see exam_affinity.py) — capped and additive, same treatment
+as an explicitly chosen sector, never blended into skill_overlap itself.
 - skill_overlap: % of track's required_skills the aspirant semantically has
 - krs_fit:       how well the aspirant's K score meets the track's min_k_score
 
@@ -13,6 +16,13 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.models.user import AspirantProfile, CareerTrack
+
+# Flat bonus applied when the track's required skills meaningfully overlap
+# with the aspirant's exam-implied transferable skills (see exam_affinity.py)
+# — smaller than an explicit signal like a chosen sector would get, since
+# this is inferred from the exam alone, not something the user told us.
+_EXAM_AFFINITY_BONUS = 6
+_EXAM_AFFINITY_THRESHOLD = 40  # min overlap % before the bonus kicks in
 
 
 def _krs_fit(k_score: int, min_k: int) -> int:
@@ -55,6 +65,21 @@ def compute_match_score(
 
     fit = _krs_fit(k_score, track.min_k_score)
     composite = round(overlap * 0.60 + fit * 0.40)
+
+    # Small, capped nudge from the aspirant's exam-implied transferable skills
+    # (see exam_affinity.py) — e.g. a CDS background implies things like Team
+    # Leadership and Crisis Management even if the user never typed them in.
+    # This is a LOW-CONFIDENCE PRIOR, not a real skill claim: it's a flat
+    # bonus applied the same way _apply_sector_bonus works for an explicitly
+    # chosen sector, and it never touches `overlap` above or
+    # skills_you_have/skills_to_develop anywhere else — those stay honest and
+    # based only on what the user actually reported.
+    if db is not None and required:
+        from app.modules.krs.exam_affinity import get_implied_skills
+        implied_skills = get_implied_skills(profile.upsc_exam, db)
+        if implied_skills and skill_overlap_pct(implied_skills, required, db) >= _EXAM_AFFINITY_THRESHOLD:
+            composite = min(100, composite + _EXAM_AFFINITY_BONUS)
+
     return composite, overlap
 
 

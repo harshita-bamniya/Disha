@@ -414,7 +414,10 @@ class AuditLogPage(BaseModel):
 class SubscriptionPlanAdminEntry(BaseModel):
     id: str
     name: str
+    plan_type: str
+    billing_interval: str
     price_monthly: int
+    razorpay_plan_id: Optional[str] = None
     max_active_jobs: Optional[int] = None
     max_recruiter_seats: Optional[int] = None
     resume_access: bool
@@ -424,6 +427,7 @@ class SubscriptionPlanAdminEntry(BaseModel):
 
 class SubscriptionPlanUpdateRequest(BaseModel):
     price_monthly: Optional[int] = None
+    razorpay_plan_id: Optional[str] = None
     max_active_jobs: Optional[int] = None
     max_recruiter_seats: Optional[int] = None
     resume_access: Optional[bool] = None

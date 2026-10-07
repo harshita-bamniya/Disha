@@ -231,6 +231,7 @@ def _make_application(job_id, aspirant_id, status="applied") -> MagicMock:
     a.aspirant_id = aspirant_id
     a.status = status
     a.match_score = 75
+    a.resume_fit_status = "ready"
     a.cover_note = None
     a.employer_note = None
     a.created_at = datetime.now(timezone.utc)

@@ -44,8 +44,21 @@ class Application(Base):
     aspirant_id     = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     job_id          = Column(UUID(as_uuid=True), ForeignKey("job_postings.id", ondelete="CASCADE"), nullable=False, index=True)
 
-    # Computed at application time from the aspirant's current KRS
-    match_score     = Column(Integer, nullable=True)   # 0-100, computed at submission time
+    # Resume fit: how well the attached resume matches this job (0-100). NULL until scored, and
+    # for applications submitted without a resume. Employers see and sort by this number.
+    match_score     = Column(Integer, nullable=True)
+    # no_resume | pending | ready | failed  (pending = scoring in the background)
+    resume_fit_status = Column(String(12), nullable=True)
+    # Employer-safe snapshot of the resume-fit report (score, band, must-haves, requirement
+    # checklist with evidence). Kept here so it survives the candidate deleting their own scan.
+    resume_fit      = Column(JSONB, nullable=True)
+
+    # What the candidate says happened ("Did you hear back?"): interview | offer | rejected | no_response.
+    # Real outcomes are the only honest way to check later whether the fit score predicts anything.
+    candidate_outcome    = Column(String(20), nullable=True)
+    candidate_outcome_at = Column(DateTime(timezone=True), nullable=True)
+    # The resume-match scan this application's fit score came from (NULL if that scan was deleted).
+    resume_match_scan_id = Column(UUID(as_uuid=True), ForeignKey("resume_match_scans.id", ondelete="SET NULL"), nullable=True)
 
     # Optional cover letter / context from aspirant
     cover_note      = Column(Text, nullable=True)
@@ -80,6 +93,7 @@ class Application(Base):
 
     aspirant        = relationship("User", foreign_keys=[aspirant_id])
     job             = relationship("JobPosting", back_populates="applications")
+    resume          = relationship("CandidateResumeFile", foreign_keys=[resume_id])
     status_history  = relationship("ApplicationStatusHistory", back_populates="application",
                                    order_by="ApplicationStatusHistory.created_at", cascade="all, delete-orphan")
 
