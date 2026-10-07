@@ -6,6 +6,7 @@ import random
 
 from sqlalchemy.orm import Session
 
+from app.ai.usage import interview_context
 from app.models.interview import InterviewSession, QuestionBank
 from app.models.user import CareerTrack, User
 from app.modules.interview.schemas import (
@@ -13,6 +14,7 @@ from app.modules.interview.schemas import (
     QuestionOut,
     SessionDetail,
 )
+from app.modules.interview import transition
 from app.modules.interview.service import core
 
 logger = logging.getLogger(__name__)
@@ -24,7 +26,16 @@ _SYNTHETIC_PREFIX = "dyn:"  # prefix in question_text to mark dynamic bank entri
 _WEAK_AREA_THRESHOLD = 6   # overall_score below this is a "weak" competency
 
 
-async def create_session(body: CreateSessionRequest, user: User, db: Session) -> SessionDetail:
+# Skill name (and relative weight) the employer's own questions are scored under.
+EMPLOYER_SKILL = "Employer-specific questions"
+EMPLOYER_WEIGHT = 15
+
+
+async def create_session(
+    body: CreateSessionRequest, user: User, db: Session, plan: dict | None = None,
+) -> SessionDetail:
+    """plan (verified interviews only): {"competencies": [...], "custom_questions": [...]} from the
+    employer's template. It replaces the generated competency matrix and adds the employer's questions."""
     session = InterviewSession(
         user_id=user.id,
         career_track_id=body.career_track_id,
@@ -34,22 +45,32 @@ async def create_session(body: CreateSessionRequest, user: User, db: Session) ->
         job_role=body.job_role,
         experience_level=body.experience_level,
         job_description=body.job_description,
+        language=body.language,
     )
     db.add(session)
-    db.flush()
+    # Committed (not just flushed) so model_runs rows logged from a separate
+    # DB connection during generation can reference this session.
+    db.commit()
 
     questions: list[QuestionOut] = []
 
-    if body.job_role:
-        # ── Dynamic AI-generated questions ──────────────────────────────────
-        questions = await _generate_dynamic_questions(
-            session, body, db, user
-        )
-    else:
-        # ── Legacy: static question bank sampling ────────────────────────────
-        questions = _sample_from_bank(session, body, db)
-
-    db.commit()
+    try:
+        with interview_context(str(session.id)):
+            if body.job_role:
+                # ── Dynamic AI-generated questions ──────────────────────────
+                questions = await _generate_dynamic_questions(
+                    session, body, db, user, plan
+                )
+            else:
+                # ── Legacy: static question bank sampling ───────────────────
+                questions = _sample_from_bank(session, body, db)
+        db.commit()
+    except Exception:
+        db.rollback()
+        # Don't leave a question-less session behind.
+        from app.modules.interview.service.sessions import discard_session
+        discard_session(str(session.id), user, db)
+        raise
 
     track_name = None
     if body.career_track_id:
@@ -70,6 +91,7 @@ async def create_session(body: CreateSessionRequest, user: User, db: Session) ->
         job_role=session.job_role,
         experience_level=session.experience_level,
         blueprint=session.blueprint,
+        language=session.language,
         questions=questions,
         responses=[],
     )
@@ -132,11 +154,13 @@ def _build_resume_context(user: User, db: Session) -> str | None:
 
 def _build_candidate_context(user: User, db: Session) -> str | None:
     """Build a concise candidate background string for interview calibration."""
-    from app.models.user import AspirantProfile, KrsScore, PsychologicalAssessment
+    # Deliberately no PsychologicalAssessment here: counselling data never
+    # reaches the interview prompts. Only the one-way tone flag does (see
+    # counsellor.interview_tone).
+    from app.models.user import AspirantProfile, KrsScore
 
     profile = db.query(AspirantProfile).filter(AspirantProfile.user_id == user.id).first()
     krs = db.query(KrsScore).filter(KrsScore.user_id == user.id).first()
-    psych = db.query(PsychologicalAssessment).filter(PsychologicalAssessment.user_id == user.id).first()
     resume_context = _build_resume_context(user, db)
 
     if not profile and not krs and not resume_context:
@@ -172,11 +196,6 @@ def _build_candidate_context(user: User, db: Session) -> str | None:
             f"Skills match: {_label(krs.s_score)} ({krs.s_score}/100)"
         )
 
-    if psych:
-        burnout = "High" if (psych.burnout_score or 0) >= 70 else "Moderate" if (psych.burnout_score or 0) >= 40 else "Low"
-        confidence = "High" if (psych.confidence_index or 0) >= 65 else "Low"
-        lines.append(f"Psychological state: Burnout={burnout}, Confidence={confidence}")
-
     return "\n".join(lines) if lines else None
 
 
@@ -185,11 +204,13 @@ async def _generate_dynamic_questions(
     body: CreateSessionRequest,
     db: Session,
     user: User | None = None,
+    plan: dict | None = None,
 ) -> list[QuestionOut]:
     """Generate role-specific questions via AI and persist them to question_banks."""
     from app.ai.dynamic_interview_engine import (
         generate_blueprint,
         generate_questions,
+        is_technical_breakdown,
         panelist_for_question_type,
         resolve_competencies,
     )
@@ -203,7 +224,11 @@ async def _generate_dynamic_questions(
     # Resolved once and reused for blueprint + questions + (later) the readiness
     # report, so a free-typed role not in the fixed taxonomy gets one consistent
     # LLM-generated competency matrix instead of drifting between calls.
-    competencies = await resolve_competencies(body.job_role)
+    custom_questions = list((plan or {}).get("custom_questions") or [])
+    competencies = list(plan["competencies"]) if plan else await resolve_competencies(body.job_role)
+
+    from app.modules.counsellor.interview_tone import interview_tone
+    tone = interview_tone(user.id, db) if user else "standard"
 
     blueprint = await generate_blueprint(
         job_role=body.job_role,
@@ -213,18 +238,29 @@ async def _generate_dynamic_questions(
         candidate_context=candidate_context,
         prior_weak_areas=prior_weak,
         competencies=competencies,
+        tone=tone,
+        language=body.language,
+        session_type=body.session_type,
     )
 
     raw_questions = await generate_questions(
         job_role=body.job_role,
         experience_level=body.experience_level or "Mid-Level",
         blueprint=blueprint,
-        count=session.total_questions,
+        # The first slot is the career-transition question and the employer's own questions take theirs.
+        count=max(1, session.total_questions - 1 - len(custom_questions)) if plan else session.total_questions,
         competencies=competencies,
         candidate_context=candidate_context,
+        language=body.language,
     )
+    for text in custom_questions:
+        raw_questions.append({
+            "question_text": text, "question_type": "situational", "difficulty": "medium",
+            "skill_assessed": EMPLOYER_SKILL, "expected_answer_hints": "",
+        })
 
     # Persist generated questions into question_banks so FK stays valid
+    is_technical_role = is_technical_breakdown(blueprint.get("question_breakdown"))
     question_outs: list[QuestionOut] = []
     for q in raw_questions:
         q_type = q.get("question_type", "behavioral")
@@ -242,14 +278,14 @@ async def _generate_dynamic_questions(
         # Embed skill_assessed in expected_answer_guide with a parseable prefix
         guide = f"[SKILL:{skill_name}] " + (q.get("expected_answer_hints") or "") if skill_name else q.get("expected_answer_hints")
 
-        panelist = panelist_for_question_type(q_type)
+        panelist = panelist_for_question_type(q_type, is_technical_role)
 
         bank_entry = QuestionBank(
             question_text=q.get("question_text", "Tell me about yourself."),
             question_type=q_type,
             difficulty=difficulty,
             expected_answer_guide=guide,
-            language="en",
+            language=body.language,
             is_active=True,
             career_track_id=None,
             panelist_name=panelist["name"] if panelist else None,
@@ -263,7 +299,7 @@ async def _generate_dynamic_questions(
             question_text=bank_entry.question_text,
             question_type=q_type,
             difficulty=difficulty,
-            language="en",
+            language=body.language,
             career_track_id=None,
             skill_assessed=skill_name or None,
             is_dynamic=True,
@@ -275,7 +311,20 @@ async def _generate_dynamic_questions(
     # session so process_response can scope to them and the readiness report
     # later uses the exact same competency matrix these questions were built from.
     generated_ids = [str(q.id) for q in question_outs]
-    session.blueprint = {**(blueprint or {}), "_question_ids": generated_ids, "_competencies": competencies}
+    # The first question is always the career-transition story, in the
+    # interview's language. It replaces the generic ice-breaker and is scored
+    # on its own rubric as one more competency.
+    transition_q = transition.question(body.language, body.job_role)
+    session.blueprint = {
+        **(blueprint or {}),
+        "ice_breaker_question": transition_q,
+        "_transition_question": transition_q,
+        "_question_ids": generated_ids,
+        "_competencies": transition.with_competency(
+            [*competencies, {"skill": EMPLOYER_SKILL, "weight": EMPLOYER_WEIGHT}] if custom_questions else competencies
+        ),
+        "_tone": tone,
+    }
 
     # Measures the setup wizard's "adding a JD makes this 3x more targeted"
     # claim per-session instead of just asserting it in the copy.

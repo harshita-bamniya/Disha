@@ -57,6 +57,9 @@ def _recent_history(session: InterviewSession, exclude_response_id: str, limit: 
     return "\n\n".join(blocks)
 
 
+MAX_REPEAT_NOTES = 3
+
+
 def _detect_verbatim_repeats(transcript: list[dict]) -> list[str]:
     """Cheap, deterministic backstop alongside the LLM's own contradiction
     detection: flags near-verbatim repeated answers via plain string
@@ -79,6 +82,9 @@ def _detect_verbatim_repeats(transcript: list[dict]) -> list[str]:
                     f"Your answers to Q{i + 1} and Q{j + 1} are nearly identical — "
                     f"did you mean to give different answers?"
                 )
+    if len(notes) > MAX_REPEAT_NOTES:
+        extra = len(notes) - MAX_REPEAT_NOTES
+        notes = notes[:MAX_REPEAT_NOTES] + [f"{extra} more pairs of your answers were also nearly identical."]
     return notes
 
 

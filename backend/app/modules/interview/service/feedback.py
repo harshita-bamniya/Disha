@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import and_, or_
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.models.interview import (
     InterviewFeedback,
@@ -15,21 +16,83 @@ from app.models.interview import (
 )
 from app.models.user import User
 from app.modules.interview import feedback_ai
+from app.ai.usage import tracked_complete
 from app.modules.interview.schemas import (
+    GRADING_DONE,
+    GRADING_FAILED,
+    GRADING_PENDING,
+    GRADING_RUNNING,
+    CompleteSessionResponse,
     FeedbackOut,
     JobReadinessReport,
     PerformanceResponse,
     SessionFeedbackResponse,
 )
+from app.modules.interview import scoring, transition
 from app.modules.interview.service import core
 
 logger = logging.getLogger(__name__)
+
+
+class GradingUnavailable(Exception):
+    """Scoring produced nothing usable (provider outage or quota), so grading
+    is marked failed and can be retried instead of showing an empty report."""
 
 
 _SYNTHETIC_PREFIX = "dyn:"  # prefix in question_text to mark dynamic bank entries
 
 
 _WEAK_AREA_THRESHOLD = 6   # overall_score below this is a "weak" competency
+
+
+async def _verified_second_pass(provider, system: str, user_msg: str, first: dict):
+    """Verified interviews score every answer twice, independently, and
+    reconcile. Returns (merged, note, passes): `note` is set when the two
+    passes disagree (the answer then goes to a human), `passes` records both
+    overall scores. If the second call fails the first pass stands."""
+    try:
+        result = await tracked_complete(
+            provider, "answer_score_pass2", system, [{"role": "user", "content": user_msg}], temperature=0.4,
+        )
+        second = feedback_ai.parse_feedback_response(result.content)
+    except Exception as exc:
+        logger.warning("[INTERVIEW AI] Verification pass failed: %s", exc)
+        return first, None, None
+    merged, disagreed = scoring.reconcile_passes(first, second)
+    note = None
+    if disagreed:
+        note = (
+            f"Two independent scoring passes disagreed ({first.get('overall_score')}/10 vs "
+            f"{second.get('overall_score')}/10), so this answer is flagged for human review."
+        )
+    return merged, note, {"pass_1": first.get("overall_score"), "pass_2": second.get("overall_score")}
+
+
+def _transcript_entry(resp, fb, question_text, question_type, skill_assessed, difficulty) -> dict:
+    """One answer, in the shape the report builder and scoring.py consume."""
+    ok = not fb.is_fallback
+
+    def score(value):
+        # Never substitute a fake score, whether missing (None) or a
+        # fabricated fallback placeholder.
+        return value if (value is not None and ok) else 0
+
+    return {
+        "question": question_text,
+        "question_type": question_type or "behavioral",
+        "skill_assessed": skill_assessed or "General",
+        "response": resp.response_text or "",
+        "response_time_sec": resp.response_time_sec or 0,
+        "is_followup": bool(resp.is_followup),
+        "difficulty": difficulty,
+        "is_fallback": bool(fb.is_fallback),
+        "judge_disagreement": bool(fb.judge_disagreement_note),
+        "clarity": score(fb.clarity_score),
+        "conciseness": score(fb.conciseness_score),
+        "relevance": score(fb.relevance_score),
+        "impact": score(fb.impact_score),
+        "overall": score(fb.overall_score),
+    }
 
 
 async def _generate_and_store_readiness_report(
@@ -63,49 +126,8 @@ async def _generate_and_store_readiness_report(
             transcript=transcript_for_report,
             total_questions_planned=session.total_questions,
             temperature=0.3,
+            language=session.language or "en",
         )
-        # Adversarial consistency check: a second, independently-sampled
-        # pass at a higher temperature. One LLM opinion presented as a
-        # precise number is a claim; two that agree are corroboration.
-        #
-        # Cost fix (2026-08-25): this used to run unconditionally, even
-        # when the primary pass above already failed and fell back to
-        # _default_readiness_report — comparing a real score against a
-        # fallback stub's 0 is meaningless, so that was a second full
-        # LLM call (with its own internal retry-once) spent on nothing,
-        # right when quota pressure is already the reason the primary
-        # call failed in the first place. Only worth running when there's
-        # an actual first opinion to corroborate.
-        if raw_report.get("error"):
-            logger.info(
-                "[INTERVIEW] Skipping consistency second-pass for session=%s — "
-                "primary readiness report already failed, nothing to corroborate.",
-                session.id,
-            )
-        else:
-            try:
-                second_pass = await generate_job_readiness_report(
-                    job_role=session.job_role,
-                    experience_level=session.experience_level or "Mid-Level",
-                    competencies=competencies,
-                    transcript=transcript_for_report,
-                    total_questions_planned=session.total_questions,
-                    temperature=0.75,
-                )
-                score_diff = abs(
-                    raw_report.get("overall_readiness_score", 0)
-                    - second_pass.get("overall_readiness_score", 0)
-                )
-                if score_diff > 15:
-                    raw_report["confidence_note"] = (
-                        f"Two independent evaluations of this interview differed by "
-                        f"{score_diff} points ({raw_report.get('overall_readiness_score')} vs "
-                        f"{second_pass.get('overall_readiness_score')}) — treat this score as a "
-                        f"rough estimate, not a precise measurement."
-                    )
-            except Exception as exc:
-                logger.warning("[INTERVIEW] Consistency second-pass failed: %s", exc)
-
         # Code-level backstop for verbatim/near-verbatim repeats — catches
         # what the LLM might miss, independent of its own judgment.
         code_notes = core._detect_verbatim_repeats(transcript_for_report)
@@ -119,6 +141,18 @@ async def _generate_and_store_readiness_report(
         raw_report["pacing_notes"] = core._pacing_notes(transcript_for_report)
         raw_report["integrity_notes"] = core._integrity_notes(transcript_for_report)
 
+        # The model wrote the narrative; the numbers are computed here from the
+        # per-answer scores and the competency weights (reproducible, and
+        # explainable down to which answers produced which score). Skipped when
+        # the model call itself failed, so an error report stays an error report.
+        if not raw_report.get("error"):
+            from app.ai.dynamic_interview_engine import _enforce_completeness_cap
+
+            scoring.apply_code_scoring(raw_report, transcript_for_report, competencies)
+            main_answered = sum(1 for e in transcript_for_report if not e.get("is_followup"))
+            planned = session.total_questions or main_answered or 1
+            _enforce_completeness_cap(raw_report, round(main_answered / planned * 100))
+
         session.job_readiness_report = raw_report
         db.commit()
         return JobReadinessReport(**raw_report)
@@ -127,30 +161,171 @@ async def _generate_and_store_readiness_report(
         return None
 
 
-async def complete_session_and_generate_feedback(
-    session_id: str,
-    user: User,
-    db: Session,
-) -> SessionFeedbackResponse:
-    """Mark session complete, generate AI feedback and job readiness report."""
+# A grading run that has been "running"/"pending" longer than this is assumed
+# dead (worker crash, lost task) so the candidate can retry instead of waiting
+# forever.
+GRADING_STALE_AFTER = timedelta(minutes=15)
+
+
+def effective_grading_status(session: InterviewSession, now: datetime | None = None) -> str:
+    """The grading status a client should see: NULL (completed before async
+    grading existed) means done, and a run stuck past GRADING_STALE_AFTER
+    counts as failed."""
+    status = session.grading_status
+    if status is None or status in (GRADING_DONE, GRADING_FAILED):
+        return status or GRADING_DONE
+    now = now or datetime.now(timezone.utc)
+    since = session.grading_started_at or session.completed_at
+    if since is not None and now - since > GRADING_STALE_AFTER:
+        return GRADING_FAILED
+    return status
+
+
+def complete_session(session_id: str, user: User, db: Session) -> tuple[CompleteSessionResponse, bool]:
+    """Mark the interview finished and queue grading — returns immediately.
+
+    Returns (response, needs_dispatch). needs_dispatch is True when grading was
+    newly queued (the caller starts it); calling /complete again on an already
+    completed session just reports its current state.
+    """
     session = (
         db.query(InterviewSession)
-        .options(
-            joinedload(InterviewSession.career_track),
-            joinedload(InterviewSession.responses).joinedload(SessionResponse.question),
-        )
+        .options(selectinload(InterviewSession.responses))
         .filter(InterviewSession.id == session_id, InterviewSession.user_id == user.id)
+        .with_for_update()
         .first()
     )
     if not session:
         raise ValueError("Session not found.")
     if session.status == "completed":
-        return get_session_feedback(session_id, user, db)
+        db.commit()
+        return CompleteSessionResponse(
+            session_id=session_id, status=session.status, grading_status=effective_grading_status(session)
+        ), False
+    if session.status == "abandoned":
+        # A safety halt (or any abandoned session) is never graded or scored.
+        raise ValueError("This interview was stopped and can't be scored.")
     if not session.responses:
         raise ValueError("No responses submitted.")
 
     session.status = "completed"
     session.completed_at = datetime.now(timezone.utc)
+    session.grading_status = GRADING_PENDING
+    db.commit()
+    return CompleteSessionResponse(session_id=session_id, status="completed", grading_status=GRADING_PENDING), True
+
+
+def regrade_session(session_id: str, user: User, db: Session) -> tuple[CompleteSessionResponse, bool]:
+    """Retry grading for a completed session whose background grading failed
+    (or went stale). Refuses to re-grade a session that already has feedback."""
+    session = (
+        db.query(InterviewSession)
+        .filter(InterviewSession.id == session_id, InterviewSession.user_id == user.id)
+        .with_for_update()
+        .first()
+    )
+    if not session:
+        raise ValueError("Session not found.")
+    if session.status != "completed":
+        raise ValueError("Session is not completed yet.")
+    current = effective_grading_status(session)
+    if current != GRADING_FAILED:
+        db.commit()
+        return CompleteSessionResponse(session_id=session_id, status=session.status, grading_status=current), False
+    session.grading_status = GRADING_PENDING
+    # Restart the staleness clock now. Left empty it would fall back to
+    # completed_at (long ago), so the retry would read as "failed" straight away.
+    session.grading_started_at = datetime.now(timezone.utc)
+    db.commit()
+    return CompleteSessionResponse(session_id=session_id, status=session.status, grading_status=GRADING_PENDING), True
+
+
+def _claim_grading(session_id: str, db: Session) -> bool:
+    """Atomically move pending/failed/stale -> running so only one worker
+    grades a session even if the task is delivered twice."""
+    now = datetime.now(timezone.utc)
+    stale_before = now - GRADING_STALE_AFTER
+    claimed = (
+        db.query(InterviewSession)
+        .filter(
+            InterviewSession.id == session_id,
+            InterviewSession.status == "completed",
+            or_(
+                InterviewSession.grading_status.in_([GRADING_PENDING, GRADING_FAILED]),
+                and_(
+                    InterviewSession.grading_status == GRADING_RUNNING,
+                    InterviewSession.grading_started_at < stale_before,
+                ),
+            ),
+        )
+        .update(
+            {"grading_status": GRADING_RUNNING, "grading_started_at": now},
+            synchronize_session=False,
+        )
+    )
+    db.commit()
+    return bool(claimed)
+
+
+async def run_grading(session_id: str) -> None:
+    """Grade a completed interview in the background (called from the Celery
+    task, or from a FastAPI background task if the broker is down). Opens its
+    own DB session; never raises."""
+    from app.ai.usage import interview_context
+    from app.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        if not _claim_grading(session_id, db):
+            logger.info("[INTERVIEW] grading for %s not claimable (already done/running) — skipping", session_id)
+            return
+        session = (
+            db.query(InterviewSession)
+            .options(
+                joinedload(InterviewSession.career_track),
+                joinedload(InterviewSession.responses).joinedload(SessionResponse.question),
+            )
+            .filter(InterviewSession.id == session_id)
+            .first()
+        )
+        user = db.query(User).filter(User.id == session.user_id).first() if session else None
+        if not session or not user:
+            return
+        try:
+            with interview_context(session_id):
+                await _grade_session(session, user, db, light=session.session_type == "drill")
+            session.grading_status = GRADING_DONE
+            db.commit()
+            try:
+                from app.modules.interview.service import verified
+                verified.on_graded(session_id, db)
+            except Exception:
+                logger.exception("[INTERVIEW] verified hand-off failed for session=%s", session_id)
+                db.rollback()
+        except Exception:
+            logger.exception("[INTERVIEW] grading failed for session=%s", session_id)
+            db.rollback()
+            db.query(InterviewSession).filter(InterviewSession.id == session_id).update(
+                {"grading_status": GRADING_FAILED}, synchronize_session=False
+            )
+            db.commit()
+    finally:
+        db.close()
+
+
+async def _grade_session(
+    session: InterviewSession, user: User, db: Session, *, light: bool = False,
+) -> SessionFeedbackResponse:
+    """Score every answer, build the readiness report, award XP. Safe to run
+    again after a partial failure: previous feedback rows are cleared first.
+
+    light=True (drills): one scoring call per answer and nothing else. No
+    second-opinion judges, no readiness report, no XP, so a drill costs a
+    fraction of an interview and can't be farmed for points."""
+    session_id = str(session.id)
+    db.query(InterviewFeedback).filter(InterviewFeedback.session_id == session.id).delete(
+        synchronize_session=False
+    )
     db.flush()
 
     feedback_items: list[FeedbackOut] = []
@@ -163,6 +338,11 @@ async def complete_session_and_generate_feedback(
         provider = None
 
     transcript_for_report: list[dict] = []
+    distress_ids = set((session.blueprint or {}).get("_distress_response_ids") or [])
+    # A follow-up probes the question before it, so it inherits that topic and
+    # difficulty instead of showing up as "General".
+    last_main_skill = None
+    last_main_difficulty = None
 
     for resp in session.responses:
         question_text = ""
@@ -177,20 +357,46 @@ async def complete_session_and_generate_feedback(
             question_text = resp.dynamic_question_text
             question_type = resp.dynamic_question_type
 
+        is_transition = transition.is_transition_answer(session.blueprint, resp)
+        if is_transition:
+            skill_assessed = transition.TRANSITION_SKILL
+
+        difficulty = resp.question.difficulty if resp.question else None
+        if resp.is_followup:
+            skill_assessed = skill_assessed or last_main_skill
+            difficulty = difficulty or last_main_difficulty
+        else:
+            last_main_skill, last_main_difficulty = skill_assessed, difficulty
+
         is_fallback = False
-        if provider:
+        pass_note = None
+        pass_scores = None
+        if str(resp.id) in distress_ids:
+            # The candidate was showing signs of distress on this answer; it is
+            # never scored.
+            parsed = core._default_feedback()
+            is_fallback = True
+        elif provider:
             try:
                 feedback_ai.validate_response_text(resp.response_text or "")
-                sys_p, user_p = feedback_ai.build_feedback_prompt(
-                    question_text, resp.response_text, track_name, session.session_type
-                )
+                if is_transition:
+                    sys_p, user_p = feedback_ai.build_transition_prompt(
+                        question_text, resp.response_text, session.job_role, session.language or "en",
+                    )
+                else:
+                    sys_p, user_p = feedback_ai.build_feedback_prompt(
+                        question_text, resp.response_text, track_name, session.session_type,
+                        session.language or "en",
+                    )
                 try:
-                    ai_resp = await provider.complete(sys_p, [{"role": "user", "content": user_p}], temperature=0.1)
+                    ai_resp = await tracked_complete(provider, "answer_score", sys_p, [{"role": "user", "content": user_p}], temperature=0.1)
                     parsed = feedback_ai.parse_feedback_response(ai_resp.content)
                 except Exception as first_exc:
                     logger.warning("[INTERVIEW AI] Feedback attempt 1 failed for response=%s: %s — retrying once", resp.id, first_exc)
-                    ai_resp = await provider.complete(sys_p, [{"role": "user", "content": user_p}], temperature=0.1)
+                    ai_resp = await tracked_complete(provider, "answer_score_retry", sys_p, [{"role": "user", "content": user_p}], temperature=0.1)
                     parsed = feedback_ai.parse_feedback_response(ai_resp.content)
+                if session.mode == "verified":
+                    parsed, pass_note, pass_scores = await _verified_second_pass(provider, sys_p, user_p, parsed)
             except Exception as exc:
                 from app.core.exceptions import BadRequestException
                 if not isinstance(exc, BadRequestException):
@@ -226,7 +432,7 @@ async def complete_session_and_generate_feedback(
         answer_word_count = len((resp.response_text or "").split())
         judge_scores = None
         judge_disagreement_note = None
-        if not is_fallback and provider and answer_word_count >= _LOW_STAKES_WORD_COUNT:
+        if not light and session.mode != "verified" and not is_fallback and provider and answer_word_count >= _LOW_STAKES_WORD_COUNT:
             try:
                 import asyncio
 
@@ -236,7 +442,7 @@ async def complete_session_and_generate_feedback(
 
                 async def _run_judge(persona: str):
                     sys_p, user_p = feedback_ai.build_judge_prompt(persona, question_text, resp.response_text, track_name)
-                    result = await judge_provider.complete(sys_p, [{"role": "user", "content": user_p}], max_tokens=200, temperature=0.3)
+                    result = await tracked_complete(judge_provider, f"judge_{persona}", sys_p, [{"role": "user", "content": user_p}], max_tokens=200, temperature=0.3)
                     return feedback_ai.parse_judge_response(result.content)
 
                 skeptic, domain_specialist = await asyncio.gather(
@@ -257,6 +463,10 @@ async def complete_session_and_generate_feedback(
             except Exception as exc:
                 logger.warning("[INTERVIEW AI] Multi-judge scoring failed for response=%s: %s", resp.id, exc)
 
+        if pass_scores:
+            # Verified: the two scoring passes replace the persona judges.
+            judge_scores, judge_disagreement_note = pass_scores, pass_note
+
         fb = InterviewFeedback(
             session_id=session_id,
             response_id=resp.id,
@@ -272,7 +482,8 @@ async def complete_session_and_generate_feedback(
             is_fallback=is_fallback,
             evidence_quote=verified_quote,
             judge_scores=judge_scores,
-            judge_disagreement_note=judge_disagreement_note,
+            # Judge verdicts are raw model text; they get the same wording rules as the report.
+            judge_disagreement_note=scoring.sanitize_text(judge_disagreement_note) if judge_disagreement_note else None,
         )
         db.add(fb)
         db.flush()
@@ -300,18 +511,9 @@ async def complete_session_and_generate_feedback(
         )
         feedback_items.append(fi)
 
-        transcript_for_report.append({
-            "question": question_text,
-            "question_type": question_type or "behavioral",
-            "skill_assessed": skill_assessed or "General",
-            "response": resp.response_text or "",
-            "response_time_sec": resp.response_time_sec or 0,
-            # Use actual scores including 0 — never substitute a fake score,
-            # whether missing (None) or a fabricated fallback placeholder.
-            "clarity": fb.clarity_score if (fb.clarity_score is not None and not is_fallback) else 0,
-            "impact": fb.impact_score if (fb.impact_score is not None and not is_fallback) else 0,
-            "overall": fb.overall_score if (fb.overall_score is not None and not is_fallback) else 0,
-        })
+        transcript_for_report.append(
+            _transcript_entry(resp, fb, question_text, question_type, skill_assessed, difficulty)
+        )
 
     db.commit()
 
@@ -320,15 +522,24 @@ async def complete_session_and_generate_feedback(
 
     # ── Job Readiness Report (only for role-specific sessions) ────────────────
     readiness_report = None
-    if session.job_role and transcript_for_report:
+    if session.job_role and transcript_for_report and not light:
         readiness_report = await _generate_and_store_readiness_report(session, transcript_for_report, db)
 
-    # XP award
+    # Nothing could be scored (provider outage / quota) or the report itself
+    # failed: this is a failed grading to retry, not a finished interview. No XP.
+    scorable = [f for f in feedback_items if str(f.response_id) not in distress_ids]
+    if scorable and (not scores or (readiness_report is not None and readiness_report.error) or (
+        session.job_role and not light and readiness_report is None
+    )):
+        raise GradingUnavailable("The AI scoring service could not produce a real score.")
+
+    # XP award (never for drills)
     try:
-        from app.modules.xp.service import award_xp
-        award_xp(user.id, "interview_complete", ref_id=session_id,
-                 note=f"Mock interview session avg={avg}", db=db)
-        db.commit()
+        if not light:
+            from app.modules.xp.service import award_xp
+            award_xp(user.id, "interview_complete", ref_id=session_id,
+                     note=f"Mock interview session avg={avg}", db=db)
+            db.commit()
     except Exception as exc:
         logger.warning("[INTERVIEW] XP award failed: %s", exc)
 
@@ -363,24 +574,23 @@ async def complete_session_and_generate_feedback(
     )
 
 
-def get_session_feedback(session_id: str, user: User, db: Session) -> SessionFeedbackResponse:
-    session = (
-        db.query(InterviewSession)
-        .filter(InterviewSession.id == session_id, InterviewSession.user_id == user.id)
-        .first()
-    )
-    if not session:
-        raise ValueError("Session not found.")
-
+def feedback_items(session_id, db: Session) -> list[FeedbackOut]:
+    """Per-answer feedback for a session, in the order the questions were
+    asked. The career-transition answer carries its own skill label, and a
+    follow-up carries the topic of the question it probed."""
+    session = db.query(InterviewSession).filter(InterviewSession.id == session_id).first()
+    blueprint = session.blueprint if session else None
     feedback_rows = (
         db.query(InterviewFeedback, SessionResponse)
         .join(SessionResponse, InterviewFeedback.response_id == SessionResponse.id)
         .outerjoin(QuestionBank, SessionResponse.question_id == QuestionBank.id)
         .filter(InterviewFeedback.session_id == session_id)
+        .order_by(SessionResponse.sequence_num)
         .all()
     )
 
-    items = []
+    items: list[FeedbackOut] = []
+    last_main_skill = None
     for fb, resp in feedback_rows:
         q_text = ""
         q_type = None
@@ -392,6 +602,12 @@ def get_session_feedback(session_id: str, user: User, db: Session) -> SessionFee
         elif resp.dynamic_question_text:
             q_text = resp.dynamic_question_text
             q_type = resp.dynamic_question_type
+        if transition.is_transition_answer(blueprint, resp):
+            skill_assessed = transition.TRANSITION_SKILL
+        if resp.is_followup:
+            skill_assessed = skill_assessed or last_main_skill
+        else:
+            last_main_skill = skill_assessed
 
         items.append(FeedbackOut(
             id=str(fb.id),
@@ -414,6 +630,19 @@ def get_session_feedback(session_id: str, user: User, db: Session) -> SessionFee
             judge_scores=fb.judge_scores,
             judge_disagreement_note=fb.judge_disagreement_note,
         ))
+    return items
+
+
+def get_session_feedback(session_id: str, user: User, db: Session) -> SessionFeedbackResponse:
+    session = (
+        db.query(InterviewSession)
+        .filter(InterviewSession.id == session_id, InterviewSession.user_id == user.id)
+        .first()
+    )
+    if not session:
+        raise ValueError("Session not found.")
+
+    items = feedback_items(session_id, db)
 
     scores = [i.overall_score for i in items if i.overall_score is not None and not i.is_fallback]
     avg = round(sum(scores) / len(scores), 1) if scores else 0.0
@@ -429,6 +658,8 @@ def get_session_feedback(session_id: str, user: User, db: Session) -> SessionFee
 
     return SessionFeedbackResponse(
         session_id=session_id,
+        mode=session.mode or "practice",
+        grading_status=effective_grading_status(session),
         overall_avg=avg,
         feedback_items=items,
         job_readiness_report=readiness_report,
@@ -475,6 +706,8 @@ async def regenerate_readiness_report(session_id: str, user: User, db: Session) 
         raise ValueError("No scored answers to build a report from.")
 
     transcript_for_report: list[dict] = []
+    last_main_skill = None
+    last_main_difficulty = None
     for fb, resp in sorted(feedback_rows, key=lambda pair: pair[1].sequence_num):
         if resp.question:
             question_text = resp.question.question_text
@@ -485,20 +718,31 @@ async def regenerate_readiness_report(session_id: str, user: User, db: Session) 
             question_type = resp.dynamic_question_type
             skill_assessed = None
 
-        transcript_for_report.append({
-            "question": question_text,
-            "question_type": question_type or "behavioral",
-            "skill_assessed": skill_assessed or "General",
-            "response": resp.response_text or "",
-            # Same rule as at original completion time — never substitute a
-            # fake score, whether missing (None) or a fabricated fallback.
-            "clarity": fb.clarity_score if (fb.clarity_score is not None and not fb.is_fallback) else 0,
-            "impact": fb.impact_score if (fb.impact_score is not None and not fb.is_fallback) else 0,
-            "overall": fb.overall_score if (fb.overall_score is not None and not fb.is_fallback) else 0,
-        })
+        difficulty = resp.question.difficulty if resp.question else None
+        if resp.is_followup:
+            skill_assessed = skill_assessed or last_main_skill
+            difficulty = difficulty or last_main_difficulty
+        else:
+            last_main_skill, last_main_difficulty = skill_assessed, difficulty
 
-    await _generate_and_store_readiness_report(session, transcript_for_report, db)
+        transcript_for_report.append(
+            _transcript_entry(resp, fb, question_text, question_type, skill_assessed, difficulty)
+        )
+
+    from app.ai.usage import interview_context
+    with interview_context(session_id):
+        await _generate_and_store_readiness_report(session, transcript_for_report, db)
     return get_session_feedback(session_id, user, db)
+
+
+def is_completed_practice(session) -> bool:
+    """A finished full practice interview. Drills and employer-invited
+    (verified) interviews are not "practice interviews" and don't count."""
+    return (
+        session.status == "completed"
+        and session.session_type != "drill"
+        and (getattr(session, "mode", None) or "practice") != "verified"
+    )
 
 
 def get_performance(user: User, db: Session) -> PerformanceResponse:
@@ -508,7 +752,7 @@ def get_performance(user: User, db: Session) -> PerformanceResponse:
         .all()
     )
     total = len(sessions)
-    completed = sum(1 for s in sessions if s.status == "completed")
+    completed = sum(1 for s in sessions if is_completed_practice(s))
 
     feedback_scores = (
         db.query(InterviewFeedback)

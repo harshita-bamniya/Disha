@@ -2,6 +2,7 @@
 import uuid
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     Column,
@@ -72,6 +73,17 @@ class InterviewSession(Base):
     # Predictive-validity flywheel — set once the "how did it go" follow-up
     # notification has been sent, so the daily scanner task doesn't re-send it
     outcome_requested_at = Column(DateTime(timezone=True), nullable=True)
+    # Background grading state. `status` says whether the candidate finished;
+    # `grading_status` says whether feedback + report exist yet:
+    # pending -> running -> done | failed. NULL means a session completed
+    # before async grading existed (its feedback was already produced inline).
+    grading_status       = Column(String(12), nullable=True)
+    grading_started_at   = Column(DateTime(timezone=True), nullable=True)
+    # en / hi / hinglish: the language the interview is conducted in
+    language             = Column(String(10), nullable=False, default="en", server_default="en")
+    # practice: private to the candidate. verified: an employer-invited
+    # interview, scored with two independent passes and shared (with consent).
+    mode                 = Column(String(12), nullable=False, default="practice", server_default="practice")
 
     user            = relationship("User")
     career_track    = relationship("CareerTrack", foreign_keys=[career_track_id])
@@ -79,8 +91,9 @@ class InterviewSession(Base):
     feedback        = relationship("InterviewFeedback", back_populates="session", cascade="all, delete-orphan")
 
     __table_args__ = (
-        CheckConstraint("session_type IN ('practice','timed','full_mock')", name="ck_session_type"),
+        CheckConstraint("session_type IN ('practice','timed','full_mock','stress','drill')", name="ck_session_type"),
         CheckConstraint("status IN ('scheduled','in_progress','completed','abandoned')", name="ck_session_status"),
+        CheckConstraint("mode IN ('practice','verified')", name="ck_session_mode"),
     )
 
 
@@ -156,6 +169,60 @@ class InterviewOutcome(Base):
             name="ck_interview_outcome",
         ),
     )
+
+
+class ModelRun(Base):
+    """One row per LLM call made for an interview (question generation, live
+    follow-up decisions, per-answer scoring, judges, report). Stores tokens and
+    latency so per-interview cost can be measured before a paid-plan cap is
+    set. Rupee cost is deliberately NOT stored: vendor prices change, so cost
+    is computed from tokens at reporting time."""
+    __tablename__ = "model_runs"
+
+    id            = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    interview_id  = Column(UUID(as_uuid=True), ForeignKey("interview_sessions.id", ondelete="SET NULL"), nullable=True, index=True)
+    purpose       = Column(String(40), nullable=False, index=True)
+    model         = Column(String(80), nullable=True)
+    tokens_in     = Column(Integer, nullable=False, default=0)
+    tokens_out    = Column(Integer, nullable=False, default=0)
+    latency_ms    = Column(Integer, nullable=True)
+    ok            = Column(Boolean, nullable=False, default=True)
+    error         = Column(String(200), nullable=True)
+    created_at    = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class InterviewConsent(Base):
+    """What a candidate agreed to when starting an interview, with the version
+    of the wording they saw. Kept even if the session is later deleted (the
+    session link is nulled) so there is a record the consent was given."""
+    __tablename__ = "interview_consents"
+
+    id            = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    user_id       = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    session_id    = Column(UUID(as_uuid=True), ForeignKey("interview_sessions.id", ondelete="SET NULL"), nullable=True, index=True)
+    kind          = Column(String(30), nullable=False)
+    text_version  = Column(String(20), nullable=False)
+    granted_at    = Column(DateTime(timezone=True), server_default=func.now())
+    revoked_at    = Column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        CheckConstraint("kind IN ('ai_processing','own_effort','improve_product','media','employer_share')", name="ck_interview_consent_kind"),
+    )
+
+
+class InterviewSafetyEvent(Base):
+    """A crisis signal detected in a candidate's interview answer. The session
+    is halted and never scored. Holds only the matched phrase, not the answer."""
+    __tablename__ = "interview_safety_events"
+
+    id            = Column(UUID(as_uuid=True), primary_key=True, default=_uuid)
+    session_id    = Column(UUID(as_uuid=True), ForeignKey("interview_sessions.id", ondelete="SET NULL"), nullable=True, index=True)
+    user_id       = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    severity      = Column(String(20), nullable=False)
+    triggered_by  = Column(String(200), nullable=True)
+    action_taken  = Column(String(50), nullable=False, default="session_halted")
+    reviewed_by   = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at    = Column(DateTime(timezone=True), server_default=func.now(), index=True)
 
 
 class InterviewHumanReview(Base):

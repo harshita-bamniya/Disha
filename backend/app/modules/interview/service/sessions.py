@@ -6,10 +6,11 @@ import random
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.interview import (
+    InterviewConsent,
     InterviewFeedback,
     InterviewSession,
     QuestionBank,
@@ -37,7 +38,16 @@ def list_questions(
     difficulty: str | None,
     db: Session,
 ) -> list[QuestionOut]:
-    q = db.query(QuestionBank).filter(QuestionBank.is_active == True)
+    # Questions generated for one specific session live in the same table,
+    # tagged "[SKILL:...]" in expected_answer_guide. They're private to that
+    # session, so only the curated bank is listed here.
+    q = db.query(QuestionBank).filter(
+        QuestionBank.is_active == True,
+        or_(
+            QuestionBank.expected_answer_guide.is_(None),
+            ~QuestionBank.expected_answer_guide.like("[SKILL:%"),
+        ),
+    )
     if career_track_id:
         q = q.filter(
             (QuestionBank.career_track_id == career_track_id) |
@@ -59,6 +69,51 @@ def list_questions(
         )
         for qb in q.all()
     ]
+
+
+CONSENT_TEXT_VERSION = "2026-10-v1"
+
+
+def record_consents(session_id: str, user: User, consents: list[str], db: Session) -> None:
+    """Store what the candidate agreed to for this interview, with the wording
+    version they saw. Duplicates in the request are collapsed."""
+    for kind in dict.fromkeys(consents):
+        db.add(InterviewConsent(
+            user_id=user.id, session_id=session_id, kind=kind, text_version=CONSENT_TEXT_VERSION,
+        ))
+    db.commit()
+
+
+def delete_session_row(session: InterviewSession, db: Session) -> None:
+    """Delete one session with everything attached to it, the questions
+    generated for it, and any stored answer audio. Commits."""
+    session_id = str(session.id)
+    question_ids = [uuid.UUID(q) for q in ((session.blueprint or {}).get("_question_ids") or [])]
+    db.delete(session)
+    db.flush()
+    if question_ids:
+        db.query(QuestionBank).filter(
+            QuestionBank.id.in_(question_ids), QuestionBank.career_track_id.is_(None)
+        ).delete(synchronize_session=False)
+    db.commit()
+    from app.modules.interview import audio_store
+    audio_store.delete_session_audio(session_id)
+
+
+def discard_session(session_id: str, user: User, db: Session) -> bool:
+    """Delete a session and everything attached to it (answers, feedback,
+    report, outcome), plus the questions generated for it. Used to roll back a
+    session that must not count, and for the candidate's own "delete this
+    interview". Returns False if the session isn't theirs / doesn't exist."""
+    session = (
+        db.query(InterviewSession)
+        .filter(InterviewSession.id == session_id, InterviewSession.user_id == user.id)
+        .first()
+    )
+    if not session:
+        return False
+    delete_session_row(session, db)
+    return True
 
 
 def _build_summary(session: InterviewSession, db: Session) -> SessionSummary:
@@ -93,6 +148,8 @@ def _build_summary(session: InterviewSession, db: Session) -> SessionSummary:
         job_role=session.job_role,
         experience_level=session.experience_level,
         blueprint=session.blueprint,
+        language=session.language or "en",
+        mode=session.mode or "practice",
     )
 
 
@@ -237,12 +294,16 @@ def get_session(session_id: str, user: User, db: Session) -> SessionDetail:
             question_type=q_type,
             response_text=r.response_text,
             sequence_num=r.sequence_num,
+            is_followup=bool(r.is_followup),
         ))
+
+    from app.modules.interview.service.voice import has_media_consent
 
     return SessionDetail(
         **_build_summary(session, db).model_dump(),
         questions=all_questions,
         responses=submitted,
+        saving_audio=has_media_consent(session.id, db),
     )
 
 

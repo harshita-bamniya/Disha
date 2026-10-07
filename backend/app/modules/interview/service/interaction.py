@@ -2,15 +2,16 @@
 from __future__ import annotations
 
 import logging
-import random
 import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.interview import InterviewSession, QuestionBank, SessionResponse
+from app.models.interview import InterviewSafetyEvent, InterviewSession, QuestionBank, SessionResponse
 from app.models.user import User
+from app.modules.interview import policy
+from app.modules.interview.safety import CRISIS_MESSAGE, DISTRESS_MESSAGE, HELPLINES, assess_answer
 from app.modules.interview.schemas import (
     SubmitResponseRequest,
 )
@@ -25,15 +26,49 @@ _SYNTHETIC_PREFIX = "dyn:"  # prefix in question_text to mark dynamic bank entri
 _WEAK_AREA_THRESHOLD = 6   # overall_score below this is a "weak" competency
 
 
+# A repeat of the same answer to the same question within this window is
+# treated as a double-click / network retry, not a second answer.
+DUPLICATE_WINDOW_SEC = 15
+
+
+def _question_belongs_to_session(session: InterviewSession, question_id: str, db: Session) -> bool:
+    """A submitted question_id must be a real, active question that this
+    session could actually have asked."""
+    session_qids = (session.blueprint or {}).get("_question_ids") or []
+    if session_qids:
+        return question_id in session_qids
+    return (
+        db.query(QuestionBank.id)
+        .filter(QuestionBank.id == question_id, QuestionBank.is_active == True)
+        .first()
+        is not None
+    )
+
+
+def clamp_response_time(claimed_sec: int, elapsed_since_last_event_sec: float | None) -> int:
+    """The client reports how long the answer took, and the pacing/integrity
+    notes are computed from it. A candidate can't have taken longer than the
+    server-observed gap since the previous event, so cap the claim there
+    (+1s of slack) — this stops a candidate from inflating their time to dodge
+    the implausible-typing-speed note."""
+    claimed = max(0, int(claimed_sec))
+    if elapsed_since_last_event_sec is None:
+        return claimed
+    return min(claimed, max(0, int(elapsed_since_last_event_sec) + 1))
+
+
 def submit_response(
     session_id: str,
     body: SubmitResponseRequest,
     user: User,
     db: Session,
 ) -> dict:
+    # Row lock: two near-simultaneous submits for one session must queue up so
+    # they can't both compute the same sequence number.
     session = (
         db.query(InterviewSession)
         .filter(InterviewSession.id == session_id, InterviewSession.user_id == user.id)
+        .with_for_update()
         .first()
     )
     if not session:
@@ -41,32 +76,89 @@ def submit_response(
     if session.status not in ("in_progress", "scheduled"):
         raise ValueError("Session is not active.")
 
+    now = datetime.now(timezone.utc)
     if session.status == "scheduled":
         session.status = "in_progress"
-        session.started_at = datetime.now(timezone.utc)
+        session.started_at = now
 
-    seq = (
+    question_id = body.question_id or None
+    if question_id and not _question_belongs_to_session(session, question_id, db):
+        raise ValueError("That question does not belong to this interview.")
+
+    last = (
+        db.query(SessionResponse)
+        .filter(SessionResponse.session_id == session_id)
+        .order_by(SessionResponse.sequence_num.desc())
+        .first()
+    )
+
+    if last is not None:
+        same_question = (str(last.question_id) if last.question_id else None) == question_id
+        recent = last.submitted_at is not None and (now - last.submitted_at).total_seconds() < DUPLICATE_WINDOW_SEC
+        if same_question and recent and last.response_text == body.response_text:
+            db.commit()
+            return {"response_id": str(last.id), "sequence_num": last.sequence_num, "duplicate": True}
+
+    answered = (
         db.query(func.count(SessionResponse.id))
         .filter(SessionResponse.session_id == session_id)
         .scalar()
         or 0
-    ) + 1
+    )
+    # Follow-ups don't use up the planned-question budget, but the total is
+    # still bounded so a session can't be fed answers forever.
+    if answered >= policy.max_responses(session.total_questions):
+        raise ValueError("All questions for this interview have been answered.")
+
+    # Safety net first: a crisis signal halts the interview before anything is
+    # stored or scored, and records an event for the human team (matched phrase
+    # only, never the answer).
+    safety = assess_answer(body.response_text)
+    if safety.level == "crisis":
+        db.add(InterviewSafetyEvent(
+            session_id=session.id, user_id=user.id, severity="critical",
+            triggered_by=safety.trigger, action_taken="session_halted",
+        ))
+        session.status = "abandoned"
+        session.grading_status = None
+        db.commit()
+        logger.critical("[INTERVIEW_SAFETY] crisis signal; session=%s user=%s halted", session_id, user.id)
+        return {"safety_hold": True, "message": CRISIS_MESSAGE, "helplines": HELPLINES}
+
+    seq = (last.sequence_num if last else 0) + 1
+
+    # Server-derived: bank questions always carry an id; a follow-up/challenge
+    # is generated text with no id. The first answer can be the host's
+    # ice-breaker (also id-less) and is never a follow-up.
+    is_followup = question_id is None and seq > 1
+
+    prev_event = last.submitted_at if last is not None else session.started_at
+    elapsed = (now - prev_event).total_seconds() if prev_event is not None else None
 
     resp = SessionResponse(
         session_id=session_id,
-        question_id=body.question_id if body.question_id else None,
+        question_id=question_id,
         response_text=body.response_text,
-        response_time_sec=body.response_time_sec,
+        response_time_sec=clamp_response_time(body.response_time_sec, elapsed),
         sequence_num=seq,
-        dynamic_question_text=body.question_text if not body.question_id else None,
-        dynamic_question_type=body.question_type if not body.question_id else None,
-        is_followup=body.is_followup,
+        dynamic_question_text=body.question_text if not question_id else None,
+        dynamic_question_type=body.question_type if not question_id else None,
+        is_followup=is_followup,
     )
     db.add(resp)
-    db.commit()
-    db.refresh(resp)
+    db.flush()
 
-    return {"response_id": str(resp.id), "sequence_num": seq}
+    result: dict = {"response_id": str(resp.id), "sequence_num": seq}
+    if safety.level == "distress":
+        # Keep the interview going, but never score this answer, and offer a
+        # break. Stored on the blueprint to avoid a schema change.
+        blueprint = dict(session.blueprint or {})
+        blueprint["_distress_response_ids"] = [*(blueprint.get("_distress_response_ids") or []), str(resp.id)]
+        session.blueprint = blueprint
+        result.update({"distress": True, "message": DISTRESS_MESSAGE})
+
+    db.commit()
+    return result
 
 
 async def get_next_question(
@@ -107,18 +199,15 @@ async def get_next_question(
     # correctly caps any topic at one follow-up regardless of question_id.
     already_probed = bool(resp.is_followup)
 
-    responses_done = len(session.responses)
-    questions_remaining = session.total_questions - responses_done
-    session_complete = questions_remaining <= 0
-
-    if session_complete:
-        return {
-            "action": "next_question",
-            "question": None,
-            "provisional_score": 5,
-            "coaching_note": "Session complete. Complete the session to get full AI feedback.",
-            "session_complete": True,
-        }
+    responses = list(session.responses)
+    main_remaining = session.total_questions - policy.main_answered(responses)
+    followups_so_far = policy.followups_used(responses)
+    followup_cap = policy.followup_cap_total(session.total_questions)
+    hard_limit = policy.hard_limit_seconds(session.session_type)
+    elapsed = (
+        (datetime.now(timezone.utc) - session.started_at).total_seconds()
+        if session.started_at is not None else None
+    )
 
     question_text = ""
     if resp.question:
@@ -127,19 +216,55 @@ async def get_next_question(
         question_text = resp.dynamic_question_text
     skill_topic = resp.question.question_type if resp.question else resp.dynamic_question_type
 
-    from app.ai.adaptive_interviewer import decide_next_action
-    decision = await decide_next_action(
-        question_text=question_text,
-        response_text=resp.response_text or "",
-        interview_type=session.session_type or "practice",
-        questions_remaining=questions_remaining,
-        skill_topic=skill_topic,
-        already_probed=already_probed,
-        recent_history=core._recent_history(session, response_id),
+    # Only ask the model whether to probe when a probe is actually allowed.
+    # Otherwise the answer is already decided by the rules below, so skip the
+    # LLM call entirely (this was a paid call on every answer before).
+    probe_possible = (
+        not already_probed
+        and followups_so_far < followup_cap
+        and (elapsed is None or hard_limit - elapsed >= policy.MIN_SECONDS_FOR_FOLLOWUP)
     )
+    if probe_possible:
+        from app.ai.adaptive_interviewer import decide_next_action
+        from app.ai.usage import interview_context
+        with interview_context(session_id):
+            decision = await decide_next_action(
+                question_text=question_text,
+                response_text=resp.response_text or "",
+                interview_type=session.session_type or "practice",
+                questions_remaining=main_remaining,
+                skill_topic=skill_topic,
+                already_probed=already_probed,
+                recent_history=core._recent_history(session, response_id),
+                job_role=session.job_role,
+            )
+    else:
+        decision = {"action": "next_question", "provisional_score": 5, "coaching_note": ""}
 
-    action = decision.get("action", "next_question")
     follow_up_q = decision.get("follow_up_question")
+
+    # Code wins over the model: it only suggests, the rules in policy decide.
+    verdict = policy.choose_action(
+        decision.get("action"),
+        bool(follow_up_q),
+        main_remaining=main_remaining,
+        followups_used_total=followups_so_far,
+        followup_cap=followup_cap,
+        already_probed=already_probed,
+        elapsed_sec=elapsed,
+        hard_limit_sec=hard_limit,
+    )
+    logger.info("[INTERVIEW] session=%s action=%s reason=%s main_remaining=%s followups=%s/%s",
+                session_id, verdict.action, verdict.reason, main_remaining, followups_so_far, followup_cap)
+
+    if verdict.action == "close":
+        return {
+            "action": "next_question",
+            "question": None,
+            "provisional_score": decision.get("provisional_score", 5),
+            "coaching_note": "",
+            "session_complete": True,
+        }
 
     # A follow-up is the same interviewer probing deeper on their own question,
     # not a new panelist stepping in — carry the original question's persona
@@ -147,12 +272,13 @@ async def get_next_question(
     if resp.question:
         followup_panelist = {"name": resp.question.panelist_name, "role": resp.question.panelist_role}
     else:
-        from app.ai.dynamic_interview_engine import panelist_for_question_type
-        followup_panelist = panelist_for_question_type(resp.dynamic_question_type) or {"name": None, "role": None}
+        from app.ai.dynamic_interview_engine import is_technical_breakdown, panelist_for_question_type
+        is_technical_role = is_technical_breakdown((session.blueprint or {}).get("question_breakdown"))
+        followup_panelist = panelist_for_question_type(resp.dynamic_question_type, is_technical_role) or {"name": None, "role": None}
 
-    if action in ("follow_up", "challenge") and follow_up_q:
+    if verdict.action in ("follow_up", "challenge"):
         return {
-            "action": action,
+            "action": verdict.action,
             "question": {
                 "text": follow_up_q,
                 "is_followup": True,
@@ -213,7 +339,11 @@ async def get_next_question(
             "session_complete": True,
         }
 
-    next_q = random.choice(remaining)
+    next_q = policy.pick_next_question(
+        remaining,
+        (session.blueprint or {}).get("difficulty_ramp"),
+        (session.blueprint or {}).get("_question_ids"),
+    )
     return {
         "action": "next_question",
         "question": {

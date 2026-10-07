@@ -6,10 +6,12 @@ This __init__ re-exports every public function so existing callers
 keep working completely unchanged.
 """
 from app.modules.interview.service.feedback import (
-    complete_session_and_generate_feedback,
+    complete_session,
     get_performance,
     get_session_feedback,
     regenerate_readiness_report,
+    regrade_session,
+    run_grading,
     submit_outcome,
 )
 from app.modules.interview.service.interaction import (
@@ -18,16 +20,18 @@ from app.modules.interview.service.interaction import (
 )
 from app.modules.interview.service.session_setup import create_session
 from app.modules.interview.service.sessions import (
+    discard_session,
     get_session,
     list_questions,
     list_sessions,
+    record_consents,
     start_session,
 )
 
 __all__ = [
-    "complete_session_and_generate_feedback", "get_performance", "get_session_feedback",
-    "regenerate_readiness_report", "submit_outcome",
+    "complete_session", "get_performance", "get_session_feedback",
+    "regenerate_readiness_report", "regrade_session", "run_grading", "submit_outcome",
     "get_next_question", "submit_response",
     "create_session",
-    "get_session", "list_questions", "list_sessions", "start_session",
+    "discard_session", "get_session", "list_questions", "list_sessions", "record_consents", "start_session",
 ]
