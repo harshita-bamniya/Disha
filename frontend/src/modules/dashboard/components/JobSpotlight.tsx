@@ -128,7 +128,7 @@ export function JobSpotlight({
 
         <button
           onClick={onOpenResume} disabled={isTailoringResume}
-          aria-label="Tailor resume for this role"
+          aria-label="Check resume ATS score for this role"
           style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 10, background: 'white', border: `1px solid ${BORDER}`, cursor: isTailoringResume ? 'wait' : 'pointer', textAlign: 'left', opacity: isTailoringResume ? 0.7 : 1, transition: 'all 0.18s', width: '100%' }}
           onMouseOver={e => { e.currentTarget.style.background = CREAM; e.currentTarget.style.borderColor = 'rgba(26,39,68,0.16)' }}
           onMouseOut={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = BORDER }}
@@ -138,7 +138,7 @@ export function JobSpotlight({
             : <FileText size={15} color={NAVY} />}
           <div>
             <p style={{ fontSize: 12, fontWeight: 700, color: INK, margin: '0 0 1px' }}>Resume</p>
-            <p style={{ fontSize: 10, color: MUTED, margin: 0 }}>Tailor for this role</p>
+            <p style={{ fontSize: 10, color: MUTED, margin: 0 }}>Check ATS score</p>
           </div>
         </button>
 

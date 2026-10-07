@@ -14,7 +14,7 @@ import { useDragReorder, type DragReorderHandlers } from '@/shared/hooks/useDrag
 import { NAVY, INK, INK_SFT as INK_S, MUTED, CREAM, BORDER, colors, shadows } from '@/design-system/tokens'
 import {
   ArrowLeft, Wand2, BarChart2, FileText, Plus,
-  Download, Trash2, GripVertical, X, Clock, Loader2,
+  Download, Trash2, GripVertical, X, Clock, Loader2, FolderPlus,
 } from 'lucide-react'
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -637,6 +637,7 @@ export default function ResumeEditorPage() {
   const [versionDrawerOpen, setVersionDrawerOpen] = useState(false)
   const [insightsPanelOpen, setInsightsPanelOpen] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [savingToLibrary, setSavingToLibrary] = useState(false)
   const [addSection, setAddSection] = useState(false)
   const [newSectionType, setNewSectionType] = useState('skills')
   const { activePrep } = useActivePrepJob()
@@ -657,6 +658,20 @@ export default function ResumeEditorPage() {
       alert('PDF download failed. Please try again.')
     } finally {
       setDownloading(false)
+    }
+  }
+
+  async function handleSaveToLibrary() {
+    if (!resumeId || savingToLibrary) return
+    setSavingToLibrary(true)
+    try {
+      await resumeApi.saveToLibrary(resumeId)
+      qc.invalidateQueries({ queryKey: ['resume-library'] })
+      toast.success('Added to your Resume Library — you can now attach it directly when applying to jobs.')
+    } catch {
+      toast.danger('Could not save to your Resume Library. Please try again.')
+    } finally {
+      setSavingToLibrary(false)
     }
   }
 
@@ -771,6 +786,14 @@ export default function ResumeEditorPage() {
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10, background: downloading ? colors.surface.elevated : 'white', border: `1.5px solid ${BORDER}`, color: INK_S, fontSize: 12, fontWeight: 700, cursor: downloading ? 'not-allowed' : 'pointer', opacity: downloading ? 0.7 : 1 }}
             >
               <Download size={13} /> {downloading ? 'Generating…' : 'Download PDF'}
+            </button>
+            <button
+              onClick={handleSaveToLibrary}
+              disabled={savingToLibrary}
+              title="Add this resume to your library so you can attach it directly when applying to jobs"
+              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', borderRadius: 10, background: savingToLibrary ? colors.surface.elevated : NAVY, border: `1.5px solid ${NAVY}`, color: savingToLibrary ? INK_S : 'white', fontSize: 12, fontWeight: 700, cursor: savingToLibrary ? 'not-allowed' : 'pointer', opacity: savingToLibrary ? 0.7 : 1 }}
+            >
+              <FolderPlus size={13} /> {savingToLibrary ? 'Saving…' : 'Use for Applications'}
             </button>
           </>
         }

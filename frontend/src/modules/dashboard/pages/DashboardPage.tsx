@@ -7,7 +7,7 @@ import type { LiveJob } from '@/api/krs'
 import PageHeader from '@/shared/layouts/PageHeader'
 import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors, shadows } from '@/design-system/tokens'
 import JobAnalysisDrawer from '@/components/JobAnalysisDrawer'
-import { resumeApi } from '@/api/resume'
+
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { getMyApplications } from '@/api/matching'
@@ -18,6 +18,7 @@ import ProfileCompletionCard from '../components/ProfileCompletionCard'
 import ApplyModal from '@/modules/jobs/components/ApplyModal'
 import Button from '@/components/ui/Button'
 import { JobSpotlight, JobModal } from '../components/JobSpotlight'
+import ResumeScoreModal from '../components/ResumeScoreModal'
 import Spinner from '@/shared/components/feedback/Spinner'
 import EmptyState from '@/shared/components/feedback/EmptyState'
 import { toast } from '@/shared/components/feedback/Toast'
@@ -69,33 +70,19 @@ export default function DashboardPage() {
     // Learning Setup questions yet. The Roadmap page gates on that, then the
     // plan panel's own "Generate My Roadmap" button starts generation with
     // the real answers instead of wrong-sounding defaults.
-    startPrep(job.id, { onSuccess: () => navigate('/app/roadmap') })
+    startPrep(job.id, { onSuccess: () => navigate('/app/roadmap', { state: { autoGenerate: true } }) })
   }
 
   const handleViewRoadmap = (job: LiveJob) => {
     setSelectedJob(null)
-    startPrep(job.id, { onSuccess: () => navigate('/app/roadmap') })
+    startPrep(job.id, { onSuccess: () => navigate('/app/roadmap', { state: { autoGenerate: true } }) })
   }
 
   const handleMockInterview = (job: LiveJob) => {
     navigate('/app/interview/setup', { state: { jobContext: { job_title: job.title, company_name: job.company_name, required_skills: job.required_skills, skills_to_develop: job.skills_to_develop } } })
   }
 
-  const [tailoringResumeJobId, setTailoringResumeJobId] = useState<string | null>(null)
-  const [tailorResumeError,    setTailorResumeError]    = useState<string | null>(null)
-  const handleTailoredResume = async (job: LiveJob) => {
-    setTailoringResumeJobId(job.id); setTailorResumeError(null)
-    try {
-      const newResume = await resumeApi.createResume({ title: `${job.title} — ${job.company_name}` })
-      await resumeApi.aiGenerateResume(newResume.id, { job_title: job.title, company_name: job.company_name, required_skills: job.required_skills, job_description: job.description })
-      navigate(`/app/resume/${newResume.id}`)
-    } catch (err: unknown) {
-      const msg = err && typeof err === 'object' && 'response' in err
-        ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-        : undefined
-      setTailorResumeError(msg ?? 'Failed to generate resume. Please try again.')
-    } finally { setTailoringResumeJobId(null) }
-  }
+  const [resumeScoreJob, setResumeScoreJob] = useState<LiveJob | null>(null)
 
   const recommendedJobs = [...(liveJobs ?? [])].sort((a, b) => b.match_score - a.match_score).slice(0, 10)
   const totalJobPages   = Math.max(1, Math.ceil(recommendedJobs.length / JOBS_PER_PAGE))
@@ -201,8 +188,6 @@ export default function DashboardPage() {
                   {!jobsLoading && recommendedJobs.length > 0 && <span style={{ fontSize: 12, color: MUTED }}>{recommendedJobs.length} roles found</span>}
                 </div>
 
-                {tailorResumeError && <div style={{ background: colors.state.dangerBg, border: '1px solid #FECACA', borderRadius: 12, padding: '10px 14px', color: colors.state.danger, fontSize: 12, marginBottom: 14 }}>{tailorResumeError}</div>}
-
                 {jobsLoading && (
                   <div style={{ borderRadius: 18, overflow: 'hidden', border: `1px solid ${BORDER}` }}>
                     <div style={{ height: 90, background: ELEVATED, animation: 'pulse 1.5s infinite' }} />
@@ -221,11 +206,10 @@ export default function DashboardPage() {
                     onViewRoadmap={() => handleViewRoadmap(job)}
                     roadmapStatus={roadmapStatusByJobId[job.id]}
                     onMockInterview={() => handleMockInterview(job)}
-                    onOpenResume={() => handleTailoredResume(job)}
+                    onOpenResume={() => setResumeScoreJob(job)}
                     onOpenSkillReport={() => setSkillGapJob(job)}
                     isPreparing={preparingJobId === job.id}
                     isApplied={appliedJobIds.has(job.id)}
-                    isTailoringResume={tailoringResumeJobId === job.id}
                   />
                 ))}
 
@@ -255,6 +239,8 @@ export default function DashboardPage() {
         )}
       </main>
 
+      {resumeScoreJob && <ResumeScoreModal job={resumeScoreJob} onClose={() => setResumeScoreJob(null)} />}
+
       {selectedJob && (
         <JobModal job={selectedJob} onClose={() => setSelectedJob(null)}
           onApply={() => { setSelectedJob(null); setApplyJob(selectedJob) }}
@@ -267,7 +253,8 @@ export default function DashboardPage() {
         />
       )}
       {skillGapJob && (
-        <JobAnalysisDrawer job={skillGapJob} kScore={data?.krs.k_score ?? 0} onClose={() => setSkillGapJob(null)} onApply={() => setSkillGapJob(null)} />
+        <JobAnalysisDrawer job={skillGapJob} kScore={data?.krs.k_score ?? 0} onClose={() => setSkillGapJob(null)}
+          onApply={() => { setApplyJob(skillGapJob); setSkillGapJob(null) }} />
       )}
       {applyJob && (
         <ApplyModal jobId={applyJob.id} jobTitle={`${applyJob.title} · ${applyJob.company_name}`} onClose={() => setApplyJob(null)} />
