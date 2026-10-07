@@ -5,7 +5,14 @@ import { authApi } from '@/api/auth'
 import { getApiError } from '@/api/client'
 import Button from '@/components/ui/Button'
 
-export default function ChangePasswordCard() {
+interface Props {
+  /** true when rendered inside another section that already provides the
+   * card chrome (border/shadow/header) — e.g. the Profile page's collapsible
+   * sections — so this doesn't nest a card inside a card. */
+  embedded?: boolean
+}
+
+export default function ChangePasswordCard({ embedded = false }: Props) {
   const [current, setCurrent]       = useState('')
   const [next, setNext]             = useState('')
   const [confirm, setConfirm]       = useState('')
@@ -39,25 +46,8 @@ export default function ChangePasswordCard() {
     fontFamily: 'inherit', color: '#111827', background: 'white',
   }
 
-  return (
-    <div style={{
-      background: 'white', border: '1px solid #E5E9F2', borderRadius: 16,
-      padding: '24px 24px', marginTop: 20,
-      boxShadow: '0 4px 14px rgba(15,23,42,0.05)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-        <div style={{
-          width: 34, height: 34, borderRadius: 9, background: 'rgba(26,39,68,0.07)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Lock size={16} color="#1A2744" />
-        </div>
-        <div>
-          <p style={{ fontSize: 14, fontWeight: 700, color: '#111827', margin: 0 }}>Change Password</p>
-          <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0 }}>Update your account password</p>
-        </div>
-      </div>
-
+  const content = (
+    <>
       {success && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 8, background: '#F0FDF4',
@@ -143,6 +133,30 @@ export default function ChangePasswordCard() {
           Update Password
         </Button>
       </form>
+    </>
+  )
+
+  if (embedded) return content
+
+  return (
+    <div style={{
+      background: 'white', border: '1px solid #E5E9F2', borderRadius: 16,
+      padding: '24px 24px', marginTop: 20,
+      boxShadow: '0 4px 14px rgba(15,23,42,0.05)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+        <div style={{
+          width: 34, height: 34, borderRadius: 9, background: 'rgba(26,39,68,0.07)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <Lock size={16} color="#1A2744" />
+        </div>
+        <div>
+          <p style={{ fontSize: 14, fontWeight: 700, color: '#111827', margin: 0 }}>Change Password</p>
+          <p style={{ fontSize: 12, color: '#9CA3AF', margin: 0 }}>Update your account password</p>
+        </div>
+      </div>
+      {content}
     </div>
   )
 }

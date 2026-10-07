@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Phone, Lock, CheckCircle2, Mail } from 'lucide-react'
+import { Lock, CheckCircle2, Mail } from 'lucide-react'
 import { GoogleLogin } from '@react-oauth/google'
 import AuthLayout from '@/layouts/AuthLayout'
 import Button from '@/components/ui/Button'
@@ -8,14 +8,6 @@ import Input from '@/components/ui/Input'
 import { useLogin, useGoogleLogin } from '../hooks/useAuth'
 import { getApiError } from '@/api/client'
 import { getRecaptchaToken } from '@/lib/recaptcha'
-
-function isEmailInput(v: string) {
-  return v.includes('@') || /[a-zA-Z]/.test(v)
-}
-
-function isPhoneInput(v: string) {
-  return /^\d+$/.test(v)
-}
 
 export default function LoginPage() {
   const [identifier, setIdentifier] = useState('')
@@ -28,12 +20,9 @@ export default function LoginPage() {
   const location = useLocation()
   const justVerified = (location.state as any)?.verified === true
 
-  const usingEmail = isEmailInput(identifier)
-  const usingPhone = isPhoneInput(identifier)
-
   const validate = () => {
     const errors: Record<string, string> = {}
-    if (!identifier.trim()) errors.identifier = 'Phone number or email is required'
+    if (!identifier.trim()) errors.identifier = 'Email address is required'
     if (!password.trim()) errors.password = 'Password is required'
     setFieldErrors(errors)
     return Object.keys(errors).length === 0
@@ -58,25 +47,20 @@ export default function LoginPage() {
         {justVerified && (
           <div className="flex items-center gap-2 text-sm text-primary bg-primary/5 border border-primary/20 rounded-xl px-4 py-3">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
-            Phone verified successfully! You can now log in.
+            Verified successfully! You can now log in.
           </div>
         )}
 
         <Input
-          label="Phone number or email"
-          type={usingEmail ? 'email' : usingPhone ? 'tel' : 'text'}
-          placeholder="Enter phone number or email"
+          label="Email address"
+          type="email"
+          placeholder="Enter email address"
           value={identifier}
-          onChange={(e) => {
-            const v = e.target.value
-            // Only enforce 10-digit cap for pure-numeric (phone) input
-            if (isPhoneInput(v) && v.length > 10) return
-            setIdentifier(v)
-          }}
+          onChange={(e) => setIdentifier(e.target.value)}
           error={fieldErrors.identifier}
-          prefix={usingEmail ? <Mail className="w-4 h-4" /> : <Phone className="w-4 h-4" />}
-          maxLength={usingPhone ? 10 : 150}
-          inputMode={usingPhone ? 'numeric' : 'email'}
+          prefix={<Mail className="w-4 h-4" />}
+          maxLength={150}
+          inputMode="email"
         />
 
         <Input

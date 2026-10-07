@@ -91,7 +91,7 @@ function NewTicketModal({ onClose }: { onClose: () => void }) {
         <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
           <Button variant="outline" size="sm" onClick={onClose} fullWidth>Cancel</Button>
           <Button variant="primary" size="sm" onClick={() => create.mutate()}
-            disabled={!form.subject.trim() || !form.body.trim() || create.isPending}
+            disabled={!form.subject.trim() || !form.body?.trim() || create.isPending}
             loading={create.isPending} fullWidth>
             <Send size={13} />{create.isPending ? 'Submitting…' : 'Submit ticket'}
           </Button>
@@ -107,16 +107,18 @@ function TicketThread({ ticket, onClose }: { ticket: TicketDetail; onClose: () =
   const [reply, setReply] = useState('')
 
   const postReply = useMutation({
-    mutationFn: (body: string) => employerSupportApi.replyToTicket(ticket.id, body),
+    mutationFn: (body: string) => employerSupportApi.addMessage(ticket.id, { body }),
     onSuccess:  () => { qc.invalidateQueries({ queryKey: ['employer-tickets', ticket.id] }); setReply('') },
   })
 
   const { data: detail } = useQuery({
     queryKey: ['employer-tickets', ticket.id],
-    queryFn:  () => employerSupportApi.getTicket(ticket.id),
+    queryFn:  () => employerSupportApi.getTicket(ticket.id).then(r => r.data),
     initialData: ticket,
     refetchInterval: 15000,
   })
+  // messages carry no sender_type; the reporter's own messages are the employer's
+  const isMine = (m: { sender_id: string | null }) => m.sender_id != null && m.sender_id === detail?.reporter_id
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -136,15 +138,15 @@ function TicketThread({ ticket, onClose }: { ticket: TicketDetail; onClose: () =
         {/* Messages */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           {(detail?.messages ?? []).map((m, i) => (
-            <div key={i} style={{ display: 'flex', gap: 10, flexDirection: m.sender_type === 'employer' ? 'row-reverse' : 'row' }}>
-              <div style={{ width: 28, height: 28, borderRadius: 6, background: m.sender_type === 'employer' ? colors.brand.navy : colors.state.infoBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: m.sender_type === 'employer' ? '#fff' : colors.state.info, flexShrink: 0 }}>
-                {m.sender_type === 'employer' ? 'ME' : 'CS'}
+            <div key={i} style={{ display: 'flex', gap: 10, flexDirection: isMine(m) ? 'row-reverse' : 'row' }}>
+              <div style={{ width: 28, height: 28, borderRadius: 6, background: isMine(m) ? colors.brand.navy : colors.state.infoBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: isMine(m) ? '#fff' : colors.state.info, flexShrink: 0 }}>
+                {isMine(m) ? 'ME' : 'CS'}
               </div>
               <div style={{ maxWidth: '75%' }}>
-                <div style={{ background: m.sender_type === 'employer' ? colors.brand.navy : colors.surface.elevated, color: m.sender_type === 'employer' ? '#fff' : colors.text.ink, borderRadius: m.sender_type === 'employer' ? '10px 2px 10px 10px' : '2px 10px 10px 10px', padding: '10px 14px', fontSize: 13, lineHeight: 1.5 }}>
+                <div style={{ background: isMine(m) ? colors.brand.navy : colors.surface.elevated, color: isMine(m) ? '#fff' : colors.text.ink, borderRadius: isMine(m) ? '10px 2px 10px 10px' : '2px 10px 10px 10px', padding: '10px 14px', fontSize: 13, lineHeight: 1.5 }}>
                   {m.body}
                 </div>
-                <p style={{ fontSize: 10, color: colors.text.muted, margin: '4px 0 0', textAlign: m.sender_type === 'employer' ? 'right' : 'left' }}>{fmtDate(m.created_at)}</p>
+                <p style={{ fontSize: 10, color: colors.text.muted, margin: '4px 0 0', textAlign: isMine(m) ? 'right' : 'left' }}>{fmtDate(m.created_at)}</p>
               </div>
             </div>
           ))}
@@ -189,7 +191,7 @@ export default function SupportPage() {
   const COLS = '1fr 90px 70px 100px 36px'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
       <PageHeader
         title="Support"
         subtitle="Get help from the BeginablAI team"

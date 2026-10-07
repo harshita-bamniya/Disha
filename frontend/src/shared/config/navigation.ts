@@ -2,12 +2,12 @@ import type { LucideIcon } from 'lucide-react'
 import {
   LayoutDashboard, Briefcase, Map, FileText, Heart,
   MessageSquare, Brain, HelpCircle, ShieldCheck,
-  BarChart3, CalendarDays, Building2, Users2,
-  Users, CalendarCheck2, Star, Share2, CreditCard, FileSignature,
+  CalendarDays, Building2, Users2,
+  Users, CalendarCheck2, ScanSearch, Star, Share2, CreditCard, FileSignature,
   ClipboardList, UserCheck, ScrollText,
   Compass, Bell, UserCog, KeyRound, Activity,
   Award, Bot, Plug, MonitorDot, Settings, Clock, BarChart, IndianRupee,
-  HeadphonesIcon, BarChart2,
+  HeadphonesIcon, BarChart2, Bookmark, Layers,
 } from 'lucide-react'
 
 export interface NavLeaf {
@@ -45,8 +45,10 @@ export function buildAspirantNav(): NavSection[] {
       items: [
         { label: 'Dashboard', path: '/app/dashboard', icon: LayoutDashboard },
         { label: 'Jobs', path: '/app/jobs', icon: Briefcase, matchPrefix: '/app/jobs' },
+        { label: 'Roles Hiring UPSC', path: '/app/roles', icon: Compass, matchPrefix: '/app/roles' },
         { label: 'My Roadmap', path: '/app/roadmap/history', icon: Map, matchPrefix: '/app/roadmap' },
         { label: 'My Applications', path: '/app/jobs/applications', icon: FileText },
+        { label: 'Prep List', path: '/app/jobs/saved', icon: Bookmark },
         { label: 'Your Companion', path: '/app/companion', icon: Heart },
       ],
     },
@@ -61,7 +63,6 @@ export function buildAspirantNav(): NavSection[] {
     {
       items: [
         { label: 'Support', path: '/app/support', icon: HelpCircle },
-        { label: 'Security', path: '/app/security', icon: ShieldCheck },
       ],
     },
   ]
@@ -90,7 +91,6 @@ export function buildEmployerNav(ctx: EmployerNavContext): NavSection[] {
       ] },
       { label: 'Account', items: [
         { label: 'Support', path: '/app/employer/support', icon: HelpCircle, exact: false },
-        { label: 'Security', path: '/app/security', icon: ShieldCheck },
       ] },
     ]
   }
@@ -103,7 +103,6 @@ export function buildEmployerNav(ctx: EmployerNavContext): NavSection[] {
       ] },
       { label: 'Account', items: [
         { label: 'Support', path: '/app/employer/support', icon: HelpCircle, exact: false },
-        { label: 'Security', path: '/app/security', icon: ShieldCheck },
       ] },
     ]
   }
@@ -113,26 +112,25 @@ export function buildEmployerNav(ctx: EmployerNavContext): NavSection[] {
     return [
       { label: 'Overview', items: [
         { label: 'My Dashboard', path: '/app/employer/dashboard', icon: LayoutDashboard },
-        { label: 'Analytics', path: '/app/employer/analytics', icon: BarChart3, exact: false },
         { label: 'Calendar', path: '/app/employer/calendar', icon: CalendarDays, exact: false },
       ] },
       { label: 'Hiring', items: [
-        { label: 'My Jobs', path: '/app/employer/jobs', icon: Briefcase, exact: false },
+        // Job creation/editing/publishing lives inside the department's own
+        // workspace now, not the company-wide Jobs page (which is read-only
+        // monitoring for the owner) — so "My Jobs" goes straight there.
+        { label: 'My Jobs', path: deptBase, icon: Briefcase, exact: false },
         { label: 'Templates', path: '/app/employer/templates', icon: FileSignature, exact: false },
       ] },
       { label: 'Candidates', items: [
         { label: 'Applicants', path: '/app/employer/applicants', icon: Users, exact: false },
         { label: 'Interviews', path: '/app/employer/interviews', icon: CalendarCheck2, exact: false },
+        { label: 'AI Interviews', path: '/app/employer/verified-interviews', icon: ScanSearch, exact: false },
         { label: 'Offers', path: '/app/employer/offers', icon: FileText, exact: false },
         { label: 'Talent Pool', path: '/app/employer/talent-pool', icon: Star, exact: false },
-      ] },
-      { label: 'My Department', items: [
-        { label: 'Dept Overview', path: deptBase, icon: Building2, exact: false },
       ] },
       { label: 'Account', items: [
         { label: 'Verification', path: '/app/employer/verification', icon: ShieldCheck, exact: false },
         { label: 'Support', path: '/app/employer/support', icon: HelpCircle, exact: false },
-        { label: 'Security', path: '/app/security', icon: ShieldCheck },
       ] },
     ]
   }
@@ -140,29 +138,32 @@ export function buildEmployerNav(ctx: EmployerNavContext): NavSection[] {
   return [
     { label: 'Overview', items: [
       { label: 'Dashboard', path: '/app/employer/dashboard', icon: LayoutDashboard },
-      { label: 'Analytics', path: '/app/employer/analytics', icon: BarChart3, exact: false },
       { label: 'Calendar', path: '/app/employer/calendar', icon: CalendarDays, exact: false },
     ] },
     { label: 'Hiring', items: [
-      { label: 'Jobs', path: '/app/employer/jobs', icon: Briefcase, exact: false, badge: activeJobs },
+      // Company-wide roles never create/edit jobs — that happens inside each
+      // department's own workspace. This is a read-only cross-department
+      // monitor, hence the distinct label from dept-scoped users' "My Jobs".
+      { label: 'Jobs Overview', path: '/app/employer/jobs', icon: Briefcase, exact: false, badge: activeJobs },
       { label: 'Templates', path: '/app/employer/templates', icon: FileSignature, exact: false },
     ] },
     { label: 'Candidates', items: [
       { label: 'Applicants', path: '/app/employer/applicants', icon: Users, exact: false },
       { label: 'Interviews', path: '/app/employer/interviews', icon: CalendarCheck2, exact: false },
+      { label: 'AI Interviews', path: '/app/employer/verified-interviews', icon: ScanSearch, exact: false },
       { label: 'Offers', path: '/app/employer/offers', icon: FileText, exact: false },
       { label: 'Talent Pool', path: '/app/employer/talent-pool', icon: Star, exact: false },
       { label: 'Referrals', path: '/app/employer/referrals', icon: Share2, exact: false },
     ] },
     { label: 'Organization', items: [
-      { label: 'Departments', path: '/app/employer/departments', icon: Building2, exact: false },
+      { label: 'Company Profile', path: '/app/employer/profile', icon: Building2, exact: false },
+      { label: 'Departments', path: '/app/employer/departments', icon: Layers, exact: false },
       { label: 'Team', path: '/app/employer/company', icon: Users2 },
       { label: 'Verification', path: '/app/employer/verification', icon: ShieldCheck, exact: false },
     ] },
     { label: 'Account', items: [
       ...(isOwner ? [{ label: 'Billing', path: '/app/employer/subscription', icon: CreditCard, exact: false }] : []),
       { label: 'Support', path: '/app/employer/support', icon: HelpCircle, exact: false },
-      { label: 'Security', path: '/app/security', icon: ShieldCheck },
     ] },
   ]
 }
@@ -218,6 +219,7 @@ export function buildAdminNav(role: string): NavSection[] {
 
   const configAll: (NavLeaf & { roles?: string[] })[] = [
     { label: 'Career Tracks', path: '/admin/career-tracks', icon: Compass },
+    { label: 'Roadmap Blueprints', path: '/admin/roadmap-blueprints', icon: Layers },
     { label: 'Notifications', path: '/admin/notifications', icon: Bell, roles: ['admin', 'super_admin'] },
     { label: 'Sub-Admins', path: '/admin/sub-admins', icon: UserCog, roles: ['super_admin'] },
     { label: 'Roles', path: '/admin/roles', icon: KeyRound, roles: ['super_admin'] },

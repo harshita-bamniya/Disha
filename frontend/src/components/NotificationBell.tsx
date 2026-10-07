@@ -120,7 +120,7 @@ export default function NotificationBell({ audience = 'employer' }: { audience?:
   const unread = data?.unread_count ?? 0
   const notifications = data?.notifications ?? []
 
-  const handleNotifClick = (id: string, isRead: boolean, linkUrl?: string) => {
+  const handleNotifClick = (id: string, isRead: boolean, linkUrl?: string | null) => {
     if (!isRead) markRead.mutate(id)
     if (linkUrl) navigate(linkUrl)
     setOpen(false)

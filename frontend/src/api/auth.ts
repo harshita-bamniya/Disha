@@ -3,6 +3,7 @@ import type { AuthTokens, CompanySize, User } from '@/types'
 
 export interface RegisterPayload {
   email: string
+  phone: string
   password: string
   preferred_language?: string
   recaptcha_token?: string
@@ -43,11 +44,12 @@ export interface MessageResponse {
 }
 
 export interface EmployerRegisterPayload {
-  phone: string
+  email: string
   password: string
   company_name: string
-  // Everything below is collected later via the post-login setup wizard —
-  // registration itself only needs phone + password + company_name.
+  // Everything below (including phone) is collected later via the
+  // post-login setup wizard — registration itself only needs the basics.
+  phone?: string
   industry?: string
   company_size?: CompanySize
   contact_person?: string
@@ -140,10 +142,10 @@ export const authApi = {
   me: () =>
     apiClient.get<User>('/auth/me').then((r) => r.data),
 
-  forgotPassword: (phone: string, recaptcha_token?: string) =>
-    apiClient.post<MessageResponse>('/auth/forgot-password', { phone, recaptcha_token }).then((r) => r.data),
+  forgotPassword: (email: string, recaptcha_token?: string) =>
+    apiClient.post<MessageResponse>('/auth/forgot-password', { email, recaptcha_token }).then((r) => r.data),
 
-  resetPassword: (data: { phone: string; otp: string; new_password: string }) =>
+  resetPassword: (data: { email: string; otp: string; new_password: string }) =>
     apiClient.post<MessageResponse>('/auth/reset-password', data).then((r) => r.data),
 
   registerEmployer: (data: EmployerRegisterPayload) =>

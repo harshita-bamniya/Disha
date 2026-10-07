@@ -209,26 +209,27 @@ export default function OnboardingLayout({ children, currentStep, title, subtitl
               {children}
             </div>
 
-            {/* Back button — below card */}
-            {currentStep > 1 && (
-              <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
-                <button
-                  onClick={() => navigate(`/app/onboarding/step/${currentStep - 1}`)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 5,
-                    fontSize: 13, fontWeight: 500, color: '#9CA3AF',
-                    background: 'none', border: 'none', cursor: 'pointer',
-                    fontFamily: 'inherit', padding: '6px 12px', borderRadius: 8,
-                    transition: 'color 0.15s',
-                  }}
-                  onMouseOver={e => e.currentTarget.style.color = N.ink}
-                  onMouseOut={e => e.currentTarget.style.color = '#9CA3AF'}
-                >
-                  <ChevronLeft size={14} />
-                  Go back to previous step
-                </button>
-              </div>
-            )}
+            {/* Back button — below card. Step 1 has no prior onboarding step to
+                return to, but it does have a screen before it in the signup
+                flow (phone entry) — so it still gets a working Back instead
+                of being the one step with no way back at all. */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
+              <button
+                onClick={() => navigate(currentStep > 1 ? `/app/onboarding/step/${currentStep - 1}` : '/auth/add-phone')}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  fontSize: 13, fontWeight: 500, color: '#9CA3AF',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontFamily: 'inherit', padding: '6px 12px', borderRadius: 8,
+                  transition: 'color 0.15s',
+                }}
+                onMouseOver={e => e.currentTarget.style.color = N.ink}
+                onMouseOut={e => e.currentTarget.style.color = '#9CA3AF'}
+              >
+                <ChevronLeft size={14} />
+                {currentStep > 1 ? 'Go back to previous step' : 'Back'}
+              </button>
+            </div>
           </div>
         </div>
       </div>

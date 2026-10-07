@@ -112,7 +112,7 @@ export default function EmployerApplicantsPage() {
     : items
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
       <PageHeader title="Applicants" subtitle="All candidates across your job postings" />
 
       {/* Toolbar */}
@@ -157,7 +157,7 @@ export default function EmployerApplicantsPage() {
             <div style={{ minWidth: 720 }}>
               {/* Header */}
               <div style={{ ...DS.tHead, gridTemplateColumns: COLS }}>
-                {['', 'Candidate', 'Role', 'Applied', 'Status', 'Match', ''].map(h => <span key={h}>{h}</span>)}
+                {['', 'Candidate', 'Role', 'Applied', 'Status', 'Resume fit', ''].map(h => <span key={h}>{h}</span>)}
               </div>
 
               {dashboard?.is_approved === false ? (

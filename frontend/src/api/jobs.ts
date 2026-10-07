@@ -72,6 +72,7 @@ export interface JobPosting {
   updated_at: string
   applicant_count: number
   department_id: string | null
+  department_name?: string | null
 }
 
 export interface EmployerDashboard {

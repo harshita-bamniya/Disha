@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Phone, Lock, ShieldCheck, ArrowLeft, CheckCircle2 } from 'lucide-react'
+import { Mail, Lock, ShieldCheck, ArrowLeft, CheckCircle2 } from 'lucide-react'
 import AuthLayout from '@/layouts/AuthLayout'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -8,12 +8,12 @@ import { authApi } from '@/api/auth'
 import { getApiError } from '@/api/client'
 import { getRecaptchaToken } from '@/lib/recaptcha'
 
-type Step = 'phone' | 'reset' | 'done'
+type Step = 'email' | 'reset' | 'done'
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate()
-  const [step, setStep] = useState<Step>('phone')
-  const [phone, setPhone] = useState('')
+  const [step, setStep] = useState<Step>('email')
+  const [email, setEmail] = useState('')
   const [otp, setOtp] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -27,16 +27,16 @@ export default function ForgotPasswordPage() {
     e.preventDefault()
     setError(null)
     const errors: Record<string, string> = {}
-    if (!phone.trim()) errors.phone = 'Phone number is required'
-    else if (!/^[6-9]\d{9}$/.test(phone.replace(/\D/g, '')))
-      errors.phone = 'Enter a valid 10-digit Indian mobile number'
+    if (!email.trim()) errors.email = 'Email address is required'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))
+      errors.email = 'Enter a valid email address'
     setFieldErrors(errors)
     if (Object.keys(errors).length > 0) return
 
     setLoading(true)
     try {
       const recaptcha_token = await getRecaptchaToken('forgot_password')
-      const res = await authApi.forgotPassword(phone, recaptcha_token)
+      const res = await authApi.forgotPassword(email.trim(), recaptcha_token)
       if (res.dev_otp) setDevOtp(res.dev_otp)
       setStep('reset')
     } catch (err: any) {
@@ -59,7 +59,7 @@ export default function ForgotPasswordPage() {
 
     setLoading(true)
     try {
-      await authApi.resetPassword({ phone, otp, new_password: newPassword })
+      await authApi.resetPassword({ email: email.trim(), otp, new_password: newPassword })
       setStep('done')
     } catch (err: any) {
       setError(getApiError(err, 'Reset failed. Please check your OTP and try again.'))
@@ -87,20 +87,20 @@ export default function ForgotPasswordPage() {
     )
   }
 
-  // ── Step 1: Phone input ───────────────────────────────────────────────────────
-  if (step === 'phone') {
+  // ── Step 1: Email input ───────────────────────────────────────────────────────
+  if (step === 'email') {
     return (
-      <AuthLayout title="Forgot password?" subtitle="Enter your registered phone number and we'll send an OTP." variant="forgot-password">
+      <AuthLayout title="Forgot password?" subtitle="Enter your registered email address and we'll send an OTP." variant="forgot-password">
         <form onSubmit={handleSendOtp} className="flex flex-col gap-4">
           <Input
-            label="Phone number"
-            type="tel"
-            value={phone}
-            onChange={e => setPhone(e.target.value)}
-            error={fieldErrors.phone}
-            prefix={<Phone className="w-4 h-4" />}
-            maxLength={10}
-            inputMode="numeric"
+            label="Email address"
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            error={fieldErrors.email}
+            prefix={<Mail className="w-4 h-4" />}
+            maxLength={150}
+            inputMode="email"
           />
 
           {error && (
@@ -127,7 +127,7 @@ export default function ForgotPasswordPage() {
 
   // ── Step 2: OTP + new password ───────────────────────────────────────────────
   return (
-    <AuthLayout title="Set new password" subtitle={`Enter the OTP sent to +91 ${phone}`} variant="forgot-password">
+    <AuthLayout title="Set new password" subtitle={`Enter the OTP sent to ${email}`} variant="forgot-password">
       <form onSubmit={handleReset} className="flex flex-col gap-4">
 
         {devOtp && (
@@ -183,10 +183,10 @@ export default function ForgotPasswordPage() {
 
         <button
           type="button"
-          onClick={() => { setStep('phone'); setError(null); setFieldErrors({}) }}
+          onClick={() => { setStep('email'); setError(null); setFieldErrors({}) }}
           style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, fontSize: 13, color: '#64748B', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0' }}
         >
-          <ArrowLeft size={14} /> Change phone number
+          <ArrowLeft size={14} /> Change email address
         </button>
       </form>
     </AuthLayout>

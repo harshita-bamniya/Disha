@@ -15,6 +15,7 @@ import { colors, radius, shadows } from '@/design-system/tokens'
 import PageHeader from '@/shared/layouts/PageHeader'
 import { Skeleton } from '@/shared/components/feedback/Skeleton'
 import ErrorState from '@/shared/components/feedback/ErrorState'
+import { SECTORS } from '@/shared/config/sectors'
 
 const EMPLOYMENT_ICONS: Record<string, React.ElementType> = {
   full_time: Briefcase, part_time: Clock4, internship: GraduationCap,
@@ -162,7 +163,6 @@ function CreateTemplateModal({ onClose }: { onClose: () => void }) {
           {[
             { label: 'Template name', placeholder: 'e.g. Standard Policy Analyst', value: name, set: setName, required: true },
             { label: 'Job title', placeholder: 'e.g. Senior Policy Analyst', value: title, set: setTitle, required: true },
-            { label: 'Sector', placeholder: 'e.g. Government & Civil Services', value: sector, set: setSector },
           ].map(({ label, placeholder, value, set, required }) => (
             <div key={label}>
               <label style={{ fontSize: 11, fontWeight: 700, color: colors.text.inkSoft, display: 'block', marginBottom: 4 }}>
@@ -176,6 +176,18 @@ function CreateTemplateModal({ onClose }: { onClose: () => void }) {
               />
             </div>
           ))}
+
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, color: colors.text.inkSoft, display: 'block', marginBottom: 4 }}>Sector</label>
+            <select
+              value={sector}
+              onChange={e => { setSector(e.target.value); setErr('') }}
+              style={{ width: '100%', height: 38, borderRadius: radius.md, border: `1px solid ${colors.border.default}`, padding: '0 12px', fontSize: 13, boxSizing: 'border-box', color: colors.text.ink, outline: 'none', background: '#fff' }}
+            >
+              <option value="">Select sector…</option>
+              {SECTORS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
 
           <div>
             <label style={{ fontSize: 11, fontWeight: 700, color: colors.text.inkSoft, display: 'block', marginBottom: 4 }}>Description</label>
@@ -237,7 +249,7 @@ export default function JobTemplatesPage() {
   const totalSkills = (templates ?? []).reduce((a, t) => a + t.required_skills.length, 0)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
       <PageHeader
         title="Job Templates"
         subtitle="Reusable job specs — fill in the form in seconds"

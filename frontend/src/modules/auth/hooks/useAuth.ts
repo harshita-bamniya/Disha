@@ -49,8 +49,33 @@ export function useVerifyEmailOtp() {
         refresh_token: data.refresh_token!,
         token_type: data.token_type as 'bearer',
       })
-      // Account has no phone number yet — collect it before anything else.
-      navigate('/auth/add-phone')
+      // Phone is already collected at registration now — straight to onboarding.
+      navigate('/app/onboarding/step/1')
+    },
+  })
+}
+
+/** Employer counterpart of useVerifyEmailOtp — same endpoint (role-agnostic),
+ * different post-verification redirect. */
+export function useVerifyEmployerEmailOtp() {
+  const { setAuth } = useAuthStore()
+  const navigate = useNavigate()
+
+  return useMutation({
+    mutationFn: authApi.verifyEmailOtp,
+    onSuccess: (data) => {
+      // Account access is instant now — verifying the email auto-logs in,
+      // same as aspirants. Job posting itself stays gated separately on
+      // profile completion + KYC verification.
+      sessionStorage.removeItem('pending_phone')
+      sessionStorage.removeItem('pending_employer')
+      sessionStorage.removeItem('dev_otp')
+      setAuth(data.user!, {
+        access_token: data.access_token!,
+        refresh_token: data.refresh_token!,
+        token_type: data.token_type as 'bearer',
+      })
+      navigate('/app/employer/setup')
     },
   })
 }

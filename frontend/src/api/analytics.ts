@@ -65,6 +65,7 @@ export interface DashboardKpis {
   total_applications: number
   interviews_scheduled: number
   offers_sent: number
+  offers_pending: number
   hires: number
   response_rate_pct: number
   avg_time_to_hire_days: number | null

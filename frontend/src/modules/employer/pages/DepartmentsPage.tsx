@@ -11,10 +11,11 @@ import {
 import { getApiError } from '@/api/client'
 import type { DepartmentEntry } from '@/api/company'
 import Button from '@/shared/components/primitives/Button'
-import Badge from '@/shared/components/data-display/Badge'
 import ErrorState from '@/shared/components/feedback/ErrorState'
 import { colors } from '@/design-system/tokens'
 import PageHeader from '@/shared/layouts/PageHeader'
+
+const CARD_MIN_HEIGHT = 212
 
 // ── Department card ───────────────────────────────────────────────────────────
 
@@ -27,59 +28,80 @@ function DepartmentCard({
   onDelete: (d: DepartmentEntry) => void
 }) {
   const navigate = useNavigate()
+  const stats = [
+    { label: 'Members',     value: dept.member_count,          icon: Users },
+    { label: 'Active jobs', value: dept.active_job_count,       icon: Briefcase },
+    { label: 'Total jobs',  value: dept.total_job_count,        icon: FileText },
+    { label: 'Applicants',  value: dept.total_applicant_count,  icon: UserCheck },
+  ]
   return (
     <div
       onClick={() => navigate(`/app/employer/departments/${dept.id}`)}
       style={{
         background: '#fff', border: `1px solid ${colors.border.default}`, borderRadius: 16,
-        padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
-        display: 'flex', flexDirection: 'column', gap: 12,
-        cursor: 'pointer', transition: 'box-shadow 0.2s, border-color 0.2s',
+        boxShadow: '0 1px 3px rgba(16,24,40,0.04)',
+        display: 'flex', flexDirection: 'column', minHeight: CARD_MIN_HEIGHT,
+        cursor: 'pointer', transition: 'box-shadow 0.2s, border-color 0.2s, transform 0.15s',
+        overflow: 'hidden',
       }}
-      onMouseOver={e => { e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.08)'; e.currentTarget.style.borderColor = colors.border.medium }}
-      onMouseOut={e => { e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'; e.currentTarget.style.borderColor = colors.border.default }}
+      onMouseOver={e => { e.currentTarget.style.boxShadow = '0 8px 20px rgba(16,24,40,0.09)'; e.currentTarget.style.borderColor = colors.border.medium; e.currentTarget.style.transform = 'translateY(-1px)' }}
+      onMouseOut={e => { e.currentTarget.style.boxShadow = '0 1px 3px rgba(16,24,40,0.04)'; e.currentTarget.style.borderColor = colors.border.default; e.currentTarget.style.transform = 'translateY(0)' }}
     >
-      {/* Header row */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 11, flexShrink: 0, background: 'linear-gradient(135deg, rgba(30,58,95,0.08), rgba(59,130,246,0.08))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Building2 size={17} color="#1E3A5F" />
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <p style={{ fontSize: 14, fontWeight: 800, color: '#1E3A5F', margin: 0 }}>{dept.name}</p>
-            {dept.head_name && (
-              <p style={{ fontSize: 11, color: colors.text.inkSoft, margin: '2px 0 0', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <UserCheck size={10} /> {dept.head_name}
+      <div style={{ padding: '18px 20px 16px', flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* Header row */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 11, flexShrink: 0, background: 'linear-gradient(135deg, rgba(30,58,95,0.08), rgba(59,130,246,0.08))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Building2 size={17} color="#1E3A5F" />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ fontSize: 14, fontWeight: 800, color: '#1E3A5F', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dept.name}</p>
+              <p style={{ fontSize: 11, color: colors.text.muted, margin: '2px 0 0', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <UserCheck size={10} /> {dept.head_name ?? 'No head assigned'}
               </p>
-            )}
+            </div>
           </div>
+          {canManage && (
+            <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+              <button onClick={e => { e.stopPropagation(); onEdit(dept) }} aria-label={`Edit ${dept.name}`} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${colors.border.default}`, background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Pencil size={12} color={colors.text.inkSoft} />
+              </button>
+              <button onClick={e => { e.stopPropagation(); onDelete(dept) }} aria-label={`Delete ${dept.name}`} style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #FEE2E2', background: '#FFF5F5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Trash2 size={12} color="#EF4444" />
+              </button>
+            </div>
+          )}
         </div>
-        {canManage && (
-          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-            <button onClick={e => { e.stopPropagation(); onEdit(dept) }} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${colors.border.default}`, background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Pencil size={12} color={colors.text.inkSoft} />
-            </button>
-            <button onClick={e => { e.stopPropagation(); onDelete(dept) }} style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #FEE2E2', background: '#FFF5F5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Trash2 size={12} color="#EF4444" />
-            </button>
+
+        <p style={{
+          fontSize: 12, color: colors.text.inkSoft, margin: 0, lineHeight: 1.5,
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+          minHeight: dept.description ? undefined : 0,
+        }}>
+          {dept.description || ' '}
+        </p>
+      </div>
+
+      {/* Stat grid — replaces the old multi-colour badge row with a clean,
+          monochrome grid that matches the dashboard's own stat tiles. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderTop: `1px solid ${colors.border.default}`, background: colors.surface.bg }}>
+        {stats.map((s, i) => (
+          <div key={s.label} style={{
+            padding: '10px 6px', textAlign: 'center',
+            borderRight: i < stats.length - 1 ? `1px solid ${colors.border.default}` : 'none',
+          }}>
+            <p style={{ fontSize: 15, fontWeight: 700, color: colors.text.ink, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{s.value}</p>
+            <p style={{ fontSize: 9.5, color: colors.text.muted, margin: '2px 0 0', fontWeight: 500 }}>{s.label}</p>
           </div>
-        )}
+        ))}
       </div>
 
-      {dept.description && (
-        <p style={{ fontSize: 12, color: colors.text.inkSoft, margin: 0, lineHeight: 1.5 }}>{dept.description}</p>
-      )}
-
-      {/* Stats */}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        <Badge color="blue"><Users size={11} style={{ marginRight: 3 }} />{dept.member_count} members</Badge>
-        <Badge color="green"><Briefcase size={11} style={{ marginRight: 3 }} />{dept.active_job_count} active jobs</Badge>
-        <Badge color="navy"><FileText size={11} style={{ marginRight: 3 }} />{dept.total_job_count} total jobs</Badge>
-        <Badge color="purple"><Users size={11} style={{ marginRight: 3 }} />{dept.total_applicant_count} applicants</Badge>
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: colors.state.info, fontWeight: 700 }}>
-        Open workspace <ChevronRight size={11} />
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+        padding: '9px 20px', fontSize: 11.5, color: colors.state.info, fontWeight: 700,
+        borderTop: `1px solid ${colors.border.default}`,
+      }}>
+        Open workspace <ChevronRight size={12} />
       </div>
     </div>
   )
@@ -221,7 +243,7 @@ export default function DepartmentsPage() {
   const totalApplicants = (departments ?? []).reduce((s, d) => s + d.total_applicant_count, 0)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
       <PageHeader
         title="Departments"
         subtitle="Manage your organization structure"
@@ -256,12 +278,11 @@ export default function DepartmentsPage() {
           {isLoading ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} style={{ background: 'rgba(255,255,255,0.8)', borderRadius: 16, padding: 20, height: 160 }}>
+                <div key={i} style={{ background: '#fff', border: `1px solid ${colors.border.default}`, borderRadius: 16, padding: 20, height: CARD_MIN_HEIGHT }}>
                   <div style={{ width: '60%', height: 16, borderRadius: 6, background: '#E5E7EB', marginBottom: 10 }} />
-                  <div style={{ width: '40%', height: 11, borderRadius: 6, background: '#F1F5F9', marginBottom: 16 }} />
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    {[70, 80, 60].map((w, j) => <div key={j} style={{ width: w, height: 22, borderRadius: 20, background: '#F1F5F9' }} />)}
-                  </div>
+                  <div style={{ width: '40%', height: 11, borderRadius: 6, background: '#F1F5F9', marginBottom: 20 }} />
+                  <div style={{ width: '100%', height: 11, borderRadius: 6, background: '#F1F5F9', marginBottom: 8 }} />
+                  <div style={{ width: '80%', height: 11, borderRadius: 6, background: '#F1F5F9' }} />
                 </div>
               ))}
             </div>
@@ -294,7 +315,7 @@ export default function DepartmentsPage() {
                     background: 'transparent', border: '2px dashed rgba(30,58,95,0.18)',
                     borderRadius: 16, padding: '18px 20px', cursor: 'pointer',
                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
-                    minHeight: 140, transition: 'border-color 0.2s, background 0.2s',
+                    minHeight: CARD_MIN_HEIGHT, transition: 'border-color 0.2s, background 0.2s',
                   }}
                     onMouseOver={e => { e.currentTarget.style.borderColor = 'rgba(26,39,68,0.3)'; e.currentTarget.style.background = 'rgba(26,39,68,0.03)' }}
                     onMouseOut={e => { e.currentTarget.style.borderColor = 'rgba(30,58,95,0.18)'; e.currentTarget.style.background = 'transparent' }}

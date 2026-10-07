@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MapPin } from 'lucide-react'
+import { Check, ChevronDown, MapPin } from 'lucide-react'
 import OnboardingLayout from '@/layouts/OnboardingLayout'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
@@ -34,12 +34,81 @@ function InsightCard({ insight, onContinue }: { insight: string; onContinue: () 
 }
 
 const SECTORS = [
-  'Government & Civil Services', 'Public Sector Undertakings (PSU)',
+  'Public Sector Undertakings (PSU)',
   'Management Consulting', 'Education & Training', 'NGO & Social Sector',
   'Banking & Finance', 'Legal', 'Research & Analytics', 'Media & Journalism',
   'Healthcare & Public Health', 'IT & Technology', 'Defence & Security',
   'International Organizations', 'Think Tanks & Policy', 'Entrepreneurship',
 ]
+
+// Dropdown multi-select — sectors used to be a flat grid of toggle pills,
+// which got unwieldy at 15 options. A dropdown keeps the closed state compact
+// and still shows selections as removable chips underneath.
+function SectorsDropdown({ sectors, selected, onToggle, max, error }: {
+  sectors: string[]
+  selected: Set<string>
+  onToggle: (s: string) => void
+  max: number
+  error?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [])
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={cn(
+          'w-full h-11 rounded-xl border bg-white px-4 text-sm text-left flex items-center justify-between gap-2 transition-all',
+          error ? 'border-danger' : 'border-gray-200 hover:border-primary/50',
+        )}
+      >
+        <span className={cn('truncate', selected.size === 0 && 'text-gray-400')}>
+          {selected.size === 0 ? 'Select sectors…' : `${selected.size} sector${selected.size > 1 ? 's' : ''} selected`}
+        </span>
+        <ChevronDown className={cn('w-4 h-4 text-gray-400 shrink-0 transition-transform', open && 'rotate-180')} />
+      </button>
+
+      {open && (
+        <div role="listbox" className="absolute z-20 mt-1 w-full max-h-64 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg py-1">
+          {sectors.map((s) => {
+            const isSelected = selected.has(s)
+            const isDisabled = !isSelected && selected.size >= max
+            return (
+              <button
+                key={s}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                onClick={() => !isDisabled && onToggle(s)}
+                disabled={isDisabled}
+                className={cn(
+                  'w-full flex items-center justify-between gap-2 px-4 py-2 text-sm text-left transition-colors',
+                  isSelected ? 'bg-primary/5 text-primary font-medium' : 'text-gray-700 hover:bg-gray-50',
+                  isDisabled && 'text-gray-300 cursor-not-allowed hover:bg-transparent',
+                )}
+              >
+                {s}
+                {isSelected && <Check className="w-4 h-4 shrink-0" />}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 const SALARY_OPTIONS = [
   { label: 'Up to ₹5 LPA', min: 0, max: 5 },
@@ -158,28 +227,26 @@ export default function Step6Preferences() {
             <label className="text-sm font-medium text-gray-700">Sectors you're interested in</label>
             <span className="text-xs text-gray-400">{selectedSectors.size}/{MAX_SECTORS}</span>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {SECTORS.map((s) => {
-              const isSelected = selectedSectors.has(s)
-              const isDisabled = !isSelected && selectedSectors.size >= MAX_SECTORS
-              return (
-                <button
+          <SectorsDropdown sectors={SECTORS} selected={selectedSectors} onToggle={toggleSector} max={MAX_SECTORS} error={errors.sectors} />
+          {selectedSectors.size > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {Array.from(selectedSectors).map((s) => (
+                <span
                   key={s}
-                  type="button"
-                  onClick={() => toggleSector(s)}
-                  disabled={isDisabled}
-                  className={cn(
-                    'px-3 py-1.5 rounded-full border text-xs font-medium transition-all duration-150',
-                    isSelected && 'bg-primary text-white border-primary',
-                    !isSelected && !isDisabled && 'bg-white text-gray-600 border-gray-200 hover:border-primary/50',
-                    isDisabled && 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed',
-                  )}
+                  className="flex items-center gap-1.5 px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full"
                 >
                   {s}
-                </button>
-              )
-            })}
-          </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleSector(s)}
+                    className="text-primary/60 hover:text-danger"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
           {errors.sectors && <p className="text-xs text-danger">{errors.sectors}</p>}
         </div>
 

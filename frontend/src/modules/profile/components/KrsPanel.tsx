@@ -1,5 +1,6 @@
 import { RefreshCw } from 'lucide-react'
 import { useKrsDashboard, useRecompute } from '@/modules/dashboard/hooks/useKrs'
+import { useOnboardingProfile } from '@/modules/onboarding/hooks/useOnboarding'
 
 const KRS_TILES = [
   {
@@ -36,7 +37,9 @@ const KRS_TILES = [
 
 export function KrsPanel() {
   const { data, isLoading } = useKrsDashboard()
+  const { data: onboardingProfile } = useOnboardingProfile()
   const recompute = useRecompute()
+  const hasLearningSetup = !!onboardingProfile?.has_learning_setup
 
   return (
     <div style={{
@@ -94,7 +97,9 @@ export function KrsPanel() {
               <p style={{ fontSize: 12, fontWeight: 700, color: '#111827', marginBottom: 6 }}>{t.label}</p>
               <p style={{ fontSize: 11.5, color: '#6B7280', lineHeight: 1.55, marginBottom: 8 }}>{t.what}</p>
               <p style={{ fontSize: 11, color: t.color, fontWeight: 600, borderTop: `1px solid ${t.border}`, paddingTop: 8 }}>
-                ↑ {t.improve}
+                ↑ {t.key === 'r' && hasLearningSetup
+                  ? 'Revisit your Learning Setup as your confidence or burnout level changes.'
+                  : t.improve}
               </p>
             </div>
           ))}

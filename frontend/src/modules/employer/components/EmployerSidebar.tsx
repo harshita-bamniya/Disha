@@ -5,6 +5,17 @@ import { useEmployerDashboard, useDashboardKpis, useEmployerPermissions } from '
 import { colors } from '@/design-system/tokens'
 import Sidebar from '@/shared/layouts/Sidebar'
 import { buildEmployerNav } from '@/shared/config/navigation'
+import { CommandBar } from './CommandBar'
+import NotificationBell from '@/components/NotificationBell'
+
+const ROLE_LABELS: Record<string, string> = {
+  employer:        'Owner',
+  employer_owner:  'Owner',
+  hr_manager:      'HR Manager',
+  hiring_manager:  'Hiring Manager',
+  recruiter:       'Recruiter',
+  interviewer:     'Interviewer',
+}
 
 export default function EmployerSidebar({ collapsed, onToggleCollapse }: { collapsed?: boolean; onToggleCollapse?: () => void } = {}) {
   const { data: dashboard } = useEmployerDashboard()
@@ -20,6 +31,7 @@ export default function EmployerSidebar({ collapsed, onToggleCollapse }: { colla
   const activeJobs = kpis?.active_jobs ?? 0
 
   const roleName = perms?.role_name ?? ''
+  const roleLabel = ROLE_LABELS[roleName] ?? 'Member'
   const deptId = perms?.department_id ?? null
   const deptName = perms?.department_name ?? null
   const isWide = perms?.is_company_wide ?? true
@@ -35,30 +47,55 @@ export default function EmployerSidebar({ collapsed, onToggleCollapse }: { colla
     : null
 
   const identity = (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <div style={{
-        width: 38, height: 38, borderRadius: '50%',
-        background: colors.brand.navy,
-        border: `1px solid ${colors.border.medium}`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontWeight: 700, fontSize: 15, color: 'white', flexShrink: 0,
-      }}>
-        {initial}
-      </div>
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <p style={{
-          fontSize: 13, fontWeight: 700, color: colors.text.ink,
-          margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>{companyName}</p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
-          {contextLabel ? (
-            <span style={{ fontSize: 11, color: 'rgba(26,39,68,0.60)' }}>{contextLabel}</span>
-          ) : isApproved ? (
-            <><CheckCircle2 size={10} color={colors.state.success} /><span style={{ fontSize: 11, color: 'rgba(26,39,68,0.60)', fontWeight: 500 }}>Verified</span></>
-          ) : (
-            <><AlertCircle size={10} color={colors.state.warning} /><span style={{ fontSize: 11, color: 'rgba(26,39,68,0.60)', fontWeight: 500 }}>Pending</span></>
-          )}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{
+          width: 38, height: 38, borderRadius: '50%',
+          background: colors.brand.navy,
+          border: `1px solid ${colors.border.medium}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontWeight: 700, fontSize: 15, color: 'white', flexShrink: 0,
+        }}>
+          {initial}
         </div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <p style={{
+            fontSize: 13, fontWeight: 700, color: colors.text.ink,
+            margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>{companyName}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 1 }}>
+            {contextLabel ? (
+              <span style={{ fontSize: 11, color: 'rgba(26,39,68,0.60)' }}>{contextLabel}</span>
+            ) : isApproved ? (
+              <><CheckCircle2 size={10} color={colors.state.success} /><span style={{ fontSize: 11, color: 'rgba(26,39,68,0.60)', fontWeight: 500 }}>Verified</span></>
+            ) : (
+              <><AlertCircle size={10} color={colors.state.warning} /><span style={{ fontSize: 11, color: 'rgba(26,39,68,0.60)', fontWeight: 500 }}>Pending</span></>
+            )}
+            {roleLabel && (
+              <span style={{ fontSize: 10, fontWeight: 600, color: colors.text.muted, background: colors.surface.elevated, borderRadius: 5, padding: '1px 6px', marginLeft: 2 }}>
+                {roleLabel}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Search + notifications — this is the app's only header-level chrome
+          now that each page's own PageHeader is the sole top heading; they
+          live here instead of a separate top bar so there's never a second
+          header stacked above the page title. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <CommandBar onPostJob={() => navigate(
+            // Job authoring lives inside a department's own workspace now —
+            // a dept-scoped user's "Post a Job" goes straight there. A
+            // company-wide owner can't post at all (only a department-
+            // scoped team member can), so send them to Departments instead,
+            // where they'd invite/open one.
+            isDeptScoped && deptId ? `/app/employer/departments/${deptId}` : '/app/employer/departments'
+          )} />
+        </div>
+        <NotificationBell />
       </div>
     </div>
   )

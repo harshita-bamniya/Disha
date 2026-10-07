@@ -6,7 +6,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Search, LayoutDashboard, Building2, Users2, Star, CalendarDays,
-  BarChart3, CreditCard, ShieldCheck, Briefcase, Plus, X,
+  CreditCard, ShieldCheck, Briefcase, Plus, X,
 } from 'lucide-react'
 import { colors, radius } from '@/design-system/tokens'
 import { useIsMobile } from '@/shared/hooks/useIsMobile'
@@ -48,13 +48,13 @@ export function CommandBar({ onPostJob }: { onPostJob?: () => void }) {
   }, [open])
 
   const items: CommandItem[] = useMemo(() => [
-    { id: 'dashboard',    label: 'Dashboard',       icon: LayoutDashboard, color: '#3B82F6', action: () => navigate('/app/employer/dashboard'),   keywords: 'home overview' },
+    { id: 'dashboard',    label: 'Dashboard',       icon: LayoutDashboard, color: '#3B82F6', action: () => navigate('/app/employer/dashboard'),   keywords: 'home overview analytics stats reports funnel kpis performance' },
     { id: 'post-job',     label: 'Post a Job',       icon: Plus,            color: '#059669', action: () => { onPostJob?.(); setOpen(false) },      keywords: 'create new job posting' },
     { id: 'departments',  label: 'Departments',      icon: Building2,       color: '#1E3A5F', action: () => navigate('/app/employer/departments'),   keywords: 'org team structure' },
-    { id: 'team',         label: 'Company & Team',   icon: Users2,          color: '#3B82F6', action: () => navigate('/app/employer/company'),       keywords: 'members invite colleagues' },
+    { id: 'team',         label: 'Team',             icon: Users2,          color: '#3B82F6', action: () => navigate('/app/employer/company'),       keywords: 'members invite colleagues' },
+    { id: 'company-profile', label: 'Company Profile', icon: Building2,     color: '#0F766E', action: () => navigate('/app/employer/profile'),       keywords: 'branding logo offices industry description' },
     { id: 'talent-pool',  label: 'Talent Pool',      icon: Star,            color: '#D97706', action: () => navigate('/app/employer/talent-pool'),   keywords: 'saved candidates bookmarks' },
     { id: 'calendar',     label: 'Calendar',         icon: CalendarDays,    color: '#7C3AED', action: () => navigate('/app/employer/calendar'),      keywords: 'interviews schedule' },
-    { id: 'analytics',    label: 'Analytics',        icon: BarChart3,       color: '#0EA5E9', action: () => navigate('/app/employer/analytics'),     keywords: 'stats reports funnel kpis performance' },
     { id: 'subscription', label: 'Subscription',     icon: CreditCard,      color: '#D97706', action: () => navigate('/app/employer/subscription'),  keywords: 'plan billing upgrade' },
     { id: 'verification', label: 'Verification',     icon: ShieldCheck,     color: '#059669', action: () => navigate('/app/employer/verification'),  keywords: 'kyc documents approval' },
     { id: 'jobs',         label: 'Manage Jobs',      icon: Briefcase,       color: '#6366F1', action: () => navigate('/app/employer/dashboard'),     keywords: 'postings listings draft published' },

@@ -107,7 +107,8 @@ export interface ApplicationOut {
   company_name: string
   status: string
   reference_number: string | null
-  match_score: number | null
+  match_score: number | null   // resume fit: how well the attached resume fits the job
+  resume_fit_status?: 'no_resume' | 'pending' | 'ready' | 'failed' | null
   knockout_triggered: boolean
   application_score: number | null
   created_at: string
@@ -117,6 +118,10 @@ export interface ApplicationOut {
 // ── API ───────────────────────────────────────────────────────────────────────
 
 export const applicationsApi = {
+  /** One of the candidate's own applications (used to watch the resume fit being scored). */
+  get: (applicationId: string) =>
+    apiClient.get<ApplicationOut>(`/applications/${applicationId}`).then(r => r.data),
+
   /** Check whether the candidate can apply to this job. */
   checkEligibility: (jobId: string) =>
     apiClient.get<EligibilityOut>(`/jobs/${jobId}/apply/eligibility`).then(r => r.data),

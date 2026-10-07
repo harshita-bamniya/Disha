@@ -183,7 +183,7 @@ export default function TalentPoolPage() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
       <PageHeader title="Talent Pool" subtitle="Saved candidates for future roles" />
 
       {/* Toolbar */}

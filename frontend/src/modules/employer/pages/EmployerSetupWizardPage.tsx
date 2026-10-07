@@ -2,14 +2,17 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Building2, Globe, User, Image as ImageIcon, ShieldCheck,
-  ArrowRight, ArrowLeft, Check, Upload, Mail,
+  ArrowRight, ArrowLeft, Check, Upload, Phone,
 } from 'lucide-react'
 import Input from '@/shared/components/primitives/Input'
+import Select from '@/shared/components/primitives/Select'
 import Button from '@/shared/components/primitives/Button'
 import {
   useCompanyProfile, useUpdateCompanyProfile, useUpdateEmployerProfile,
   useUploadCompanyLogo, useUploadCompanyBanner,
 } from '../hooks/useJobs'
+import { useUpdatePhone } from '@/modules/auth/hooks/useAuth'
+import { getApiError } from '@/api/client'
 import type { CompanySize } from '@/types'
 
 const N = {
@@ -39,7 +42,7 @@ const COMPANY_SIZES: { value: CompanySize; label: string }[] = [
 ]
 
 const STEPS = [
-  { id: 'details',      label: 'Your details',     icon: User,       hint: 'Name, email and designation' },
+  { id: 'details',      label: 'Your details',     icon: User,       hint: 'Name, phone and designation' },
   { id: 'company',      label: 'Company info',      icon: Building2,  hint: 'Industry, size and website' },
   { id: 'branding',     label: 'Branding',          icon: ImageIcon,  hint: 'Logo, banner and description' },
   { id: 'verification', label: 'Verification',      icon: ShieldCheck,hint: 'Get your verified badge' },
@@ -69,6 +72,7 @@ export default function EmployerSetupWizardPage() {
   const { data: company } = useCompanyProfile()
   const updateCompany  = useUpdateCompanyProfile()
   const updateProfile  = useUpdateEmployerProfile()
+  const updatePhone    = useUpdatePhone()
   const uploadLogo     = useUploadCompanyLogo()
   const uploadBanner   = useUploadCompanyBanner()
 
@@ -76,7 +80,7 @@ export default function EmployerSetupWizardPage() {
 
   // Step 0 — Your details
   const [fullName,     setFullName]     = useState('')
-  const [email,        setEmail]        = useState('')
+  const [phone,        setPhone]        = useState('')
   const [designation,  setDesignation]  = useState('')
 
   // Step 1 — Company info
@@ -87,29 +91,52 @@ export default function EmployerSetupWizardPage() {
   // Step 2 — Branding
   const [description,  setDescription]  = useState('')
 
+  // Surfaces a mutation failure instead of leaving Continue looking like it
+  // silently did nothing — previously none of the three save calls below had
+  // an onError handler, so a failed request (expired session, validation
+  // edge case, network blip) left the user stuck on the same step with the
+  // button just stopping its spinner and no explanation.
+  const [error, setError] = useState('')
+
   const goNext = () => step < STEPS.length - 1 ? setStep(s => s + 1) : navigate('/app/employer/dashboard')
   const finish = () => navigate('/app/employer/dashboard')
 
   const saveDetails = () => {
+    setError('')
+    const cleanedPhone = phone.replace(/\D/g, '')
+    if (cleanedPhone && !/^[6-9]\d{9}$/.test(cleanedPhone)) {
+      setError('Enter a valid 10-digit Indian mobile number')
+      return
+    }
+
+    const savePhoneThenContinue = () => {
+      if (!cleanedPhone) { goNext(); return }
+      updatePhone.mutate(
+        { phone: cleanedPhone },
+        { onSuccess: goNext, onError: e => setError(getApiError(e, 'Could not save your phone number. Please try again.')) },
+      )
+    }
+
     updateProfile.mutate(
       {
         full_name:    fullName    || undefined,
-        email:        email       || undefined,
         designation:  designation || undefined,
       },
-      { onSuccess: goNext },
+      { onSuccess: savePhoneThenContinue, onError: e => setError(getApiError(e, 'Could not save your details. Please try again.')) },
     )
   }
 
   const saveCompany = () => {
+    setError('')
     updateCompany.mutate(
       { industry: industry || undefined, company_size: companySize || undefined, website: website || undefined },
-      { onSuccess: goNext },
+      { onSuccess: goNext, onError: e => setError(getApiError(e, 'Could not save your company info. Please try again.')) },
     )
   }
 
   const saveBranding = () => {
-    if (description) updateCompany.mutate({ description }, { onSuccess: goNext })
+    setError('')
+    if (description) updateCompany.mutate({ description }, { onSuccess: goNext, onError: e => setError(getApiError(e, 'Could not save your description. Please try again.')) })
     else goNext()
   }
 
@@ -206,12 +233,14 @@ export default function EmployerSetupWizardPage() {
                   prefix={<User className="w-4 h-4" />}
                 />
                 <Input
-                  label="Email address"
-                  type="email"
-                  placeholder="rajiv@yourcompany.com"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  prefix={<Mail className="w-4 h-4" />}
+                  label="Phone number (optional)"
+                  type="tel"
+                  placeholder="10-digit mobile number"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  prefix={<Phone className="w-4 h-4" />}
+                  maxLength={10}
+                  inputMode="numeric"
                 />
                 <Input
                   label="Designation (optional)"
@@ -220,27 +249,22 @@ export default function EmployerSetupWizardPage() {
                   onChange={e => setDesignation(e.target.value)}
                   prefix={<User className="w-4 h-4" />}
                 />
-                <Footer onSkip={goNext} onNext={saveDetails} loading={updateProfile.isPending} />
+                <Footer onSkip={goNext} onNext={saveDetails} loading={updateProfile.isPending || updatePhone.isPending} error={error} />
               </div>
             )}
 
             {/* Step 1 — Company info */}
             {step === 1 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: N.muted, marginBottom: 10 }}>Industry</div>
-                  <div role="radiogroup" aria-label="Industry" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    {INDUSTRIES.map(ind => (
-                      <button key={ind} type="button" role="radio" aria-checked={industry === ind} onClick={() => setIndustry(ind)} style={{
-                        padding: '7px 14px', borderRadius: 100, fontSize: 12, fontWeight: 500, cursor: 'pointer',
-                        border: industry === ind ? `1.5px solid ${N.navy}` : '1.5px solid #E2E8F0',
-                        background: industry === ind ? N.navy : 'transparent',
-                        color: industry === ind ? N.white : N.inkSoft,
-                        transition: 'all 0.12s',
-                      }}>{ind}</button>
-                    ))}
-                  </div>
-                </div>
+                <Select
+                  label="Industry"
+                  placeholder="Select your industry"
+                  value={industry}
+                  onChange={e => setIndustry(e.target.value)}
+                  options={INDUSTRIES.map(ind => ({ value: ind, label: ind }))}
+                  variant="box"
+                  size="lg"
+                />
 
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: N.muted, marginBottom: 10 }}>Company size</div>
@@ -266,7 +290,7 @@ export default function EmployerSetupWizardPage() {
                   type="url"
                 />
 
-                <Footer onSkip={goNext} onNext={saveCompany} loading={updateCompany.isPending} />
+                <Footer onSkip={goNext} onNext={saveCompany} loading={updateCompany.isPending} error={error} />
               </div>
             )}
 
@@ -278,14 +302,14 @@ export default function EmployerSetupWizardPage() {
                   hint="PNG or JPG, square recommended"
                   currentUrl={company?.logo_url}
                   uploading={uploadLogo.isPending}
-                  onFile={f => uploadLogo.mutate(f)}
+                  onFile={f => { setError(''); uploadLogo.mutate(f, { onError: e => setError(getApiError(e, 'Could not upload the logo. Please try again.')) }) }}
                 />
                 <BrandingUpload
                   label="Cover banner"
                   hint="PNG or JPG, 1200×300 recommended"
                   currentUrl={company?.cover_banner_url}
                   uploading={uploadBanner.isPending}
-                  onFile={f => uploadBanner.mutate(f)}
+                  onFile={f => { setError(''); uploadBanner.mutate(f, { onError: e => setError(getApiError(e, 'Could not upload the banner. Please try again.')) }) }}
                 />
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: N.muted, marginBottom: 8 }}>About company (optional)</div>
@@ -304,7 +328,7 @@ export default function EmployerSetupWizardPage() {
                     onBlur={e => (e.target.style.borderColor = '#E2E8F0')}
                   />
                 </div>
-                <Footer onSkip={goNext} onNext={saveBranding} loading={updateCompany.isPending} />
+                <Footer onSkip={goNext} onNext={saveBranding} loading={updateCompany.isPending} error={error} />
               </div>
             )}
 
@@ -342,7 +366,7 @@ export default function EmployerSetupWizardPage() {
               ))}
             </div>
             {step > 0 && (
-              <Button type="button" variant="ghost" size="sm" onClick={() => setStep(s => s - 1)}>
+              <Button type="button" variant="ghost" size="sm" onClick={() => { setError(''); setStep(s => s - 1) }}>
                 <ArrowLeft size={14} /> Back
               </Button>
             )}
@@ -353,15 +377,20 @@ export default function EmployerSetupWizardPage() {
   )
 }
 
-function Footer({ onSkip, onNext, loading }: { onSkip: () => void; onNext: () => void; loading: boolean }) {
+function Footer({ onSkip, onNext, loading, error }: { onSkip: () => void; onNext: () => void; loading: boolean; error?: string }) {
   return (
-    <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
-      <Button type="button" variant="outline" size="lg" onClick={onSkip} style={{ flex: 1 }}>
-        Skip for now
-      </Button>
-      <Button type="button" variant="primary" size="lg" onClick={onNext} disabled={loading} loading={loading} style={{ flex: 2 }}>
-        {loading ? 'Saving…' : <>Continue <ArrowRight size={15} /></>}
-      </Button>
+    <div>
+      {error && (
+        <p style={{ fontSize: 13, color: '#DC2626', margin: '0 0 12px', lineHeight: 1.5 }}>{error}</p>
+      )}
+      <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
+        <Button type="button" variant="outline" size="lg" onClick={onSkip} style={{ flex: 1 }}>
+          Skip for now
+        </Button>
+        <Button type="button" variant="primary" size="lg" onClick={onNext} disabled={loading} loading={loading} style={{ flex: 2 }}>
+          {loading ? 'Saving…' : <>Continue <ArrowRight size={15} /></>}
+        </Button>
+      </div>
     </div>
   )
 }

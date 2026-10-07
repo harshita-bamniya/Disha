@@ -33,6 +33,7 @@ import {
   usePipelineTemplates, useCreatePipelineTemplate, useDeletePipelineTemplate, useApplyTemplateToJob,
 } from '../hooks/useJobs'
 import Button from '@/shared/components/primitives/Button'
+import ResumeFitPanel from '../components/ResumeFitPanel'
 import Spinner from '@/shared/components/feedback/Spinner'
 import Breadcrumb from '@/shared/components/navigation/Breadcrumb'
 import ErrorState from '@/shared/components/feedback/ErrorState'
@@ -82,7 +83,7 @@ const DEFAULT_KANBAN_STAGES: PipelineStage[] = [
 ]
 
 const SORT_OPTIONS = [
-  { value: 'match_score', label: 'Best Match' },
+  { value: 'match_score', label: 'Best resume fit' },
   { value: 'applied_at',  label: 'Newest First' },
   { value: 'krs',         label: 'KRS Score' },
 ]
@@ -108,7 +109,7 @@ function exportToCSV(candidates: CandidateOut[], jobTitle: string) {
     'Name','City','State','Gender','Qualification','Degree','Field','Institution','Grad Year',
     'UPSC Attempts','Highest Stage','Years Preparing','Optional Subject',
     'Work Exp','Work Years','Work Domain','Last Designation',
-    'Skills','K Score','R Score','S Score','Composite','Match Score',
+    'Skills','K Score','R Score','S Score','Composite','Resume Fit',
     'Salary Min','Salary Max','Status','Cover Note','Applied (days ago)',
   ]
   const rows = candidates.map(c => [
@@ -338,11 +339,14 @@ function ProfileDrawer({candidate,jobId,onClose}:{candidate:CandidateOut;jobId:s
 
         {/* Body */}
         <div style={{padding:'20px 24px',display:'flex',flexDirection:'column',gap:16,flex:1}}>
+          {/* Resume fit: how well the resume this candidate attached fits the job */}
+          <ResumeFitPanel applicationId={candidate.application_id} status={candidate.resume_fit_status}/>
+
           {/* Match + KRS summary */}
           <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit, minmax(140px, 1fr))',gap:12}}>
             {candidate.match_score!==null&&(
               <div style={{background:'rgba(59,130,246,0.04)',border:'1px solid rgba(59,130,246,0.12)',borderRadius:14,padding:'14px 16px'}}>
-                <p style={{fontSize:10,fontWeight:700,color:'#94A3B8',textTransform:'uppercase',marginBottom:8}}>Job Match</p>
+                <p style={{fontSize:10,fontWeight:700,color:'#94A3B8',textTransform:'uppercase',marginBottom:8}}>Resume fit</p>
                 <div style={{fontSize:32,fontWeight:900,color:candidate.match_score>=70?'#059669':candidate.match_score>=40?'#D97706':'#DC2626',lineHeight:1}}>{candidate.match_score}%</div>
               </div>
             )}
@@ -837,7 +841,7 @@ function CandidateCard({candidate,jobId,selected,onSelect}:{candidate:CandidateO
           </div>
         </div>
         <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:10}}>
-          {candidate.match_score!==null&&<StatChip label="Match" value={`${candidate.match_score}%`} color={candidate.match_score>=70?'#059669':candidate.match_score>=40?'#D97706':'#DC2626'}/>}
+          {candidate.match_score!==null&&<StatChip label="Resume fit" value={`${candidate.match_score}%`} color={candidate.match_score>=70?'#059669':candidate.match_score>=40?'#D97706':'#DC2626'}/>}
           {candidate.composite!==null&&<StatChip label="KRS" value={String(candidate.composite)} color="#7C3AED"/>}
           {candidate.upsc_attempts!==null&&<StatChip label="Attempts" value={String(candidate.upsc_attempts)} color="#3B82F6"/>}
         </div>
@@ -920,7 +924,7 @@ function ComparisonModal({candidates,jobId,onClose}:{candidates:CandidateOut[];j
                 </div>
 
                 <div>
-                  {c.match_score!=null&&<ScoreBar label="Match Score" score={c.match_score} color={c.match_score>=70?'#059669':c.match_score>=40?'#D97706':'#DC2626'}/>}
+                  {c.match_score!=null&&<ScoreBar label="Resume fit" score={c.match_score} color={c.match_score>=70?'#059669':c.match_score>=40?'#D97706':'#DC2626'}/>}
                   {c.composite!=null&&<ScoreBar label="KRS Composite" score={c.composite} color="#7C3AED"/>}
                   {c.k_score!=null&&<ScoreBar label="Knowledge (K)" score={c.k_score} color="#3B82F6"/>}
                   {c.r_score!=null&&<ScoreBar label="Readiness (R)" score={c.r_score} color="#0EA5E9"/>}
@@ -1009,7 +1013,7 @@ function KanbanCard({ candidate, jobId, onDragStart }: {
           {[candidate.city, candidate.state].filter(Boolean).join(', ') || 'Location N/A'}
         </p>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {candidate.match_score !== null && <StatChip label="Match" value={`${candidate.match_score}%`} color={candidate.match_score >= 70 ? '#059669' : candidate.match_score >= 40 ? '#D97706' : '#DC2626'} />}
+          {candidate.match_score !== null && <StatChip label="Resume fit" value={`${candidate.match_score}%`} color={candidate.match_score >= 70 ? '#059669' : candidate.match_score >= 40 ? '#D97706' : '#DC2626'} />}
           {candidate.avg_rating !== null && <StatChip label="★" value={candidate.avg_rating.toFixed(1)} color="#D97706" />}
         </div>
       </div>

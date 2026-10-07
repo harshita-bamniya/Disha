@@ -130,7 +130,7 @@ export default function SupportPage() {
           onClick={() => setShowFilters(f => !f)}
           className="flex items-center gap-1.5"
           style={{
-            height: 36, padding: '0 12px', borderRadius: 10, fontSize: 12, fontWeight: 600, border: 'none',
+            height: 36, padding: '0 12px', borderRadius: 10, fontSize: 12, fontWeight: 600,
             background: (showFilters || hasFilters) ? colors.brand.navy : '#fff',
             color: (showFilters || hasFilters) ? '#fff' : colors.text.ink,
             border: (showFilters || hasFilters) ? 'none' : '1px solid rgba(0,0,0,0.08)',

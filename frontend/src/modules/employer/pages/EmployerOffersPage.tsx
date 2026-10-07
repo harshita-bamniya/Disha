@@ -104,7 +104,7 @@ export default function EmployerOffersPage() {
   const total = data?.total ?? 0
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
       <PageHeader title="Offers" subtitle="Offer letters sent to candidates" />
 
       {/* Toolbar */}

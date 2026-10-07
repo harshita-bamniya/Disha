@@ -331,7 +331,7 @@ export default function AnalyticsPage() {
   })
 
   const handleExport = useCallback((filename: string, rows: object[]) => {
-    if (rows.length) downloadCSV(rows, filename)
+    if (rows.length) downloadCSV(rows as Record<string, unknown>[], filename)
   }, [])
 
   return (

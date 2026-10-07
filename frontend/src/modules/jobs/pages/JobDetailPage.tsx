@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { MapPin, Wifi, Briefcase, Target, Sparkles, Mic, Check, IndianRupee, ArrowUpRight, SearchX } from 'lucide-react'
+import { MapPin, Wifi, Briefcase, Target, Sparkles, Mic, Check, IndianRupee, ArrowUpRight, SearchX, FileSearch } from 'lucide-react'
 import PageHeader from '@/shared/layouts/PageHeader'
 import Breadcrumb from '@/shared/components/navigation/Breadcrumb'
 import EmptyState from '@/shared/components/feedback/EmptyState'
@@ -312,6 +312,28 @@ export default function JobDetailPage() {
                       }}
                     >
                       {isStartingPrep ? 'Generating…' : isActivePrepJob ? 'View Roadmap' : 'Generate'}
+                    </button>
+                  </div>
+
+                  {/* Resume Match */}
+                  <div style={{ borderRadius: 13, border: `1px solid ${BORDER}`, padding: '14px 14px', background: CREAM, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 9, background: CREAM_DK, border: `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <FileSearch size={15} color={INK_S} />
+                    </div>
+                    <div>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: INK, margin: '0 0 3px' }}>Resume Match</p>
+                      <p style={{ fontSize: 11, color: MUTED, margin: 0, lineHeight: 1.5 }}>See how well your resume fits this job and what to fix.</p>
+                    </div>
+                    <button
+                      onClick={() => navigate(`/app/jobs/${jobId}/resume-match`)}
+                      style={{
+                        height: 30, borderRadius: 8, border: `1px solid ${BORDER}`,
+                        background: '#fff', fontSize: 11, fontWeight: 700, color: INK,
+                        cursor: 'pointer', marginTop: 'auto',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                      }}
+                    >
+                      <FileSearch size={11} /> Check my resume
                     </button>
                   </div>
 

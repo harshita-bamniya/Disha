@@ -6,6 +6,7 @@ import NotificationBell from '@/components/NotificationBell'
 import { colors } from '@/design-system/tokens'
 import Sidebar from '@/shared/layouts/Sidebar'
 import { buildAspirantNav } from '@/shared/config/navigation'
+import { getAvatar } from '@/shared/constants/avatars'
 
 export default function AppSidebar({ activePath }: { activePath?: string }) {
   const navigate = useNavigate()
@@ -15,18 +16,19 @@ export default function AppSidebar({ activePath }: { activePath?: string }) {
 
   const name = data?.full_name?.split(' ')[0] ?? 'Aspirant'
   const skills = data?.skills ?? []
+  const avatar = getAvatar(data?.avatar_id)
 
   const identity = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
       <div style={{ position: 'relative', flexShrink: 0 }}>
         <div style={{
           width: 38, height: 38, borderRadius: '50%',
-          background: colors.brand.navy,
+          background: avatar ? avatar.bg : colors.brand.navy,
           border: `1px solid ${colors.border.medium}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontWeight: 700, fontSize: 15, color: 'white',
+          fontWeight: 700, fontSize: avatar ? 18 : 15, color: 'white',
         }}>
-          {name.charAt(0).toUpperCase()}
+          {avatar ? avatar.emoji : name.charAt(0).toUpperCase()}
         </div>
         <div style={{ position: 'absolute', bottom: -1, right: -1, width: 10, height: 10, borderRadius: '50%', background: '#22C55E', border: '2px solid white' }} />
       </div>

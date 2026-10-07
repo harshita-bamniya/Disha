@@ -8,7 +8,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   AlertCircle, ArrowLeft, ArrowRight, Check,
   CheckCircle2, FileText, Loader2, Send, Upload, X,
@@ -16,6 +16,7 @@ import {
 import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors, shadows } from '@/design-system/tokens'
 import { applicationsApi, type AnswerIn, type FormSectionOut, type QuestionOut } from '@/api/applications'
 import { resumeLibraryApi, type ResumeFile } from '@/api/resumeLibrary'
+import ScoreRing from '@/shared/components/data-display/ScoreRing'
 import { useAuthStore } from '@/stores/authStore'
 import { useOnboardingProfile } from '@/modules/onboarding/hooks/useOnboarding'
 import { useJobEligibility, useApplyFormConfig, useResumeLibrary } from '../hooks/useApplyFlow'
@@ -196,7 +197,9 @@ function ResumeStep({
   files,
   isLoading,
   onUploadDone,
+  jobId,
 }: {
+  jobId?: string
   selectedId: string | null
   onSelect: (id: string | null) => void
   resumeConfig: string
@@ -233,6 +236,20 @@ function ResumeStep({
           ? 'A resume is required for this application. Select one from your library or upload a new file.'
           : 'Attach a resume to strengthen your application (optional).'}
       </p>
+
+      {jobId && selectedId && files.find(f => f.id === selectedId && (f.format === 'pdf' || f.format === 'docx')) && (
+        <p style={{ margin: '-6px 0 16px', fontSize: 12.5 }}>
+          <a
+            href={`/app/jobs/${jobId}/resume-match?file=${selectedId}`}
+            target="_blank"
+            rel="noreferrer"
+            style={{ color: NAVY, fontWeight: 700, textDecoration: 'underline' }}
+          >
+            Check how well this resume matches the job
+          </a>
+          <span style={{ color: INK_S }}> (opens in a new tab, your application stays as it is)</span>
+        </p>
+      )}
 
       {/* Upload button — always visible */}
       <div style={{ marginBottom: 16 }}>
@@ -567,7 +584,93 @@ function SubmitStep({ coverNote, onChange, requireCoverLetter, coverError }: {
 }
 
 // ── Success screen ────────────────────────────────────────────────────────────
-function SuccessScreen({ refNum, jobTitle, onDone }: { refNum: string | null; jobTitle: string; onDone: () => void }) {
+interface Submitted {
+  appId: string
+  jobId: string
+  refNum: string | null
+  jobTitle: string
+  fitStatus: string | null | undefined
+  fitScore: number | null
+}
+
+const FIT_POLL_MS = 4000
+const FIT_POLL_MAX_MS = 120_000
+
+function bandFor(score: number): { label: string; color: string } {
+  if (score >= 80) return { label: 'Strong', color: colors.state.success }
+  if (score >= 65) return { label: 'Good', color: colors.state.info }
+  if (score >= 45) return { label: 'Fair', color: colors.state.warning }
+  return { label: 'Low', color: colors.state.danger }
+}
+
+/** Shows the resume fit score as soon as it is ready. Scoring runs in the background, so poll briefly. */
+function ResumeFitStatus({ submitted, onReport }: { submitted: Submitted; onReport: () => void }) {
+  const [startedAt] = useState(() => Date.now())
+  const watching = submitted.fitStatus === 'pending'
+  const { data } = useQuery({
+    queryKey: ['application-fit', submitted.appId],
+    queryFn: () => applicationsApi.get(submitted.appId),
+    enabled: watching,
+    refetchInterval: q => {
+      const st = q.state.data?.resume_fit_status
+      const settled = !!st && st !== 'pending'
+      return settled || Date.now() - startedAt > FIT_POLL_MAX_MS ? false : FIT_POLL_MS
+    },
+  })
+  const status = data?.resume_fit_status ?? submitted.fitStatus
+  const score = data?.match_score ?? submitted.fitScore
+  const box = {
+    display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left' as const, border: `1px solid ${BORDER}`,
+    borderRadius: 12, padding: '12px 16px', marginBottom: 20, maxWidth: 420, width: '100%',
+  }
+
+  if (status === 'ready' && score != null) {
+    const band = bandFor(score)
+    return (
+      <div style={box}>
+        <ScoreRing value={score} size={64} stroke={6} color={band.color} />
+        <div>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: NAVY }}>Your resume fit: {band.label}</p>
+          <p style={{ margin: '2px 0 6px', fontSize: 12, color: INK_S }}>
+            How well the resume you attached matches this job. The employer sees this score.
+          </p>
+          <button
+            onClick={onReport}
+            style={{
+              background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+              fontSize: 12, fontWeight: 700, color: NAVY, textDecoration: 'underline',
+            }}
+          >
+            See the full report and how to improve
+          </button>
+        </div>
+      </div>
+    )
+  }
+  if (status === 'pending') {
+    return (
+      <div style={box} role="status">
+        <Loader2 size={20} color={NAVY} style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+        <p style={{ margin: 0, fontSize: 13, color: INK_S }}>
+          Scoring your resume against this job. This takes about 30 seconds and you can leave this page.
+        </p>
+      </div>
+    )
+  }
+  if (status === 'failed') {
+    return (
+      <div style={box}>
+        <p style={{ margin: 0, fontSize: 13, color: INK_S }}>
+          We could not score your resume just now. Your application is submitted, and you can run a check any time from the job page.
+        </p>
+      </div>
+    )
+  }
+  return null
+}
+
+function SuccessScreen({ submitted, onDone, onReport }: { submitted: Submitted; onDone: () => void; onReport: () => void }) {
+  const { refNum, jobTitle } = submitted
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '48px 24px', textAlign: 'center' }}>
       <div style={{
@@ -580,6 +683,7 @@ function SuccessScreen({ refNum, jobTitle, onDone }: { refNum: string | null; jo
       <p style={{ margin: '0 0 16px', fontSize: 14, color: INK_S, maxWidth: 360 }}>
         Your application for <strong>{jobTitle}</strong> has been received. The hiring team will be in touch.
       </p>
+      <ResumeFitStatus submitted={submitted} onReport={onReport} />
       {refNum && (
         <div style={{ background: CREAM, border: `1px solid ${CREAM_DK}`, borderRadius: 10, padding: '10px 20px', marginBottom: 24 }}>
           <p style={{ margin: 0, fontSize: 12, color: MUTED }}>Reference number</p>
@@ -612,7 +716,7 @@ export default function ApplyPage() {
   const [coverNote, setCoverNote]       = useState('')
   const [fieldErrors, setFieldErrors]   = useState<Record<string, string>>({})
   const [coverError, setCoverError]     = useState<string | undefined>()
-  const [submitted, setSubmitted]       = useState<{ refNum: string | null; jobTitle: string } | null>(null)
+  const [submitted, setSubmitted]       = useState<Submitted | null>(null)
   const [savingDraft, setSavingDraft]   = useState(false)
   const draftId = useRef<string | null>(null)
 
@@ -759,7 +863,10 @@ export default function ApplyPage() {
     onSuccess: data => {
       qc.invalidateQueries({ queryKey: ['my-applications'] })
       qc.invalidateQueries({ queryKey: ['eligibility', jobId] })
-      setSubmitted({ refNum: data.reference_number, jobTitle: data.job_title })
+      setSubmitted({
+        appId: data.id, jobId: data.job_id, refNum: data.reference_number, jobTitle: data.job_title,
+        fitStatus: data.resume_fit_status, fitScore: data.match_score,
+      })
     },
   })
 
@@ -812,8 +919,9 @@ export default function ApplyPage() {
         {/* success */}
         {submitted && (
           <div style={{ background: WHITE, borderRadius: 16, border: `1px solid ${BORDER}`, boxShadow: shadows.card }}>
-            <SuccessScreen refNum={submitted.refNum} jobTitle={submitted.jobTitle}
-              onDone={() => navigate('/app/jobs/applications')} />
+            <SuccessScreen submitted={submitted}
+              onDone={() => navigate('/app/jobs/applications')}
+              onReport={() => navigate(`/app/jobs/${submitted.jobId}/resume-match`)} />
           </div>
         )}
 
@@ -850,6 +958,7 @@ export default function ApplyPage() {
               {isResumeStep && (
                 <>
                   <ResumeStep
+                    jobId={jobId}
                     selectedId={selectedResumeId}
                     onSelect={setResume}
                     resumeConfig={resumeConfig}

@@ -73,6 +73,8 @@ export interface TeamInvitePayload {
 export interface SubscriptionPlanEntry {
   id: string
   name: string
+  plan_type: 'employer' | 'aspirant'
+  billing_interval: 'monthly' | 'annual'
   price_monthly: number
   max_active_jobs: number | null
   max_recruiter_seats: number | null
@@ -272,5 +274,7 @@ export interface TeamActivityEntry {
   resource_id: string | null
   actor_email: string | null
   actor_name: string | null
+  department_id: string | null
+  department_name: string | null
   created_at: string
 }

@@ -502,7 +502,7 @@ function DepartmentsTab({ emp }: { emp: any }) {
   const navigate = useNavigate()
   const { data, isLoading } = useEmployerJobs(emp.id)
 
-  const bySector = (data?.items ?? []).reduce<Record<string, typeof data.items>>((acc, j) => {
+  const bySector = (data?.items ?? []).reduce<Record<string, NonNullable<typeof data>["items"]>>((acc, j) => {
     const key = j.sector ?? 'Other'
     ;(acc[key] ??= []).push(j)
     return acc

@@ -21,9 +21,7 @@ export default function PageHeader({ title, subtitle, icon, actions, back, below
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'center',
-      position: 'sticky',
-      top: 0,
-      zIndex: 20,
+      flexShrink: 0,
     }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>

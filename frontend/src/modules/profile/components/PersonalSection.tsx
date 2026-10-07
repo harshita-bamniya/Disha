@@ -114,7 +114,8 @@ export function PersonalSection({ profile, open, onToggle }: Props) {
           <ChipSelector
             options={['Male', 'Female', 'Other', 'Prefer not to say']}
             selected={form.gender === 'prefer_not_to_say' ? 'Prefer not to say' : form.gender ? form.gender.charAt(0).toUpperCase() + form.gender.slice(1) : ''}
-            onChange={(val: string) => {
+            onChange={(v) => {
+              const val = v as string
               const map: Record<string, string> = { 'Male': 'male', 'Female': 'female', 'Other': 'other', 'Prefer not to say': 'prefer_not_to_say' }
               setForm(p => ({ ...p, gender: map[val] ?? val }))
             }}

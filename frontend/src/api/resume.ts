@@ -1,5 +1,6 @@
 import { apiClient } from './client'
 import { useAuthStore } from '@/stores/authStore'
+import type { ResumeFile } from './resumeLibrary'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
@@ -258,4 +259,11 @@ export const resumeApi = {
    */
   exportPdf: (resumeId: string) =>
     apiClient.get(`/resume/${resumeId}/export`, { responseType: 'blob' }).then(r => r.data as Blob),
+
+  /**
+   * Render this resume to PDF and add it to the candidate's resume library,
+   * so it's selectable in the Apply flow without a manual download + re-upload.
+   */
+  saveToLibrary: (resumeId: string) =>
+    apiClient.post<ResumeFile>(`/resume/${resumeId}/save-to-library`).then(r => r.data),
 }

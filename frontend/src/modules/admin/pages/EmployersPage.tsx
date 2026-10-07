@@ -182,7 +182,7 @@ export default function EmployersPage() {
       list = list.filter(e =>
         e.company_name.toLowerCase().includes(q) ||
         (e.contact_person ?? '').toLowerCase().includes(q) ||
-        e.phone.includes(q) ||
+        (e.phone ?? '').includes(q) ||
         (e.city ?? '').toLowerCase().includes(q),
       )
     }

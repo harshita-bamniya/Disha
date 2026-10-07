@@ -1,3 +1,4 @@
+import OutcomePrompt from '../components/OutcomePrompt'
 import { useState, useMemo } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
@@ -438,6 +439,16 @@ function TimelineCard({ app, isLast }: { app: ApplicationOut; isLast: boolean })
             </div>
           )}
 
+          {/* resume fit: scored in the background after submitting */}
+          {app.match_score === null && app.resume_fit_status === 'pending' && (
+            <p style={{ margin: 0, fontSize: 10.5, color: MUTED }} role="status">Scoring your resume…</p>
+          )}
+          {app.match_score === null && app.resume_fit_status === 'no_resume' && (
+            <p style={{ margin: 0, fontSize: 10.5, color: MUTED }}>No resume attached, so there is no resume fit score.</p>
+          )}
+
+          <OutcomePrompt applicationId={app.id} createdAt={app.created_at} status={app.status} />
+
           {/* match bar */}
           {app.match_score !== null && (
             <div>
@@ -445,7 +456,7 @@ function TimelineCard({ app, isLast }: { app: ApplicationOut; isLast: boolean })
                 <div style={{ height: '100%', width: `${app.match_score}%`, background: matchColor(app.match_score), borderRadius: 2 }} />
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
-                <span style={{ fontSize: 10, color: MUTED }}>Skill match</span>
+                <span style={{ fontSize: 10, color: MUTED }}>Resume fit</span>
                 <span style={{ fontSize: 10, fontWeight: 800, color: matchColor(app.match_score) }}>{app.match_score}%</span>
               </div>
             </div>

@@ -1,24 +1,12 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import {
-  Plus, Pencil, Trash2, X, Users, Briefcase,
-  Rocket, PauseCircle, PlayCircle, XCircle, Archive, Copy,
-  FileSignature, Upload, Download, ChevronRight, Search, ClipboardList,
-} from 'lucide-react'
-import {
-  useEmployerDashboard, useCreateJob, useUpdateJob, useDeleteJob,
-  usePublishJob, usePauseJob, useCloseJob, useReopenJob, useArchiveJob, useDuplicateJob,
-  useHasPermission, useBulkImportJobs, useDepartments, useEmployerPermissions,
-} from '../hooks/useJobs'
-import JobForm from '../components/JobForm'
-import { ApprovalQueue } from '../components/ApprovalQueue'
-import type { JobPosting, JobPostingPayload } from '@/api/jobs'
+import { Link, useNavigate } from 'react-router-dom'
+import { Users, Briefcase, Search, ChevronRight } from 'lucide-react'
+import { useEmployerDashboard, useDepartments } from '../hooks/useJobs'
+import type { JobPosting } from '@/api/jobs'
 import { formatSalary, EMPLOYMENT_TYPE_LABELS } from '@/api/jobs'
-import { getApiError } from '@/api/client'
 import { DS, C } from '../ds'
 import { formatDate as fmtDate } from '@/shared/utils/format'
-import { colors, radius } from '@/design-system/tokens'
-import Button from '@/shared/components/primitives/Button'
+import { colors } from '@/design-system/tokens'
 import PageHeader from '@/shared/layouts/PageHeader'
 import StatusChip from '../components/StatusChip'
 import ErrorState from '@/shared/components/feedback/ErrorState'
@@ -26,92 +14,14 @@ import ErrorState from '@/shared/components/feedback/ErrorState'
 const inputStyle: React.CSSProperties = { width: '100%', padding: '7px 10px', border: `1px solid ${colors.border.default}`, borderRadius: 7, fontSize: 13, color: colors.text.ink, background: colors.surface.card, outline: 'none', boxSizing: 'border-box' }
 const selectStyle: React.CSSProperties = { padding: '6px 10px', border: `1px solid ${colors.border.default}`, borderRadius: 7, fontSize: 13, color: colors.text.ink, background: colors.surface.card, cursor: 'pointer' }
 
-type View = 'list' | 'new' | { edit: JobPosting }
+// ── Job row — read-only. Creating/editing/publishing a job happens inside
+// that job's own department workspace now, not here; this page exists so a
+// company-wide viewer can see everything at a glance across departments. ──
+const COLS = '1fr 96px 120px 68px 96px 88px 100px'
 
-// ── Bulk import ────────────────────────────────────────────────────────────────
-const BULK_CSV =
-  'title,description,sector,required_skills,job_type,location,employment_type,expires_at,min_k_score,salary_min,salary_max,growth_outlook\n' +
-  '"Policy Research Associate","Support senior analysts on policy research.","Government & Civil Services","Policy Research;Data Analysis","hybrid","New Delhi","full_time","2026-12-31",40,8,14,medium\n'
-
-function downloadTemplate() {
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(new Blob([BULK_CSV], { type: 'text/csv' }))
-  a.download = 'job_import_template.csv'; a.click()
-}
-
-function BulkImportModal({ onClose }: { onClose: () => void }) {
-  const bulk = useBulkImportJobs()
-  const [file, setFile] = useState<File | null>(null)
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200, padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: radius.xl, padding: 24, maxWidth: 460, width: '100%', border: `1px solid ${C.border}` }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 600, color: C.ink1, margin: 0 }}>Bulk import jobs</h3>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close"><X size={16} /></Button>
-        </div>
-        <p style={{ fontSize: 13, color: C.ink2, marginBottom: 14, lineHeight: 1.5 }}>
-          Upload a CSV to create multiple job postings at once. All saved as <strong>drafts</strong>.
-        </p>
-        <Button variant="ghost" size="sm" onClick={downloadTemplate} style={{ marginBottom: 14, color: C.accent, background: C.accentBg }}>
-          <Download size={13} />Download template
-        </Button>
-        <input type="file" accept=".csv,text/csv" onChange={e => setFile(e.target.files?.[0] ?? null)} style={{ width: '100%', fontSize: 12, marginBottom: 14 }} />
-        {bulk.isError && <p style={{ fontSize: 12, color: C.red, marginBottom: 10 }}>{getApiError(bulk.error, 'Import failed.')}</p>}
-        {bulk.data && (
-          <div style={{ marginBottom: 14 }}>
-            <p style={{ fontSize: 12, fontWeight: 600, color: C.green }}>{bulk.data.created} job{bulk.data.created !== 1 ? 's' : ''} created as drafts.</p>
-            {bulk.data.failed.length > 0 && (
-              <div style={{ background: C.redBg, borderRadius: 6, padding: 10, marginTop: 8 }}>
-                {bulk.data.failed.map(f => <p key={f.row} style={{ fontSize: 11, color: C.red, margin: '2px 0' }}>Row {f.row}: {f.error}</p>)}
-              </div>
-            )}
-          </div>
-        )}
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Button variant="outline" size="sm" onClick={onClose} fullWidth>{bulk.data ? 'Done' : 'Cancel'}</Button>
-          {!bulk.data && (
-            <Button variant="primary" size="sm" onClick={() => file && bulk.mutate(file)}
-              disabled={!file || bulk.isPending} loading={bulk.isPending} fullWidth>
-              {bulk.isPending ? 'Importing…' : 'Import'}
-            </Button>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Job row ────────────────────────────────────────────────────────────────────
-const COLS = '1fr 96px 120px 68px 96px 88px 148px'
-
-function JobRow({
-  job, onEdit, onDelete, onPublish, onPause, onClose, onReopen, onArchive, onDuplicate, isMutating,
-}: {
-  job: JobPosting; onEdit: () => void; onDelete: () => void; onPublish: () => void
-  onPause: () => void; onClose: () => void; onReopen: () => void
-  onArchive: () => void; onDuplicate: () => void; isMutating?: boolean
-}) {
-  const canEdit    = useHasPermission('jobs:edit')
-  const canPublish = useHasPermission('jobs:publish')
-  const canCreate  = useHasPermission('jobs:create')
-  const canDelete  = useHasPermission('jobs:delete')
+function JobRow({ job }: { job: JobPosting }) {
+  const navigate = useNavigate()
   const [hovered, setHovered] = useState(false)
-
-  const spin: React.CSSProperties = { animation: 'spin 0.7s linear infinite', borderRadius: '50%', width: 10, height: 10, border: `2px solid ${C.ink3}`, borderTopColor: 'transparent', display: 'inline-block' }
-
-  const primaryBtn = (label: string, fn: () => void, color = C.accent) => (
-    <button onClick={fn} disabled={isMutating} aria-label={label}
-      style={{ padding: '4px 10px', borderRadius: 5, border: `1px solid ${color}30`, background: `${color}0f`, color, fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
-      {isMutating ? <span style={spin} /> : label}
-    </button>
-  )
-
-  const iconBtn = (icon: React.ReactNode, fn: () => void, title: string, danger = false) => (
-    <Button variant="ghost" size="icon" onClick={fn} aria-label={title}
-      style={{ color: danger ? C.red : C.ink3, border: `1px solid ${C.border}`, width: 26, height: 26 }}>
-      {icon}
-    </Button>
-  )
 
   return (
     <div
@@ -149,20 +59,18 @@ function JobRow({
       {/* Posted */}
       <span style={{ fontSize: 12, color: C.ink3 }}>{fmtDate(job.created_at)}</span>
 
-      {/* Actions */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        {job.status === 'draft'     && canPublish && primaryBtn('Publish', onPublish, C.green)}
-        {job.status === 'published' && canPublish && primaryBtn('Pause',   onPause,   C.amber)}
-        {job.status === 'paused'    && canPublish && primaryBtn('Resume',  onReopen,  C.green)}
-        {job.status === 'closed'    && canPublish && primaryBtn('Reopen',  onReopen,  C.accent)}
-        {(job.status === 'published' || job.status === 'paused') && canPublish && iconBtn(<XCircle size={12} />, onClose, 'Close', true)}
-        {canEdit    && iconBtn(<Pencil size={12} />,  onEdit,    'Edit')}
-        {canCreate  && iconBtn(<Copy size={12} />,    onDuplicate, 'Duplicate')}
-        <Link to={`/app/employer/jobs/${job.id}/form-builder`} title="Application Form Builder" style={{ width: 26, height: 26, borderRadius: 5, border: `1px solid ${C.border}`, background: 'transparent', color: C.accent, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, textDecoration: 'none' }}>
-          <ClipboardList size={12} />
-        </Link>
-        {canDelete  && iconBtn(<Trash2 size={12} />,  onDelete,  'Delete', true)}
-      </div>
+      {/* Manage — hands off to the owning department's workspace, the only
+          place this job can actually be edited/published/closed etc. */}
+      {job.department_id ? (
+        <button
+          onClick={() => navigate(`/app/employer/departments/${job.department_id}`)}
+          style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 12, fontWeight: 600, color: C.accent, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+        >
+          Manage <ChevronRight size={12} />
+        </button>
+      ) : (
+        <span style={{ fontSize: 11, color: C.ink3 }}>—</span>
+      )}
     </div>
   )
 }
@@ -180,40 +88,11 @@ const STATUS_TABS = [
 // ── Page ───────────────────────────────────────────────────────────────────────
 export default function EmployerJobsPage() {
   const { data, isLoading, isError, refetch } = useEmployerDashboard()
-  const createJob   = useCreateJob()
-  const updateJob   = useUpdateJob()
-  const deleteJob   = useDeleteJob()
-  const publishJob  = usePublishJob()
-  const pauseJob    = usePauseJob()
-  const closeJob    = useCloseJob()
-  const reopenJob   = useReopenJob()
-  const archiveJob  = useArchiveJob()
-  const duplicateJob = useDuplicateJob()
-  const canCreateJob = useHasPermission('jobs:create')
-  const { data: myPerms } = useEmployerPermissions()
   const { data: departments } = useDepartments()
 
-  const [view, setView]               = useState<View>('list')
-  const [showBulkImport, setShowBulkImport] = useState(false)
-  const [showApprovalQueue, setShowApprovalQueue] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
-  const [mutatingId, setMutatingId]   = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState('all')
   const [deptFilter, setDeptFilter]   = useState('all')
   const [search, setSearch]           = useState('')
-
-  const handleCreate = (payload: JobPostingPayload) =>
-    createJob.mutate(payload, { onSuccess: () => setView('list') })
-
-  const handleUpdate = (id: string, payload: JobPostingPayload) =>
-    updateJob.mutate({ id, data: payload }, { onSuccess: () => setView('list') })
-
-  const handleDelete = (id: string) =>
-    deleteJob.mutate(id, { onSuccess: () => setConfirmDelete(null) })
-
-  const run = async (id: string, fn: (id: string) => Promise<unknown>) => {
-    setMutatingId(id); try { await fn(id) } finally { setMutatingId(null) }
-  }
 
   const jobs: JobPosting[] = data?.jobs ?? []
   const filtered = jobs.filter(j => {
@@ -223,57 +102,12 @@ export default function EmployerJobsPage() {
     return true
   })
 
-  if (view === 'new') return (
-    <div style={{ padding: '20px 28px', background: colors.surface.bg, minHeight: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <p style={{ fontSize: 18, fontWeight: 700, color: colors.text.ink, margin: 0 }}>New Job Posting</p>
-        <Button variant="outline" size="sm" onClick={() => setView('list')}><X size={14} />Cancel</Button>
-      </div>
-      <JobForm onSubmit={handleCreate} loading={createJob.isPending} onCancel={() => setView('list')} error={createJob.isError ? getApiError(createJob.error) : undefined} />
-    </div>
-  )
-
-  if (typeof view === 'object' && 'edit' in view) return (
-    <div style={{ padding: '20px 28px', background: colors.surface.bg, minHeight: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <p style={{ fontSize: 18, fontWeight: 700, color: colors.text.ink, margin: 0 }}>Edit: {view.edit.title}</p>
-        <Button variant="outline" size="sm" onClick={() => setView('list')}><X size={14} />Cancel</Button>
-      </div>
-      <JobForm initial={view.edit} onSubmit={p => handleUpdate(view.edit.id, p)} loading={updateJob.isPending} onCancel={() => setView('list')} error={updateJob.isError ? getApiError(updateJob.error) : undefined} />
-    </div>
-  )
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
       <PageHeader
-        title="Jobs"
-        subtitle="Post and manage job openings"
-        actions={
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            <Button variant="outline" size="sm" onClick={() => setShowApprovalQueue(true)}>
-              <FileSignature size={13} />Approvals
-            </Button>
-            {data?.is_approved && canCreateJob && (
-              <>
-                <Button variant="outline" size="sm" onClick={() => setShowBulkImport(true)}>
-                  <Upload size={13} />Import
-                </Button>
-                <Button variant="primary" size="sm" onClick={() => setView('new')}>
-                  <Plus size={13} strokeWidth={2.5} />Post a Job
-                </Button>
-              </>
-            )}
-          </div>
-        }
+        title="Jobs Overview"
+        subtitle="Monitor job openings across every department — manage a job from its own department's workspace"
       />
-
-      {/* Dept scope notice */}
-      {myPerms && !myPerms.is_company_wide && myPerms.department_name && (
-        <div style={{ padding: '8px 24px', background: C.accentBg, borderBottom: `1px solid #BFDBFE`, fontSize: 12, color: C.accent, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Briefcase size={12} />
-          Scoped to <strong>{myPerms.department_name}</strong>
-        </div>
-      )}
 
       {/* Toolbar */}
       <div style={{ ...DS.toolbar, flexWrap: 'wrap' }}>
@@ -322,7 +156,7 @@ export default function EmployerJobsPage() {
             <div style={{ minWidth: 820 }}>
               {/* Header */}
               <div style={{ ...DS.tHead, gridTemplateColumns: COLS }}>
-                {['Job', 'Status', 'Department', 'Candidates', 'Salary', 'Posted', 'Actions'].map(h => (
+                {['Job', 'Status', 'Department', 'Candidates', 'Salary', 'Posted', ''].map(h => (
                   <span key={h}>{h}</span>
                 ))}
               </div>
@@ -338,55 +172,18 @@ export default function EmployerJobsPage() {
                 <div style={{ padding: '56px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
                   <Briefcase size={28} color={C.ink3} strokeWidth={1.5} />
                   <p style={{ fontSize: 13, color: C.ink2, margin: 0, fontWeight: 500 }}>No jobs found</p>
-                  <p style={{ fontSize: 12, color: C.ink3, margin: 0 }}>
-                    {data?.is_approved ? 'Post your first job to start receiving applications.' : 'Complete verification to start posting jobs.'}
+                  <p style={{ fontSize: 12, color: C.ink3, margin: 0, textAlign: 'center', maxWidth: 320 }}>
+                    Jobs are created from within a department's own workspace.{' '}
+                    <Link to="/app/employer/departments" style={{ color: C.accent, fontWeight: 600 }}>Open a department</Link> to post one.
                   </p>
-                  {data?.is_approved && canCreateJob && (
-                    <Button variant="primary" size="sm" onClick={() => setView('new')} style={{ marginTop: 8 }}><Plus size={13} />Post a Job</Button>
-                  )}
                 </div>
               ) : (
-                filtered.map(job => (
-                  <JobRow
-                    key={job.id}
-                    job={job}
-                    onEdit={() => setView({ edit: job })}
-                    onDelete={() => setConfirmDelete(job.id)}
-                    onPublish={() => run(job.id, id => publishJob.mutateAsync(id))}
-                    onPause={() => run(job.id, id => pauseJob.mutateAsync(id))}
-                    onClose={() => run(job.id, id => closeJob.mutateAsync(id))}
-                    onReopen={() => run(job.id, id => reopenJob.mutateAsync(id))}
-                    onArchive={() => run(job.id, id => archiveJob.mutateAsync(id))}
-                    onDuplicate={() => run(job.id, id => duplicateJob.mutateAsync(id))}
-                    isMutating={mutatingId === job.id}
-                  />
-                ))
+                filtered.map(job => <JobRow key={job.id} job={job} />)
               )}
             </div>
           </div>
         </div>
       </div>
-
-      {/* Modals */}
-      {showBulkImport && <BulkImportModal onClose={() => setShowBulkImport(false)} />}
-      {showApprovalQueue && <ApprovalQueue onClose={() => setShowApprovalQueue(false)} />}
-
-      {/* Delete confirm */}
-      {confirmDelete && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
-          <div style={{ background: '#fff', borderRadius: radius.xl, padding: 24, maxWidth: 380, width: '100%', border: `1px solid ${C.border}` }}>
-            <h3 style={{ fontSize: 15, fontWeight: 600, color: C.ink1, margin: '0 0 8px' }}>Delete job posting?</h3>
-            <p style={{ fontSize: 13, color: C.ink2, margin: '0 0 20px' }}>This cannot be undone. All applicants for this job will lose access.</p>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <Button variant="outline" size="sm" onClick={() => setConfirmDelete(null)} fullWidth>Cancel</Button>
-              <Button variant="danger" size="sm" onClick={() => handleDelete(confirmDelete)}
-                disabled={deleteJob.isPending} loading={deleteJob.isPending} fullWidth>
-                {deleteJob.isPending ? 'Deleting…' : 'Delete'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

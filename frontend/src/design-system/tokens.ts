@@ -36,6 +36,24 @@ export const colors = {
     navy08:   'rgba(255,255,255,0.08)',
     navy12:   'rgba(255,255,255,0.12)',
   },
+  // Dark surface used only by the AI interview flow (InterviewShell applies
+  // these as CSS variables). Not a global dark mode.
+  dark: {
+    bg:            '#1E1E1E',
+    surface:       '#2B2B2B',
+    surfaceRaised: '#333333',
+    border:        '#454545',
+    borderStrong:  '#5C5C5C',
+    text:          '#F5F5F5',
+    textMuted:     '#B3B3B3',
+    textDim:       '#8A8A8A',
+    accent:        '#1AA3E8',
+    accentSoft:    'rgba(26,163,232,0.12)',
+    success:       '#22C55E',
+    warning:       '#F59E0B',
+    danger:        '#F87171',
+    disabledBg:    '#444444',
+  },
 } as const
 
 export const spacing = {

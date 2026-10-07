@@ -1,19 +1,25 @@
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, Link, useLocation } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { colors, radius, shadows } from '@/design-system/tokens'
 import {
-  Plus, Building2,
-  CheckCircle2, ChevronRight, ArrowUpRight,
+  Plus, Building2, Users2, ShieldCheck, CreditCard,
+  CheckCircle2, ChevronRight, ArrowUpRight, AlertCircle,
+  Activity, Briefcase, UserCheck,
 } from 'lucide-react'
 import {
   useEmployerDashboard, useDashboardKpis, useApplicationTrend,
   useUpcomingInterviews, useCompanyProfile, useDepartments,
+  useEmployerPermissions, useTeamMembers, useVerificationStatus, useSubscription,
+  useTeamActivity,
 } from '../hooks/useJobs'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { analyticsApi, type RecruiterPerformanceEntry } from '@/api/analytics'
 import Button from '@/shared/components/primitives/Button'
 import { SkeletonCard } from '@/shared/components/feedback/Skeleton'
 import ErrorState from '@/shared/components/feedback/ErrorState'
 import AlertBanner from '@/shared/components/feedback/AlertBanner'
 import PageHeader from '@/shared/layouts/PageHeader'
+import { C } from '../ds'
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -184,7 +190,7 @@ function HiringFunnel({ kpis }: { kpis: Record<string, number> }) {
           <div key={s.label}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
               <span style={{ fontSize: 12, color: colors.text.inkSoft, fontWeight: 500 }}>{s.label}</span>
-              <div style={{ display: 'flex', align: 'center', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 11, color: colors.text.muted, fontVariantNumeric: 'tabular-nums' }}>{s.pct}%</span>
                 <span style={{ fontSize: 12, fontWeight: 600, color: colors.text.ink, fontVariantNumeric: 'tabular-nums', minWidth: 24, textAlign: 'right' }}>{s.value}</span>
               </div>
@@ -199,6 +205,74 @@ function HiringFunnel({ kpis }: { kpis: Record<string, number> }) {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+// ── Organization summary (company-wide owners/HR managers only) ───────────────
+// Recruiting KPIs below answer "how is this req pipeline doing" — this strip
+// answers "how is my org doing", which a company-wide viewer overseeing
+// multiple departments needs to see first, not buried under job-level stats.
+
+function OrgSummaryStrip() {
+  const navigate = useNavigate()
+  const { data: departments } = useDepartments()
+  const { data: team } = useTeamMembers()
+  const { data: verification } = useVerificationStatus()
+  const { data: subscription } = useSubscription()
+
+  const isVerified = verification?.status === 'approved'
+
+  const tiles = [
+    {
+      label: 'Departments', value: fmt(departments?.length),
+      icon: Building2, color: '#7C3AED', to: '/app/employer/departments',
+    },
+    {
+      label: 'Team members', value: fmt(team?.length),
+      icon: Users2, color: colors.state.info, to: '/app/employer/company',
+    },
+    {
+      label: 'Verification', value: isVerified ? 'Verified' : 'Pending',
+      icon: isVerified ? ShieldCheck : AlertCircle,
+      color: isVerified ? colors.state.success : colors.state.warning,
+      to: '/app/employer/verification',
+    },
+    {
+      label: 'Plan', value: subscription?.plan.name ?? '—',
+      icon: CreditCard, color: colors.state.info, to: '/app/employer/subscription',
+      capitalize: true,
+    },
+  ]
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+      {tiles.map(t => (
+        <div
+          key={t.label}
+          onClick={() => navigate(t.to)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            background: colors.surface.card, border: `1px solid ${colors.border.default}`,
+            borderRadius: radius.lg, boxShadow: shadows.card, padding: '12px 14px', cursor: 'pointer',
+          }}
+        >
+          <div style={{
+            width: 32, height: 32, borderRadius: 8, background: `${t.color}14`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <t.icon size={15} color={t.color} />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <p style={{
+              fontSize: 14, fontWeight: 700, color: colors.text.ink, margin: 0,
+              textTransform: t.capitalize ? 'capitalize' : 'none',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>{t.value}</p>
+            <p style={{ fontSize: 11, color: colors.text.muted, margin: 0 }}>{t.label}</p>
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -345,7 +419,7 @@ function ActionItems({ kpis }: { kpis: Record<string, number> }) {
   const items: { label: string; count: number; to: string; color: string }[] = []
   if (kpis.draft_jobs > 0)          items.push({ label: 'draft jobs to publish', count: kpis.draft_jobs,           to: '/app/employer/jobs',     color: '#7C3AED' })
   if (kpis.interviews_scheduled > 0) items.push({ label: 'interviews scheduled',  count: kpis.interviews_scheduled, to: '/app/employer/calendar', color: '#D97706' })
-  if (kpis.offers_sent > 0)          items.push({ label: 'offers pending response',count: kpis.offers_sent,         to: '/app/employer/offers',   color: '#0891B2' })
+  if (kpis.offers_pending > 0)       items.push({ label: 'offers pending response',count: kpis.offers_pending,      to: '/app/employer/offers',   color: '#0891B2' })
 
   return (
     <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, boxShadow: shadows.card, overflow: 'hidden' }}>
@@ -438,6 +512,263 @@ function SetupBanner() {
   )
 }
 
+// ── Insights — folded in from the old standalone Analytics page. Only the
+// three views that weren't already covered above (Application Trend /
+// Hiring Funnel) survive the merge: team activity, per-job performance, and
+// per-recruiter performance. All three are opt-in behind a tile click so
+// the page doesn't front-load three extra network calls' worth of tables
+// for someone who only wanted the at-a-glance numbers above. ──────────────
+
+function formatAction(a: string) {
+  return a.replace(/_/g, ' ').replace(/\./g, ' › ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
+function JobPerfTable({ jobs }: { jobs: { title: string; hired: number; total_applications: number; conversion_rate_pct: number }[] }) {
+  if (!jobs.length) return <p style={{ padding: '16px 20px', fontSize: 13, color: C.ink3, margin: 0 }}>No job data yet.</p>
+  const COLS = '1fr 90px 90px 100px'
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <div style={{ minWidth: 460 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: COLS, padding: '8px 20px', background: colors.surface.bg, borderBottom: `1px solid ${C.border}`, fontSize: 11, fontWeight: 600, color: C.ink2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          {['Job Title', 'Applications', 'Hired', 'Conversion'].map(h => <span key={h}>{h}</span>)}
+        </div>
+        {jobs.map((j, i) => (
+          <div key={i} style={{ display: 'grid', gridTemplateColumns: COLS, padding: '10px 20px', borderBottom: `1px solid ${C.borderLight}`, fontSize: 13, alignItems: 'center' }}
+            onMouseOver={e => { e.currentTarget.style.background = colors.surface.elevated }}
+            onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
+          >
+            <span style={{ fontWeight: 500, color: C.ink1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{j.title}</span>
+            <span style={{ color: C.ink2, fontVariantNumeric: 'tabular-nums' }}>{j.total_applications}</span>
+            <span style={{ color: C.ink2, fontVariantNumeric: 'tabular-nums' }}>{j.hired}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ flex: 1, height: 4, background: C.borderLight, borderRadius: 99, overflow: 'hidden' }}>
+                <div style={{ width: `${j.conversion_rate_pct}%`, height: '100%', background: C.accent, borderRadius: 99 }} />
+              </div>
+              <span style={{ fontSize: 12, color: C.accent, fontWeight: 600, width: 36, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{j.conversion_rate_pct}%</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function RecruiterTable({ recruiters }: { recruiters: RecruiterPerformanceEntry[] }) {
+  if (!recruiters.length) return <p style={{ padding: '16px 20px', fontSize: 13, color: C.ink3, margin: 0 }}>No recruiter data yet.</p>
+  const COLS = '1fr 100px 100px 90px'
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <div style={{ minWidth: 400 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: COLS, padding: '8px 20px', background: colors.surface.bg, borderBottom: `1px solid ${C.border}`, fontSize: 11, fontWeight: 600, color: C.ink2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          {['Recruiter', 'Applications Moved', 'Interviews', 'Hired'].map(h => <span key={h}>{h}</span>)}
+        </div>
+        {recruiters.map((r, i) => (
+          <div key={i} style={{ display: 'grid', gridTemplateColumns: COLS, padding: '10px 20px', borderBottom: `1px solid ${C.borderLight}`, fontSize: 13, alignItems: 'center' }}
+            onMouseOver={e => { e.currentTarget.style.background = colors.surface.elevated }}
+            onMouseOut={e => { e.currentTarget.style.background = 'transparent' }}
+          >
+            <span style={{ fontWeight: 500, color: C.ink1 }}>{r.name ?? 'Unknown'}</span>
+            <span style={{ color: C.ink2, fontVariantNumeric: 'tabular-nums' }}>{r.applications_moved}</span>
+            <span style={{ color: C.ink2, fontVariantNumeric: 'tabular-nums' }}>{r.interviews_conducted}</span>
+            <span style={{ color: C.green, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{r.hires_closed}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function Chip({ label, count, active, onClick }: { label: string; count: number; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        fontSize: 12, fontWeight: 600, padding: '5px 12px', borderRadius: 20,
+        border: `1px solid ${active ? C.accent : C.border}`,
+        background: active ? C.accentBg : 'transparent',
+        color: active ? C.accent : C.ink2,
+        cursor: 'pointer', transition: 'all 0.15s',
+      }}
+    >
+      {label} <span style={{ opacity: 0.7 }}>{count}</span>
+    </button>
+  )
+}
+
+function ActivityPanel() {
+  const { data: activity, isLoading } = useTeamActivity()
+  const [filterDept, setFilterDept] = useState<string | 'all' | 'unassigned'>('all')
+
+  const depts = useMemo(() => {
+    const map = new Map<string, { name: string; count: number }>()
+    let unassigned = 0
+    for (const entry of activity ?? []) {
+      if (entry.department_id) {
+        const existing = map.get(entry.department_id)
+        map.set(entry.department_id, { name: entry.department_name ?? 'Unknown', count: (existing?.count ?? 0) + 1 })
+      } else {
+        unassigned += 1
+      }
+    }
+    return { byId: map, unassigned }
+  }, [activity])
+
+  const filtered = (activity ?? []).filter(e => {
+    if (filterDept === 'all') return true
+    if (filterDept === 'unassigned') return !e.department_id
+    return e.department_id === filterDept
+  })
+
+  if (isLoading) return <p style={{ padding: 24, fontSize: 13, color: C.ink3 }}>Loading…</p>
+  if (!activity || activity.length === 0) return <p style={{ padding: 24, fontSize: 13, color: C.ink3 }}>No team activity recorded yet.</p>
+
+  return (
+    <div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '14px 20px 0' }}>
+        <Chip label="All" count={activity.length} active={filterDept === 'all'} onClick={() => setFilterDept('all')} />
+        {[...depts.byId.entries()].map(([id, d]) => (
+          <Chip key={id} label={d.name} count={d.count} active={filterDept === id} onClick={() => setFilterDept(id)} />
+        ))}
+        {depts.unassigned > 0 && (
+          <Chip label="Company-wide" count={depts.unassigned} active={filterDept === 'unassigned'} onClick={() => setFilterDept('unassigned')} />
+        )}
+      </div>
+
+      <div style={{ maxHeight: 420, overflowY: 'auto', marginTop: 10 }}>
+        {filtered.length === 0 ? (
+          <p style={{ padding: '16px 20px', fontSize: 13, color: C.ink3 }}>No activity for this department yet.</p>
+        ) : filtered.map((entry, idx) => (
+          <div
+            key={entry.id}
+            style={{
+              display: 'flex', alignItems: 'flex-start', gap: 12,
+              padding: '12px 20px',
+              borderBottom: idx < filtered.length - 1 ? `1px solid ${C.borderLight}` : 'none',
+            }}
+          >
+            <div style={{
+              width: 32, height: 32, borderRadius: 8, background: C.accentBg,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <Activity size={13} color={C.accent} />
+            </div>
+            <div style={{ flex: '1 1 180px', minWidth: 0 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: C.ink1, margin: 0 }}>
+                {formatAction(entry.action)}
+              </p>
+              <p style={{ fontSize: 11, color: C.ink2, margin: '2px 0 0' }}>
+                {entry.actor_name ?? entry.actor_email ?? 'Unknown'}
+                {entry.department_name ? ` · ${entry.department_name}` : ''}
+                {entry.resource ? ` · ${entry.resource}` : ''}
+              </p>
+            </div>
+            <span style={{ fontSize: 11, color: C.ink3, flexShrink: 0, whiteSpace: 'nowrap' }}>
+              {new Date(entry.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SectionCard({ icon: Icon, label, headline, sub, active, onClick, accentColor }: {
+  icon: React.ElementType; label: string; headline: string; sub: string;
+  active: boolean; onClick: () => void; accentColor: string
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        textAlign: 'left', cursor: 'pointer', background: colors.surface.card,
+        border: `1.5px solid ${active ? accentColor : colors.border.default}`,
+        borderRadius: radius.xl, padding: '14px 16px',
+        boxShadow: active ? `0 0 0 3px ${accentColor}1A` : 'none',
+        transition: 'all 0.15s',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <div style={{ width: 26, height: 26, borderRadius: 7, background: `${accentColor}14`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Icon size={13} color={accentColor} />
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 700, color: C.ink1 }}>{label}</span>
+        <ChevronRight size={13} color={C.ink3} style={{ marginLeft: 'auto' }} />
+      </div>
+      <p style={{ fontSize: 18, fontWeight: 700, color: C.ink1, margin: 0, fontVariantNumeric: 'tabular-nums' }}>{headline}</p>
+      <p style={{ fontSize: 11, color: C.ink3, margin: '3px 0 0' }}>{sub}</p>
+    </button>
+  )
+}
+
+type InsightsSection = 'activity' | 'jobs' | 'recruiters'
+
+function Insights({ defaultSection }: { defaultSection: InsightsSection }) {
+  const [section, setSection] = useState<InsightsSection>(defaultSection)
+  const { data: perf,      isLoading: pL } = useQuery({ queryKey: ['employer','analytics','jobs'],       queryFn: analyticsApi.getJobPerformance })
+  const { data: recruiter, isLoading: rL } = useQuery({ queryKey: ['employer','analytics','recruiters'], queryFn: analyticsApi.getRecruiterPerformance })
+  const { data: activity }                 = useTeamActivity()
+
+  const topJob = perf?.jobs.length ? [...perf.jobs].sort((a, b) => b.conversion_rate_pct - a.conversion_rate_pct)[0] : null
+  const topRecruiter = recruiter?.recruiters.length ? [...recruiter.recruiters].sort((a, b) => b.hires_closed - a.hires_closed)[0] : null
+  const deptCount = new Set((activity ?? []).filter(e => e.department_id).map(e => e.department_id)).size
+
+  return (
+    <div id="activity" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <p style={{ fontSize: 13, fontWeight: 600, color: colors.text.ink, margin: 0 }}>Insights</p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+        <SectionCard
+          icon={Activity} label="Team Activity" accentColor="#7C3AED"
+          active={section === 'activity'} onClick={() => setSection('activity')}
+          headline={String(activity?.length ?? 0)}
+          sub={deptCount > 0 ? `Across ${deptCount} department${deptCount === 1 ? '' : 's'}` : 'Recent actions'}
+        />
+        <SectionCard
+          icon={Briefcase} label="Job Performance" accentColor={colors.state.success}
+          active={section === 'jobs'} onClick={() => setSection('jobs')}
+          headline={String(perf?.jobs.length ?? 0)}
+          sub={topJob ? `Best: ${topJob.title} (${topJob.conversion_rate_pct}%)` : 'No jobs yet'}
+        />
+        <SectionCard
+          icon={UserCheck} label="Recruiter Performance" accentColor={colors.state.warning}
+          active={section === 'recruiters'} onClick={() => setSection('recruiters')}
+          headline={String(recruiter?.recruiters.length ?? 0)}
+          sub={topRecruiter ? `Top: ${topRecruiter.name ?? 'Unknown'} (${topRecruiter.hires_closed} hired)` : 'No recruiters yet'}
+        />
+      </div>
+
+      <div style={{ background: colors.surface.card, border: `1px solid ${colors.border.default}`, borderRadius: radius.xl, boxShadow: shadows.card, overflow: 'hidden' }}>
+        {section === 'activity' && (
+          <>
+            <div style={{ padding: '14px 18px', borderBottom: `1px solid ${colors.border.default}` }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: C.ink1 }}>Team Activity</span>
+              <span style={{ fontSize: 12, color: C.ink3, marginLeft: 8 }}>Last 50 actions</span>
+            </div>
+            <ActivityPanel />
+          </>
+        )}
+        {section === 'jobs' && (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: `1px solid ${colors.border.default}` }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: C.ink1 }}>Job Performance</span>
+              <span style={{ fontSize: 12, color: C.ink3 }}>{perf?.jobs.length ?? 0} jobs</span>
+            </div>
+            {pL ? <p style={{ padding: '16px 20px', fontSize: 13, color: C.ink3, margin: 0 }}>Loading…</p> : <JobPerfTable jobs={perf?.jobs ?? []} />}
+          </>
+        )}
+        {section === 'recruiters' && (
+          <>
+            <div style={{ padding: '14px 18px', borderBottom: `1px solid ${colors.border.default}` }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: C.ink1 }}>Recruiter Performance</span>
+            </div>
+            {rL ? <p style={{ padding: '16px 20px', fontSize: 13, color: C.ink3, margin: 0 }}>Loading…</p> : <RecruiterTable recruiters={recruiter?.recruiters ?? []} />}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Skeleton — uses shared SkeletonCard, no local keyframes ──────────────────
 
 function DashboardSkeleton() {
@@ -458,13 +789,49 @@ function DashboardSkeleton() {
 export default function EmployerDashboardPage() {
   const { data, isLoading, isError, refetch } = useEmployerDashboard()
   const { data: kpis, isLoading: kL }         = useDashboardKpis()
+  const { data: perms }                       = useEmployerPermissions()
+  const { data: departments }                 = useDepartments()
   const navigate                              = useNavigate()
+  const location                              = useLocation()
+
+  // Default true while permissions load — matches EmployerSidebar's own
+  // fallback so the org strip doesn't flash in and out on first paint.
+  const isCompanyWide = perms?.is_company_wide ?? true
+
+  // "Post a Job" used to always land on the read-only Jobs Overview page,
+  // which then told you to "open a department" to actually post one — a
+  // detour for the exact people most likely to click this button first. Skip
+  // it whenever we can resolve a single, unambiguous department to jump
+  // straight into: the caller's own department if they're dept-scoped, or
+  // the company's only department if they're company-wide with just one.
+  // Zero departments or more than one still can't be guessed — send those
+  // to the Departments page (workspace picker / create-first-department),
+  // which is a more useful landing spot than Jobs Overview either way.
+  const handlePostJob = () => {
+    if (!isCompanyWide && perms?.department_id) {
+      navigate(`/app/employer/departments/${perms.department_id}?newJob=1`)
+    } else if (isCompanyWide && departments?.length === 1) {
+      navigate(`/app/employer/departments/${departments[0].id}?newJob=1`)
+    } else {
+      // Zero departments (nothing to jump into) or 2+ (can't guess which) —
+      // the Departments page itself is a better landing spot either way
+      // than the old Jobs Overview dead end.
+      navigate('/app/employer/departments')
+    }
+  }
+
+  // "View activity" on the Team page links here with #activity — scroll the
+  // Insights section into view once the page (and its data) has rendered.
+  useEffect(() => {
+    if (location.hash !== '#activity' || isLoading) return
+    document.getElementById('activity')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [location.hash, isLoading])
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
       <PageHeader title="Dashboard" subtitle="Your hiring activity at a glance" />
 
-      <main style={{ padding: '20px 28px', background: colors.surface.bg, minHeight: '100%', flex: 1 }}>
+      <main style={{ padding: '20px 28px', background: colors.surface.bg, flex: 1 }}>
 
       {(isLoading || kL) ? <DashboardSkeleton /> : (isError || !data) ? (
         <ErrorState title="Could not load dashboard" description="There was an error loading your dashboard data." onRetry={refetch} />
@@ -478,11 +845,17 @@ export default function EmployerDashboardPage() {
           {/* Post a Job action */}
           {data.is_approved && (
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <Button size="sm" onClick={() => navigate('/app/employer/jobs')}>
+              <Button size="sm" onClick={handlePostJob}>
                 <Plus size={13} strokeWidth={2.5} />Post a Job
               </Button>
             </div>
           )}
+
+          {/* Organization health — how the org as a whole is doing, ahead of
+              any single req's recruiting-ops numbers. Not relevant to a
+              department-scoped recruiter/interviewer, who only sees their
+              own req pipeline below. */}
+          {isCompanyWide && <OrgSummaryStrip />}
 
           {/* KPI strip */}
           {kpis && <KpiStrip kpis={kpis as unknown as Record<string, number>} />}
@@ -495,14 +868,18 @@ export default function EmployerDashboardPage() {
             </div>
           )}
 
-          {/* Departments */}
-          <DepartmentsTable />
+          {/* Departments — cross-department breakdown, company-wide viewers only */}
+          {isCompanyWide && <DepartmentsTable />}
 
           {/* Bottom row */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
             {kpis && <ActionItems kpis={kpis as unknown as Record<string, number>} />}
             <UpcomingInterviews />
           </div>
+
+          {/* Insights — team activity, job & recruiter performance (folded
+              in from the old standalone Analytics page) */}
+          <Insights defaultSection="activity" />
 
         </div>
       )}

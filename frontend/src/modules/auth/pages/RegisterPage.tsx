@@ -1,35 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Lock, Mail, RotateCcw } from 'lucide-react'
+import { Lock, Mail, Phone, RotateCcw } from 'lucide-react'
 import AuthLayout from '@/layouts/AuthLayout'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import OtpInput from '@/components/ui/OtpInput'
-import { cn } from '@/lib/utils'
+import PasswordStrengthMeter from '@/shared/components/forms/PasswordStrengthMeter'
+import { PASSWORD_RULES } from '@/shared/components/forms/passwordRules'
 import { GoogleLogin } from '@react-oauth/google'
 import { useRegister, useVerifyEmailOtp, useResendEmailOtp, useGoogleLogin } from '../hooks/useAuth'
 import { getApiError } from '@/api/client'
 import { getRecaptchaToken } from '@/lib/recaptcha'
 
-interface PasswordRule {
-  label: string
-  test: (v: string) => boolean
-}
-
-const PASSWORD_RULES: PasswordRule[] = [
-  { label: 'At least 8 characters', test: (v) => v.length >= 8 },
-  { label: 'One uppercase letter (A-Z)', test: (v) => /[A-Z]/.test(v) },
-  { label: 'One lowercase letter (a-z)', test: (v) => /[a-z]/.test(v) },
-  { label: 'One number (0-9)', test: (v) => /\d/.test(v) },
-  { label: 'One special character (!@#$...)', test: (v) => /[!@#$%^&*(),.?":{}|<>]/.test(v) },
-]
-
-const STRENGTH_LABELS = ['Too weak', 'Weak', 'Fair', 'Good', 'Strong', 'Very strong']
-
 const RESEND_COOLDOWN = 30
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -43,8 +30,6 @@ export default function RegisterPage() {
   const verifyEmailOtp = useVerifyEmailOtp()
   const resendEmailOtp = useResendEmailOtp()
   const googleLogin = useGoogleLogin()
-
-  const passwordStrength = PASSWORD_RULES.filter((r) => r.test(password)).length
 
   useEffect(() => {
     if (otpSent && otpRef.current)
@@ -64,6 +49,8 @@ export default function RegisterPage() {
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       errors.email = 'Enter a valid email address'
     }
+    if (!phone.trim()) errors.phone = 'Phone number is required'
+    else if (!/^[6-9]\d{9}$/.test(phone.replace(/\D/g, ''))) errors.phone = 'Enter a valid 10-digit Indian mobile number'
     if (PASSWORD_RULES.some(r => !r.test(password))) errors.password = 'Password does not meet all requirements'
     if (!acceptedTerms) errors.terms = 'You must accept the Terms & Conditions to create an account'
     setFieldErrors(errors)
@@ -80,7 +67,7 @@ export default function RegisterPage() {
     if (!validate()) return
     const recaptcha_token = await getRecaptchaToken('register')
     register.mutate(
-      { email: email.trim(), password, recaptcha_token },
+      { email: email.trim(), phone: phone.replace(/\D/g, ''), password, recaptcha_token },
       {
         onSuccess: () => {
           setOtpSent(true)
@@ -108,10 +95,6 @@ export default function RegisterPage() {
   const maskedEmail = email.includes('@')
     ? email.replace(/^(.{2}).*(@.*)$/, '$1***$2')
     : email
-
-  const strengthColor = [
-    '', 'bg-danger', 'bg-orange-400', 'bg-yellow-400', 'bg-lime-400', 'bg-primary',
-  ][passwordStrength]
 
   return (
     <AuthLayout title="Create your account" subtitle="Start your career relaunch journey today" variant="register" panelSide="right">
@@ -164,6 +147,25 @@ export default function RegisterPage() {
           )}
         </div>
 
+        {/* Phone */}
+        <Input
+          label="Phone number"
+          type="tel"
+          placeholder="10-digit mobile number"
+          value={phone}
+          onChange={(e) => {
+            const v = e.target.value
+            if (v.replace(/\D/g, '').length > 10) return
+            setPhone(v)
+            if (fieldErrors.phone) setFieldErrors(p => ({ ...p, phone: '' }))
+          }}
+          error={fieldErrors.phone}
+          prefix={<Phone className="w-4 h-4" />}
+          maxLength={10}
+          inputMode="numeric"
+          disabled={otpSent}
+        />
+
         {/* Password */}
         <div className="flex flex-col gap-1">
           <Input
@@ -177,18 +179,7 @@ export default function RegisterPage() {
             maxLength={128}
             disabled={otpSent}
           />
-          {password.length > 0 && (
-            <>
-              <div className="flex gap-1 mt-1">
-                {PASSWORD_RULES.map((_, i) => (
-                  <div key={i} className={cn('h-1 flex-1 rounded-full transition-all duration-300', i < passwordStrength ? strengthColor : 'bg-gray-200')} />
-                ))}
-              </div>
-              <p className="text-xs mt-1" style={{ color: passwordStrength === PASSWORD_RULES.length ? '#16A34A' : '#94A3B8' }}>
-                {STRENGTH_LABELS[passwordStrength]}
-              </p>
-            </>
-          )}
+          <PasswordStrengthMeter password={password} />
         </div>
 
         {/* T&C */}
@@ -215,7 +206,7 @@ export default function RegisterPage() {
         <Button
           type="submit" fullWidth size="lg"
           loading={register.isPending || verifyEmailOtp.isPending}
-          disabled={otpSent ? otp.length < 6 : (passwordStrength < PASSWORD_RULES.length || !acceptedTerms)}
+          disabled={otpSent ? otp.length < 6 : (PASSWORD_RULES.some(r => !r.test(password)) || !acceptedTerms)}
           className="mt-1"
         >
           {otpSent ? 'Verify & Create Account' : 'Create account'}

@@ -1,16 +1,17 @@
 import { useState } from 'react'
-import { User } from 'lucide-react'
 import { useOnboardingProfile } from '@/modules/onboarding/hooks/useOnboarding'
 import PageHeader from '@/shared/layouts/PageHeader'
 import { KrsPanel } from '../components/KrsPanel'
+import { AvatarPicker } from '../components/AvatarPicker'
 import { PersonalSection } from '../components/PersonalSection'
 import { EducationSection } from '../components/EducationSection'
 import { UpscSection } from '../components/UpscSection'
 import { WorkSection } from '../components/WorkSection'
 import { SkillsSection } from '../components/SkillsSection'
 import { PreferencesSection } from '../components/PreferencesSection'
+import { SecuritySection } from '../components/SecuritySection'
 
-type SectionKey = 'personal' | 'education' | 'upsc' | 'work' | 'skills' | 'preferences'
+type SectionKey = 'personal' | 'education' | 'upsc' | 'work' | 'skills' | 'preferences' | 'security'
 
 export default function ProfilePage() {
   const [openSection, setOpenSection] = useState<SectionKey | null>(null)
@@ -31,15 +32,11 @@ export default function ProfilePage() {
 
         <div style={{ borderBottom: '1px solid rgba(26,39,68,0.08)', paddingBottom: 20, marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div style={{
-              width: 52, height: 52, borderRadius: '50%',
-              background: '#1A2744',
-              border: '1px solid rgba(26,39,68,0.18)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 22, flexShrink: 0, color: 'white', fontWeight: 700,
-            }}>
-              {profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : <User size={22} />}
-            </div>
+            <AvatarPicker
+              avatarId={profile?.avatar_id ?? null}
+              fallbackInitial={profile?.full_name ? profile.full_name.charAt(0).toUpperCase() : '?'}
+              size={52}
+            />
             <div>
               <p style={{ fontSize: 11.5, color: '#9CA3AF', marginBottom: 2 }}>Your profile</p>
               <h2 style={{ fontSize: 18, fontWeight: 700, color: '#111827' }}>
@@ -90,6 +87,9 @@ export default function ProfilePage() {
             </div>
             <div style={{ gridColumn: openSection === 'preferences'  ? '1 / -1' : undefined }}>
               <PreferencesSection profile={profile} open={openSection === 'preferences'}  onToggle={() => toggle('preferences')} />
+            </div>
+            <div style={{ gridColumn: openSection === 'security'     ? '1 / -1' : undefined }}>
+              <SecuritySection    open={openSection === 'security'}  onToggle={() => toggle('security')} />
             </div>
           </div>
         )}

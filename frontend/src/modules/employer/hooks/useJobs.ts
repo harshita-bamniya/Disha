@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { jobsApi } from '@/api/jobs'
-import type { JobPostingPayload } from '@/api/jobs'
+import type { JobPostingPayload, VerificationDocType } from '@/api/jobs'
 import { companyApi, subscriptionApi, hiringTeamApi } from '@/api/company'
 import type { CompanyProfileUpdatePayload, EmployerProfileUpdatePayload, TeamInvitePayload, DepartmentCreatePayload, DepartmentUpdatePayload, HiringTeamAddPayload } from '@/api/company'
 import { analyticsApi } from '@/api/analytics'
@@ -78,11 +78,17 @@ export function useGenerateDescription() {
   })
 }
 
+// Every job lifecycle mutation below also invalidates DEPARTMENTS_KEY (in
+// addition to the dashboard) — it covers the department list, a single
+// department's detail, its jobs tab, and its Overview tab (all nested under
+// that same key) in one call, so a department workspace's job counts and
+// "Active Jobs" widget never go stale after create/publish/pause/etc.
+// without needing a full page reload.
 export function useCreateJob() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: JobPostingPayload) => jobsApi.createJob(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['employer', 'dashboard'] }),
+    onSuccess: () => invalidateJobLists(qc),
   })
 }
 
@@ -108,11 +114,16 @@ export function useDeleteJobTemplate() {
   })
 }
 
+function invalidateJobLists(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['employer', 'dashboard'] })
+  qc.invalidateQueries({ queryKey: DEPARTMENTS_KEY })
+}
+
 export function useBulkImportJobs() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (file: File) => jobsApi.bulkImportJobs(file),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['employer', 'dashboard'] }),
+    onSuccess: () => invalidateJobLists(qc),
   })
 }
 
@@ -120,7 +131,7 @@ export function useUpdateJob() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: JobPostingPayload }) => jobsApi.updateJob(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['employer', 'dashboard'] }),
+    onSuccess: () => invalidateJobLists(qc),
   })
 }
 
@@ -128,7 +139,7 @@ export function usePublishJob() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => jobsApi.publishJob(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['employer', 'dashboard'] }),
+    onSuccess: () => invalidateJobLists(qc),
   })
 }
 
@@ -136,7 +147,7 @@ export function usePauseJob() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => jobsApi.pauseJob(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['employer', 'dashboard'] }),
+    onSuccess: () => invalidateJobLists(qc),
   })
 }
 
@@ -144,7 +155,7 @@ export function useCloseJob() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => jobsApi.closeJob(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['employer', 'dashboard'] }),
+    onSuccess: () => invalidateJobLists(qc),
   })
 }
 
@@ -152,7 +163,7 @@ export function useReopenJob() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => jobsApi.reopenJob(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['employer', 'dashboard'] }),
+    onSuccess: () => invalidateJobLists(qc),
   })
 }
 
@@ -160,7 +171,7 @@ export function useArchiveJob() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => jobsApi.archiveJob(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['employer', 'dashboard'] }),
+    onSuccess: () => invalidateJobLists(qc),
   })
 }
 
@@ -168,7 +179,7 @@ export function useDuplicateJob() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => jobsApi.duplicateJob(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['employer', 'dashboard'] }),
+    onSuccess: () => invalidateJobLists(qc),
   })
 }
 
@@ -176,7 +187,7 @@ export function useDeleteJob() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => jobsApi.deleteJob(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['employer', 'dashboard'] }),
+    onSuccess: () => invalidateJobLists(qc),
   })
 }
 
@@ -193,6 +204,15 @@ export function useRequestVerification() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: () => jobsApi.requestVerification(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: VERIFICATION_KEY }),
+  })
+}
+
+export function useUploadVerificationDocument() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ docType, file }: { docType: VerificationDocType; file: File }) =>
+      jobsApi.uploadVerificationDocument(docType, file),
     onSuccess: () => qc.invalidateQueries({ queryKey: VERIFICATION_KEY }),
   })
 }

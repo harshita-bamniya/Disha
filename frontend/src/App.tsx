@@ -124,7 +124,7 @@ const EmployerJobsPage = lazy(() => import('@/modules/employer/pages/EmployerJob
 const EmployerVerificationPage = lazy(() => import('@/modules/employer/pages/EmployerVerificationPage'))
 const EmployerSetupWizardPage = lazy(() => import('@/modules/employer/pages/EmployerSetupWizardPage'))
 const CompanyTeamPage = lazy(() => import('@/modules/employer/pages/CompanyTeamPage'))
-const EmployerAnalyticsPage = lazy(() => import('@/modules/employer/pages/EmployerAnalyticsPage'))
+const CompanyProfilePage = lazy(() => import('@/modules/employer/pages/CompanyProfilePage'))
 const TalentPoolPage = lazy(() => import('@/modules/employer/pages/TalentPoolPage'))
 const EmployerCalendarPage = lazy(() => import('@/modules/employer/pages/EmployerCalendarPage'))
 const SubscriptionPage = lazy(() => import('@/modules/employer/pages/SubscriptionPage'))
@@ -135,6 +135,7 @@ const ReferralsPage = lazy(() => import('@/modules/employer/pages/ReferralsPage'
 const EmployerApplicantsPage = lazy(() => import('@/modules/employer/pages/EmployerApplicantsPage'))
 const EmployerSupportPage = lazy(() => import('@/modules/employer/pages/SupportPage'))
 const CandidateSupportPage = lazy(() => import('@/modules/aspirant/pages/SupportPage'))
+const PricingPage = lazy(() => import('@/modules/aspirant/pages/PricingPage'))
 const EmployerInterviewsPage = lazy(() => import('@/modules/employer/pages/EmployerInterviewsPage'))
 const EmployerOffersPage = lazy(() => import('@/modules/employer/pages/EmployerOffersPage'))
 import ForgotPasswordPage from '@/modules/auth/pages/ForgotPasswordPage'
@@ -176,6 +177,7 @@ const TicketDetailPage       = lazy(() => import('@/modules/admin/pages/TicketDe
 const JobsPage              = lazy(() => import('@/modules/jobs/pages/JobsPage'))
 const JobDetailPage         = lazy(() => import('@/modules/jobs/pages/JobDetailPage'))
 const MyApplicationsPage    = lazy(() => import('@/modules/jobs/pages/MyApplicationsPage'))
+const PrepListPage          = lazy(() => import('@/modules/jobs/pages/PrepListPage'))
 const CandidatePipelinePage = lazy(() => import('@/modules/employer/pages/CandidatePipelinePage'))
 // Phase 7 — ATS application wizard
 const ApplyPage             = lazy(() => import('@/modules/jobs/pages/ApplyPage'))
@@ -185,9 +187,18 @@ const FormBuilderPage       = lazy(() => import('@/modules/employer/pages/FormBu
 // MVP2 lazy pages
 const ResumeHubPage         = lazy(() => import('@/modules/resume/pages/ResumeHubPage'))
 const ResumeEditorPage      = lazy(() => import('@/modules/resume/pages/ResumeEditorPage'))
+const ResumeMatchPage       = lazy(() => import('@/modules/resume/pages/ResumeMatchPage'))
+const RoadmapBlueprintsPage = lazy(() => import('@/modules/admin/pages/RoadmapBlueprintsPage'))
+const ReferenceRolesPage    = lazy(() => import('@/modules/roles/pages/ReferenceRolesPage'))
+const ReferenceRoleDetailPage = lazy(() => import('@/modules/roles/pages/ReferenceRoleDetailPage'))
 const CounsellorPage        = lazy(() => import('@/modules/counsellor/pages/CounsellorPage'))
 const InterviewSetupPage      = lazy(() => import('@/modules/interview/pages/InterviewSetupPage'))
-const InterviewLobbyPage      = lazy(() => import('@/modules/interview/pages/InterviewLobbyPage'))
+const InterviewInstructionsPage = lazy(() => import('@/modules/interview/pages/InterviewInstructionsPage'))
+const InterviewCheckPage      = lazy(() => import('@/modules/interview/pages/InterviewCheckPage'))
+const InterviewDrillPage      = lazy(() => import('@/modules/interview/pages/InterviewDrillPage'))
+const InterviewInvitationPage = lazy(() => import('@/modules/interview/pages/InterviewInvitationPage'))
+const VerifiedInterviewsPage = lazy(() => import('@/modules/employer/pages/VerifiedInterviewsPage'))
+const VerifiedInterviewResultPage = lazy(() => import('@/modules/employer/pages/VerifiedInterviewResultPage'))
 const InterviewRoomPage       = lazy(() => import('@/modules/interview/pages/InterviewRoomPage'))
 const InterviewReportPage     = lazy(() => import('@/modules/interview/pages/InterviewReportPage'))
 const InterviewHomePage       = lazy(() => import('@/modules/interview/pages/InterviewHomePage'))
@@ -329,7 +340,9 @@ function App() {
             <Route path="/app/employer/jobs" element={<Suspense fallback={<PageLoader />}><EmployerJobsPage /></Suspense>} />
             <Route path="/app/employer/verification" element={<Suspense fallback={<PageLoader />}><EmployerVerificationPage /></Suspense>} />
             <Route path="/app/employer/company" element={<Suspense fallback={<PageLoader />}><CompanyTeamPage /></Suspense>} />
-            <Route path="/app/employer/analytics" element={<Suspense fallback={<PageLoader />}><EmployerAnalyticsPage /></Suspense>} />
+            <Route path="/app/employer/profile" element={<Suspense fallback={<PageLoader />}><CompanyProfilePage /></Suspense>} />
+            {/* Analytics was folded into Dashboard's Insights section — redirect any old links/bookmarks */}
+            <Route path="/app/employer/analytics" element={<Navigate to="/app/employer/dashboard#activity" replace />} />
             <Route path="/app/employer/talent-pool" element={<Suspense fallback={<PageLoader />}><TalentPoolPage /></Suspense>} />
             <Route path="/app/employer/calendar" element={<Suspense fallback={<PageLoader />}><EmployerCalendarPage /></Suspense>} />
             <Route path="/app/employer/subscription" element={<Suspense fallback={<PageLoader />}><SubscriptionPage /></Suspense>} />
@@ -339,6 +352,8 @@ function App() {
             <Route path="/app/employer/departments/:id" element={<Suspense fallback={<PageLoader />}><DepartmentDetailPage /></Suspense>} />
             <Route path="/app/employer/applicants" element={<Suspense fallback={<PageLoader />}><EmployerApplicantsPage /></Suspense>} />
             <Route path="/app/employer/interviews" element={<Suspense fallback={<PageLoader />}><EmployerInterviewsPage /></Suspense>} />
+            <Route path="/app/employer/verified-interviews" element={<Suspense fallback={<PageLoader />}><VerifiedInterviewsPage /></Suspense>} />
+            <Route path="/app/employer/verified-interviews/:invitationId" element={<Suspense fallback={<PageLoader />}><VerifiedInterviewResultPage /></Suspense>} />
             <Route path="/app/employer/offers" element={<Suspense fallback={<PageLoader />}><EmployerOffersPage /></Suspense>} />
             <Route path="/app/employer/pipeline/:jobId" element={<Suspense fallback={<PageLoader />}><CandidatePipelinePage /></Suspense>} />
             <Route path="/app/employer/jobs/:jobId/form-builder" element={<Suspense fallback={<PageLoader />}><FormBuilderPage /></Suspense>} />
@@ -359,7 +374,12 @@ function App() {
 
           {/* Full-screen AI interview flow — intentionally has no sidebar chrome */}
           <Route path="/app/interview/setup" element={<OnboardingGate><Suspense fallback={<PageLoader />}><InterviewSetupPage /></Suspense></OnboardingGate>} />
-          <Route path="/app/interview/lobby/:sessionId" element={<OnboardingGate><Suspense fallback={<PageLoader />}><InterviewLobbyPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/interview/instructions" element={<OnboardingGate><Suspense fallback={<PageLoader />}><InterviewInstructionsPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/interview/check" element={<OnboardingGate><Suspense fallback={<PageLoader />}><InterviewCheckPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/interview/invitations/:id" element={<OnboardingGate><Suspense fallback={<PageLoader />}><InterviewInvitationPage /></Suspense></OnboardingGate>} />
+          <Route path="/app/interview/drill" element={<OnboardingGate><Suspense fallback={<PageLoader />}><InterviewDrillPage /></Suspense></OnboardingGate>} />
+          {/* The lobby page was merged into the system check; keep old links working */}
+          <Route path="/app/interview/lobby/:sessionId" element={<Navigate to="/app/interview/setup" replace />} />
           <Route path="/app/interview/room/:sessionId" element={<OnboardingGate><Suspense fallback={<PageLoader />}><InterviewRoomPage /></Suspense></OnboardingGate>} />
 
           {/* Security settings — reachable by both aspirant and employer roles;
@@ -383,9 +403,14 @@ function App() {
             {/* Phase 3: Job marketplace (aspirant) */}
             <Route path="/app/jobs" element={<OnboardingGate><JobsPage /></OnboardingGate>} />
             <Route path="/app/jobs/applications" element={<OnboardingGate><MyApplicationsPage /></OnboardingGate>} />
+            <Route path="/app/jobs/saved" element={<OnboardingGate><PrepListPage /></OnboardingGate>} />
             <Route path="/app/jobs/:jobId" element={<OnboardingGate><JobDetailPage /></OnboardingGate>} />
             {/* Phase 7: ATS multi-step application wizard */}
             <Route path="/app/jobs/:jobId/apply" element={<OnboardingGate><ApplyPage /></OnboardingGate>} />
+            <Route path="/app/roles" element={<OnboardingGate><ReferenceRolesPage /></OnboardingGate>} />
+            <Route path="/app/roles/:roleId" element={<OnboardingGate><ReferenceRoleDetailPage /></OnboardingGate>} />
+            <Route path="/app/jobs/:jobId/resume-match" element={<OnboardingGate><ResumeMatchPage /></OnboardingGate>} />
+            <Route path="/app/jobs/:jobId/resume-match/:scanId" element={<OnboardingGate><ResumeMatchPage /></OnboardingGate>} />
 
             {/* Roadmap — 6-stage job-readiness system */}
             <Route path="/app/roadmap" element={<OnboardingGate><RoadmapPage /></OnboardingGate>} />
@@ -395,6 +420,9 @@ function App() {
 
             {/* Candidate support */}
             <Route path="/app/support" element={<OnboardingGate><CandidateSupportPage /></OnboardingGate>} />
+
+            {/* DISHA Premium — upgrade from the 3-free-uses tier */}
+            <Route path="/app/pricing" element={<OnboardingGate><PricingPage /></OnboardingGate>} />
 
             {/* MVP2: AI Counsellor */}
             <Route path="/app/counsellor" element={<OnboardingGate><CounsellorPage /></OnboardingGate>} />
@@ -421,6 +449,8 @@ function App() {
             {/* Employers */}
             <Route path="employers"        element={<Suspense fallback={<PageLoader />}><EmployersPage /></Suspense>} />
             <Route path="employers/:id"    element={<Suspense fallback={<PageLoader />}><EmployerDetailPage /></Suspense>} />
+
+            <Route path="roadmap-blueprints" element={<Suspense fallback={<PageLoader />}><RoadmapBlueprintsPage /></Suspense>} />
 
             {/* Jobs */}
             <Route path="jobs"             element={<Suspense fallback={<PageLoader />}><AdminJobsPage /></Suspense>} />

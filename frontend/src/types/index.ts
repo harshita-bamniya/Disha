@@ -2,7 +2,7 @@ export type Language = 'en' | 'hi'
 export type UserRole =
   | 'aspirant' | 'admin' | 'super_admin' | 'employer'
   | 'moderator' | 'verification_officer' | 'finance_manager' | 'support_executive'
-  | 'employer_owner' | 'hr_manager' | 'recruiter' | 'interviewer'
+  | 'employer_owner' | 'hr_manager' | 'recruiter' | 'interviewer' | 'hiring_manager'
 
 export const PLATFORM_ADMIN_ROLES: UserRole[] = [
   'admin', 'super_admin', 'moderator', 'verification_officer', 'finance_manager', 'support_executive',

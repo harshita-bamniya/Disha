@@ -11,8 +11,8 @@ export default function SubscriptionsPage() {
   const { data: plans, isLoading } = useSubscriptionPlansAdmin()
   const update = useUpdateSubscriptionPlan()
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [form, setForm] = useState<{ price_monthly: string; max_active_jobs: string; max_recruiter_seats: string }>({
-    price_monthly: '', max_active_jobs: '', max_recruiter_seats: '',
+  const [form, setForm] = useState<{ price_monthly: string; razorpay_plan_id: string; max_active_jobs: string; max_recruiter_seats: string }>({
+    price_monthly: '', razorpay_plan_id: '', max_active_jobs: '', max_recruiter_seats: '',
   })
 
   const inputStyle = { height: 32, padding: '0 8px', borderRadius: 10, border: '1px solid rgba(0,0,0,0.08)', fontSize: 12 }
@@ -58,6 +58,11 @@ export default function SubscriptionsPage() {
                     <input value={form.max_recruiter_seats} onChange={e => setForm({ ...form, max_recruiter_seats: e.target.value })}
                       placeholder="blank = unlimited" style={{ ...inputStyle, width: 128 }} />
                   </div>
+                  <div>
+                    <p style={{ fontSize: 10, color: colors.text.muted, marginBottom: 4 }}>Razorpay Plan ID</p>
+                    <input value={form.razorpay_plan_id} onChange={e => setForm({ ...form, razorpay_plan_id: e.target.value })}
+                      placeholder="plan_xxxxxxxxxxxxxx" style={{ ...inputStyle, width: 180 }} />
+                  </div>
                   <Button
                     size="sm"
                     loading={update.isPending}
@@ -65,6 +70,7 @@ export default function SubscriptionsPage() {
                       planId: p.id,
                       payload: {
                         price_monthly: Number(form.price_monthly) || 0,
+                        razorpay_plan_id: form.razorpay_plan_id === '' ? null : form.razorpay_plan_id,
                         max_active_jobs: form.max_active_jobs === '' ? null : Number(form.max_active_jobs),
                         max_recruiter_seats: form.max_recruiter_seats === '' ? null : Number(form.max_recruiter_seats),
                       },
@@ -86,6 +92,7 @@ export default function SubscriptionsPage() {
                       setEditingId(p.id)
                       setForm({
                         price_monthly: String(p.price_monthly),
+                        razorpay_plan_id: p.razorpay_plan_id ?? '',
                         max_active_jobs: p.max_active_jobs?.toString() ?? '',
                         max_recruiter_seats: p.max_recruiter_seats?.toString() ?? '',
                       })

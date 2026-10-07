@@ -45,6 +45,7 @@ export interface ApplicationOut {
   department_name: string | null
   status: string
   match_score: number | null
+  resume_fit_status?: 'no_resume' | 'pending' | 'ready' | 'failed' | null
   cover_note: string | null
   employer_note: string | null
   created_at: string
@@ -70,6 +71,7 @@ export interface CandidatePsychProfile {
 export interface CandidateOut {
   application_id: string
   aspirant_id: string
+  job_title?: string | null   // not in backend CandidateOut today; optional so prefill falls back to ""
   // Personal
   full_name: string | null
   city: string | null
@@ -106,7 +108,8 @@ export interface CandidateOut {
   open_to_relocation: boolean | null
   preferred_locations: string[] | null
   // Application
-  match_score: number | null
+  match_score: number | null   // resume fit: how well the attached resume fits this job
+  resume_fit_status?: 'no_resume' | 'pending' | 'ready' | 'failed' | null
   status: string
   cover_note: string | null
   employer_note: string | null
@@ -505,6 +508,7 @@ export interface ApplicantListItem {
   aspirant_id: string
   full_name: string | null
   city: string | null
+  current_role?: string | null   // not returned by backend today
   job_id: string
   job_title: string
   department_name: string | null
@@ -613,3 +617,38 @@ export const createPipelineTemplate = (name: string, stages: PipelineStageIn[]):
 
 export const deletePipelineTemplate = (id: string): Promise<void> =>
   apiClient.delete(`/employer/pipeline-templates/${id}`).then((r) => r.data)
+
+
+// ── Resume fit (employer view) ────────────────────────────────────────────────
+
+export interface ResumeFitRequirement {
+  name: string
+  importance: 'must_have' | 'nice_to_have'
+  type: string
+  credit: number
+  label: string
+  evidence: string
+}
+
+export interface ResumeFitReport {
+  score: number
+  band: 'Strong' | 'Good' | 'Fair' | 'Low'
+  must_haves_met: number
+  must_haves_partial: number
+  must_haves_total: number
+  cap_reasons: string[]
+  to_confirm: string[]
+  low_signal: boolean
+  requirements: ResumeFitRequirement[]
+  quality: { score: number; label: string } | null
+  sub_scores: { label: string; score: number; weight: number }[]
+}
+
+export interface ResumeFitOut {
+  status: 'no_resume' | 'pending' | 'ready' | 'failed' | null
+  score: number | null
+  report: ResumeFitReport | null
+}
+
+export const getResumeFit = (applicationId: string): Promise<ResumeFitOut> =>
+  apiClient.get(`/employer/pipeline/applications/${applicationId}/resume-fit`).then((r) => r.data)

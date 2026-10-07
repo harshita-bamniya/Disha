@@ -4,7 +4,7 @@ import PageHeader from '@/shared/layouts/PageHeader'
 
 export default function ReferralsPage() {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
       <PageHeader title="Referrals" subtitle="Employee referral program" />
       <div style={{ padding: '20px 28px', background: colors.surface.bg, flex: 1 }}>
         <div style={{ maxWidth: 960, margin: '0 auto' }}>

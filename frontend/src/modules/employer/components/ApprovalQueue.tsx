@@ -92,7 +92,7 @@ export function ApprovalQueue({ onClose }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
-  const queue = (jobs ?? []).filter(j => ['draft', 'paused', 'pending'].includes(j.status))
+  const queue = (jobs?.jobs ?? []).filter(j => ['draft', 'paused', 'pending'].includes(j.status))
 
   const handlePublish = (id: string) => {
     setPublishingId(id)

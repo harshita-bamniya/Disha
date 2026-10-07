@@ -769,7 +769,7 @@ export default function ApplyModal({ jobId, jobTitle, onClose }: ApplyModalProps
           )}
 
           {/* not eligible */}
-          {!loading && elig && !elig.eligible && (
+          {!loading && !done && elig && !elig.eligible && (
             <div style={{ textAlign: 'center', padding: '24px 0' }}>
               <AlertCircle size={32} color="#D97706" style={{ marginBottom: 10 }} />
               <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: NAVY }}>

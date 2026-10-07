@@ -874,7 +874,7 @@ export default function FormBuilderPage() {
   const sortedSections = [...(form?.sections ?? [])].sort((a, b) => a.order_index - b.order_index)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
       {/* Header: back + status + actions */}
       <PageHeader
         title="Form Builder"

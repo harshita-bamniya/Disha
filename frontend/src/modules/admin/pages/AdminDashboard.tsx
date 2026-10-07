@@ -118,7 +118,12 @@ function KpiBanner({ stats }: { stats: Record<string, number | string> }) {
 
 function KycFocusPanel() {
   const navigate = useNavigate()
-  const { data: pending } = useEmployerVerifications('pending')
+  // EmployerVerification.status is "requested" for a freshly-submitted
+  // verification — "pending" is never an actual status value anywhere in the
+  // backend (KycQueuePage.tsx uses "requested" correctly). Passing "pending"
+  // here silently returned zero rows always, so this panel showed 0 pending
+  // reviews even when employers had genuinely submitted for verification.
+  const { data: pending } = useEmployerVerifications('requested')
   const { data: underReview } = useEmployerVerifications('under_review')
   const overdueCount = (pending ?? []).filter(v =>
     Math.floor((Date.now() - new Date(v.submitted_at).getTime()) / 86_400_000) > 3,

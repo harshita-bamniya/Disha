@@ -16,8 +16,8 @@ type AuditRow = {
   resource: string | null
   resource_id: string | null
   ip_address: string | null
-  previous_value: unknown
-  new_value: unknown
+  previous_value: Record<string, unknown> | null
+  new_value: Record<string, unknown> | null
   created_at: string
 }
 

@@ -1,24 +1,33 @@
 import { useState } from 'react'
-import { Link, useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import {
-  Building2, Users, Briefcase, UserCheck,
+  Users, Briefcase,
   FileText, CheckCircle, Clock, XCircle, ChevronRight,
   Plus, BarChart3, Mail, Shield, Calendar, X, Eye, EyeOff,
-  TrendingUp, Award, Send,
+  Send, Pencil, Trash2, Copy, ClipboardList,
 } from 'lucide-react'
 import { colors, radius } from '@/design-system/tokens'
 import {
   useDepartment, useDepartmentJobs, useDepartmentOverview, useTeamMembers,
-  useHasPermission, useInviteTeamMember,
+  useHasPermission, useInviteTeamMember, useEmployerPermissions, useEmployerDashboard,
+  useCreateJob, useUpdateJob, useDeleteJob, usePublishJob, usePauseJob,
+  useCloseJob, useReopenJob, useDuplicateJob,
 } from '../hooks/useJobs'
 import { getApiError } from '@/api/client'
 import type { DepartmentJobEntry } from '@/api/company'
+import type { JobPosting, JobPostingPayload } from '@/api/jobs'
+import { formatSalary, EMPLOYMENT_TYPE_LABELS } from '@/api/jobs'
+import { formatDate as fmtDate } from '@/shared/utils/format'
+import JobForm from '../components/JobForm'
+import StatusChip from '../components/StatusChip'
 import Button from '@/shared/components/primitives/Button'
 import Breadcrumb from '@/shared/components/navigation/Breadcrumb'
 import PageHeader from '@/shared/layouts/PageHeader'
 import Tabs, { type TabItem } from '@/shared/components/navigation/Tabs'
 import Spinner from '@/shared/components/feedback/Spinner'
 import ErrorState from '@/shared/components/feedback/ErrorState'
+
+const C = { ink1: colors.text.ink, ink2: colors.text.inkSoft, ink3: colors.text.muted, border: colors.border.default, borderLight: colors.border.default, accent: colors.state.info, green: colors.state.success, red: colors.state.danger }
 
 type Tab = 'overview' | 'jobs' | 'team'
 
@@ -71,9 +80,9 @@ function MetricCard({ icon: Icon, label, value, color, onClick }: {
   )
 }
 
-// ── Job row ───────────────────────────────────────────────────────────────────
+// ── Job preview row (Overview tab only — read-only) ─────────────────────────────
 
-function JobRow({ job }: { job: DepartmentJobEntry }) {
+function JobPreviewRow({ job }: { job: DepartmentJobEntry }) {
   const posted  = job.created_at ? new Date(job.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—'
   const expires = job.expires_at ? new Date(job.expires_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—'
   const isExpired = job.expires_at ? new Date(job.expires_at) < new Date() : false
@@ -110,12 +119,88 @@ function JobRow({ job }: { job: DepartmentJobEntry }) {
   )
 }
 
+// ── Job row (Jobs tab — full management) ────────────────────────────────────────
+// This is where job creation/editing/publishing actually happens — the
+// company-wide Jobs page is read-only monitoring only, per the "departments
+// manage their own jobs" design.
+
+const JOB_COLS = '1fr 96px 96px 96px 88px 148px'
+
+function JobManageRow({
+  job, canEdit, canPublish, canDelete, isMutating,
+  onEdit, onDelete, onPublish, onPause, onClose, onReopen, onDuplicate,
+}: {
+  job: JobPosting; canEdit: boolean; canPublish: boolean; canDelete: boolean; isMutating: boolean
+  onEdit: () => void; onDelete: () => void; onPublish: () => void
+  onPause: () => void; onClose: () => void; onReopen: () => void; onDuplicate: () => void
+}) {
+  const [hovered, setHovered] = useState(false)
+
+  const spin: React.CSSProperties = { animation: 'spin 0.7s linear infinite', borderRadius: '50%', width: 10, height: 10, border: `2px solid ${C.ink3}`, borderTopColor: 'transparent', display: 'inline-block' }
+
+  const primaryBtn = (label: string, fn: () => void, color: string = C.accent) => (
+    <button onClick={fn} disabled={isMutating} aria-label={label}
+      style={{ padding: '4px 10px', borderRadius: 5, border: `1px solid ${color}30`, background: `${color}0f`, color, fontSize: 11, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+      {isMutating ? <span style={spin} /> : label}
+    </button>
+  )
+
+  const iconBtn = (icon: React.ReactNode, fn: () => void, title: string, danger = false) => (
+    <Button variant="ghost" size="icon" onClick={fn} aria-label={title}
+      style={{ color: danger ? C.red : C.ink3, border: `1px solid ${C.border}`, width: 26, height: 26 }}>
+      {icon}
+    </Button>
+  )
+
+  return (
+    <div
+      style={{ display: 'grid', gridTemplateColumns: JOB_COLS, alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: `1px solid ${C.borderLight}`, background: hovered ? colors.surface.elevated : '#fff', transition: 'background 0.1s', opacity: job.status === 'archived' ? 0.6 : 1 }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div style={{ minWidth: 0 }}>
+        <p style={{ fontSize: 13, fontWeight: 600, color: C.ink1, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.title}</p>
+        <p style={{ fontSize: 11, color: C.ink3, margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {[job.sector, job.location, job.employment_type ? (EMPLOYMENT_TYPE_LABELS[job.employment_type as keyof typeof EMPLOYMENT_TYPE_LABELS] ?? job.employment_type) : null].filter(Boolean).join(' · ')}
+        </p>
+      </div>
+
+      <StatusChip status={job.status} />
+
+      <Link to={`/app/employer/pipeline/${job.id}`} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 600, color: (job.applicant_count ?? 0) > 0 ? C.accent : C.ink3, textDecoration: 'none' }}>
+        <Users size={12} />
+        {job.applicant_count ?? 0}
+      </Link>
+
+      <span style={{ fontSize: 12, color: C.ink2, fontVariantNumeric: 'tabular-nums' }}>
+        {formatSalary(job.salary_min, job.salary_max) ? `₹${formatSalary(job.salary_min, job.salary_max)}` : '—'}
+      </span>
+
+      <span style={{ fontSize: 12, color: C.ink3 }}>{fmtDate(job.created_at)}</span>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        {job.status === 'draft'     && canPublish && primaryBtn('Publish', onPublish, C.green)}
+        {job.status === 'published' && canPublish && primaryBtn('Pause',   onPause,   '#D97706')}
+        {job.status === 'paused'    && canPublish && primaryBtn('Resume',  onReopen,  C.green)}
+        {job.status === 'closed'    && canPublish && primaryBtn('Reopen',  onReopen,  C.accent)}
+        {(job.status === 'published' || job.status === 'paused') && canPublish && iconBtn(<XCircle size={12} />, onClose, 'Close', true)}
+        {canEdit    && iconBtn(<Pencil size={12} />, onEdit,      'Edit')}
+        {canEdit    && iconBtn(<Copy size={12} />,   onDuplicate, 'Duplicate')}
+        <Link to={`/app/employer/jobs/${job.id}/form-builder`} title="Application Form Builder" style={{ width: 26, height: 26, borderRadius: 5, border: `1px solid ${C.border}`, background: 'transparent', color: C.accent, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, textDecoration: 'none' }}>
+          <ClipboardList size={12} />
+        </Link>
+        {canDelete  && iconBtn(<Trash2 size={12} />, onDelete, 'Delete', true)}
+      </div>
+    </div>
+  )
+}
+
 // ── Team member row ───────────────────────────────────────────────────────────
 
 type TeamMember = {
   employer_profile_id: string
   contact_person: string
-  email: string
+  email: string | null
   role_name: string
   is_owner: boolean
   department_id: string | null
@@ -259,8 +344,7 @@ function InviteModal({ departmentId, departmentName, onClose }: {
 
 // ── Overview tab ──────────────────────────────────────────────────────────────
 
-function OverviewTab({ deptId, dept, overview, jobs, deptTeam, onSwitchTab }: {
-  deptId: string
+function OverviewTab({ dept, overview, jobs, deptTeam, onSwitchTab }: {
   dept: { name: string; active_job_count: number; total_job_count: number; total_applicant_count: number; member_count: number }
   overview: { pipeline_funnel: Record<string, number>; scheduled_interviews_count: number; pending_offers_count: number; avg_days_to_hire: number | null } | undefined
   jobs: DepartmentJobEntry[]
@@ -367,7 +451,7 @@ function OverviewTab({ deptId, dept, overview, jobs, deptTeam, onSwitchTab }: {
             <p style={{ fontSize: 13, color: '#CBD5E1' }}>No active jobs. Publish a draft to start receiving applicants.</p>
           </div>
         ) : (
-          activeJobs.slice(0, 4).map(job => <JobRow key={job.id} job={job} />)
+          activeJobs.slice(0, 4).map(job => <JobPreviewRow key={job.id} job={job} />)
         )}
       </div>
 
@@ -394,24 +478,74 @@ function OverviewTab({ deptId, dept, overview, jobs, deptTeam, onSwitchTab }: {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
+type JobView = 'list' | 'new' | { edit: JobPosting }
+
 export default function DepartmentDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
   const { data: dept, isLoading: deptLoading, isError: deptError, refetch: refetchDept } = useDepartment(id ?? '')
   const { data: overview } = useDepartmentOverview(id ?? '')
   const { data: jobs, isLoading: jobsLoading } = useDepartmentJobs(id ?? '')
   const { data: allTeam } = useTeamMembers()
+  const { data: myPerms } = useEmployerPermissions()
+  // Full JobPosting[] (unlike useDepartmentJobs' lighter DepartmentJobEntry)
+  // — the Jobs tab needs every field JobForm edits (description, skills,
+  // salary, etc.), and this is already scoped correctly by the backend for
+  // a dept-scoped caller, or filterable client-side for a company-wide one.
+  const { data: dashboard } = useEmployerDashboard()
   // Backend guards department create/update/delete with companies:edit, not a
   // separate departments:* permission (which doesn't exist in the system) —
   // check the same one the API actually enforces.
   const canManage    = useHasPermission('companies:edit')
   const canCreateJob = useHasPermission('jobs:create')
+  const canEditJob   = useHasPermission('jobs:edit')
+  const canPublishJob = useHasPermission('jobs:publish')
+  const canDeleteJob = useHasPermission('jobs:delete')
+  // A department-scoped recruiter/HR manager can only ever post into their OWN
+  // department (the backend silently forces this regardless of what's
+  // requested), so for them "New Job" only makes sense on that same
+  // department. A company-wide user (owner/hr_admin, no department_id) can
+  // post into any department they're viewing — same as LinkedIn Recruiter's
+  // admin seat or Naukri's super-user, both of which can post jobs directly
+  // rather than only being able to delegate to a scoped seat.
+  const isMyDepartment = myPerms?.department_id === id || !!myPerms?.is_company_wide
 
-  const [activeTab, setActiveTab]           = useState<Tab>('overview')
+  const createJob    = useCreateJob()
+  const updateJob    = useUpdateJob()
+  const deleteJob    = useDeleteJob()
+  const publishJob   = usePublishJob()
+  const pauseJob     = usePauseJob()
+  const closeJob     = useCloseJob()
+  const reopenJob    = useReopenJob()
+  const duplicateJob = useDuplicateJob()
+
+  // Dashboard's "Post a Job" links here with ?newJob=1 when it can resolve a
+  // single unambiguous department to jump into, so the button actually opens
+  // the job form in one click instead of landing on Overview first.
+  const [searchParams] = useSearchParams()
+  const wantsNewJob = searchParams.get('newJob') === '1'
+
+  const [activeTab, setActiveTab]           = useState<Tab>(wantsNewJob ? 'jobs' : 'overview')
   const [jobStatusFilter, setJobStatusFilter] = useState('all')
   const [showInvite, setShowInvite]          = useState(false)
+  const [jobView, setJobView]                = useState<JobView>(wantsNewJob ? 'new' : 'list')
+  const [confirmDeleteJob, setConfirmDeleteJob] = useState<string | null>(null)
+  const [mutatingJobId, setMutatingJobId]    = useState<string | null>(null)
 
   const deptTeam: TeamMember[] = (allTeam ?? []).filter(m => m.department_id === id)
+  const deptJobs: JobPosting[] = (dashboard?.jobs ?? []).filter(j => j.department_id === id)
+
+  const runJobAction = async (jobId: string, fn: (id: string) => Promise<unknown>) => {
+    setMutatingJobId(jobId); try { await fn(jobId) } finally { setMutatingJobId(null) }
+  }
+
+  const handleCreateJob = (payload: JobPostingPayload) =>
+    createJob.mutate(payload, { onSuccess: () => setJobView('list') })
+
+  const handleUpdateJob = (jobId: string, payload: JobPostingPayload) =>
+    updateJob.mutate({ id: jobId, data: payload }, { onSuccess: () => setJobView('list') })
+
+  const handleDeleteJob = (jobId: string) =>
+    deleteJob.mutate(jobId, { onSuccess: () => setConfirmDeleteJob(null) })
 
   if (deptLoading) return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -429,11 +563,11 @@ export default function DepartmentDetailPage() {
     </div>
   )
 
-  const filteredJobs = (jobs ?? []).filter(j => jobStatusFilter === 'all' || j.status === jobStatusFilter)
+  const filteredJobs = deptJobs.filter(j => jobStatusFilter === 'all' || j.status === jobStatusFilter)
 
   const tabs: TabItem[] = [
     { key: 'overview', label: 'Overview', icon: <BarChart3 size={13} /> },
-    { key: 'jobs',     label: 'Jobs',     icon: <Briefcase size={13} />, count: (jobs ?? []).length },
+    { key: 'jobs',     label: 'Jobs',     icon: <Briefcase size={13} />, count: deptJobs.length },
     { key: 'team',     label: 'Team',     icon: <Users size={13} />,     count: deptTeam.length },
   ]
 
@@ -449,8 +583,8 @@ export default function DepartmentDetailPage() {
               {canManage && (
                 <Button size="sm" variant="outline" onClick={() => setShowInvite(true)}><Users size={13} />Invite</Button>
               )}
-              {canCreateJob && (
-                <Button size="sm" onClick={() => navigate('/app/employer/jobs')}><Plus size={14} />New Job</Button>
+              {canCreateJob && isMyDepartment && (
+                <Button size="sm" onClick={() => { setActiveTab('jobs'); setJobView('new') }}><Plus size={14} />New Job</Button>
               )}
             </div>
           }
@@ -477,40 +611,97 @@ export default function DepartmentDetailPage() {
 
           {/* Tab content */}
           {activeTab === 'overview' && (
-            <OverviewTab deptId={id!} dept={dept} overview={overview} jobs={jobs ?? []} deptTeam={deptTeam} onSwitchTab={setActiveTab} />
+            <OverviewTab dept={dept} overview={overview} jobs={jobs ?? []} deptTeam={deptTeam} onSwitchTab={setActiveTab} />
           )}
 
           {activeTab === 'jobs' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
-                {['all', 'published', 'draft', 'paused', 'closed'].map(s => (
-                  <button key={s} onClick={() => setJobStatusFilter(s)} style={{ padding: '5px 13px', borderRadius: 20, fontSize: 12, fontWeight: 500, border: jobStatusFilter === s ? 'none' : '1px solid #E2E8F0', background: jobStatusFilter === s ? '#0F172A' : '#fff', color: jobStatusFilter === s ? '#fff' : colors.text.inkSoft, cursor: 'pointer', textTransform: 'capitalize' }}>
-                    {s === 'all' ? 'All' : s}
-                  </button>
-                ))}
-                <span style={{ fontSize: 12, color: '#94A3B8', marginLeft: 4 }}>{filteredJobs.length} job{filteredJobs.length !== 1 ? 's' : ''}</span>
+            jobView === 'new' ? (
+              <div style={{ maxWidth: 800 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                  <p style={{ fontSize: 18, fontWeight: 700, color: colors.text.ink, margin: 0 }}>New Job Posting</p>
+                  <Button variant="outline" size="sm" onClick={() => setJobView('list')}><X size={14} />Cancel</Button>
+                </div>
+                <JobForm
+                  lockedDepartmentId={id}
+                  onSubmit={handleCreateJob}
+                  loading={createJob.isPending}
+                  onCancel={() => setJobView('list')}
+                  error={createJob.isError ? getApiError(createJob.error) : undefined}
+                />
               </div>
+            ) : typeof jobView === 'object' && 'edit' in jobView ? (
+              <div style={{ maxWidth: 800 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                  <p style={{ fontSize: 18, fontWeight: 700, color: colors.text.ink, margin: 0 }}>Edit: {jobView.edit.title}</p>
+                  <Button variant="outline" size="sm" onClick={() => setJobView('list')}><X size={14} />Cancel</Button>
+                </div>
+                <JobForm
+                  initial={jobView.edit}
+                  lockedDepartmentId={id}
+                  onSubmit={p => handleUpdateJob(jobView.edit.id, p)}
+                  loading={updateJob.isPending}
+                  onCancel={() => setJobView('list')}
+                  error={updateJob.isError ? getApiError(updateJob.error) : undefined}
+                />
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
+                  {['all', 'published', 'draft', 'paused', 'closed'].map(s => (
+                    <button key={s} onClick={() => setJobStatusFilter(s)} style={{ padding: '5px 13px', borderRadius: 20, fontSize: 12, fontWeight: 500, border: jobStatusFilter === s ? 'none' : '1px solid #E2E8F0', background: jobStatusFilter === s ? '#0F172A' : '#fff', color: jobStatusFilter === s ? '#fff' : colors.text.inkSoft, cursor: 'pointer', textTransform: 'capitalize' }}>
+                      {s === 'all' ? 'All' : s}
+                    </button>
+                  ))}
+                  <span style={{ fontSize: 12, color: '#94A3B8', marginLeft: 4 }}>{filteredJobs.length} job{filteredJobs.length !== 1 ? 's' : ''}</span>
+                </div>
 
-              <div style={{ background: '#fff', borderRadius: 16, border: `1px solid ${colors.border.default}`, boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
-                {jobsLoading ? (
-                  <div style={{ padding: '40px 20px', textAlign: 'center', color: '#94A3B8', fontSize: 13 }}>Loading jobs…</div>
-                ) : filteredJobs.length === 0 ? (
-                  <div style={{ padding: '60px 20px', textAlign: 'center' }}>
-                    <div style={{ width: 48, height: 48, borderRadius: 14, background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                      <Briefcase size={20} color="#CBD5E1" />
+                <div style={{ background: '#fff', borderRadius: 16, border: `1px solid ${colors.border.default}`, boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
+                  {/* Narrower than ~700px, this table scrolls horizontally rather
+                      than squishing columns — same pattern as the company-wide
+                      Jobs page. */}
+                  <div style={{ overflowX: 'auto' }}>
+                    <div style={{ minWidth: 700 }}>
+                      {jobsLoading ? (
+                        <div style={{ padding: '40px 20px', textAlign: 'center', color: '#94A3B8', fontSize: 13 }}>Loading jobs…</div>
+                      ) : filteredJobs.length === 0 ? (
+                        <div style={{ padding: '60px 20px', textAlign: 'center' }}>
+                          <div style={{ width: 48, height: 48, borderRadius: 14, background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                            <Briefcase size={20} color="#CBD5E1" />
+                          </div>
+                          <p style={{ fontSize: 14, fontWeight: 700, color: colors.text.ink, margin: '0 0 6px' }}>
+                            {jobStatusFilter === 'all' ? 'No jobs yet' : `No ${jobStatusFilter} jobs`}
+                          </p>
+                          <p style={{ fontSize: 12, color: '#94A3B8', margin: '0 0 16px' }}>
+                            {jobStatusFilter === 'all' ? `Post the first job for ${dept.name}.` : 'Try a different filter.'}
+                          </p>
+                          {jobStatusFilter === 'all' && canCreateJob && isMyDepartment && (
+                            <Button size="sm" onClick={() => setJobView('new')}><Plus size={13} />New Job</Button>
+                          )}
+                        </div>
+                      ) : (
+                        filteredJobs.map(job => (
+                          <JobManageRow
+                            key={job.id}
+                            job={job}
+                            canEdit={canEditJob}
+                            canPublish={canPublishJob}
+                            canDelete={canDeleteJob}
+                            isMutating={mutatingJobId === job.id}
+                            onEdit={() => setJobView({ edit: job })}
+                            onDelete={() => setConfirmDeleteJob(job.id)}
+                            onPublish={() => runJobAction(job.id, jid => publishJob.mutateAsync(jid))}
+                            onPause={() => runJobAction(job.id, jid => pauseJob.mutateAsync(jid))}
+                            onClose={() => runJobAction(job.id, jid => closeJob.mutateAsync(jid))}
+                            onReopen={() => runJobAction(job.id, jid => reopenJob.mutateAsync(jid))}
+                            onDuplicate={() => runJobAction(job.id, jid => duplicateJob.mutateAsync(jid))}
+                          />
+                        ))
+                      )}
                     </div>
-                    <p style={{ fontSize: 14, fontWeight: 700, color: colors.text.ink, margin: '0 0 6px' }}>
-                      {jobStatusFilter === 'all' ? 'No jobs yet' : `No ${jobStatusFilter} jobs`}
-                    </p>
-                    <p style={{ fontSize: 12, color: '#94A3B8', margin: 0 }}>
-                      {jobStatusFilter === 'all' ? `Create a job and select ${dept.name} as the department.` : 'Try a different filter.'}
-                    </p>
                   </div>
-                ) : (
-                  filteredJobs.map(job => <JobRow key={job.id} job={job} />)
-                )}
+                </div>
               </div>
-            </div>
+            )
           )}
 
           {activeTab === 'team' && (
@@ -571,6 +762,22 @@ export default function DepartmentDetailPage() {
 
       {showInvite && id && (
         <InviteModal departmentId={id} departmentName={dept.name} onClose={() => setShowInvite(false)} />
+      )}
+
+      {confirmDeleteJob && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
+          <div style={{ background: '#fff', borderRadius: radius.xl, padding: 24, maxWidth: 380, width: '100%', border: `1px solid ${C.border}` }}>
+            <h3 style={{ fontSize: 15, fontWeight: 600, color: C.ink1, margin: '0 0 8px' }}>Delete job posting?</h3>
+            <p style={{ fontSize: 13, color: C.ink2, margin: '0 0 20px' }}>This cannot be undone. All applicants for this job will lose access.</p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button variant="outline" size="sm" onClick={() => setConfirmDeleteJob(null)} fullWidth>Cancel</Button>
+              <Button variant="danger" size="sm" onClick={() => handleDeleteJob(confirmDeleteJob)}
+                disabled={deleteJob.isPending} loading={deleteJob.isPending} fullWidth>
+                {deleteJob.isPending ? 'Deleting…' : 'Delete'}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

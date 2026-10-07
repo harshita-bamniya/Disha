@@ -34,6 +34,7 @@ export interface KrsDashboard {
   selected_tracks: CareerMatch[]   // user's manually chosen career paths (0–2)
   full_name: string | null         // for personalised greeting
   skills: string[]                 // aspirant's skills — for job card skill-gap preview
+  avatar_id: string | null         // curated icon avatar chosen in the Profile page
 }
 
 export interface LiveJob {

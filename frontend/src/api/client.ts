@@ -1,5 +1,7 @@
 import axios from 'axios'
 import { useAuthStore } from '@/stores/authStore'
+import { toast } from '@/shared/components/feedback/Toast'
+import { isPaywallExemptPath } from '@/shared/config/paywallExempt'
 
 /**
  * Safely extract a human-readable error message from any API error.
@@ -70,6 +72,31 @@ apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const original = error.config
+
+    // 402 = a gated feature (aspirant free-tier limit) or an unpaid employer
+    // dashboard route. Surface a paywall prompt and route to the right upgrade
+    // page instead of a generic error toast.
+    //
+    // Exception: pages on PAYWALL_EXEMPT_PREFIXES (Team, Company Profile,
+    // Verification, Support, Subscription) are meant to work without a paid
+    // plan — but the layout around them still fires background calls like
+    // useEmployerDashboard() (for the header company name) that ARE paid-
+    // gated. Without this check, that unrelated background 402 would yank
+    // the user off an exempt page they're legitimately allowed to be on,
+    // making the whole exemption list a no-op.
+    if (error.response?.status === 402) {
+      if (isPaywallExemptPath(window.location.pathname)) {
+        return Promise.reject(error)
+      }
+      const detail = getApiError(error, 'A subscription is required to continue.')
+      const isEmployerRoute = (original?.url ?? '').includes('/employer/')
+      toast.warning(detail)
+      const target = isEmployerRoute ? '/app/employer/subscription' : '/app/pricing'
+      if (window.location.pathname !== target) {
+        setTimeout(() => { window.location.assign(target) }, 1200)
+      }
+      return Promise.reject(error)
+    }
 
     if (error.response?.status === 401 && !original._retry) {
       original._retry = true

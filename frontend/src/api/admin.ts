@@ -279,7 +279,10 @@ export interface DeviceSessionEntry {
 export interface SubscriptionPlanAdminEntry {
   id: string
   name: string
+  plan_type: 'employer' | 'aspirant'
+  billing_interval: 'monthly' | 'annual'
   price_monthly: number
+  razorpay_plan_id: string | null
   max_active_jobs: number | null
   max_recruiter_seats: number | null
   resume_access: boolean
@@ -337,6 +340,8 @@ export interface EmployerVerificationEntry {
 
 export interface EmployerVerificationDetail extends EmployerVerificationEntry {
   reviewer_notes: string | null
+  contact_email?: string | null
+  contact_phone?: string | null
   documents: VerificationDocumentEntry[]
   events: VerificationEventEntry[]
 }

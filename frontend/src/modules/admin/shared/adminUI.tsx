@@ -28,11 +28,11 @@ export function Empty({ icon: Icon, text }: { icon: React.ElementType; text: str
 
 // ── Badge — re-exports shared ──────────────────────────────────────────────────
 
-export function Badge({ children, color = 'gray' }: { children: React.ReactNode; color?: string }) {
+export function Badge({ children, color = 'gray', className }: { children: React.ReactNode; color?: string; className?: string }) {
   const validColor = ['green', 'amber', 'red', 'navy', 'blue', 'gray', 'purple'].includes(color)
     ? color as 'green' | 'amber' | 'red' | 'navy' | 'blue' | 'gray' | 'purple'
     : 'gray'
-  return <SharedBadge color={validColor}>{children}</SharedBadge>
+  return <SharedBadge color={validColor} className={className}>{children}</SharedBadge>
 }
 
 // ── Stat card — re-exports shared ─────────────────────────────────────────────

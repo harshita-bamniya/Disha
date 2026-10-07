@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Building2, Phone, Lock, ArrowLeft, Check, X, RotateCcw } from 'lucide-react'
+import { Building2, Mail, Lock, ArrowLeft, RotateCcw } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import OtpInput from '@/components/ui/OtpInput'
-import { useRegisterEmployer, useVerifyEmployerPhone, useSendOtp } from '../hooks/useAuth'
+import PasswordStrengthMeter from '@/shared/components/forms/PasswordStrengthMeter'
+import { PASSWORD_RULES } from '@/shared/components/forms/passwordRules'
+import { useRegisterEmployer, useVerifyEmployerEmailOtp, useResendEmailOtp } from '../hooks/useAuth'
 import { getApiError } from '@/api/client'
 import { getRecaptchaToken } from '@/lib/recaptcha'
 
@@ -16,14 +18,6 @@ const N = {
   white:   '#FFFFFF',
 }
 
-const PASSWORD_RULES = [
-  { key: 'len',     label: 'At least 8 characters',   test: (p: string) => p.length >= 8 },
-  { key: 'upper',   label: 'One uppercase letter',     test: (p: string) => /[A-Z]/.test(p) },
-  { key: 'lower',   label: 'One lowercase letter',     test: (p: string) => /[a-z]/.test(p) },
-  { key: 'num',     label: 'One number',               test: (p: string) => /\d/.test(p) },
-  { key: 'special', label: 'One special character',    test: (p: string) => /[!@#$%^&*(),.?":{}|<>]/.test(p) },
-]
-
 const PERKS = [
   { v: '2,400+', l: 'UPSC candidates' },
   { v: '87%',    l: 'Match accuracy' },
@@ -33,9 +27,8 @@ const PERKS = [
 const RESEND_COOLDOWN = 30
 
 export default function EmployerRegisterPage() {
-  const [form, setForm] = useState({ phone: '', password: '', company_name: '' })
+  const [form, setForm] = useState({ email: '', password: '', company_name: '' })
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
-  const [showRules, setShowRules] = useState(false)
 
   // OTP state
   const [otpSent, setOtpSent] = useState(false)
@@ -45,16 +38,10 @@ export default function EmployerRegisterPage() {
   const otpRef = useRef<HTMLDivElement>(null)
 
   const registerEmployer = useRegisterEmployer()
-  const verifyPhone = useVerifyEmployerPhone()
-  const sendOtp = useSendOtp()
+  const verifyEmailOtp = useVerifyEmployerEmailOtp()
+  const resendEmailOtp = useResendEmailOtp()
 
-  const passRules    = PASSWORD_RULES.map(r => ({ ...r, pass: r.test(form.password) }))
-  const allRulesPass = passRules.every(r => r.pass)
-  const passedCount  = passRules.filter(r => r.pass).length
-  const strengthColor =
-    passedCount <= 1 ? '#EF4444' :
-    passedCount <= 3 ? '#F97316' :
-    passedCount === 4 ? '#EAB308' : N.navy
+  const allRulesPass = PASSWORD_RULES.every(r => r.test(form.password))
 
   const set = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm(p => ({ ...p, [field]: e.target.value }))
@@ -78,8 +65,8 @@ export default function EmployerRegisterPage() {
   const validate = () => {
     const errors: Record<string, string> = {}
     if (!form.company_name.trim()) errors.company_name = 'Company name is required'
-    if (!form.phone.trim()) errors.phone = 'Phone number is required'
-    else if (!/^[6-9]\d{9}$/.test(form.phone.replace(/\D/g, ''))) errors.phone = 'Enter a valid 10-digit Indian mobile number'
+    if (!form.email.trim()) errors.email = 'Email address is required'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) errors.email = 'Enter a valid email address'
     if (!allRulesPass) errors.password = 'Password does not meet all requirements'
     setFieldErrors(errors)
     return Object.keys(errors).length === 0
@@ -89,13 +76,13 @@ export default function EmployerRegisterPage() {
     e.preventDefault()
     if (otpSent) {
       if (otp.length < 6) return
-      verifyPhone.mutate({ phone: form.phone, otp })
+      verifyEmailOtp.mutate({ email: form.email.trim(), otp })
       return
     }
     if (!validate()) return
     const recaptcha_token = await getRecaptchaToken('employer_register')
     registerEmployer.mutate(
-      { phone: form.phone, password: form.password, company_name: form.company_name, recaptcha_token },
+      { email: form.email.trim(), password: form.password, company_name: form.company_name, recaptcha_token },
       {
         onSuccess: (data) => {
           setOtpSent(true)
@@ -107,7 +94,7 @@ export default function EmployerRegisterPage() {
   }
 
   const handleResend = () => {
-    sendOtp.mutate({ phone: form.phone, purpose: 'register' }, {
+    resendEmailOtp.mutate({ email: form.email.trim() }, {
       onSuccess: (data) => {
         if (data.dev_otp) setDevOtp(data.dev_otp)
         setOtp('')
@@ -118,11 +105,13 @@ export default function EmployerRegisterPage() {
 
   const serverError = registerEmployer.error
     ? getApiError(registerEmployer.error, 'Registration failed. Please try again.')
-    : verifyPhone.error
-    ? getApiError(verifyPhone.error, 'Verification failed. Please try again.')
+    : verifyEmailOtp.error
+    ? getApiError(verifyEmailOtp.error, 'Verification failed. Please try again.')
     : null
 
-  const maskedPhone = form.phone ? `${form.phone.slice(0, 2)}XXXXXX${form.phone.slice(-2)}` : ''
+  const maskedEmail = form.email.includes('@')
+    ? form.email.replace(/^(.{2}).*(@.*)$/, '$1***$2')
+    : form.email
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', background: N.bg }}>
@@ -199,22 +188,21 @@ export default function EmployerRegisterPage() {
               disabled={otpSent}
             />
 
-            {/* Phone field + inline OTP below it */}
+            {/* Email field + inline OTP below it */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
               <Input
-                label="Phone number"
-                type="tel"
-                placeholder="10-digit mobile number"
-                value={form.phone}
-                onChange={set('phone')}
-                error={fieldErrors.phone}
-                prefix={<Phone className="w-4 h-4" />}
-                maxLength={10}
-                inputMode="numeric"
+                label="Email address"
+                type="email"
+                placeholder="Enter email address"
+                value={form.email}
+                onChange={set('email')}
+                error={fieldErrors.email}
+                prefix={<Mail className="w-4 h-4" />}
+                inputMode="email"
                 disabled={otpSent}
               />
 
-              {/* OTP slides in right below phone field */}
+              {/* OTP slides in right below email field */}
               {otpSent && (
                 <div ref={otpRef} style={{
                   marginTop: 12, padding: '16px', borderRadius: 12,
@@ -222,7 +210,7 @@ export default function EmployerRegisterPage() {
                   display: 'flex', flexDirection: 'column', gap: 12,
                 }}>
                   <p style={{ fontSize: 12.5, color: N.muted, margin: 0 }}>
-                    OTP sent to <strong style={{ color: N.ink }}>+91 {maskedPhone}</strong>
+                    A verification code was sent to <strong style={{ color: N.ink }}>{maskedEmail}</strong>
                   </p>
 
                   {devOtp && (
@@ -235,7 +223,7 @@ export default function EmployerRegisterPage() {
                     </div>
                   )}
 
-                  <OtpInput value={otp} onChange={setOtp} length={6} disabled={verifyPhone.isPending} />
+                  <OtpInput value={otp} onChange={setOtp} length={6} disabled={verifyEmailOtp.isPending} />
 
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: N.muted }}>
@@ -243,7 +231,7 @@ export default function EmployerRegisterPage() {
                       {countdown > 0 ? (
                         <span>Resend in {countdown}s</span>
                       ) : (
-                        <button type="button" onClick={handleResend} disabled={sendOtp.isPending}
+                        <button type="button" onClick={handleResend} disabled={resendEmailOtp.isPending}
                           style={{ color: N.navy, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, padding: 0 }}>
                           Resend OTP
                         </button>
@@ -251,7 +239,7 @@ export default function EmployerRegisterPage() {
                     </div>
                     <button type="button" onClick={() => { setOtpSent(false); setOtp(''); setDevOtp(null) }}
                       style={{ fontSize: 12, color: N.muted, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                      Change number
+                      Edit details
                     </button>
                   </div>
                 </div>
@@ -264,30 +252,13 @@ export default function EmployerRegisterPage() {
                 type="password"
                 placeholder="Create a strong password"
                 value={form.password}
-                onChange={e => { set('password')(e); setShowRules(true) }}
+                onChange={set('password')}
                 error={fieldErrors.password}
                 prefix={<Lock className="w-4 h-4" />}
                 maxLength={128}
-                onFocus={() => setShowRules(true)}
                 disabled={otpSent}
               />
-              {(showRules || form.password.length > 0) && (
-                <>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    {PASSWORD_RULES.map((_, i) => (
-                      <div key={i} style={{ flex: 1, height: 3, borderRadius: 3, background: i < passedCount ? strengthColor : '#E2E8F0', transition: 'background 0.2s' }} />
-                    ))}
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px' }}>
-                    {passRules.map(r => (
-                      <div key={r.key} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: r.pass ? N.navy : N.muted }}>
-                        {r.pass ? <Check size={11} strokeWidth={3} /> : <X size={11} />}
-                        {r.label}
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
+              <PasswordStrengthMeter password={form.password} />
             </div>
 
             {serverError && (
@@ -299,7 +270,7 @@ export default function EmployerRegisterPage() {
             <Button
               type="submit"
               fullWidth size="lg"
-              loading={registerEmployer.isPending || verifyPhone.isPending}
+              loading={registerEmployer.isPending || verifyEmailOtp.isPending}
               disabled={otpSent ? otp.length < 6 : (!allRulesPass && form.password.length > 0)}
             >
               {otpSent ? 'Verify & Create Account' : 'Create account'}
