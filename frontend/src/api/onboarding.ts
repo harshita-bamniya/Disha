@@ -49,14 +49,27 @@ export interface PreferencesPayload {
 }
 
 export interface LearningSetupPayload {
-  burnout_level: BurnoutLevel
-  confidence_level: ConfidenceLevel
   weekly_study_hours: number
   target_completion_date?: string
   skill_proficiency: Record<string, SkillProficiency>
   preferred_learning_format: LearningFormat
-  learning_challenge: LearningChallenge
+  learning_stage?: LearningStage
+  learning_budget?: LearningBudget
+  preferred_language?: PreferredLanguage
+  session_length?: SessionLength
+  study_days?: StudyDays
+  deadline_reason?: DeadlineReason
+  practice_style?: PracticeStyle
 }
+
+export type SessionLength = 'short' | 'medium' | 'long'
+export type StudyDays = 'weekdays' | 'weekends' | 'every_day'
+export type DeadlineReason = 'interview' | 'application' | 'no_rush'
+export type PracticeStyle = 'quizzes' | 'projects' | 'both' | 'none'
+
+export type LearningStage = 'new_to_field' | 'some_exposure' | 'working_in_field'
+export type LearningBudget = 'free_only' | 'flexible'
+export type PreferredLanguage = 'en' | 'hi' | 'ta' | 'te' | 'bn' | 'mr' | 'gu' | 'kn' | 'ml' | 'pa'
 
 export interface ProfileData {
   full_name: string | null
@@ -66,6 +79,7 @@ export interface ProfileData {
   gender: string | null
   city: string | null
   state: string | null
+  avatar_id: string | null
   highest_qualification: string | null
   degree: string | null
   field_of_study: string | null
@@ -93,6 +107,13 @@ export interface ProfileData {
   skill_proficiency: Record<string, string>
   preferred_learning_format: string | null
   learning_challenge: string | null
+  learning_stage?: string | null
+  learning_budget?: string | null
+  preferred_language?: string | null
+  session_length?: string | null
+  study_days?: string | null
+  deadline_reason?: string | null
+  practice_style?: string | null
 }
 
 export interface OnboardingOptions {
@@ -120,6 +141,9 @@ export const onboardingApi = {
 
   savePersonal: (data: PersonalPayload) =>
     apiClient.put<StepSavedResponse>('/onboarding/personal', data).then((r) => r.data),
+
+  saveAvatar: (avatarId: string) =>
+    apiClient.put<StepSavedResponse>('/onboarding/avatar', { avatar_id: avatarId }).then((r) => r.data),
 
   saveEducation: (data: EducationPayload) =>
     apiClient.put<StepSavedResponse>('/onboarding/education', data).then((r) => r.data),

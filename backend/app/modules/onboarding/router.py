@@ -7,10 +7,12 @@ from app.database import get_db, get_redis
 from app.models.user import User
 from app.modules.onboarding import service
 from app.modules.onboarding.schemas import (
+    AVATAR_IDS,
     INDIAN_STATES,
     SKILL_CATEGORIES,
     VALID_SECTORS,
     VALID_SKILLS,
+    AvatarRequest,
     EducationRequest,
     LearningSetupRequest,
     OnboardingStatusResponse,
@@ -47,6 +49,7 @@ def get_options():
         "skill_categories": {cat: sorted(skills) for cat, skills in SKILL_CATEGORIES.items()},
         "sectors": sorted(VALID_SECTORS),
         "states": INDIAN_STATES,
+        "avatars": AVATAR_IDS,
     }
 
 
@@ -96,6 +99,18 @@ def save_personal(
     redis: Redis = Depends(get_redis),
 ):
     result = service.save_personal(current_user, body, db)
+    _bust_krs_cache(current_user.id, redis)
+    return result
+
+
+@router.put("/avatar", response_model=StepSavedResponse)
+def save_avatar(
+    body: AvatarRequest,
+    current_user: User = Depends(get_current_verified_user),
+    db: Session = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+):
+    result = service.save_avatar(current_user, body, db)
     _bust_krs_cache(current_user.id, redis)
     return result
 

@@ -1,12 +1,14 @@
 """Aspirant-facing endpoints for job-specific AI learning plans."""
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from datetime import datetime, timezone
 
 import sentry_sdk
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.rbac import get_current_aspirant
@@ -23,6 +25,7 @@ from app.modules.jobs.plan_generator import (
     count_article_resources,
     count_youtube_resources,
     enrich_plan_with_real_videos,
+    expand_job_competencies,
     generate_job_plan,
     generate_module_quiz,
     generate_remedial_resource,
@@ -30,10 +33,14 @@ from app.modules.jobs.plan_generator import (
     redact_quiz_answers,
 )
 from app.modules.krs.skill_gap import compute_gap
+from app.modules.roadmap_engine import ratings as rt
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/jobs", tags=["Job Learning Plan"])
+
+# No progress update for this long => the background task is gone (see get_plan).
+GENERATION_ORPHAN_SECONDS = 600
 
 
 def _tokenize(skill: str) -> set[str]:
@@ -223,10 +230,48 @@ def delete_plan(
     return {"job_id": job_id, "deleted": True}
 
 
+class GeneratePlanRequest(BaseModel):
+    """Optional: the learner's own 0-3 ratings of the skills this posting asks for."""
+    skill_ratings: dict[str, int] = {}
+
+
+async def _posting_skill_names(db: Session, job) -> list[tuple[str, str, str]]:
+    """(name, kind, importance) for the skills THIS posting asks for. Specific skills first. Posting data only."""
+    try:
+        from app.modules.resume_match.jd_parser import get_or_parse_requirements  # parses the posting only
+
+        parsed = await get_or_parse_requirements(db, job)
+        reqs = sorted((r for r in parsed.requirements if r.type != "eligibility"), key=lambda r: r.specificity == "generic")
+        return [(r.name, r.specificity, r.importance) for r in reqs][:rt.MAX_RATED]
+    except Exception as exc:
+        logger.warning("could not parse posting requirements for rating (%s); using selected skills", exc)
+        return [(str(n), "specific", "must_have") for n in (job.required_skills or [])][:rt.MAX_RATED]
+
+
+@router.get("/{job_id}/learning-plan/skills-to-rate")
+async def skills_to_rate(
+    job_id: str,
+    user: User = Depends(get_current_aspirant),
+    db: Session = Depends(get_db),
+):
+    """The skills this job asks for, to be rated 0-3 by the learner before a roadmap is generated."""
+    job = _get_job_or_404(job_id, db)
+    previous = ((_get_plan(user.id, job_id, db) or JobLearningPlan()).plan or {}).get("self_ratings") or {}
+    prev_by_norm = {rt.norm(k): v for k, v in previous.items()}
+    return {
+        "scale": [{"value": k, "label": v} for k, v in rt.SCALE.items()],
+        "skills": [
+            {"name": n, "kind": kind, "importance": imp, "previous": prev_by_norm.get(rt.norm(n))}
+            for n, kind, imp in await _posting_skill_names(db, job)
+        ],
+    }
+
+
 @router.post("/{job_id}/learning-plan", status_code=202)
 async def generate_plan(
     job_id: str,
     background_tasks: BackgroundTasks,
+    body: GeneratePlanRequest | None = None,
     user: User = Depends(get_current_aspirant),
     db: Session = Depends(get_db),
 ):
@@ -251,209 +296,71 @@ async def generate_plan(
             detail=f"Please wait {cooldown_remaining}s before regenerating this plan again.",
         )
 
+    # Ratings: what the learner just submitted, else the ones from their previous plan for this job.
+    names = [n for n, _k, _i in await _posting_skill_names(db, job)]
+    if body is not None and body.skill_ratings:
+        self_ratings = rt.clean_ratings(body.skill_ratings, names)
+    else:
+        self_ratings = rt.clean_ratings((existing_plan.plan or {}).get("self_ratings") if existing_plan else {}, names)
+
     profile = db.query(AspirantProfile).filter(AspirantProfile.user_id == user.id).first()
-    krs = db.query(KrsScore).filter(KrsScore.user_id == user.id).first()
     psych = db.query(PsychologicalAssessment).filter(PsychologicalAssessment.user_id == user.id).first()
 
-    user_skills: list[str] = profile.skills or [] if profile else []
-    skill_proficiency: dict[str, str] = profile.skill_proficiency or {} if profile else {}
+    # Only facts we actually hold — these are the sole things the personalisation
+    # step may mention about the learner (see roadmap_engine.engine._personal_lines).
+    facts = {
+        "Current skills": ", ".join(profile.skills or []) if profile and profile.skills else None,
+        "Status": profile.current_status if profile else None,
+        "Degree": profile.degree if profile else None,
+        "Work experience": (
+            f"{profile.work_experience_years} yrs" + (f" in {profile.work_experience_domain}" if profile.work_experience_domain else "")
+        ) if profile and profile.work_experience_years else None,
+        "UPSC background": (
+            f"{profile.upsc_exam}, highest stage cleared: {profile.highest_stage_cleared}"
+            + (f", {profile.years_preparing} yrs preparing" if profile.years_preparing else "")
+        ) if profile and profile.upsc_exam else None,
+        "Preferred learning format": profile.preferred_learning_format if profile else None,
+        "Biggest learning challenge": profile.learning_challenge if profile else None,
+        "Weekly study hours": profile.weekly_study_hours if profile else None,
+    }
+    burnout = psych.burnout_score if psych else None
 
-    # Compute gap skills using the same semantic engine the generic roadmap
-    # uses — was previously a separate token/fuzzy matcher here, a silent
-    # source of disagreement between the two features' gap lists.
-    required: list[str] = job.required_skills or []
-    have_skills, gap_skills, _ = compute_gap(user_skills, required, db)
-
-    # A skill the user rated "beginner" in the one-time learning setup should
-    # still get foundational content rather than being treated as fully covered.
-    def _is_beginner_rated(required_skill: str) -> bool:
-        matched = next((s for s in user_skills if s.lower().strip() == required_skill.lower().strip()), None)
-        return bool(matched and skill_proficiency.get(matched) == "beginner")
-
-    beginner_downgrades = [s for s in have_skills if _is_beginner_rated(s)]
-    if beginner_downgrades:
-        gap_skills = [*gap_skills, *beginner_downgrades]
-
-    # Upsert plan row — re-use the row already fetched above (the "generating"
-    # check re-queried it before, wastefully, and raced the cooldown claim).
     plan = existing_plan
-
-    # Regeneration: summarize what's already been tried (completed modules,
-    # failed-quiz skills, rejected video ratings) from the plan being replaced,
-    # instead of rebuilding from the same snapshot inputs as the first generation.
-    interaction_history: str | None = None
-    if plan and plan.status == "ready" and plan.plan:
-        interaction_history, passed_skills = _summarize_interaction_history(
-            plan.plan.get("modules", []), plan.progress or {}
-        )
-        if passed_skills:
-            passed_tokens = [_tokenize(s) for s in passed_skills]
-            gap_skills = [s for s in gap_skills if not _is_skill_mastered(s, passed_tokens)]
-
-    gaps_will_be_grouped = len(gap_skills) > 7
+    old_progress = dict(plan.progress or {}) if plan else {}
 
     if plan:
-        # Regenerate: reset to generating state
+        # Regenerate: reset to generating state. Progress is kept — module and
+        # resource ids are stable per blueprint skill, so completed work survives.
         plan.status = "generating"
         plan.generation_step = "agenda"
+        plan.generation_detail = {}
         plan.plan = {}
         plan.error_msg = None
         plan.generated_at = datetime.now(timezone.utc)
         db.commit()
         plan_id = str(plan.id)
     else:
-        plan = JobLearningPlan(
-            user_id=user.id,
-            job_id=job_id,
-            status="generating",
-            generation_step="agenda",
-        )
+        plan = JobLearningPlan(user_id=user.id, job_id=job_id, status="generating", generation_step="agenda")
         db.add(plan)
         db.commit()
         db.refresh(plan)
         plan_id = str(plan.id)
 
-    # Load job employer before handing off to background
-    # (avoid lazy-load issues in background task)
-    job_snapshot = {
-        "title": job.title,
-        "company": job.employer.company_name if job.employer else "the company",
-        "sector": job.sector,
-        "description": job.description,
-        "required_skills": job.required_skills or [],
-    }
+    # Normal path: hand the run to the Celery worker (survives web restarts/deploys, own queue).
+    # If the broker is unreachable, fall back to running in this process so the user still gets a roadmap.
+    from app.modules.roadmap_engine.runner import run_plan_generation
+    from app.tasks.roadmap_engine_tasks import generate_job_plan_task
+    from app.tasks.worker import safe_dispatch
 
-    # Snapshot user context — passed to generate_job_plan for prompt personalisation
-    user_context_snapshot = {
-        "k_score": krs.k_score if krs else None,
-        "r_score": krs.r_score if krs else None,
-        "s_score": krs.s_score if krs else None,
-        "burnout_score": psych.burnout_score if psych else None,
-        "confidence_score": psych.confidence_index if psych else None,
-        "work_experience_years": profile.work_experience_years if profile else None,
-        "work_experience_domain": profile.work_experience_domain if profile else None,
-        # UPSC journey — collected in onboarding but previously never reached the AI
-        "upsc_exam": profile.upsc_exam if profile else None,
-        "highest_stage_cleared": profile.highest_stage_cleared if profile else None,
-        "years_preparing": profile.years_preparing if profile else None,
-        "optional_subject": profile.optional_subject if profile else None,
-        # Career preferences
-        "preferred_sectors": profile.preferred_sectors if profile else None,
-        # One-time learning setup — changes resource split, ordering, and
-        # project_deliverable framing in the generated plan (see PLAN_PROMPT).
-        "preferred_learning_format": profile.preferred_learning_format if profile else None,
-        "learning_challenge": profile.learning_challenge if profile else None,
-    }
-
-    class _Cancelled(Exception):
-        pass
-
-    async def _bg(pid=plan_id, js=job_snapshot, us=user_skills, gs=gap_skills, uc=user_context_snapshot, jid=job_id, ih=interaction_history):
-        from app.database import SessionLocal
-        bg_db = SessionLocal()
-
-        def _set_step(step: str, detail: dict | None = None):
-            values = {"generation_step": step}
-            if detail is not None:
-                values["generation_detail"] = detail
-            bg_db.query(JobLearningPlan).filter(JobLearningPlan.id == pid).update(values)
-            bg_db.commit()
-
-        def _still_generating() -> bool:
-            """The user can cancel by deleting the plan row (DELETE /jobs/{id}/learning-plan)
-            while it's still generating. Check between steps and bail out cooperatively —
-            we can't interrupt a single in-flight LLM call, but we stop before the next one."""
-            current = bg_db.query(JobLearningPlan).filter(JobLearningPlan.id == pid).first()
-            return current is not None and current.status == "generating"
-
-        try:
-            bg_plan = bg_db.query(JobLearningPlan).filter(JobLearningPlan.id == pid).first()
-            if not bg_plan:
-                return
-            try:
-                # Step 1: ask the LLM to draft the module/resource structure.
-                _set_step("agenda", {})
-                result = await generate_job_plan(
-                    job_title=js["title"],
-                    company=js["company"],
-                    sector=js["sector"],
-                    description=js["description"],
-                    required_skills=js["required_skills"],
-                    user_skills=us,
-                    gap_skills=gs,
-                    job_id=jid,
-                    k_score=uc.get("k_score"),
-                    r_score=uc.get("r_score"),
-                    s_score=uc.get("s_score"),
-                    burnout_score=uc.get("burnout_score"),
-                    confidence_score=uc.get("confidence_score"),
-                    work_experience_years=uc.get("work_experience_years"),
-                    work_experience_domain=uc.get("work_experience_domain"),
-                    upsc_exam=uc.get("upsc_exam"),
-                    highest_stage_cleared=uc.get("highest_stage_cleared"),
-                    years_preparing=uc.get("years_preparing"),
-                    optional_subject=uc.get("optional_subject"),
-                    preferred_sectors=uc.get("preferred_sectors"),
-                    preferred_learning_format=uc.get("preferred_learning_format"),
-                    learning_challenge=uc.get("learning_challenge"),
-                    interaction_history=ih,
-                )
-
-                if not _still_generating():
-                    raise _Cancelled()
-
-                # Step 2: enrich resources with real URLs (YouTube videos + article links).
-                # Compute the true total now so the frontend progress bar never goes backward.
-                resources_total = count_youtube_resources(result) + count_article_resources(result)
-                _set_step("resources", {
-                    "modules_planned": len(result.get("modules", [])),
-                    "resources_done": 0,
-                    "resources_total": resources_total,
-                    "current_skill": None,
-                    "last_found": None,
-                })
-
-                async def _on_progress(detail: dict):
-                    if not _still_generating():
-                        raise _Cancelled()
-                    _set_step("resources", detail)
-
-                result = await enrich_plan_with_real_videos(result, on_progress=_on_progress)
-
-                if not _still_generating():
-                    raise _Cancelled()
-
-                # Step 3: finalize and persist.
-                _set_step("finalizing", {"modules_planned": len(result.get("modules", []))})
-                bg_plan = bg_db.query(JobLearningPlan).filter(JobLearningPlan.id == pid).first()
-                bg_plan.plan = result
-                bg_plan.status = "ready"
-                bg_db.commit()
-            except _Cancelled:
-                logger.info("Plan generation %s cancelled by user.", pid)
-            except Exception as exc:
-                logger.error("Plan gen failed %s: %s", pid, exc, exc_info=True)
-                # Runs inside a background task — nothing propagates this to
-                # a request cycle for Sentry's FastAPI integration to catch,
-                # so without this it fails silently into a DB column no one
-                # is watching.
-                sentry_sdk.capture_exception(exc)
-                bg_plan = bg_db.query(JobLearningPlan).filter(JobLearningPlan.id == pid).first()
-                if bg_plan:
-                    bg_plan.status = "failed"
-                    bg_plan.error_msg = str(exc)
-                    bg_db.commit()
-        finally:
-            bg_db.close()
-
-    background_tasks.add_task(_bg)
+    job_args = (plan_id, str(job_id), str(user.id), facts, burnout, old_progress, self_ratings)
+    if not safe_dispatch(generate_job_plan_task, *job_args):
+        logger.warning("Roadmap task queue unavailable — generating in-process for plan %s", plan_id)
+        background_tasks.add_task(run_plan_generation, *job_args)
 
     return {
         "plan_id": plan_id,
         "status": "generating",
         "message": "Plan generation started. Poll GET /jobs/{job_id}/learning-plan.",
-        "gaps_will_be_grouped": gaps_will_be_grouped,
-        "gap_count": len(gap_skills),
     }
 
 
@@ -468,6 +375,15 @@ def get_plan(
     plan = _get_plan(user.id, job_id, db)
     if not plan:
         return {"status": "not_generated", "plan": None, "progress": {}}
+
+    # A background run that dies (deploy, restart, crash) would otherwise leave the plan
+    # "generating" forever. Every step bumps updated_at, so a long silence means it is gone.
+    if plan.status == "generating":
+        last = plan.updated_at or plan.generated_at
+        if last and (datetime.now(timezone.utc) - last).total_seconds() > GENERATION_ORPHAN_SECONDS:
+            plan.status = "failed"
+            plan.error_msg = "Roadmap generation was interrupted. Please try again."
+            db.commit()
 
     ready_plan = plan.plan if plan.status == "ready" else None
     return {

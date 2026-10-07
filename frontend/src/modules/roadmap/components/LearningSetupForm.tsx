@@ -1,27 +1,14 @@
 import { useState } from 'react'
-import { Flame, TrendingUp, Clock, CalendarDays, Gauge, PlayCircle, Compass as ChallengeIcon } from 'lucide-react'
+import { Clock, CalendarDays, Gauge, PlayCircle, Layers, Wallet, Languages, Timer, CalendarCheck, Target, ListChecks } from 'lucide-react'
 import Button from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import { getApiError } from '@/api/client'
 import { useOnboardingProfile } from '@/modules/onboarding/hooks/useOnboarding'
 import { useSaveLearningSetup } from '@/modules/onboarding/hooks/useOnboarding'
-import type { BurnoutLevel, ConfidenceLevel, SkillProficiency, LearningFormat, LearningChallenge } from '@/types'
+import type { SkillProficiency, LearningFormat } from '@/types'
+import type { LearningStage, LearningBudget, PreferredLanguage, SessionLength, StudyDays, DeadlineReason, PracticeStyle } from '@/api/onboarding'
 
 type Option<T> = { value: T; label: string; sub?: string }
-
-const BURNOUT_OPTIONS: Option<BurnoutLevel>[] = [
-  { value: 'fresh',          label: 'Fresh and energised',  sub: 'I still have a lot of drive' },
-  { value: 'somewhat_tired', label: 'Somewhat tired',       sub: 'But still motivated to keep going' },
-  { value: 'exhausted',      label: 'Quite exhausted',      sub: 'I need a real change and rest' },
-  { value: 'burnt_out',      label: 'Completely burnt out', sub: 'The journey has taken a real toll' },
-]
-
-const CONFIDENCE_OPTIONS: Option<ConfidenceLevel>[] = [
-  { value: 'very_confident',       label: 'Very confident',       sub: 'I know exactly what I want' },
-  { value: 'reasonably_confident', label: 'Reasonably confident', sub: 'Some uncertainty, but mostly positive' },
-  { value: 'somewhat_unsure',      label: 'Somewhat unsure',      sub: 'Exploring what comes next' },
-  { value: 'very_anxious',         label: 'Very anxious',         sub: 'The future feels unclear right now' },
-]
 
 const HOURS_OPTIONS = [
   { value: 5,  label: '~5 hrs/week' },
@@ -38,11 +25,47 @@ const FORMAT_OPTIONS: Option<LearningFormat>[] = [
   { value: 'mixed',    label: 'A mix of everything', sub: 'Even split of videos and articles' },
 ]
 
-const CHALLENGE_OPTIONS: Option<LearningChallenge>[] = [
-  { value: 'motivation',            label: 'Staying consistent',        sub: 'Plan breaks work into small, visible wins' },
-  { value: 'understanding_concepts', label: 'Understanding concepts',    sub: 'Plan leans toward beginner-friendly explainers' },
-  { value: 'getting_started',       label: 'Knowing where to start',    sub: 'Plan orders resources from most to least basic' },
-  { value: 'applying_practically',  label: 'Applying it practically',   sub: 'Plan gives you a real, concrete mini-project' },
+const STAGE_OPTIONS: Option<LearningStage>[] = [
+  { value: 'new_to_field',     label: 'New to this kind of work', sub: 'Videos start at beginner level' },
+  { value: 'some_exposure',    label: 'Some exposure',            sub: 'Beginner videos, refreshers where you know it' },
+  { value: 'working_in_field', label: 'Already working in it',    sub: 'Videos are pitched at intermediate level' },
+]
+
+const SESSION_OPTIONS: Option<SessionLength>[] = [
+  { value: 'short',  label: '30 minutes', sub: 'Short, frequent sittings' },
+  { value: 'medium', label: '1 hour',     sub: 'One focused hour at a time' },
+  { value: 'long',   label: '2 hours or more', sub: 'Long, deep sittings' },
+]
+
+const DAYS_OPTIONS: Option<StudyDays>[] = [
+  { value: 'weekdays',  label: 'Weekdays',  sub: 'Monday to Friday' },
+  { value: 'weekends',  label: 'Weekends',  sub: 'Saturday and Sunday' },
+  { value: 'every_day', label: 'Every day', sub: 'A little each day' },
+]
+
+const PRACTICE_OPTIONS: Option<PracticeStyle>[] = [
+  { value: 'quizzes',  label: 'Quizzes',        sub: 'Short self-check quizzes after each module' },
+  { value: 'projects', label: 'Mini-projects',  sub: 'Build something real for each module' },
+  { value: 'both',     label: 'Both',           sub: 'Quizzes and projects' },
+  { value: 'none',     label: 'Neither',        sub: 'Just the learning material, no practice tasks' },
+]
+
+const DEADLINE_OPTIONS: Option<DeadlineReason>[] = [
+  { value: 'interview',   label: 'An interview',        sub: 'Shows what you can finish before it' },
+  { value: 'application', label: 'An application deadline', sub: 'Shows what you can finish before it' },
+  { value: 'no_rush',     label: 'No rush',             sub: 'Just a personal goal' },
+]
+
+const BUDGET_OPTIONS: Option<LearningBudget>[] = [
+  { value: 'free_only', label: 'Free only',          sub: 'Hides resources behind a paywall' },
+  { value: 'flexible',  label: 'I can pay for good courses', sub: 'Nothing is hidden' },
+]
+
+const LANGUAGE_OPTIONS: Option<PreferredLanguage>[] = [
+  { value: 'en', label: 'English' }, { value: 'hi', label: 'Hindi' }, { value: 'ta', label: 'Tamil' },
+  { value: 'te', label: 'Telugu' }, { value: 'bn', label: 'Bengali' }, { value: 'mr', label: 'Marathi' },
+  { value: 'gu', label: 'Gujarati' }, { value: 'kn', label: 'Kannada' }, { value: 'ml', label: 'Malayalam' },
+  { value: 'pa', label: 'Punjabi' },
 ]
 
 const PROFICIENCY_ORDER: SkillProficiency[] = ['beginner', 'intermediate', 'advanced']
@@ -50,7 +73,7 @@ const PROFICIENCY_LABEL: Record<SkillProficiency, string> = {
   beginner: 'Beginner', intermediate: 'Intermediate', advanced: 'Advanced',
 }
 
-function Section<T extends string>({
+function Section<T extends string | number>({
   icon: Icon, title, options, value, onChange, error, cols = 2,
 }: {
   icon: React.ElementType
@@ -96,36 +119,43 @@ interface Props {
   onDone: () => void
 }
 
-/** One-time setup asked before a user's first roadmap/job-plan generation.
- * burnout/confidence directly shape job-plan pacing and tone
- * (jobs/plan_generator.py); weekly_hours/target_date/skill_proficiency close
- * gaps the roadmap-input audit found — pacing was a hardcoded 2hrs/day
- * constant and skill coverage was binary. */
+/** One-time setup asked before a user's first roadmap. Every answer changes the generated plan:
+ * hours/week, session length and study days shape the weekly schedule; learning format and practice style
+ * decide what each module contains; stage, budget and language choose the resources; the target date and
+ * what it is for decide how the plan is paced against a deadline. */
 export default function LearningSetupForm({ onDone }: Props) {
   const { data: profile } = useOnboardingProfile()
-  const [burnoutLevel, setBurnoutLevel] = useState<BurnoutLevel | ''>('')
-  const [confidenceLevel, setConfidenceLevel] = useState<ConfidenceLevel | ''>('')
   const [weeklyHours, setWeeklyHours] = useState<number | ''>('')
   const [targetDate, setTargetDate] = useState('')
   const [proficiency, setProficiency] = useState<Record<string, SkillProficiency>>({})
   const [learningFormat, setLearningFormat] = useState<LearningFormat | ''>('')
-  const [learningChallenge, setLearningChallenge] = useState<LearningChallenge | ''>('')
+  const [learningStage, setLearningStage] = useState<LearningStage | ''>('')
+  const [learningBudget, setLearningBudget] = useState<LearningBudget | ''>('')
+  const [preferredLanguage, setPreferredLanguage] = useState<PreferredLanguage | ''>('')
+  const [sessionLength, setSessionLength] = useState<SessionLength | ''>('')
+  const [studyDays, setStudyDays] = useState<StudyDays | ''>('')
+  const [practiceStyle, setPracticeStyle] = useState<PracticeStyle | ''>('')
+  const [deadlineReason, setDeadlineReason] = useState<DeadlineReason | ''>('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [prefilled, setPrefilled] = useState(false)
 
   const setup = useSaveLearningSetup()
   const skills = profile?.skills ?? []
 
-  // Pre-fill from the last saved answers on a retake — burnout/confidence
-  // aren't in ProfileResponse (only their derived scores are), so those two
-  // stay blank and must be re-answered; hours/date/proficiency carry over.
+  // Pre-fill from the last saved answers on a retake.
   if (profile?.has_learning_setup && !prefilled) {
     setPrefilled(true)
     if (profile.weekly_study_hours) setWeeklyHours(profile.weekly_study_hours)
     if (profile.target_completion_date) setTargetDate(profile.target_completion_date)
     if (profile.skill_proficiency) setProficiency(profile.skill_proficiency as Record<string, SkillProficiency>)
     if (profile.preferred_learning_format) setLearningFormat(profile.preferred_learning_format as LearningFormat)
-    if (profile.learning_challenge) setLearningChallenge(profile.learning_challenge as LearningChallenge)
+    if (profile.learning_stage) setLearningStage(profile.learning_stage as LearningStage)
+    if (profile.learning_budget) setLearningBudget(profile.learning_budget as LearningBudget)
+    if (profile.preferred_language) setPreferredLanguage(profile.preferred_language as PreferredLanguage)
+    if (profile.session_length) setSessionLength(profile.session_length as SessionLength)
+    if (profile.study_days) setStudyDays(profile.study_days as StudyDays)
+    if (profile.practice_style) setPracticeStyle(profile.practice_style as PracticeStyle)
+    if (profile.deadline_reason) setDeadlineReason(profile.deadline_reason as DeadlineReason)
   }
 
   const cycleProficiency = (skill: string) => {
@@ -138,11 +168,8 @@ export default function LearningSetupForm({ onDone }: Props) {
 
   const validate = () => {
     const e: Record<string, string> = {}
-    if (!burnoutLevel) e.burnout = 'Please answer this question'
-    if (!confidenceLevel) e.confidence = 'Please answer this question'
     if (!weeklyHours) e.hours = 'Please select how much time you can give each week'
     if (!learningFormat) e.format = 'Please pick a format'
-    if (!learningChallenge) e.challenge = 'Please pick what\'s hardest for you'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -152,15 +179,19 @@ export default function LearningSetupForm({ onDone }: Props) {
     if (!validate()) return
     setup.mutate(
       {
-        burnout_level: burnoutLevel as BurnoutLevel,
-        confidence_level: confidenceLevel as ConfidenceLevel,
         weekly_study_hours: weeklyHours as number,
         target_completion_date: targetDate || undefined,
         skill_proficiency: Object.fromEntries(
           skills.map((s) => [s, proficiency[s] ?? 'intermediate']),
         ),
         preferred_learning_format: learningFormat as LearningFormat,
-        learning_challenge: learningChallenge as LearningChallenge,
+        learning_stage: learningStage || undefined,
+        learning_budget: learningBudget || undefined,
+        preferred_language: preferredLanguage || undefined,
+        session_length: sessionLength || undefined,
+        study_days: studyDays || undefined,
+        practice_style: practiceStyle || undefined,
+        deadline_reason: targetDate && deadlineReason ? deadlineReason : undefined,
       },
       { onSuccess: onDone },
     )
@@ -172,32 +203,10 @@ export default function LearningSetupForm({ onDone }: Props) {
     <div className="bg-white border border-gray-100 rounded-2xl p-6 sm:p-8 shadow-sm">
       <h2 className="text-lg font-bold text-gray-900 mb-1">Before we build your plan</h2>
       <p className="text-sm text-gray-500 mb-6">
-        A few quick questions, asked once — each one actually changes what your plan looks like, not just decoration. We'll reuse these for every learning plan you generate from here on.
+        A few quick questions, asked once. Each answer changes your plan: how long it takes, how it is split into study sessions, what each module contains, and which resources we pick. We'll reuse them for every plan you generate.
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-        <Section
-          icon={Flame}
-          title="How drained do you feel from your UPSC journey?"
-          options={BURNOUT_OPTIONS}
-          value={burnoutLevel}
-          onChange={setBurnoutLevel}
-          error={errors.burnout}
-        />
-
-        <div className="h-px bg-gray-100" />
-
-        <Section
-          icon={TrendingUp}
-          title="How confident are you about transitioning to private sector?"
-          options={CONFIDENCE_OPTIONS}
-          value={confidenceLevel}
-          onChange={setConfidenceLevel}
-          error={errors.confidence}
-        />
-
-        <div className="h-px bg-gray-100" />
-
         <Section
           icon={Clock}
           title="How much time can you realistically give each week?"
@@ -206,6 +215,22 @@ export default function LearningSetupForm({ onDone }: Props) {
           onChange={setWeeklyHours}
           error={errors.hours}
           cols={4}
+        />
+
+        <Section
+          icon={Timer}
+          title="How long can you usually study in one sitting? (optional)"
+          options={SESSION_OPTIONS}
+          value={sessionLength}
+          onChange={setSessionLength}
+        />
+
+        <Section
+          icon={CalendarCheck}
+          title="Which days do you study? (optional)"
+          options={DAYS_OPTIONS}
+          value={studyDays}
+          onChange={setStudyDays}
         />
 
         <div className="h-px bg-gray-100" />
@@ -219,15 +244,39 @@ export default function LearningSetupForm({ onDone }: Props) {
           error={errors.format}
         />
 
+        <Section
+          icon={ListChecks}
+          title="How do you like to practise? (optional)"
+          options={PRACTICE_OPTIONS}
+          value={practiceStyle}
+          onChange={setPracticeStyle}
+        />
+
         <div className="h-px bg-gray-100" />
 
         <Section
-          icon={ChallengeIcon}
-          title="What's usually the hardest part for you?"
-          options={CHALLENGE_OPTIONS}
-          value={learningChallenge}
-          onChange={setLearningChallenge}
-          error={errors.challenge}
+          icon={Layers}
+          title="Where are you with this kind of work? (optional)"
+          options={STAGE_OPTIONS}
+          value={learningStage}
+          onChange={setLearningStage}
+        />
+
+        <Section
+          icon={Wallet}
+          title="What's your budget for learning resources? (optional)"
+          options={BUDGET_OPTIONS}
+          value={learningBudget}
+          onChange={setLearningBudget}
+        />
+
+        <Section
+          icon={Languages}
+          title="Which language should videos be in? (optional)"
+          options={LANGUAGE_OPTIONS}
+          value={preferredLanguage}
+          onChange={setPreferredLanguage}
+          cols={4}
         />
 
         <div className="h-px bg-gray-100" />
@@ -245,6 +294,16 @@ export default function LearningSetupForm({ onDone }: Props) {
             className="h-11 rounded-xl border border-gray-200 bg-white px-4 text-sm text-gray-900 outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/10 w-full sm:w-64"
           />
         </div>
+
+        {targetDate && (
+          <Section
+            icon={Target}
+            title="What is this date for? (optional)"
+            options={DEADLINE_OPTIONS}
+            value={deadlineReason}
+            onChange={setDeadlineReason}
+          />
+        )}
 
         {skills.length > 0 && (
           <>

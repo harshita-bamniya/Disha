@@ -6,6 +6,7 @@ YouTube / article resources and time estimates.
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -15,9 +16,10 @@ from typing import Any, Awaitable, Callable
 
 import sentry_sdk
 
-from app.ai.article_search import resolve_article_url
+from app.ai.article_search import fetch_real_title, resolve_article_url
 from app.ai.providers import create_provider
 from app.ai.youtube_search import search_youtube
+from app.modules.recommendations.embedder import cosine_similarity, embed_batch
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +67,42 @@ def _redis():
 
     from app.config import get_settings
     return redis_lib.from_url(get_settings().redis_url, decode_responses=True)
+
+COMPETENCY_SYSTEM_PROMPT = """\
+You are BeginablAI's job-analysis engine. You read a real job posting and identify
+the concrete competencies it actually demands — not a generic list for the job
+title, specific to what THIS posting's description says. Return ONLY valid JSON —
+no markdown fences, no commentary."""
+
+COMPETENCY_PROMPT = """\
+Job Title: {job_title}
+Sector: {sector}
+Full Job Description:
+{description}
+
+This posting has already been tagged with these skills: {required_skills}
+
+Read the full description above carefully. List up to 10 ADDITIONAL concrete
+competencies, tools, methodologies, or domain-specific knowledge areas that this
+SPECIFIC posting requires but that are NOT already covered by the tagged skills
+list above — things a candidate would only know to prepare for by actually
+reading this description, not by seeing the job title alone. Skip anything that's
+just a rephrasing of an existing tag.
+
+Examples of what counts: a named tool/software mentioned in the description, a
+specific regulatory framework or domain (e.g. "GST compliance", "RBI guidelines"),
+a named methodology (e.g. "logical framework analysis", "A/B testing"), a
+specific deliverable type mentioned (e.g. "board-level presentations"), a
+specific stakeholder type requiring distinct skill (e.g. "donor reporting").
+
+If the description genuinely adds nothing beyond the tagged skills, return an
+empty list — do not invent competencies that aren't grounded in the text above.
+
+Return JSON exactly matching this schema:
+{{"additional_competencies": ["<competency 1>", "<competency 2>"]}}
+
+Return ONLY the JSON object, nothing else.
+"""
 
 SYSTEM_PROMPT = """\
 You are BeginablAI's career learning planner. You create hyper-specific, actionable
@@ -126,7 +164,8 @@ LEARNING CHALLENGE RULES (based on biggest challenge above):
 - Not knowing where to start: order each module's resources from most foundational to most applied — the FIRST resource listed must be the most basic entry point available for that skill
 - Applying knowledge practically: project_deliverable must be a specific, realistic mini-deliverable tied to {job_title}'s actual day-to-day responsibilities (not a generic exercise); prefer resources with "tutorial", "walkthrough", or "example" in their framing
 
-Generate a learning roadmap JSON exactly matching this schema:
+Generate a learning roadmap JSON exactly matching this schema. It must contain
+{module_count_range} modules — see the module-count rule below for why.
 {{
   "job_title": "<string>",
   "company": "<string>",
@@ -178,8 +217,8 @@ Generate a learning roadmap JSON exactly matching this schema:
 }}
 
 Rules:
-- Create 4-7 modules covering ALL identified skill gaps, ordered by priority (1 = most critical for getting the job)
-- If there are more gap skills than modules allow, group closely related skills into a single module (e.g. "SQL & Data Analysis", "Written Communication & Report Writing") — never silently omit a gap skill; every gap must appear in at least one module's skill name or resources
+- Create {module_count_range} modules covering ALL identified skill gaps, ordered by priority (1 = most critical for getting the job)
+- Only group two gap skills into one module when they are genuinely the same underlying competency approached from different angles (e.g. "SQL & Data Analysis") — do NOT group merely to fit a smaller module count; the module count above already accounts for every gap skill listed. Never silently omit a gap skill — every gap must appear in at least one module's skill name or resources.
 - Each module must include a project_deliverable: a concrete, completable mini-project that proves mastery (not just "read about X")
 - Resource COUNT per module is determined by the burnout score above:
     - High burnout (score ≥ 70): exactly 2 resources — keep it light
@@ -299,6 +338,10 @@ _SOURCE_SEARCH_URLS: list[tuple[str, str]] = [
     ("prs india",          "https://prsindia.org/prscore/search?q={q}"),
     ("prs legislative",    "https://prsindia.org/prscore/search?q={q}"),
     ("india kanoon",       "https://indiankanoon.org/search/?formInput={q}"),
+    ("centre for policy research", "https://cprindia.org/?s={q}"),
+    ("cpr india",          "https://cprindia.org/?s={q}"),
+    ("orf",                "https://www.orfonline.org/search/?q={q}"),
+    ("observer research",  "https://www.orfonline.org/search/?q={q}"),
     # ── Sustainability / CSR / ESG ────────────────────────────────────────────
     ("triplepundit",       "https://www.triplepundit.com/?s={q}"),
     ("greenbiz",           "https://www.greenbiz.com/search?keywords={q}"),
@@ -443,6 +486,148 @@ def _extract_json(raw: str) -> dict:
         raise
 
 
+def _module_count_range(gap_skills: list[str]) -> str:
+    """Scale the requested module count with how many gaps actually exist,
+    instead of a fixed 4-7 that forces over-grouping (and diluted coverage)
+    once there are more than 7 real gaps. Capped at 9 to keep the roadmap
+    navigable — beyond that, some grouping of closely related skills is a
+    reasonable tradeoff the prompt still allows."""
+    n = len({s.lower().strip() for s in gap_skills if s and s.strip()})
+    if n <= 7:
+        return "4-7"
+    upper = min(n, 9)
+    lower = min(n, upper)
+    return f"{lower}-{upper}"
+
+
+REPAIR_SYSTEM_PROMPT = """\
+You are BeginablAI's career learning planner. A learning plan you generated
+earlier is missing modules for some required skills. Generate ONLY the missing
+modules, in the exact same schema as the original plan. Return ONLY valid JSON —
+no markdown fences, no commentary."""
+
+REPAIR_PROMPT = """\
+Job Title: {job_title}
+Company: {company}
+Sector: {sector}
+
+The learning plan below is missing coverage for these skill gaps — they don't
+appear in any existing module:
+{missing_skills}
+
+Generate one module per missing skill above (or group only genuinely identical
+skills together), using this exact module schema:
+{{
+  "modules": [
+    {{
+      "id": "<unique id, different from any existing module id>",
+      "skill": "<skill name>",
+      "priority": <int, continuing from the existing highest priority + 1>,
+      "why_important": "<1 sentence: why this skill matters specifically for THIS job at {company}>",
+      "estimated_hours": <int, 2-12>,
+      "project_deliverable": "<short hands-on task that proves mastery>",
+      "resources": [
+        {{
+          "id": "<unique id>",
+          "type": "youtube",
+          "title": "<descriptive video title>",
+          "channel_or_source": "<real YouTube channel name>",
+          "search_query": "<specific YouTube search query including the skill and job/sector context>",
+          "url": "<https://www.youtube.com/results?search_query=URL-encoded-query>",
+          "duration_minutes": <int>,
+          "description": "<one sentence: what the learner will be able to DO after watching>"
+        }},
+        {{
+          "id": "<unique id>",
+          "type": "article",
+          "title": "<title of a real article, guide, or documentation page>",
+          "channel_or_source": "<publisher>",
+          "search_query": "<search query>",
+          "url": "<direct URL — NOT a search page>",
+          "duration_minutes": <int>,
+          "description": "<one sentence: what concept this reading covers>"
+        }}
+      ]
+    }}
+  ]
+}}
+
+Return ONLY the JSON object with the "modules" key, nothing else.
+"""
+
+
+def _skill_tokens(skill: str) -> set[str]:
+    return {t for t in re.split(r"[\s\-/,&]+", skill.lower().strip()) if len(t) >= 3}
+
+
+def _find_missing_gaps(plan: dict[str, Any], gap_skills: list[str]) -> list[str]:
+    """Which of the original gap_skills never actually landed anywhere in the
+    generated plan — the check the prompt's "never silently omit a gap skill"
+    instruction has no enforcement behind on its own."""
+    haystack_tokens: set[str] = set()
+    for module in plan.get("modules", []):
+        haystack_tokens |= _skill_tokens(str(module.get("skill", "")))
+        for res in module.get("resources", []):
+            haystack_tokens |= _skill_tokens(str(res.get("title", "")))
+            haystack_tokens |= _skill_tokens(str(res.get("description", "")))
+
+    missing = []
+    for gap in gap_skills:
+        gap_tokens = _skill_tokens(gap)
+        if not gap_tokens:
+            continue
+        overlap = gap_tokens & haystack_tokens
+        # Require most of the gap skill's own words to show up somewhere —
+        # a single shared filler-ish token isn't enough to call it "covered".
+        if len(overlap) / len(gap_tokens) < 0.5:
+            missing.append(gap)
+    return missing
+
+
+async def _repair_missing_modules(
+    plan: dict[str, Any], missing: list[str], job_title: str, company: str, sector: str,
+) -> dict[str, Any]:
+    """One bounded follow-up call to add modules for skills the main generation
+    dropped. Never recurses — if this call itself fails or still misses
+    something, the plan ships with whatever it has rather than looping."""
+    try:
+        prompt = REPAIR_PROMPT.format(
+            job_title=job_title, company=company, sector=sector,
+            missing_skills="\n".join(f"- {m}" for m in missing),
+        )
+        msg = await _groq.complete(
+            system=REPAIR_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=3000,
+            temperature=0.4,
+        )
+        repair = _extract_json(msg.content)
+        new_modules = repair.get("modules", [])
+        if not isinstance(new_modules, list) or not new_modules:
+            return plan
+
+        existing_ids = {m.get("id") for m in plan.get("modules", [])}
+        existing_priority = max((m.get("priority", 0) for m in plan.get("modules", [])), default=0)
+        for i, module in enumerate(new_modules):
+            if module.get("id") in existing_ids:
+                module["id"] = f"mod-repair-{i}"
+            module["priority"] = existing_priority + i + 1
+            for res in module.get("resources", []):
+                if res.get("type") == "youtube" and res.get("search_query"):
+                    res["url"] = f"https://www.youtube.com/results?search_query={_url_encode(res['search_query'])}"
+                elif res.get("type") in ("article", "course"):
+                    res["url"] = _build_article_url(res)
+
+        plan["modules"] = [*plan.get("modules", []), *new_modules]
+        plan["total_estimated_hours"] = (plan.get("total_estimated_hours") or 0) + sum(
+            m.get("estimated_hours", 0) for m in new_modules
+        )
+        logger.info("[PLAN_REPAIR] Added %d module(s) for missing skills: %s", len(new_modules), missing)
+    except Exception as exc:
+        logger.warning("[PLAN_REPAIR] failed, shipping plan without missing skills %s: %s", missing, exc)
+    return plan
+
+
 def _score_label(score: int | None) -> str:
     if score is None:
         return "not assessed"
@@ -453,6 +638,75 @@ def _score_label(score: int | None) -> str:
     if score >= 30:
         return "Developing"
     return "Early stage"
+
+
+_COMPETENCY_CACHE_TTL = 60 * 60 * 24 * 30  # 30 days — depends only on the posting's own text
+
+
+def _competency_cache_key(job_id: str, description: str, required_skills: list[str]) -> str:
+    payload = "|".join([job_id, (description or "")[:4000], ",".join(sorted(required_skills))])
+    return "plan:competencies:" + hashlib.sha256(payload.encode()).hexdigest()[:24]
+
+
+async def expand_job_competencies(
+    job_id: str | None,
+    job_title: str,
+    sector: str,
+    description: str,
+    required_skills: list[str],
+) -> list[str]:
+    """Read the actual job description and surface competencies it demands that
+    the posting's short tag list (required_skills) doesn't capture.
+
+    required_skills is typically 5-8 tags — nowhere near everything a real
+    posting's description asks for (named tools, specific regulatory domains,
+    methodologies, deliverable types). Without this, the learning plan can only
+    ever cover what fits in those tags, no matter how good its own prompt is,
+    because gap_skills — its entire content universe — is computed from that
+    same short list. This closes that gap at the source.
+
+    Returns [] (never raises) on any failure — this is an enrichment step, not
+    a required one; a plan without it still works, just narrower.
+    """
+    if not description or not description.strip():
+        return []
+
+    cache_key = _competency_cache_key(job_id, description, required_skills) if job_id else None
+    if cache_key:
+        try:
+            cached = _redis().get(cache_key)
+            if cached is not None:
+                return json.loads(cached)
+        except Exception as exc:
+            logger.warning("[COMPETENCY_CACHE] Redis read failed: %s", exc)
+
+    try:
+        prompt = COMPETENCY_PROMPT.format(
+            job_title=job_title,
+            sector=sector,
+            description=description[:4000],
+            required_skills=", ".join(required_skills) if required_skills else "None tagged",
+        )
+        msg = await _groq.complete(
+            system=COMPETENCY_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=800,
+            temperature=0.3,
+        )
+        result = _extract_json(msg.content)
+        additional = result.get("additional_competencies", [])
+        additional = [c.strip() for c in additional if isinstance(c, str) and c.strip()][:10]
+    except Exception as exc:
+        logger.warning("[COMPETENCY_EXPAND] failed for job=%s: %s", job_id, exc)
+        return []
+
+    if cache_key:
+        try:
+            _redis().setex(cache_key, _COMPETENCY_CACHE_TTL, json.dumps(additional))
+        except Exception as exc:
+            logger.warning("[COMPETENCY_CACHE] Redis write failed: %s", exc)
+
+    return additional
 
 
 async def generate_job_plan(
@@ -549,6 +803,7 @@ async def generate_job_plan(
         job_title=job_title,
         company=company,
         sector=sector,
+        module_count_range=_module_count_range(gap_skills),
         description=(description or "")[:4000],
         required_skills=", ".join(required_skills) if required_skills else "Not specified",
         user_skills=", ".join(user_skills) if user_skills else "None listed",
@@ -587,6 +842,16 @@ async def generate_job_plan(
     # Validate minimal structure
     if "modules" not in plan or not isinstance(plan["modules"], list):
         raise ValueError("AI response missing 'modules' list")
+
+    # ── Coverage repair ───────────────────────────────────────────────────────
+    # The prompt asks the model to never drop a gap skill, but that's an
+    # unenforced instruction — verify it actually happened and patch the plan
+    # with one bounded follow-up call if it didn't, rather than silently
+    # shipping a roadmap that's missing something the user actually needs.
+    missing = _find_missing_gaps(plan, gap_skills)
+    if missing:
+        logger.warning("[PLAN_COVERAGE] Plan missing modules for: %s", missing)
+        plan = await _repair_missing_modules(plan, missing, job_title, company, sector)
 
     # ── Cache write ───────────────────────────────────────────────────────────
     if cache_key:
@@ -668,11 +933,18 @@ def is_plan_stale(plan: dict[str, Any] | None) -> bool:
     """
     if not plan:
         return False
-    for module in plan.get("modules", []):
-        for res in module.get("resources", []):
-            if res.get("type") == "youtube" and not res.get("video_options"):
-                return True
-    return False
+    # A plan that went through enrichment is never stale, even if some videos
+    # couldn't be resolved (yt-dlp/DDG blocked or rate-limited). Treating those
+    # as stale made the frontend auto-regenerate a just-finished plan forever.
+    if plan.get("enriched"):
+        return False
+    resources = [r for m in plan.get("modules", []) for r in m.get("resources", [])]
+    youtube = [r for r in resources if r.get("type") == "youtube"]
+    if not youtube:
+        return False
+    # Legacy (pre-enrichment) plans have no resolved video at all; a plan with
+    # at least one resolved video went through enrichment (marker added later).
+    return not any(r.get("video_options") for r in youtube)
 
 
 def redact_quiz_answers(plan: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -723,6 +995,64 @@ class _EnrichmentCircuitBreaker:
             )
 
 
+def _rank_video_candidates_sync(resource: dict[str, Any], candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Re-rank YouTube search hits against what THIS resource slot is actually
+    meant to teach (the planning LLM's own title + description for it), instead
+    of trusting YouTube's SEO/engagement-driven search order as-is.
+
+    Without this, "recommended" just meant "whatever YouTube ranked first among
+    videos that weren't an outright geography/keyword mismatch" — which is how
+    an HR-diversity-training or insurance-sales video can outrank a genuinely
+    on-topic one for a query like "Excel impact analysis policy tutorial": it
+    shares enough keywords to pass the coarse relevance filter, and search
+    engagement doesn't know or care which domain this learner needs.
+
+    Falls back to the original (YouTube) order if the embedding model isn't
+    available — this is a quality improvement layered on top of the existing
+    filter, not a replacement for it, so failing open is the right default.
+    """
+    if len(candidates) <= 1:
+        return candidates
+
+    target_text = f"{resource.get('title', '')}. {resource.get('description', '')}".strip(". ")
+    if not target_text:
+        return candidates
+
+    texts = [target_text] + [f"{c['title']} — {c.get('channel', '')}" for c in candidates]
+    vectors = embed_batch(texts)
+    target_vec = vectors[0]
+    if target_vec is None:
+        return candidates
+
+    scored = [
+        (cosine_similarity(target_vec, vec) if vec is not None else 0.0, cand)
+        for cand, vec in zip(candidates, vectors[1:])
+    ]
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    return [cand for _, cand in scored]
+
+
+def _mark_article_unresolved(res: dict[str, Any], query: str, source: str) -> None:
+    """Relabel an article resource honestly when no real URL could be confirmed
+    for it — whether resolution was attempted and failed, or skipped entirely
+    because the circuit breaker was already open. Either way, res["url"] is
+    already a site-specific search page (set by _build_article_url) and the
+    title/description up to this point are the planning LLM's pre-retrieval
+    guess; leaving those next to a search-page link is exactly the "fabricated
+    link" failure mode this whole enrichment step exists to prevent, so a
+    skipped attempt must not silently keep the fabricated-looking framing.
+    """
+    if res.get("is_verified") is False and res.get("title", "").startswith("Search: "):
+        return  # already relabeled — a second pass on the same resource shouldn't double-prefix
+    res["is_verified"] = False
+    original_title = res.get("title") or query
+    res["title"] = f"Search: {original_title}"
+    res["description"] = (
+        f"We couldn't confirm a specific article for this — this opens a search "
+        f"for \"{query}\" on {source or 'the web'} instead."
+    )
+
+
 async def _enrich_resource(
     res: dict[str, Any], breaker: "_EnrichmentCircuitBreaker | None" = None
 ) -> tuple[bool, str | None]:
@@ -747,11 +1077,21 @@ async def _enrich_resource(
     breaker = breaker or _EnrichmentCircuitBreaker()
     breaker_key = "youtube" if res_type == "youtube" else "article"
     if breaker.is_open(breaker_key):
+        if res_type in ("article", "course"):
+            # The breaker being open means we won't even attempt resolution —
+            # but this resource's title/description are still the planning
+            # LLM's pre-retrieval guess sitting next to a search-page URL.
+            # Skipping resolution must not mean skipping honesty about it.
+            _mark_article_unresolved(res, query, res.get("channel_or_source") or "")
         return False, None
 
     if res_type == "youtube":
-        candidates = await search_youtube(query, n=2)
+        # Fetch more than we'll show so re-ranking has real alternatives to
+        # choose from — with only 2 candidates, "re-ranking" can't fix much.
+        candidates = await search_youtube(query, n=6)
         if candidates:
+            candidates = await asyncio.to_thread(_rank_video_candidates_sync, res, candidates)
+            candidates = candidates[:2]
             res["video_options"] = candidates
             res["recommended_video_id"] = candidates[0]["video_id"]
             res["url"] = candidates[0]["url"]
@@ -759,19 +1099,40 @@ async def _enrich_resource(
                 res["duration_minutes"] = candidates[0]["duration_minutes"]
             breaker.record(breaker_key, success=True)
             return True, candidates[0]["title"]
-        breaker.record(breaker_key, success=False)
+
+        # candidates is None (the search itself failed) vs [] (it worked, but
+        # nothing cleared the relevance bar for this specific query) — only
+        # the former is evidence yt-dlp/the network is actually broken, so
+        # only that should push the breaker toward tripping for every
+        # remaining video in this plan. A clean "nothing matched" is this
+        # resource's own fallback URL doing its job, not a service outage.
+        if candidates is None:
+            breaker.record(breaker_key, success=False)
         return False, None
 
     elif res_type in ("article", "course"):
         source = res.get("channel_or_source") or ""
-        real_url = await resolve_article_url(query, source)
-        if real_url:
+        resolved = await resolve_article_url(query, source)
+        if resolved:
+            real_url, known_title = resolved
             res["url"] = real_url
+            res["is_verified"] = True
+            # The title/description up to this point were the planning LLM's
+            # guess at what article exists — replace with what's actually at
+            # the resolved URL so the card describes real content, not a
+            # pre-retrieval hallucination that happened to land on a real page.
+            # known_title comes from the resolver itself (e.g. Wikipedia's
+            # search API); otherwise try reading the real page's <title> —
+            # this fails harmlessly (keeps the LLM's title) against sites with
+            # bot-detection that a plain fetch can't get past.
+            real_title = known_title or await fetch_real_title(real_url)
+            if real_title:
+                res["title"] = real_title
             breaker.record(breaker_key, success=True)
             return True, res.get("title")
+
         breaker.record(breaker_key, success=False)
-        # If resolution fails, _build_article_url already set a
-        # site-specific search URL — keep it as the fallback.
+        _mark_article_unresolved(res, query, source)
         return False, None
 
     return False, None
@@ -808,6 +1169,8 @@ async def enrich_plan_with_real_videos(
                     "current_skill": module.get("skill"),
                     "last_found": found_title,
                 })
+
+    plan["enriched"] = True
 
     failed = total - resolved
     logger.info("[PLAN_ENRICH] resolved=%d/%d failed=%d", resolved, total, failed)

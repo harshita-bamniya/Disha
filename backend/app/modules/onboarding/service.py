@@ -11,6 +11,7 @@ from app.models.user import (
     User,
 )
 from app.modules.onboarding.schemas import (
+    AvatarRequest,
     EducationRequest,
     LearningSetupRequest,
     OnboardingStatusResponse,
@@ -86,6 +87,7 @@ def get_profile(user: User, db: Session) -> ProfileResponse:
         gender=profile.gender,
         city=profile.city,
         state=profile.state,
+        avatar_id=profile.avatar_id,
         highest_qualification=profile.highest_qualification,
         degree=profile.degree,
         field_of_study=profile.field_of_study,
@@ -116,6 +118,13 @@ def get_profile(user: User, db: Session) -> ProfileResponse:
         skill_proficiency=profile.skill_proficiency or {},
         preferred_learning_format=profile.preferred_learning_format,
         learning_challenge=profile.learning_challenge,
+        learning_stage=profile.learning_stage,
+        learning_budget=profile.learning_budget,
+        session_length=profile.session_length,
+        study_days=profile.study_days,
+        deadline_reason=profile.deadline_reason,
+        practice_style=profile.practice_style,
+        preferred_language=profile.preferred_language,
     )
 
 
@@ -148,6 +157,16 @@ def save_personal(user: User, data: PersonalInfoRequest, db: Session) -> StepSav
     logger.info(f"[ONBOARDING] user={user.id} saved step 1 (personal)")
     _maybe_recompute_krs(user, profile, db)
     return StepSavedResponse(message="Personal info saved", current_step=profile.current_step, is_completed=profile.is_completed)
+
+
+def save_avatar(user: User, data: AvatarRequest, db: Session) -> StepSavedResponse:
+    """Set the candidate's curated icon avatar — independent of the numbered
+    onboarding steps, editable any time from the Profile page."""
+    profile = _get_or_create_profile(user, db)
+    profile.avatar_id = data.avatar_id
+    db.commit()
+    logger.info(f"[ONBOARDING] user={user.id} set avatar={data.avatar_id}")
+    return StepSavedResponse(message="Avatar updated", current_step=profile.current_step, is_completed=profile.is_completed)
 
 
 def save_education(user: User, data: EducationRequest, db: Session) -> StepSavedResponse:
@@ -279,16 +298,25 @@ def save_learning_setup(user: User, data: LearningSetupRequest, db: Session) -> 
     profile.skill_proficiency = data.skill_proficiency
     profile.preferred_learning_format = data.preferred_learning_format
     profile.learning_challenge = data.learning_challenge
+    profile.learning_stage = data.learning_stage
+    profile.learning_budget = data.learning_budget
+    profile.preferred_language = data.preferred_language
+    profile.session_length = data.session_length
+    profile.study_days = data.study_days
+    profile.deadline_reason = data.deadline_reason
+    profile.practice_style = data.practice_style
 
-    burnout = _BURNOUT_MAP[data.burnout_level]
-    confidence = _CONFIDENCE_MAP[data.confidence_level]
-    assessment = db.query(PsychologicalAssessment).filter(PsychologicalAssessment.user_id == user.id).first()
-    if not assessment:
-        assessment = PsychologicalAssessment(user_id=user.id, burnout_score=burnout, confidence_index=confidence)
-        db.add(assessment)
-    else:
-        assessment.burnout_score = burnout
-        assessment.confidence_index = confidence
+    # The form no longer asks these two; only touch the assessment when a client still sends them.
+    if data.burnout_level and data.confidence_level:
+        burnout = _BURNOUT_MAP[data.burnout_level]
+        confidence = _CONFIDENCE_MAP[data.confidence_level]
+        assessment = db.query(PsychologicalAssessment).filter(PsychologicalAssessment.user_id == user.id).first()
+        if not assessment:
+            assessment = PsychologicalAssessment(user_id=user.id, burnout_score=burnout, confidence_index=confidence)
+            db.add(assessment)
+        else:
+            assessment.burnout_score = burnout
+            assessment.confidence_index = confidence
 
     db.commit()
     logger.info(f"[ONBOARDING] user={user.id} completed learning setup")
@@ -321,19 +349,28 @@ async def _call_groq_insight(profile: AspirantProfile) -> str:
     )
     skills_line = ", ".join((profile.skills or [])[:3]) or "not specified"
     sectors_line = ", ".join((profile.preferred_sectors or [])[:2]) or "not specified"
+    name_line = profile.full_name.split()[0] if profile.full_name else None
 
     prompt = (
         "You are BeginablAI — a compassionate, deeply human career counsellor for UPSC aspirants "
         "transitioning into private sector roles. You understand the psychological weight of this journey.\n\n"
         "A user has just completed their onboarding. Write a warm, grounding, personalised 2–3 sentence "
         "welcome message. Be specific to their journey — not generic. No bullet points. Second person only.\n\n"
+        f"Name: {name_line or 'not given'}.\n"
         f"UPSC: {profile.upsc_exam or 'CSE'}, {profile.upsc_attempts or 0} attempt(s), "
         f"highest stage: {profile.highest_stage_cleared or 'none'}, "
-        f"prepared for {profile.years_preparing or 0} year(s).\n"
+        f"prepared for {profile.years_preparing or 0} year(s), "
+        f"optional subject: {profile.optional_subject or 'not specified'}.\n"
         f"Education: {profile.highest_qualification or 'graduate'} in {profile.field_of_study or 'unspecified'}.\n"
         f"Work: {work_line}.\n"
         f"Skills: {skills_line}.\n"
         f"Interested in: {sectors_line}.\n\n"
+        "Anchor the message in at least one detail above that is specific to THIS person (their optional "
+        "subject, exact stage cleared, a named skill, a named sector — not a vague paraphrase of 'your "
+        "journey'). If two people gave very similar answers, still write in your own words each time — vary "
+        "your opening line and sentence structure rather than following a fixed template like 'Your years "
+        "of X have given you Y.' Address them by first name if one was given, but don't start the message "
+        "with it.\n\n"
         "Write the message now:"
     )
 
@@ -349,7 +386,7 @@ async def _call_groq_insight(profile: AspirantProfile) -> str:
                     "model": "openai/gpt-oss-20b",
                     "messages": [{"role": "user", "content": prompt}],
                     "max_tokens": 180,
-                    "temperature": 0.75,
+                    "temperature": 0.9,
                 },
             )
         response.raise_for_status()

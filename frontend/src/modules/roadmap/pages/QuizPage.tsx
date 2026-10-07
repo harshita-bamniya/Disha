@@ -187,6 +187,14 @@ export default function QuizPage() {
                     >
                       {submitMutation.isPending ? <><Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> Submitting...</> : 'Submit Answers'}
                     </button>
+                    {!allAnswered && (() => {
+                      const remaining = quiz.questions.filter(q => !answers[q.id]).length
+                      return (
+                        <p style={{ fontSize: 12, color: '#94A3B8', margin: 0 }}>
+                          Answer {remaining === 1 ? 'the remaining question' : `all ${remaining} remaining questions`} to submit.
+                        </p>
+                      )
+                    })()}
                     {submitMutation.isError && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <p style={{ fontSize: 12.5, color: '#DC2626', margin: 0 }}>

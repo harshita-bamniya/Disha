@@ -13,6 +13,7 @@ from app.modules.counsellor.schemas import (
     CreateConversationRequest,
     SendMessageRequest,
 )
+from app.modules.payments.service import consume_feature_credit
 
 router = APIRouter(prefix="/counsellor", tags=["AI Counsellor"])
 
@@ -31,6 +32,11 @@ def create_conversation(
     user: User = Depends(get_current_aspirant),
     db: Session = Depends(get_db),
 ):
+    # The roadmap page opens its own "Ask BeginablAI" thread automatically on every visit; that is not
+    # the user choosing to chat, so it must not spend a free counsellor credit (three roadmap visits
+    # used to hit the paywall).
+    if body.context_type != "job_roadmap":
+        consume_feature_credit(user, "counsellor_chat", db)
     return service.create_conversation(body, user.id, db)
 
 
@@ -40,6 +46,7 @@ def start_career_coaching(
     db: Session = Depends(get_db),
 ):
     """One-click start a career coaching conversation."""
+    consume_feature_credit(user, "counsellor_chat", db)
     return service.start_career_coaching(user.id, db)
 
 

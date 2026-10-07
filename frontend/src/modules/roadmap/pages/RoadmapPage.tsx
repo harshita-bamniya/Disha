@@ -1,11 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import PageHeader from '@/shared/layouts/PageHeader'
 import { useActivePrepJob } from '@/hooks/useActivePrepJob'
 import { useOnboardingProfile } from '@/modules/onboarding/hooks/useOnboarding'
-import { jobPlanApi } from '@/api/jobPlan'
-import { toast } from '@/shared/components/feedback/Toast'
 import JobLearningPlanPanel from '../components/JobLearningPlanPanel'
 import LearningSetupForm from '../components/LearningSetupForm'
 import RoadmapCounsellorPanel from '../components/RoadmapCounsellorPanel'
@@ -43,18 +40,12 @@ export default function RoadmapPage() {
   const { activePrep, isLoading: prepLoading } = useActivePrepJob()
   const { data: profile, isLoading: profileLoading } = useOnboardingProfile()
   const navigate = useNavigate()
-  const qc = useQueryClient()
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null)
   const needsLearningSetup = !!activePrep && !profileLoading && profile?.has_learning_setup === false
 
-  // Fires once Learning Setup is submitted, so generation starts immediately
-  // with the real answers instead of leaving the user on another manual
-  // "Generate My Roadmap" screen with nothing filled in yet.
-  const generateAfterSetup = useMutation({
-    mutationFn: () => jobPlanApi.generate(String(activePrep!.job_id)),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['job-learning-plan', String(activePrep!.job_id)] }),
-    onError: () => toast.danger('Learning Setup saved, but the roadmap failed to start. Click "Generate My Roadmap" below to try again.'),
-  })
+  // After Learning Setup, continue straight to this job's skill-rating questions (the panel opens them
+  // when it sees the autoGenerate flag), instead of leaving the user on a second "Generate" screen.
+  const afterSetup = () => navigate('/app/roadmap', { replace: true, state: { autoGenerate: true } })
 
   return (
     <>
@@ -92,7 +83,7 @@ export default function RoadmapPage() {
 
             {!prepLoading && needsLearningSetup && (
               <div style={{ maxWidth: 620 }}>
-                <LearningSetupForm onDone={() => generateAfterSetup.mutate()} />
+                <LearningSetupForm onDone={afterSetup} />
               </div>
             )}
 

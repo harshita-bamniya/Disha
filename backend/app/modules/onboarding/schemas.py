@@ -55,6 +55,22 @@ VALID_SECTORS = {
 }
 
 
+# ── Avatar ───────────────────────────────────────────────────────────────────
+# Fixed set of curated icon avatars offered in the Profile page — kept in sync
+# with the AVATARS list in frontend/src/shared/constants/avatars.ts. A closed
+# set (rather than free-text or an upload) keeps this a one-line profile field
+# instead of needing file storage/moderation for a "nice to have" feature.
+AVATAR_IDS = [
+    "fox", "owl", "panda", "lion", "koala", "penguin",
+    "tiger", "rabbit", "bear", "cat", "dog", "dolphin",
+    "elephant", "unicorn",
+]
+
+
+class AvatarRequest(BaseModel):
+    avatar_id: Literal[tuple(AVATAR_IDS)]  # type: ignore[valid-type]
+
+
 # ── Step 1: Personal ─────────────────────────────────────────────────────────
 
 class PersonalInfoRequest(BaseModel):
@@ -251,15 +267,25 @@ class PreferencesRequest(BaseModel):
 # ── Learning setup (one-time, asked before first roadmap/plan generation) ────
 
 class LearningSetupRequest(BaseModel):
-    # Each level uses a named option; the service converts to numeric scores
-    burnout_level: Literal["fresh", "somewhat_tired", "exhausted", "burnt_out"]
-    confidence_level: Literal["very_confident", "reasonably_confident", "somewhat_unsure", "very_anxious"]
+    # No longer asked in the Learning Setup form (nothing in the roadmap used them). Still accepted so older
+    # clients keep working; when sent they update the psychological assessment as before.
+    burnout_level: Literal["fresh", "somewhat_tired", "exhausted", "burnt_out"] | None = None
+    confidence_level: Literal["very_confident", "reasonably_confident", "somewhat_unsure", "very_anxious"] | None = None
     weekly_study_hours: int
     target_completion_date: str | None = None  # YYYY-MM-DD
     skill_proficiency: dict[str, Literal["beginner", "intermediate", "advanced"]] = {}
     # Both change the actual generated plan — see plan_generator.py's PLAN_PROMPT.
     preferred_learning_format: Literal["video", "reading", "hands_on", "mixed"]
-    learning_challenge: Literal["motivation", "understanding_concepts", "getting_started", "applying_practically"]
+    learning_challenge: Literal["motivation", "understanding_concepts", "getting_started", "applying_practically"] | None = None  # retired
+    # Optional so older clients keep working; each one changes the generated plan (see roadmap_engine/prefs.py).
+    learning_stage: Literal["new_to_field", "some_exposure", "working_in_field"] | None = None
+    learning_budget: Literal["free_only", "flexible"] | None = None
+    preferred_language: Literal["en", "hi", "ta", "te", "bn", "mr", "gu", "kn", "ml", "pa"] | None = None
+    # Schedule shape — see roadmap_engine/prefs.py. Optional so older clients keep working.
+    session_length: Literal["short", "medium", "long"] | None = None
+    study_days: Literal["weekdays", "weekends", "every_day"] | None = None
+    deadline_reason: Literal["interview", "application", "no_rush"] | None = None
+    practice_style: Literal["quizzes", "projects", "both", "none"] | None = None
 
     @field_validator("weekly_study_hours")
     @classmethod
@@ -314,6 +340,7 @@ class ProfileResponse(BaseModel):
     gender: str | None = None
     city: str | None = None
     state: str | None = None
+    avatar_id: str | None = None
 
     # Education
     highest_qualification: str | None = None
@@ -354,3 +381,10 @@ class ProfileResponse(BaseModel):
     skill_proficiency: dict[str, str] = {}
     preferred_learning_format: str | None = None
     learning_challenge: str | None = None
+    learning_stage: str | None = None
+    learning_budget: str | None = None
+    preferred_language: str | None = None
+    session_length: str | None = None
+    study_days: str | None = None
+    deadline_reason: str | None = None
+    practice_style: str | None = None
