@@ -16,6 +16,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 import app.models  # noqa: F401 — registers every model class before any mapper configures
 from app.config import get_settings
 from app.core.storage import BASE_DIR as UPLOAD_BASE_DIR
+from app.modules.admin.command_center.router import router as command_center_router
 from app.modules.admin.platform_router import router as platform_router
 from app.modules.admin.router import router as admin_router
 from app.modules.roadmap_engine.admin_router import router as roadmap_blueprint_admin_router
@@ -248,6 +249,7 @@ app.include_router(talent_pool_router, prefix="/api")
 app.include_router(inbox_router, prefix="/api")
 app.include_router(aspirant_inbox_router, prefix="/api")
 app.include_router(platform_router, prefix="/api")
+app.include_router(command_center_router, prefix="/api")
 app.include_router(roadmap_router, prefix="/api")
 app.include_router(xp_router, prefix="/api")
 app.include_router(job_plan_router, prefix="/api")

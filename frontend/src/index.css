@@ -27,6 +27,18 @@
   --color-primary-dark:    #111C35;
   --color-danger:          #DC2626;
 
+  /* ── Analytics chart tokens (admin command-center charts) ── */
+  --color-chart-aspirant:    #2563EB;
+  --color-chart-employer:    #0F766E;
+  --color-chart-good:        #16A34A;   /* fills only, never text */
+  --color-chart-good-text:   #15803D;
+  --color-chart-warn:        #D97706;   /* tints only, never text */
+  --color-chart-warn-strong: #B45309;
+  --color-chart-bad:         #DC2626;
+  --color-chart-neutral:     #64748B;
+  --color-chart-grid:        #E8ECF2;
+  --color-chart-median:      #CBD5E1;
+
   --font-sans:    "Inter", sans-serif;
   --font-display: "Hind", sans-serif;
   --font-mono:    "JetBrains Mono", monospace;

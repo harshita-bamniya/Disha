@@ -56,6 +56,21 @@ export const colors = {
   },
 } as const
 
+// Admin analytics charts. Mirrors the --color-chart-* tokens in index.css.
+// Green/amber/red mean status only; blue is aspirants, teal is employers.
+export const chartColors = {
+  aspirant:   '#2563EB',
+  employer:   '#0F766E',
+  good:       '#16A34A',   // fills only, never text
+  goodText:   '#15803D',
+  warn:       '#D97706',   // tints only, never text
+  warnStrong: '#B45309',
+  bad:        '#DC2626',
+  neutral:    '#64748B',
+  grid:       '#E8ECF2',
+  median:     '#CBD5E1',
+} as const
+
 export const spacing = {
   1:       4,
   2:       8,

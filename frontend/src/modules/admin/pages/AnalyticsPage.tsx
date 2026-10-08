@@ -1,4 +1,4 @@
-﻿import { useState, useCallback } from 'react'
+﻿﻿import { useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   BarChart2, Users, Briefcase, TrendingUp, Target, Download, Calendar,
@@ -7,6 +7,7 @@ import { adminApi } from '@/api/admin'
 import type { AnalyticsResponse, TimeSeriesPoint, FunnelStage, ScoreBin, CohortRow } from '@/api/admin'
 import { Spinner, downloadCSV } from '@/modules/admin/shared/adminUI'
 import { cn } from '@/lib/utils'
+import { FunnelChart as JourneyFunnel } from '@/modules/admin/analytics/FunnelChart'
 import { colors, shadows } from '@/design-system/tokens'
 
 
@@ -319,6 +320,7 @@ function SummaryPills({ data }: { data: AnalyticsResponse }) {
 
 export default function AnalyticsPage() {
   const [range, setRange] = useState<DateRange>({ type: 'preset', days: 30 })
+  const [compare, setCompare] = useState(false)
 
   const params = range.type === 'preset'
     ? { days: range.days }
@@ -369,9 +371,18 @@ export default function AnalyticsPage() {
       <div className="mb-6 flex items-center gap-3 flex-wrap">
         <span style={{ fontSize: 12, fontWeight: 700, color: colors.text.muted }}>Period:</span>
         <DateRangePicker value={range} onChange={setRange} />
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: colors.text.inkSoft, cursor: 'pointer' }}>
+          <input type="checkbox" checked={compare} onChange={e => setCompare(e.target.checked)} />
+          Compare with previous period
+        </label>
         {isFetching && !isLoading && (
           <span style={{ fontSize: 12, color: colors.text.muted }} className="animate-pulse">Refreshing…</span>
         )}
+      </div>
+
+      {/* Command-center charts: live from the database, independent of the legacy report below. */}
+      <div className="mb-6">
+        <JourneyFunnel range={params} compare={compare} />
       </div>
 
       {isLoading ? (
