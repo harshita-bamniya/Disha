@@ -30,9 +30,10 @@ from app.modules.companies.schemas import (
     SubscriptionPlanEntry,
     SubscriptionUpgradeRequest,
     SubscriptionUsageResponse,
+    TeamBulkInviteRequest,
+    TeamBulkInviteResponse,
     TeamInviteRequest,
     TeamMemberEntry,
-    TransferOwnershipRequest,
 )
 
 router = APIRouter(prefix="/employer/company", tags=["Employer Company"])
@@ -148,6 +149,18 @@ def invite_team_member(
         raise HTTPException(status_code=_status_for(e), detail=str(e))
 
 
+@router.post("/team/invite-bulk", response_model=TeamBulkInviteResponse, status_code=201)
+def invite_team_members_bulk(
+    body: TeamBulkInviteRequest,
+    current_user: User = Depends(require_permission("team", "invite")),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.invite_team_members_bulk(current_user, body, db)
+    except _company_errors as e:
+        raise HTTPException(status_code=_status_for(e), detail=str(e))
+
+
 @router.delete("/team/{employer_profile_id}", response_model=MessageResponse)
 def remove_team_member(
     employer_profile_id: str,
@@ -156,18 +169,6 @@ def remove_team_member(
 ):
     try:
         return service.remove_team_member(current_user, employer_profile_id, db)
-    except _company_errors as e:
-        raise HTTPException(status_code=_status_for(e), detail=str(e))
-
-
-@router.post("/team/transfer-ownership", response_model=MessageResponse)
-def transfer_ownership(
-    body: TransferOwnershipRequest,
-    current_user: User = Depends(require_permission("team", "transfer_ownership")),
-    db: Session = Depends(get_db),
-):
-    try:
-        return service.transfer_ownership(current_user, body.new_owner_employer_profile_id, db)
     except _company_errors as e:
         raise HTTPException(status_code=_status_for(e), detail=str(e))
 

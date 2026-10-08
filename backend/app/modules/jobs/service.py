@@ -7,10 +7,6 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import AuthException, BadRequestException
 from app.models.company import Company, CompanyDepartment
-from app.models.employer_verification import (
-    EmployerVerification,
-    EmployerVerificationEvent,
-)
 from app.models.jobs import JobTemplate
 from app.models.user import AuditLog, EmployerProfile, JobPosting, User
 from app.modules.jobs.schemas import (
@@ -24,9 +20,6 @@ from app.modules.jobs.schemas import (
     JobTemplateCreateRequest,
     JobTemplateOut,
     SuggestSkillsResponse,
-    VerificationDocumentOut,
-    VerificationEventOut,
-    VerificationStatusResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -56,7 +49,7 @@ def _get_approved_employer(user: User, db: Session) -> EmployerProfile:
         )
     if not profile.is_approved:
         raise AuthException(
-            "Your company isn't verified yet. Request verification from your dashboard and our team will contact you."
+            "Your company isn't verified yet. Complete the Verification page (details + documents) and publishing opens once our team approves it."
         )
     return profile
 
@@ -655,123 +648,7 @@ def delete_job(user: User, job_id: str, db: Session) -> None:
         _bump_jobs_cache()
 
 
-# ── Employer KYC verification (self-service) ──────────────────────────────────
-
-def _latest_verification(company_id, db: Session) -> EmployerVerification | None:
-    """Verification is a company-level fact (one KYC review per company), not
-    a per-teammate one — join through EmployerProfile so every teammate sees
-    the same status instead of only whoever's own profile.id the original
-    request/approval happened to be recorded under."""
-    return (
-        db.query(EmployerVerification)
-        .join(EmployerProfile, EmployerVerification.employer_id == EmployerProfile.id)
-        .filter(EmployerProfile.company_id == company_id)
-        .order_by(EmployerVerification.submitted_at.desc())
-        .first()
-    )
-
-
-def _verification_to_response(v: EmployerVerification | None) -> VerificationStatusResponse:
-    if not v:
-        return VerificationStatusResponse()
-    return VerificationStatusResponse(
-        id=str(v.id), status=v.status, rejection_reason=v.rejection_reason,
-        submitted_at=v.submitted_at, reviewed_at=v.reviewed_at,
-        documents=[
-            VerificationDocumentOut(
-                id=str(d.id), doc_type=d.doc_type, file_url=d.file_url,
-                original_filename=d.original_filename, status=d.status, uploaded_at=d.uploaded_at,
-            )
-            for d in v.documents
-        ],
-        events=[
-            VerificationEventOut(
-                id=str(e.id), from_status=e.from_status, to_status=e.to_status,
-                note=e.note, created_at=e.created_at,
-            )
-            for e in v.events
-        ],
-    )
-
-
-def get_verification_status(user: User, db: Session) -> VerificationStatusResponse:
-    profile = _get_employer_profile(user, db)
-    return _verification_to_response(_latest_verification(profile.company_id, db))
-
-
-def request_verification(user: User, db: Session) -> VerificationStatusResponse:
-    """Employer clicks 'Request Verification' — creates a verification request
-    and sends them a welcome email with the document list. Our team then contacts
-    them offline and the admin approves once satisfied."""
-    profile = _get_employer_profile(user, db)
-    v = _latest_verification(profile.company_id, db)
-
-    if v and v.status in ("requested", "under_review", "approved"):
-        raise BadRequestException(
-            f"Verification is already '{v.status}'. "
-            "Our team will contact you shortly." if v.status != "approved" else "Your company is already verified."
-        )
-
-    v = EmployerVerification(employer_id=profile.id, status="requested")
-    db.add(v)
-    db.flush()
-    db.add(EmployerVerificationEvent(
-        verification_id=v.id, actor_id=user.id, from_status=None, to_status="requested",
-        note="Employer requested verification.",
-    ))
-    db.commit()
-    db.refresh(v)
-
-    # Send welcome email with document checklist
-    recipient = db.query(User).filter(User.id == user.id).first()
-    if recipient and recipient.email:
-        from app.core.notifications import employer_verification_request_email, notify
-        subject, html = employer_verification_request_email(profile.company_name or "your company")
-        notify(recipient.email, subject, html)
-
-    return _verification_to_response(v)
-
-
-async def upload_verification_document(user: User, doc_type: str, file, db: Session) -> VerificationStatusResponse:
-    """Employer uploads a KYC document (GST certificate, PAN, etc.) themselves
-    instead of waiting for our team to collect it over email — this is what
-    actually makes verification self-serve. Uploading a document before ever
-    clicking "Request Verification" implicitly starts the request, since
-    attaching a document is a clearer signal of intent than the button itself.
-    """
-    from app.core.storage import save_upload
-    from app.models.employer_verification import DOCUMENT_TYPES, EmployerVerificationDocument
-
-    if doc_type not in DOCUMENT_TYPES:
-        raise BadRequestException(f"Invalid document type. Must be one of: {', '.join(DOCUMENT_TYPES)}.")
-
-    profile = _get_employer_profile(user, db)
-    v = _latest_verification(profile.company_id, db)
-
-    if v and v.status == "approved":
-        raise BadRequestException("Your company is already verified.")
-
-    if not v or v.status == "rejected":
-        prev_status = v.status if v else None
-        v = EmployerVerification(employer_id=profile.id, status="requested")
-        db.add(v)
-        db.flush()
-        db.add(EmployerVerificationEvent(
-            verification_id=v.id, actor_id=user.id, from_status=prev_status, to_status="requested",
-            note="Verification requested (document uploaded).",
-        ))
-
-    try:
-        file_url, original_filename = await save_upload(file, "employer_verification")
-    except ValueError as e:
-        raise BadRequestException(str(e))
-
-    db.add(EmployerVerificationDocument(
-        verification_id=v.id, doc_type=doc_type, file_url=file_url, original_filename=original_filename,
-    ))
-    db.commit()
-    db.refresh(v)
-    return _verification_to_response(v)
+# Employer KYC verification lives in app/modules/jobs/verification.py
 
 
 def get_my_permissions(user: User, db: Session):

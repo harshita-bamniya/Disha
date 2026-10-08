@@ -129,7 +129,7 @@ export function buildEmployerNav(ctx: EmployerNavContext): NavSection[] {
         { label: 'Talent Pool', path: '/app/employer/talent-pool', icon: Star, exact: false },
       ] },
       { label: 'Account', items: [
-        { label: 'Verification', path: '/app/employer/verification', icon: ShieldCheck, exact: false },
+        // Company KYC verification is company-level — not shown to department members.
         { label: 'Support', path: '/app/employer/support', icon: HelpCircle, exact: false },
       ] },
     ]

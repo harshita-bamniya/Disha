@@ -2,14 +2,14 @@ import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import {
   Users, Briefcase,
-  FileText, CheckCircle, Clock, XCircle, ChevronRight,
-  Plus, BarChart3, Mail, Shield, Calendar, X, Eye, EyeOff,
+  FileText, Clock, XCircle, ChevronRight,
+  Plus, BarChart3, Mail, Shield, Calendar, X,
   Send, Pencil, Trash2, Copy, ClipboardList,
 } from 'lucide-react'
 import { colors, radius } from '@/design-system/tokens'
 import {
   useDepartment, useDepartmentJobs, useDepartmentOverview, useTeamMembers,
-  useHasPermission, useInviteTeamMember, useEmployerPermissions, useEmployerDashboard,
+  useHasPermission, useRemoveTeamMember, useEmployerPermissions, useEmployerDashboard,
   useCreateJob, useUpdateJob, useDeleteJob, usePublishJob, usePauseJob,
   useCloseJob, useReopenJob, useDuplicateJob,
 } from '../hooks/useJobs'
@@ -26,6 +26,7 @@ import PageHeader from '@/shared/layouts/PageHeader'
 import Tabs, { type TabItem } from '@/shared/components/navigation/Tabs'
 import Spinner from '@/shared/components/feedback/Spinner'
 import ErrorState from '@/shared/components/feedback/ErrorState'
+import BulkInviteModal from '../components/BulkInviteModal'
 
 const C = { ink1: colors.text.ink, ink2: colors.text.inkSoft, ink3: colors.text.muted, border: colors.border.default, borderLight: colors.border.default, accent: colors.state.info, green: colors.state.success, red: colors.state.danger }
 
@@ -206,7 +207,7 @@ type TeamMember = {
   department_id: string | null
 }
 
-function TeamMemberRow({ member }: { member: TeamMember }) {
+function TeamMemberRow({ member, onRemove }: { member: TeamMember; onRemove?: () => void }) {
   const roleColors: Record<string, { color: string; bg: string }> = {
     employer_owner: { color: '#1E3A5F', bg: 'rgba(30,58,95,0.08)' },
     hr_manager:     { color: '#7C3AED', bg: 'rgba(124,58,237,0.08)' },
@@ -232,112 +233,14 @@ function TeamMemberRow({ member }: { member: TeamMember }) {
       </div>
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 20, fontSize: 11, fontWeight: 600, color: style.color, background: style.bg, flexShrink: 0 }}>
         <Shield size={9} />
-        {member.role_name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+        {member.role_name === 'hr_manager' ? 'Department Head' : member.role_name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
       </span>
-    </div>
-  )
-}
-
-// ── Invite modal ──────────────────────────────────────────────────────────────
-
-function InviteModal({ departmentId, departmentName, onClose }: {
-  departmentId: string; departmentName: string; onClose: () => void
-}) {
-  const invite = useInviteTeamMember()
-  const [email, setEmail]       = useState('')
-  const [name, setName]         = useState('')
-  const [password, setPassword] = useState('')
-  const [showPw, setShowPw]     = useState(false)
-  const [role, setRole]         = useState<'recruiter' | 'hiring_manager' | 'interviewer'>('recruiter')
-  const [err, setErr]           = useState('')
-  const [done, setDone]         = useState(false)
-
-  const busy = invite.isPending
-
-  const handleSubmit = () => {
-    if (!email.trim()) { setErr('Email is required'); return }
-    if (!name.trim())  { setErr('Full name is required'); return }
-    if (!password || password.length < 6) { setErr('Password must be at least 6 characters'); return }
-    invite.mutate({ email: email.trim(), contact_person: name.trim(), role_name: role, department_id: departmentId, password }, {
-      onSuccess: () => setDone(true),
-      onError: e => setErr(getApiError(e)),
-    })
-  }
-
-  const ROLES = [
-    { value: 'recruiter',      label: 'Recruiter',      desc: 'Post jobs, manage candidates in this department' },
-    { value: 'hiring_manager', label: 'Hiring Manager', desc: 'Review shortlists, submit scorecards' },
-    { value: 'interviewer',    label: 'Interviewer',     desc: 'Conduct interviews, submit feedback' },
-  ] as const
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 20, padding: 28, maxWidth: 460, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-          <div>
-            <h3 style={{ fontSize: 16, fontWeight: 800, color: colors.text.ink, margin: '0 0 3px' }}>Invite team member</h3>
-            <p style={{ fontSize: 12, color: colors.text.inkSoft, margin: 0 }}>to <strong>{departmentName}</strong></p>
-          </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: colors.text.muted, padding: 4 }}><X size={18} /></button>
-        </div>
-
-        {done ? (
-          <div style={{ textAlign: 'center', padding: '20px 0' }}>
-            <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(5,150,105,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-              <CheckCircle size={24} color="#059669" />
-            </div>
-            <p style={{ fontSize: 15, fontWeight: 700, color: colors.text.ink, margin: '0 0 6px' }}>Account created!</p>
-            <p style={{ fontSize: 13, color: colors.text.inkSoft, margin: '0 0 20px' }}><strong>{email}</strong> can now log in.</p>
-            <Button onClick={onClose}>Done</Button>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {[
-              { label: 'Email', type: 'email', value: email, onChange: (v: string) => { setEmail(v); setErr('') }, placeholder: 'recruiter@company.com' },
-              { label: 'Full name', type: 'text', value: name, onChange: (v: string) => { setName(v); setErr('') }, placeholder: 'e.g. Priya Sharma' },
-            ].map(f => (
-              <div key={f.label}>
-                <label style={{ fontSize: 12, fontWeight: 700, color: colors.text.inkSoft, display: 'block', marginBottom: 4 }}>{f.label} <span style={{ color: '#EF4444' }}>*</span></label>
-                <input type={f.type} value={f.value} onChange={e => f.onChange(e.target.value)} placeholder={f.placeholder}
-                  style={{ width: '100%', height: 40, borderRadius: 10, border: `1.5px solid ${colors.border.default}`, padding: '0 12px', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
-              </div>
-            ))}
-
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 700, color: colors.text.inkSoft, display: 'block', marginBottom: 4 }}>Password <span style={{ color: '#EF4444' }}>*</span></label>
-              <div style={{ position: 'relative' }}>
-                <input type={showPw ? 'text' : 'password'} value={password} onChange={e => { setPassword(e.target.value); setErr('') }} placeholder="Min. 6 characters"
-                  style={{ width: '100%', height: 40, borderRadius: 10, border: `1.5px solid ${colors.border.default}`, padding: '0 40px 0 12px', fontSize: 13, outline: 'none', boxSizing: 'border-box' }} />
-                <button type="button" onClick={() => setShowPw(s => !s)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: colors.text.muted }}>
-                  {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label style={{ fontSize: 12, fontWeight: 700, color: colors.text.inkSoft, display: 'block', marginBottom: 8 }}>Role <span style={{ color: '#EF4444' }}>*</span></label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {ROLES.map(r => (
-                  <label key={r.value} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 12px', borderRadius: radius.xl, cursor: 'pointer', border: role === r.value ? `2px solid ${colors.brand.navy}` : `1.5px solid ${colors.border.default}`, background: role === r.value ? colors.state.infoBg : '#fff' }}>
-                    <input type="radio" name="dept_role" value={r.value} checked={role === r.value} onChange={() => setRole(r.value)} style={{ marginTop: 2, accentColor: colors.brand.navy }} />
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: colors.text.ink, margin: 0 }}>{r.label}</p>
-                      <p style={{ fontSize: 11, color: colors.text.inkSoft, margin: '2px 0 0' }}>{r.desc}</p>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {err && <p style={{ fontSize: 12, color: '#EF4444', margin: 0 }}>{err}</p>}
-
-            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-              <Button variant="outline" className="flex-1" onClick={onClose} disabled={busy}>Cancel</Button>
-              <Button className="flex-1" style={{ flex: 2 }} onClick={handleSubmit} loading={busy}>Create & invite</Button>
-            </div>
-          </div>
-        )}
-      </div>
+      {onRemove && (
+        <button type="button" onClick={onRemove} aria-label={`Remove ${member.contact_person}`}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', padding: 4, flexShrink: 0 }}>
+          <Trash2 size={14} />
+        </button>
+      )}
     </div>
   )
 }
@@ -495,7 +398,9 @@ export default function DepartmentDetailPage() {
   // Backend guards department create/update/delete with companies:edit, not a
   // separate departments:* permission (which doesn't exist in the system) —
   // check the same one the API actually enforces.
-  const canManage    = useHasPermission('companies:edit')
+  const canInvite    = useHasPermission('team:invite')
+  const canRemoveMember = useHasPermission('team:remove')
+  const removeMember = useRemoveTeamMember()
   const canCreateJob = useHasPermission('jobs:create')
   const canEditJob   = useHasPermission('jobs:edit')
   const canPublishJob = useHasPermission('jobs:publish')
@@ -507,7 +412,8 @@ export default function DepartmentDetailPage() {
   // post into any department they're viewing — same as LinkedIn Recruiter's
   // admin seat or Naukri's super-user, both of which can post jobs directly
   // rather than only being able to delegate to a scoped seat.
-  const isMyDepartment = myPerms?.department_id === id || !!myPerms?.is_company_wide
+  const isCompanyWide = !!myPerms?.is_company_wide
+  const isMyDepartment = myPerms?.department_id === id || isCompanyWide
 
   const createJob    = useCreateJob()
   const updateJob    = useUpdateJob()
@@ -580,7 +486,7 @@ export default function DepartmentDetailPage() {
           below={<div style={{ paddingBottom: 8 }}><Breadcrumb items={[{ label: 'Departments', href: '/app/employer/departments' }, { label: dept.name }]} /></div>}
           actions={
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {canManage && (
+              {canInvite && (
                 <Button size="sm" variant="outline" onClick={() => setShowInvite(true)}><Users size={13} />Invite</Button>
               )}
               {canCreateJob && isMyDepartment && (
@@ -713,12 +619,12 @@ export default function DepartmentDetailPage() {
                     <span style={{ fontSize: 12, fontWeight: 500, color: '#94A3B8', marginLeft: 8 }}>{deptTeam.length} member{deptTeam.length !== 1 ? 's' : ''}</span>
                   </p>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    {canManage && (
+                    {canInvite && (
                       <Button size="sm" onClick={() => setShowInvite(true)}><Plus size={11} />Invite Member</Button>
                     )}
-                    <Link to="/app/employer/company" style={{ fontSize: 12, fontWeight: 600, color: colors.state.info, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3 }}>
+                    {isCompanyWide && <Link to="/app/employer/company" style={{ fontSize: 12, fontWeight: 600, color: colors.state.info, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 3 }}>
                       Manage org team <ChevronRight size={12} />
-                    </Link>
+                    </Link>}
                   </div>
                 </div>
 
@@ -734,7 +640,12 @@ export default function DepartmentDetailPage() {
                     </Link>
                   </div>
                 ) : (
-                  deptTeam.map(m => <TeamMemberRow key={m.employer_profile_id} member={m} />)
+                  deptTeam.map(m => (
+                    <TeamMemberRow key={m.employer_profile_id} member={m}
+                      onRemove={canRemoveMember && !m.is_owner && m.role_name !== 'hr_manager'
+                        ? () => { if (window.confirm(`Remove ${m.contact_person} from ${dept.name}? They will lose access.`)) removeMember.mutate(m.employer_profile_id) }
+                        : undefined} />
+                  ))
                 )}
               </div>
 
@@ -761,7 +672,7 @@ export default function DepartmentDetailPage() {
         </main>
 
       {showInvite && id && (
-        <InviteModal departmentId={id} departmentName={dept.name} onClose={() => setShowInvite(false)} />
+        <BulkInviteModal departmentId={id} departmentName={dept.name} onClose={() => setShowInvite(false)} />
       )}
 
       {confirmDeleteJob && (

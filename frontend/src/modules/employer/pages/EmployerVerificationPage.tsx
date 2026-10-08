@@ -1,259 +1,394 @@
-import { useRef, useState } from 'react'
-import { CheckCircle2, Clock, FileText, Mail, ShieldCheck, Upload, XCircle } from 'lucide-react'
-import { useVerificationStatus, useRequestVerification, useUploadVerificationDocument } from '../hooks/useJobs'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  AlertTriangle, BadgeCheck, CheckCircle2, Clock, FileText, Info, RotateCcw, ShieldCheck, Trash2, Upload, XCircle,
+} from 'lucide-react'
+import {
+  useDeleteVerificationDocument, useSaveVerificationDetails, useStartVerification, useSubmitVerification,
+  useUploadVerificationDocument, useVerificationRules, useVerificationStatus,
+} from '../hooks/useJobs'
 import { getApiError } from '@/api/client'
-import type { VerificationDocType, VerificationDocumentOut } from '@/api/jobs'
+import type {
+  VerificationDetails, VerificationDocType, VerificationDocumentOut, VerificationEntityType, VerificationStatusResponse,
+} from '@/api/jobs'
 import { colors, radius } from '@/design-system/tokens'
 import Button from '@/shared/components/primitives/Button'
 import PageHeader from '@/shared/layouts/PageHeader'
 import ErrorState from '@/shared/components/feedback/ErrorState'
 import Spinner from '@/shared/components/feedback/Spinner'
 
-const STEPS = [
-  { key: 'requested',    label: 'Verification Requested',   desc: 'Your documents have been received and are queued for review.' },
-  { key: 'under_review', label: 'Under Review',             desc: 'Our team is reviewing your documents and may reach out if anything else is needed.' },
-  { key: 'approved',     label: 'Verified',                 desc: 'Your company is verified. You can now publish job listings.' },
-]
+const FIELD_HINTS: Record<string, { placeholder: string; hint?: string }> = {
+  gstin: { placeholder: '29ABCDE1234F1Z5', hint: '15 characters, from your GST certificate' },
+  pan: { placeholder: 'ABCDE1234F', hint: "The organisation's PAN (not a personal PAN, unless you are a proprietor)" },
+  cin: { placeholder: 'U74999DL2020PTC123456', hint: '21-character Corporate Identity Number from MCA' },
+  llpin: { placeholder: 'AAB-1234', hint: 'LLP Identification Number' },
+  udyam: { placeholder: 'UDYAM-DL-01-1234567', hint: 'Udyam (MSME) registration number' },
+  darpan_id: { placeholder: 'DL/2020/0123456', hint: 'NGO Darpan unique ID (NITI Aayog)' },
+  registration_number: { placeholder: 'Registration no.', hint: 'Trust / society / firm registration number' },
+  business_email: { placeholder: 'hr@yourorganisation.org', hint: 'An email on your own domain — not Gmail/Yahoo' },
+  signatory_name: { placeholder: 'Full name of the person managing this account' },
+  signatory_designation: { placeholder: 'e.g. Director, HR Head, Founder' },
+}
 
-const STATUS_ORDER = ['requested', 'under_review', 'approved']
+const STATUS_COPY: Record<string, { title: string; tone: 'info' | 'success' | 'warn' | 'danger'; body: string }> = {
+  requested: { title: 'Submitted — waiting for review', tone: 'info', body: 'Our team has your details and documents. We usually respond within 2 working days and will email you.' },
+  under_review: { title: 'Under review', tone: 'info', body: 'A reviewer is checking your details against government records. We will email you if we need anything else.' },
+  needs_info: { title: 'We need a little more information', tone: 'warn', body: 'Update the items below and submit again. Your earlier uploads are kept.' },
+  approved: { title: 'Your company is verified', tone: 'success', body: 'You can now publish jobs and receive applications.' },
+  rejected: { title: 'Verification not approved', tone: 'danger', body: '' },
+}
 
-const DOC_TYPES: { type: VerificationDocType; label: string; hint: string }[] = [
-  { type: 'gst_certificate',      label: 'GST Certificate',                 hint: 'Or upload your Company Registration Certificate below instead' },
-  { type: 'company_registration', label: 'Company Registration Certificate', hint: 'If you don\'t have a GST certificate yet' },
-  { type: 'pan_card',             label: 'PAN Card',                        hint: 'Company or authorised signatory' },
-  { type: 'business_email',       label: 'Business Email Proof',            hint: 'Domain-matched email screenshot, letterhead, or similar' },
-]
+const TONES = {
+  info:    { bg: colors.state.infoBg, border: colors.border.default, fg: colors.brand.navy },
+  success: { bg: 'rgba(16,185,129,0.07)', border: 'rgba(16,185,129,0.25)', fg: '#047857' },
+  warn:    { bg: 'rgba(217,119,6,0.07)', border: 'rgba(217,119,6,0.3)', fg: '#B45309' },
+  danger:  { bg: 'rgba(220,38,38,0.05)', border: 'rgba(220,38,38,0.2)', fg: '#B91C1C' },
+}
 
-function DocumentUploadRow({ type, label, hint, uploaded, onUpload, uploading }: {
-  type: VerificationDocType
-  label: string
-  hint: string
-  uploaded: VerificationDocumentOut[]
-  onUpload: (type: VerificationDocType, file: File) => void
-  uploading: boolean
+const card: React.CSSProperties = {
+  padding: '18px 22px', borderRadius: radius.lg, marginBottom: 16,
+  background: colors.surface.card, border: `1px solid ${colors.border.default}`,
+}
+const input: React.CSSProperties = {
+  width: '100%', height: 38, borderRadius: 9, border: `1.5px solid ${colors.border.default}`, padding: '0 12px',
+  fontSize: 13, outline: 'none', boxSizing: 'border-box', background: '#fff', color: colors.text.ink,
+}
+const label: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: colors.text.inkSoft, display: 'block', marginBottom: 4 }
+
+function fieldErrors(e: unknown): Record<string, string> {
+  const detail = (e as { response?: { data?: { detail?: { errors?: Record<string, string> } } } })?.response?.data?.detail
+  return detail && typeof detail === 'object' && detail.errors ? detail.errors : {}
+}
+
+function DocRow({ docType, title, required, docs, editable, busy, onUpload, onDelete }: {
+  docType: VerificationDocType; title: string; required: boolean; docs: VerificationDocumentOut[]; editable: boolean
+  busy: boolean; onUpload: (t: VerificationDocType, f: File) => void; onDelete: (id: string) => void
 }) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const latest = uploaded[uploaded.length - 1]
-
+  const ref = useRef<HTMLInputElement>(null)
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '12px 0', borderBottom: `1px solid ${colors.border.default}` }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }}>
-        <div style={{ width: 6, height: 6, borderRadius: '50%', background: latest ? colors.state.success : colors.brand.navy, marginTop: 6, flexShrink: 0 }} />
+    <div style={{ padding: '10px 0', borderBottom: `1px solid ${colors.border.default}` }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <div style={{ minWidth: 0 }}>
-          <p style={{ fontSize: 13, fontWeight: 600, color: colors.text.ink, margin: 0 }}>{label}</p>
-          <p style={{ fontSize: 11.5, color: colors.text.muted, margin: '2px 0 0', lineHeight: 1.4 }}>{hint}</p>
-          {latest && (
-            <p style={{ fontSize: 11.5, color: colors.state.success, margin: '4px 0 0', display: 'flex', alignItems: 'center', gap: 4 }}>
-              <CheckCircle2 size={12} /> {latest.original_filename ?? 'Uploaded'}
-            </p>
-          )}
+          <p style={{ fontSize: 13, fontWeight: 600, color: colors.text.ink, margin: 0 }}>
+            {title} {required && <span style={{ color: '#EF4444' }}>*</span>}
+          </p>
         </div>
+        {editable && (
+          <>
+            <input ref={ref} type="file" accept=".pdf,.png,.jpg,.jpeg" style={{ display: 'none' }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(docType, f); e.target.value = '' }} />
+            <Button variant="outline" size="sm" loading={busy} disabled={busy} onClick={() => ref.current?.click()}>
+              <Upload size={12} />{docs.length ? 'Replace' : 'Upload'}
+            </Button>
+          </>
+        )}
       </div>
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".pdf,.png,.jpg,.jpeg"
-        style={{ display: 'none' }}
-        onChange={(e) => {
-          const file = e.target.files?.[0]
-          if (file) onUpload(type, file)
-          e.target.value = ''
-        }}
-      />
-      <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()} disabled={uploading} loading={uploading} style={{ flexShrink: 0 }}>
-        <Upload size={12} />{latest ? 'Replace' : 'Upload'}
-      </Button>
+      {docs.map((d) => (
+        <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, fontSize: 12 }}>
+          {d.status === 'rejected'
+            ? <XCircle size={13} color="#DC2626" />
+            : d.status === 'verified' ? <BadgeCheck size={13} color="#059669" /> : <CheckCircle2 size={13} color={colors.state.success} />}
+          <span style={{ color: colors.text.ink }}>{d.original_filename ?? 'Uploaded'}</span>
+          <span style={{ color: d.status === 'rejected' ? '#B91C1C' : colors.text.muted }}>
+            {d.status === 'rejected' ? 'Needs replacing' : d.status === 'verified' ? 'Accepted' : 'Received'}
+          </span>
+          {editable && (
+            <button type="button" aria-label={`Remove ${d.original_filename ?? 'document'}`} onClick={() => onDelete(d.id)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', padding: 2, display: 'flex' }}>
+              <Trash2 size={12} />
+            </button>
+          )}
+          {d.notes && <span style={{ color: '#B91C1C' }}>— {d.notes}</span>}
+        </div>
+      ))}
     </div>
   )
 }
 
 export default function EmployerVerificationPage() {
   const { data: v, isLoading, isError, refetch } = useVerificationStatus()
-  const request = useRequestVerification()
+  const { data: rules } = useVerificationRules()
+  const save = useSaveVerificationDetails()
+  const start = useStartVerification()
   const upload = useUploadVerificationDocument()
-  const [uploadingType, setUploadingType] = useState<VerificationDocType | null>(null)
-  const [uploadError, setUploadError] = useState<string | null>(null)
+  const remove = useDeleteVerificationDocument()
+  const submit = useSubmitVerification()
+
+  const [entity, setEntity] = useState<VerificationEntityType | null>(null)
+  const [form, setForm] = useState<VerificationDetails>({})
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [message, setMessage] = useState<string | null>(null)
+  const [busyDoc, setBusyDoc] = useState<VerificationDocType | null>(null)
+  const seeded = useRef<string | null>(null)
+
+  // Seed the form from the server once per case (and again after a new draft starts).
+  useEffect(() => {
+    if (!v) return
+    const key = `${v.id}:${v.status}:${v.attempt_no}`
+    if (seeded.current === key) return
+    seeded.current = key
+    setEntity(v.entity_type)
+    setForm({ ...(v.details ?? {}), declarations: { ...(v.details?.declarations ?? {}) } })
+  }, [v])
 
   const status = v?.status ?? 'not_submitted'
-  const currentStep = STATUS_ORDER.indexOf(status)
-  const isRejected = status === 'rejected'
-  const isApproved = status === 'approved'
-  const hasRequested = status !== 'not_submitted'
+  const editable = !v ? true : v.can_edit && status !== 'rejected'
+  const copy = STATUS_COPY[status]
+  const checklist = useMemo(() => {
+    if (v?.entity_type && entity === v.entity_type) return v.checklist
+    return rules?.entity_types.find((t) => t.value === entity)?.checklist ?? {}
+  }, [v, entity, rules])
 
-  const handleUpload = (docType: VerificationDocType, file: File) => {
-    setUploadError(null)
-    setUploadingType(docType)
-    upload.mutate({ docType, file }, {
-      onError: (e) => setUploadError(getApiError(e, 'Upload failed. Please try again.')),
-      onSettled: () => setUploadingType(null),
+  const setField = (key: keyof VerificationDetails, value: string) => {
+    setForm((f) => ({ ...f, [key]: value }))
+    setErrors((e) => ({ ...e, [key]: '' }))
+    setMessage(null)
+  }
+  const setDecl = (key: string, value: boolean) => setForm((f) => ({ ...f, declarations: { ...(f.declarations ?? {}), [key]: value } }))
+
+  const persist = (onDone?: () => void) => {
+    if (!entity) { setMessage('Choose what kind of organisation you are first.'); return }
+    save.mutate({ entity_type: entity, ...form }, {
+      onSuccess: () => { setErrors({}); setMessage('Saved.'); onDone?.() },
+      onError: (e) => {
+        const fe = fieldErrors(e)
+        setErrors(fe)
+        setMessage(Object.keys(fe).length ? 'Please fix the highlighted fields.' : getApiError(e, 'Could not save.'))
+      },
     })
   }
 
-  const documentsByType = (type: VerificationDocType) => (v?.documents ?? []).filter((d) => d.doc_type === type)
+  const handleSubmit = () => {
+    persist(() => submit.mutate(undefined, {
+      onSuccess: () => setMessage(null),
+      onError: (e) => setMessage(getApiError(e, 'Could not submit.')),
+    }))
+  }
+
+  const handleUpload = (docType: VerificationDocType, file: File) => {
+    if (!entity) { setMessage('Choose your organisation type first.'); return }
+    setMessage(null); setBusyDoc(docType)
+    const doUpload = () => upload.mutate({ docType, file }, {
+      onError: (e) => setMessage(getApiError(e, 'Upload failed.')),
+      onSettled: () => setBusyDoc(null),
+    })
+    // A document needs a draft to attach to — create it (saving whatever is filled in) on first upload.
+    if (!v || v.status === 'not_submitted') {
+      save.mutate({ entity_type: entity, ...form }, { onSuccess: doUpload, onError: (e) => { setBusyDoc(null); setMessage(getApiError(e)) } })
+    } else doUpload()
+  }
+
+  const docsFor = (t: VerificationDocType) => (v?.documents ?? []).filter((d) => d.doc_type === t)
+  const docEntries = [
+    ...(checklist.documents_required ?? []).map((d) => ({ ...d, required: true })),
+    ...(checklist.documents_any_of ?? []).map((d) => ({ ...d, label: d.label, required: false, anyOf: true })),
+    ...(checklist.documents_optional ?? []).map((d) => ({ ...d, required: false })),
+  ]
+  const idFields = (checklist.ids_any_of ?? []).map((f) => f.field)
+  const detailFields = [
+    ...idFields.map((f) => ({ field: f, label: checklist.ids_any_of!.find((x) => x.field === f)!.label })),
+    ...(checklist.fields ?? []),
+  ]
+
+  const renderField = (field: string, fieldLabel: string, required: boolean) => {
+    const meta = FIELD_HINTS[field] ?? { placeholder: '' }
+    const value = (form as Record<string, unknown>)[field] as string | undefined
+    return (
+      <div key={field}>
+        <label style={label}>{fieldLabel}{required && <span style={{ color: '#EF4444' }}> *</span>}</label>
+        <input value={value ?? ''} disabled={!editable} placeholder={meta.placeholder}
+          onChange={(e) => setField(field as keyof VerificationDetails, e.target.value)}
+          style={{ ...input, borderColor: errors[field] ? '#EF4444' : colors.border.default, textTransform: field === 'business_email' ? 'none' : 'uppercase' }} />
+        {errors[field]
+          ? <p style={{ fontSize: 11.5, color: '#DC2626', margin: '3px 0 0' }}>{errors[field]}</p>
+          : meta.hint && <p style={{ fontSize: 11, color: colors.text.muted, margin: '3px 0 0' }}>{meta.hint}</p>}
+      </div>
+    )
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      <PageHeader
-        title="Verification"
-        subtitle="Submit documents to unlock job posting"
-        icon={<ShieldCheck size={16} color={colors.text.ink} />}
-      />
+      <PageHeader title="Verification" subtitle="Verify your organisation to publish jobs" icon={<ShieldCheck size={16} color={colors.text.ink} />} />
       <div style={{ padding: '20px 28px', background: colors.surface.bg, flex: 1 }}>
-      <div style={{ maxWidth: 600, margin: '0 auto' }}>
+        <div style={{ maxWidth: 680, margin: '0 auto' }}>
+          {isLoading ? <Spinner size="md" /> : isError ? (
+            <ErrorState compact title="Status unavailable" description="Could not load verification status." onRetry={() => refetch()} />
+          ) : (
+            <>
+              {copy && (
+                <div style={{ ...card, background: TONES[copy.tone].bg, borderColor: TONES[copy.tone].border }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: TONES[copy.tone].fg }}>
+                    {status === 'approved' ? <BadgeCheck size={18} /> : status === 'rejected' ? <XCircle size={18} />
+                      : status === 'needs_info' ? <AlertTriangle size={18} /> : <Clock size={18} />}
+                    <p style={{ fontSize: 14.5, fontWeight: 800, margin: 0 }}>{copy.title}</p>
+                  </div>
+                  {status === 'rejected'
+                    ? <RejectedBody v={v!} reasons={rules?.reason_codes} onRestart={() => start.mutate()} restarting={start.isPending} />
+                    : <p style={{ fontSize: 12.5, color: colors.text.inkSoft, margin: '8px 0 0', lineHeight: 1.55 }}>{copy.body}</p>}
+                  {status === 'needs_info' && v?.info_request && (
+                    <blockquote style={{ margin: '10px 0 0', padding: '8px 12px', borderLeft: '3px solid #D97706', background: '#fff', fontSize: 13, color: colors.text.ink }}>
+                      {v.info_request}
+                    </blockquote>
+                  )}
+                </div>
+              )}
 
-        <p style={{ fontSize: 13, color: colors.text.inkSoft, marginBottom: 28, lineHeight: 1.6 }}>
-          {isApproved
-            ? 'Your company is verified — job posting is unlocked.'
-            : 'Upload your KYC documents below to get verified and unlock job posting. Our team reviews submissions and usually responds within 24–48 hours.'}
-        </p>
+              {v && !v.email_verified && editable && (
+                <div style={{ ...card, background: TONES.warn.bg, borderColor: TONES.warn.border, display: 'flex', gap: 8 }}>
+                  <Info size={15} color="#B45309" style={{ marginTop: 1, flexShrink: 0 }} />
+                  <p style={{ fontSize: 12.5, color: '#92400E', margin: 0 }}>
+                    Your account email isn&apos;t confirmed yet. Enter the OTP we emailed you before you submit.
+                  </p>
+                </div>
+              )}
 
-        {isLoading ? (
-          <Spinner size="md" />
-        ) : isError ? (
-          <ErrorState compact title="Status unavailable" description="Could not load verification status." onRetry={() => refetch()} />
-        ) : (
-          <>
-            {/* Status tracker */}
-            {hasRequested && !isRejected && (
-              <div style={{ marginBottom: 32 }}>
-                {STEPS.map((step, idx) => {
-                  const done = currentStep > idx
-                  const active = currentStep === idx
-                  return (
-                    <div key={step.key} style={{ display: 'flex', gap: 16 }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <div style={{
-                          width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          background: done || active ? (isApproved && idx === 2 ? colors.state.success : colors.brand.navy) : colors.border.default,
-                          border: active && !isApproved ? `2px solid ${colors.brand.navy}` : 'none',
-                          flexShrink: 0,
-                        }}>
-                          {done || active ? (
-                            idx === 2 && isApproved
-                              ? <CheckCircle2 size={18} color="white" />
-                              : active ? <Clock size={16} color="white" /> : <CheckCircle2 size={16} color="white" />
-                          ) : (
-                            <span style={{ fontSize: 13, fontWeight: 700, color: colors.text.muted }}>{idx + 1}</span>
-                          )}
-                        </div>
-                        {idx < STEPS.length - 1 && (
-                          <div style={{ width: 2, height: 48, background: done ? colors.brand.navy : colors.border.default, margin: '4px 0' }} />
-                        )}
+              {/* 1. Organisation type */}
+              <section style={card}>
+                <p style={{ fontSize: 13.5, fontWeight: 800, color: colors.text.ink, margin: '0 0 4px' }}>1. What kind of organisation are you?</p>
+                <p style={{ fontSize: 12, color: colors.text.muted, margin: '0 0 12px' }}>This decides which documents we need.</p>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {(rules?.entity_types ?? []).map((t) => (
+                    <label key={t.value} style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: radius.xl,
+                      cursor: editable ? 'pointer' : 'default',
+                      border: entity === t.value ? `2px solid ${colors.brand.navy}` : `1.5px solid ${colors.border.default}`,
+                      background: entity === t.value ? colors.state.infoBg : '#fff',
+                    }}>
+                      <input type="radio" name="entity" checked={entity === t.value} disabled={!editable}
+                        onChange={() => setEntity(t.value)} style={{ accentColor: colors.brand.navy }} />
+                      <span style={{ fontSize: 13, fontWeight: 600, color: colors.text.ink }}>{t.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </section>
+
+              {entity && (
+                <>
+                  {/* 2. Details */}
+                  <section style={card}>
+                    <p style={{ fontSize: 13.5, fontWeight: 800, color: colors.text.ink, margin: '0 0 4px' }}>2. Registration details</p>
+                    {idFields.length > 0 && (
+                      <p style={{ fontSize: 12, color: colors.text.muted, margin: '0 0 12px' }}>
+                        Enter at least one of: {idFields.map((f) => checklist.ids_any_of!.find((x) => x.field === f)!.label).join(' / ')}.
+                      </p>
+                    )}
+                    <div style={{ display: 'grid', gap: 12 }}>
+                      {detailFields.map((f) => renderField(f.field, f.label, !idFields.includes(f.field)))}
+                      <div>
+                        <label style={label}>Website</label>
+                        <input value={form.website ?? ''} disabled={!editable} placeholder="https://yourorganisation.org"
+                          onChange={(e) => setField('website', e.target.value)} style={input} />
                       </div>
-                      <div style={{ paddingTop: 6, flex: 1, marginBottom: idx < STEPS.length - 1 ? 40 : 0 }}>
-                        <p style={{ fontSize: 14, fontWeight: 700, color: active || done ? colors.text.ink : colors.text.muted }}>{step.label}</p>
-                        {(active || done) && (
-                          <p style={{ fontSize: 12.5, color: colors.text.inkSoft, marginTop: 3, lineHeight: 1.5 }}>{step.desc}</p>
-                        )}
+                      <div>
+                        <label style={label}>Registered address</label>
+                        <input value={form.registered_address ?? ''} disabled={!editable} placeholder="Street, city, state, PIN"
+                          onChange={(e) => setField('registered_address', e.target.value)} style={input} />
                       </div>
                     </div>
-                  )
-                })}
-              </div>
-            )}
+                  </section>
 
-            {isRejected && (
-              <div style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
-                padding: '20px 24px', borderRadius: 16, textAlign: 'center', marginBottom: 24,
-                background: 'rgba(220,38,38,0.05)', border: '1px solid rgba(220,38,38,0.2)',
-              }}>
-                <XCircle size={28} color="#DC2626" />
-                <div>
-                  <p style={{ fontSize: 15, fontWeight: 700, color: '#B91C1C' }}>Verification Not Approved</p>
-                  {v?.rejection_reason && (
-                    <p style={{ fontSize: 13, color: '#7F1D1D', marginTop: 6, lineHeight: 1.5 }}>{v.rejection_reason}</p>
+                  {/* 3. Documents */}
+                  <section style={card}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <FileText size={15} color={colors.brand.navy} />
+                      <p style={{ fontSize: 13.5, fontWeight: 800, color: colors.text.ink, margin: 0 }}>3. Documents</p>
+                    </div>
+                    <p style={{ fontSize: 12, color: colors.text.muted, margin: '0 0 6px' }}>
+                      PDF, PNG or JPEG, up to 10MB each. Where it says &ldquo;at least one&rdquo;, one of those is enough.
+                    </p>
+                    {docEntries.map((d) => (
+                      <DocRow key={d.doc_type} docType={d.doc_type} editable={editable} busy={busyDoc === d.doc_type}
+                        title={('anyOf' in d && d.anyOf ? 'Any one: ' : '') + d.label}
+                        required={d.required} docs={docsFor(d.doc_type)} onUpload={handleUpload}
+                        onDelete={(id) => remove.mutate(id, { onError: (e) => setMessage(getApiError(e)) })} />
+                    ))}
+                  </section>
+
+                  {/* 4. Declarations */}
+                  <section style={card}>
+                    <p style={{ fontSize: 13.5, fontWeight: 800, color: colors.text.ink, margin: '0 0 10px' }}>4. Declarations</p>
+                    {(checklist.declarations ?? []).map((d) => (
+                      <label key={d.key} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 8, fontSize: 12.5, color: colors.text.ink, cursor: editable ? 'pointer' : 'default' }}>
+                        <input type="checkbox" checked={!!form.declarations?.[d.key]} disabled={!editable}
+                          onChange={(e) => setDecl(d.key, e.target.checked)} style={{ marginTop: 2, accentColor: colors.brand.navy }} />
+                        <span>{d.label}</span>
+                      </label>
+                    ))}
+                  </section>
+                </>
+              )}
+
+              {/* Auto checks + what's missing */}
+              {v && v.status !== 'approved' && (v.auto_checks.some((c) => c.level !== 'ok') || (editable && v.missing.length > 0)) && (
+                <section style={card}>
+                  {editable && v.missing.length > 0 && (
+                    <>
+                      <p style={{ fontSize: 13, fontWeight: 800, color: colors.text.ink, margin: '0 0 6px' }}>Still needed before you can submit</p>
+                      <ul style={{ margin: '0 0 8px', paddingLeft: 18, fontSize: 12.5, color: colors.text.inkSoft, lineHeight: 1.7 }}>
+                        {v.missing.map((m) => <li key={m}>{m}</li>)}
+                      </ul>
+                    </>
                   )}
-                  <p style={{ fontSize: 12.5, color: '#9CA3AF', marginTop: 8 }}>
-                    Upload corrected documents below to resubmit, or contact <strong>support@beginablai.com</strong> for help.
-                  </p>
+                  {v.auto_checks.filter((c) => c.level !== 'ok').map((c) => (
+                    <p key={c.code} style={{ fontSize: 12, color: c.level === 'fail' ? '#B91C1C' : '#B45309', margin: '4px 0', display: 'flex', gap: 6 }}>
+                      <AlertTriangle size={13} style={{ flexShrink: 0, marginTop: 1 }} />{c.message}
+                    </p>
+                  ))}
+                </section>
+              )}
+
+              {editable && entity && (
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
+                  <Button variant="outline" onClick={() => persist()} loading={save.isPending && !submit.isPending} disabled={save.isPending || submit.isPending}>
+                    Save progress
+                  </Button>
+                  <Button onClick={handleSubmit} loading={submit.isPending} disabled={save.isPending || submit.isPending}>
+                    {status === 'needs_info' ? 'Resubmit for review' : 'Submit for review'}
+                  </Button>
+                  {message && <span style={{ fontSize: 12.5, color: message === 'Saved.' ? colors.state.success : '#DC2626' }}>{message}</span>}
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Document upload — always available until approved, so an
-                employer can submit, add more documents an admin asked for,
-                or fix and resubmit after a rejection, without waiting on
-                anyone else to collect the files from them. */}
-            {!isApproved && (
-              <div style={{
-                padding: '18px 22px', borderRadius: radius.lg, marginBottom: 20,
-                background: colors.state.infoBg, border: `1px solid ${colors.border.default}`,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <FileText size={15} color={colors.brand.navy} />
-                  <p style={{ fontSize: 13, fontWeight: 700, color: colors.text.ink, margin: 0 }}>Your documents</p>
+              {v?.events && v.events.length > 0 && (
+                <div style={{ marginTop: 20 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Timeline</p>
+                  {[...v.events].reverse().map((e) => (
+                    <div key={e.id} style={{ fontSize: 12, color: colors.text.inkSoft, marginBottom: 5 }}>
+                      <span style={{ fontWeight: 700, color: colors.text.ink }}>{e.to_status.replace(/_/g, ' ')}</span>
+                      {' · '}{new Date(e.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      {e.note && <span> — {e.note}</span>}
+                    </div>
+                  ))}
                 </div>
-                {DOC_TYPES.map((doc) => (
-                  <DocumentUploadRow
-                    key={doc.type}
-                    type={doc.type}
-                    label={doc.label}
-                    hint={doc.hint}
-                    uploaded={documentsByType(doc.type)}
-                    onUpload={handleUpload}
-                    uploading={uploadingType === doc.type}
-                  />
-                ))}
-                {uploadError && (
-                  <p style={{ fontSize: 12, color: colors.state.danger, marginTop: 10 }}>{uploadError}</p>
-                )}
-                <p style={{ fontSize: 11.5, color: colors.text.muted, marginTop: 12, margin: '12px 0 0' }}>
-                  PDF, PNG or JPEG, up to 10MB each. GST certificate or company registration is enough to get started —
-                  add the rest whenever you have them.
-                </p>
-              </div>
-            )}
-
-            {/* No documents uploaded yet and never requested — offer the
-                original "just ask our team" path as a fallback for anyone
-                who'd rather not upload documents right away. */}
-            {!hasRequested && (v?.documents.length ?? 0) === 0 && (
-              <>
-                <div style={{
-                  display: 'flex', alignItems: 'flex-start', gap: 10,
-                  padding: '14px 18px', borderRadius: 12, marginBottom: 20,
-                  background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.15)',
-                }}>
-                  <Mail size={15} color="#059669" style={{ flexShrink: 0, marginTop: 1 }} />
-                  <p style={{ fontSize: 12.5, color: '#065F46', lineHeight: 1.5 }}>
-                    Prefer not to upload right now? Click below and our team will email you to collect documents instead.
-                  </p>
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="lg"
-                  fullWidth
-                  onClick={() => request.mutate()}
-                  disabled={request.isPending}
-                  loading={request.isPending}
-                >
-                  {request.isPending ? 'Sending request…' : 'Request Verification Without Uploading'}
-                </Button>
-                {request.isError && (
-                  <p style={{ fontSize: 12, color: colors.state.danger, marginTop: 8 }}>{getApiError(request.error)}</p>
-                )}
-              </>
-            )}
-
-            {/* Timeline */}
-            {v?.events && v.events.length > 0 && (
-              <div style={{ marginTop: 28 }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: colors.text.muted, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10 }}>Timeline</p>
-                {v.events.map(e => (
-                  <div key={e.id} style={{ fontSize: 12, color: colors.text.inkSoft, marginBottom: 6 }}>
-                    <span style={{ fontWeight: 700, color: colors.text.ink }}>{e.to_status.replace(/_/g, ' ')}</span>
-                    {' · '}{new Date(e.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                    {e.note && <span> — {e.note}</span>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
+  )
+}
+
+function RejectedBody({ v, reasons, onRestart, restarting }: {
+  v: VerificationStatusResponse; reasons?: Record<string, string>; onRestart: () => void; restarting: boolean
+}) {
+  const reason = v.rejection_reason || (v.reason_code && reasons?.[v.reason_code]) || null
+  return (
+    <>
+      {reason && <p style={{ fontSize: 13, color: '#7F1D1D', margin: '8px 0 0', lineHeight: 1.5 }}>{reason}</p>}
+      {v.blocked ? (
+        <p style={{ fontSize: 12.5, color: colors.text.inkSoft, margin: '10px 0 0' }}>
+          This can&apos;t be resubmitted online. Please contact <strong>support@beginablai.com</strong>.
+        </p>
+      ) : (
+        <div style={{ marginTop: 12 }}>
+          <Button size="sm" onClick={onRestart} loading={restarting} disabled={restarting}>
+            <RotateCcw size={13} />Correct and submit again
+          </Button>
+          <p style={{ fontSize: 11.5, color: colors.text.muted, margin: '8px 0 0' }}>
+            Your earlier details and accepted documents are kept so you only fix what&apos;s wrong.
+          </p>
+        </div>
+      )}
+    </>
   )
 }

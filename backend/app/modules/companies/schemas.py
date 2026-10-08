@@ -87,13 +87,30 @@ class TeamInviteRequest(BaseModel):
     password: Optional[str] = Field(None, min_length=6, max_length=128)
 
 
-class AssignDepartmentRequest(BaseModel):
-    """Reassign a team member to a different department (or clear to company-wide)."""
+class TeamBulkInviteRequest(BaseModel):
+    """Invite several people at once by email. The system generates each
+    person's password and emails it together with the login link."""
+    emails: list[str] = Field(..., min_length=1, max_length=25)
+    role_name: str = Field(..., pattern="^(hr_manager|recruiter|interviewer|hiring_manager)$")
     department_id: Optional[str] = None
 
 
-class TransferOwnershipRequest(BaseModel):
-    new_owner_employer_profile_id: str
+class TeamBulkInviteResult(BaseModel):
+    email: str
+    success: bool
+    error: Optional[str] = None
+    member: Optional[TeamMemberEntry] = None
+
+
+class TeamBulkInviteResponse(BaseModel):
+    results: list[TeamBulkInviteResult]
+    created_count: int
+    failed_count: int
+
+
+class AssignDepartmentRequest(BaseModel):
+    """Reassign a team member to a different department (or clear to company-wide)."""
+    department_id: Optional[str] = None
 
 
 class MessageResponse(BaseModel):
@@ -154,6 +171,8 @@ class DepartmentCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=150)
     description: Optional[str] = None
     head_employer_id: Optional[str] = None  # EmployerProfile.id of the dept head
+    # Or: appoint a brand-new head by email — the system creates the account and emails the password.
+    head_email: Optional[str] = None
 
 
 class DepartmentUpdateRequest(BaseModel):

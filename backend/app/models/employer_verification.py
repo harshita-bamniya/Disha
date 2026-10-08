@@ -1,10 +1,12 @@
-"""Module 05 Phase 2 — Employer KYC verification workflow.
+"""Employer (company) verification workflow.
 
-State machine: draft -> pending -> under_review -> approved | rejected -> draft -> pending
-'draft' = documents being uploaded, not yet submitted (employer can still edit).
-'pending' = actually submitted, awaiting admin review — employer can no longer resubmit
-until rejected. Keeping these distinct is what stops the "submit" button from being
-clickable indefinitely once already in the review queue.
+State machine:
+  draft -> requested -> under_review -> approved | rejected
+                      `-> needs_info -> (employer resubmits) -> requested
+'draft'  = the employer is still filling in details/documents; invisible to admins.
+'requested' = submitted and waiting in the review queue.
+'needs_info' = a reviewer asked for something specific; the employer edits the same case and resubmits.
+Approval is a company-level fact (mirrored on Company.verification_status).
 """
 import uuid
 
@@ -13,17 +15,22 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Integer,
     String,
     Text,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.database import Base
 
-VERIFICATION_STATUSES = ("requested", "under_review", "approved", "rejected")
-DOCUMENT_TYPES = ("gst_certificate", "pan_card", "company_registration", "business_email")
+VERIFICATION_STATUSES = ("draft", "requested", "under_review", "needs_info", "approved", "rejected")
+DOCUMENT_TYPES = (
+    "gst_certificate", "pan_card", "company_registration", "business_email",
+    "udyam_certificate", "shops_establishment", "partnership_deed", "ngo_registration",
+    "tax_exemption_12a", "signatory_authorisation", "address_proof", "other",
+)
 DOCUMENT_STATUSES = ("pending", "verified", "rejected")
 
 
@@ -38,6 +45,12 @@ class EmployerVerification(Base):
     rejection_reason = Column(Text, nullable=True)
     submitted_at = Column(DateTime(timezone=True), server_default=func.now())
     reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    entity_type = Column(String(40), nullable=True)
+    details = Column(JSONB, nullable=True)        # registry IDs, business email, signatory, declarations
+    auto_checks = Column(JSONB, nullable=True)    # [{code, level, message}] from the automatic checks
+    reason_code = Column(String(40), nullable=True)
+    info_request = Column(Text, nullable=True)    # what a reviewer needs when status == needs_info
+    attempt_no = Column(Integer, nullable=False, default=1)
 
     employer = relationship("EmployerProfile")
     reviewer = relationship("User", foreign_keys=[reviewer_id])

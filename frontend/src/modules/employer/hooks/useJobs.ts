@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { jobsApi } from '@/api/jobs'
-import type { JobPostingPayload, VerificationDocType } from '@/api/jobs'
+import type { JobPostingPayload, VerificationDetailsPayload, VerificationDocType } from '@/api/jobs'
 import { companyApi, subscriptionApi, hiringTeamApi } from '@/api/company'
-import type { CompanyProfileUpdatePayload, EmployerProfileUpdatePayload, TeamInvitePayload, DepartmentCreatePayload, DepartmentUpdatePayload, HiringTeamAddPayload } from '@/api/company'
+import type { CompanyProfileUpdatePayload, EmployerProfileUpdatePayload, TeamInvitePayload, TeamBulkInvitePayload, DepartmentCreatePayload, DepartmentUpdatePayload, HiringTeamAddPayload } from '@/api/company'
 import { analyticsApi } from '@/api/analytics'
 import { getUpcomingInterviews, getPipelineStages, bulkUpsertPipelineStages, getPipelineTemplates, createPipelineTemplate, deletePipelineTemplate, applyTemplateToJob } from '@/api/matching'
 import type { PipelineStageIn } from '@/api/matching'
@@ -200,21 +200,40 @@ export function useVerificationStatus() {
   return useQuery({ queryKey: VERIFICATION_KEY, queryFn: jobsApi.getVerificationStatus, staleTime: 0 })
 }
 
-export function useRequestVerification() {
+export function useVerificationRules() {
+  return useQuery({ queryKey: ['employer', 'verification', 'rules'], queryFn: jobsApi.getVerificationRules, staleTime: 5 * 60_000 })
+}
+
+function useVerificationMutation<TVars>(fn: (vars: TVars) => Promise<unknown>) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: () => jobsApi.requestVerification(),
-    onSuccess: () => qc.invalidateQueries({ queryKey: VERIFICATION_KEY }),
+    mutationFn: fn,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: VERIFICATION_KEY })
+      qc.invalidateQueries({ queryKey: COMPANY_KEY })
+    },
   })
 }
 
+export function useStartVerification() {
+  return useVerificationMutation<void>(() => jobsApi.startVerification())
+}
+
+export function useSaveVerificationDetails() {
+  return useVerificationMutation((payload: VerificationDetailsPayload) => jobsApi.saveVerificationDetails(payload))
+}
+
 export function useUploadVerificationDocument() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: ({ docType, file }: { docType: VerificationDocType; file: File }) =>
-      jobsApi.uploadVerificationDocument(docType, file),
-    onSuccess: () => qc.invalidateQueries({ queryKey: VERIFICATION_KEY }),
-  })
+  return useVerificationMutation(({ docType, file }: { docType: VerificationDocType; file: File }) =>
+    jobsApi.uploadVerificationDocument(docType, file))
+}
+
+export function useDeleteVerificationDocument() {
+  return useVerificationMutation((documentId: string) => jobsApi.deleteVerificationDocument(documentId))
+}
+
+export function useSubmitVerification() {
+  return useVerificationMutation<void>(() => jobsApi.submitVerification())
 }
 
 // ── Company profile + team management ─────────────────────────────────────────
@@ -282,11 +301,14 @@ export function useRemoveTeamMember() {
   })
 }
 
-export function useTransferOwnership() {
+export function useInviteTeamMembersBulk() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (newOwnerEmployerProfileId: string) => companyApi.transferOwnership(newOwnerEmployerProfileId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: TEAM_KEY }),
+    mutationFn: (payload: TeamBulkInvitePayload) => companyApi.inviteTeamMembersBulk(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: TEAM_KEY })
+      qc.invalidateQueries({ queryKey: DEPARTMENTS_KEY })
+    },
   })
 }
 

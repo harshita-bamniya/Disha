@@ -3,7 +3,7 @@ import { adminApi } from '@/api/admin'
 import type {
   AnnouncementCreatePayload, AnnouncementStatus,
   CareerTrackCreatePayload, CareerTrackUpdatePayload, EmployerStatus, SubAdminCreatePayload,
-  SubmitHumanReviewPayload,
+  SubmitHumanReviewPayload, VerificationReviewPayload,
 } from '@/api/admin'
 
 const STATS_KEY              = ['admin', 'stats']
@@ -383,16 +383,26 @@ export function useUpdateFeatureFlag() {
 export function useReviewEmployerVerification() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, action, notes, rejection_reason }: { id: string; action: string; notes?: string; rejection_reason?: string }) =>
-      adminApi.reviewEmployerVerification(id, { action, notes, rejection_reason }),
+    mutationFn: ({ id, ...payload }: { id: string } & VerificationReviewPayload) =>
+      adminApi.reviewEmployerVerification(id, payload),
     onSuccess: (_data, { id }) => {
       qc.invalidateQueries({ queryKey: ['admin', 'employer-verifications'] })
       qc.invalidateQueries({ queryKey: EMP_VERIFICATION_DETAIL_KEY(id) })
-      // Approving/rejecting here also flips EmployerProfile.is_approved, which
-      // the Employers tab (list + stat cards) reads — without this it shows
-      // stale "pending" data until a manual page refresh.
+      // Approving/rejecting flips the whole company's approval, which the Employers tab
+      // (list + stat cards) reads — without this it shows stale data until a manual refresh.
       qc.invalidateQueries({ queryKey: ['admin', 'employers'] })
       qc.invalidateQueries({ queryKey: STATS_KEY })
+    },
+  })
+}
+
+export function useReviewVerificationDocument() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, documentId, status, notes }: { id: string; documentId: string; status: 'pending' | 'verified' | 'rejected'; notes?: string }) =>
+      adminApi.reviewVerificationDocument(id, documentId, { status, notes }),
+    onSuccess: (_data, { id }) => {
+      qc.invalidateQueries({ queryKey: EMP_VERIFICATION_DETAIL_KEY(id) })
     },
   })
 }

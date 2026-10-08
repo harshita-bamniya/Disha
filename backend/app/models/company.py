@@ -40,7 +40,8 @@ class Company(Base):
     founded_year = Column(Integer, nullable=True)
     social_links = Column(JSONB, nullable=True)   # {"linkedin": "...", "twitter": "..."}
     description = Column(Text, nullable=True)
-    verification_status = Column(String(20), nullable=False, default="unverified", index=True)
+    verification_status = Column(String(20), nullable=False, default="unverified", index=True)   # unverified|pending|verified|rejected
+    verified_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

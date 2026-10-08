@@ -70,6 +70,25 @@ export interface TeamInvitePayload {
   password?: string
 }
 
+export interface TeamBulkInvitePayload {
+  emails: string[]
+  role_name: TeamInvitePayload['role_name']
+  department_id?: string
+}
+
+export interface TeamBulkInviteResult {
+  email: string
+  success: boolean
+  error: string | null
+  member: TeamMemberEntry | null
+}
+
+export interface TeamBulkInviteResponse {
+  results: TeamBulkInviteResult[]
+  created_count: number
+  failed_count: number
+}
+
 export interface SubscriptionPlanEntry {
   id: string
   name: string
@@ -157,6 +176,8 @@ export interface DepartmentCreatePayload {
   name: string
   description?: string
   head_employer_id?: string
+  /** Appoint a new head by email — the account is created and the password emailed. */
+  head_email?: string
 }
 
 export interface DepartmentUpdatePayload {
@@ -200,10 +221,8 @@ export const companyApi = {
   removeTeamMember: (employerProfileId: string) =>
     apiClient.delete<{ message: string }>(`/employer/company/team/${employerProfileId}`).then(r => r.data),
 
-  transferOwnership: (newOwnerEmployerProfileId: string) =>
-    apiClient.post<{ message: string }>('/employer/company/team/transfer-ownership', {
-      new_owner_employer_profile_id: newOwnerEmployerProfileId,
-    }).then(r => r.data),
+  inviteTeamMembersBulk: (payload: TeamBulkInvitePayload) =>
+    apiClient.post<TeamBulkInviteResponse>('/employer/company/team/invite-bulk', payload).then(r => r.data),
 
   listOffices: () =>
     apiClient.get<OfficeEntry[]>('/employer/company/offices').then(r => r.data),

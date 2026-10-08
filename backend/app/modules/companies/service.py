@@ -1,8 +1,11 @@
+import re
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.config import get_settings
 from app.core.exceptions import (
     AuthException,
     BadRequestException,
@@ -27,6 +30,9 @@ from app.modules.companies.schemas import (
     OfficeOut,
     SubscriptionPlanEntry,
     SubscriptionUsageResponse,
+    TeamBulkInviteRequest,
+    TeamBulkInviteResponse,
+    TeamBulkInviteResult,
     TeamInviteRequest,
     TeamMemberEntry,
 )
@@ -48,6 +54,39 @@ def _get_company_or_404(profile: EmployerProfile, db: Session) -> Company:
     return company
 
 
+def _own_department_id(profile: EmployerProfile):
+    """Department a user is confined to, or None for company-wide users.
+    Owners are always company-wide even if a department id is set on them."""
+    return profile.department_id if (profile.department_id and not profile.is_owner) else None
+
+
+def _assert_company_wide(profile: EmployerProfile) -> None:
+    """Company-level settings (branding, offices, creating/deleting departments)
+    belong to the owner and company-wide HR — never to a department-scoped member,
+    even one whose role (department head) otherwise carries companies:edit."""
+    if _own_department_id(profile) is not None:
+        raise ForbiddenException("Only the company owner can change company-level settings.")
+
+
+def _apply_invite_scope(profile: EmployerProfile, role_name: str, department_id):
+    """Delegated administration: a department head may only add people to their
+    own department, and never appoint another head. Owners/company-wide HR are unrestricted."""
+    own = _own_department_id(profile)
+    if own is None:
+        return department_id
+    if role_name == "hr_manager":
+        raise ForbiddenException("Only the company owner can appoint a department head.")
+    return str(own)
+
+
+def _assert_department_access(profile: EmployerProfile, department_id) -> None:
+    """Department-scoped members may only look at their own department. A
+    different department is reported as not found so its existence isn't leaked."""
+    own = _own_department_id(profile)
+    if own is not None and str(own) != str(department_id):
+        raise NotFoundException("Department not found.")
+
+
 def _company_to_response(company: Company) -> CompanyProfileResponse:
     return CompanyProfileResponse(
         id=str(company.id), name=company.name, industry=company.industry,
@@ -67,6 +106,7 @@ def get_company_profile(user: User, db: Session) -> CompanyProfileResponse:
 
 def update_company_profile(user: User, data: CompanyProfileUpdateRequest, db: Session) -> CompanyProfileResponse:
     profile = _get_own_profile(user, db)
+    _assert_company_wide(profile)
     company = _get_company_or_404(profile, db)
 
     for field in (
@@ -109,6 +149,7 @@ def update_employer_profile(user: User, data: EmployerProfileUpdateRequest, db: 
 
 def set_company_logo(user: User, url: str, db: Session) -> CompanyProfileResponse:
     profile = _get_own_profile(user, db)
+    _assert_company_wide(profile)
     company = _get_company_or_404(profile, db)
     company.logo_url = url
     db.commit()
@@ -118,6 +159,7 @@ def set_company_logo(user: User, url: str, db: Session) -> CompanyProfileRespons
 
 def set_company_banner(user: User, url: str, db: Session) -> CompanyProfileResponse:
     profile = _get_own_profile(user, db)
+    _assert_company_wide(profile)
     company = _get_company_or_404(profile, db)
     company.cover_banner_url = url
     db.commit()
@@ -134,9 +176,12 @@ def list_team_members(user: User, db: Session) -> list[TeamMemberEntry]:
         db.query(EmployerProfile, User)
         .join(User, EmployerProfile.user_id == User.id)
         .filter(EmployerProfile.company_id == profile.company_id, User.deleted_at == None)
-        .order_by(EmployerProfile.is_owner.desc(), EmployerProfile.created_at)
-        .all()
     )
+    own_dept = _own_department_id(profile)
+    if own_dept is not None:
+        # Department members only see their own department's team.
+        rows = rows.filter(EmployerProfile.department_id == own_dept)
+    rows = rows.order_by(EmployerProfile.is_owner.desc(), EmployerProfile.created_at).all()
     return [_member_to_entry(p, u) for p, u in rows]
 
 
@@ -153,14 +198,68 @@ def _member_to_entry(profile: EmployerProfile, user: User | None = None) -> Team
     )
 
 
+def _name_from_email(email: str) -> str:
+    """Placeholder display name for invitees (they are asked for email only);
+    they can edit it from their own profile afterwards."""
+    local = email.split("@", 1)[0]
+    words = re.sub(r"[._\-+\d]+", " ", local).split()
+    return " ".join(w.capitalize() for w in words)[:150] or local[:150]
+
+
 def invite_team_member(user: User, data: TeamInviteRequest, db: Session) -> TeamMemberEntry:
-    """Creates the teammate's account immediately (no email-token flow yet —
-    they sign in via the existing forgot-password/OTP path to set credentials)."""
+    """Creates a single teammate's account immediately and emails the credentials."""
     profile = _get_own_profile(user, db)
     if not profile.is_owner and user.role_name != "hr_manager":
         raise ForbiddenException("Only the company owner or HR manager can invite team members.")
     company = _get_company_or_404(profile, db)
+    department_id = _apply_invite_scope(profile, data.role_name, data.department_id)
+    return _create_team_member(
+        user, profile, company, data.email, data.contact_person, data.role_name,
+        department_id, data.password, db,
+    )
 
+
+def invite_team_members_bulk(user: User, data: TeamBulkInviteRequest, db: Session) -> TeamBulkInviteResponse:
+    """Invites many people by email. Each gets a system-generated password and
+    an email with the login link; one bad address never blocks the others."""
+    profile = _get_own_profile(user, db)
+    if not profile.is_owner and user.role_name != "hr_manager":
+        raise ForbiddenException("Only the company owner or HR manager can invite team members.")
+    company = _get_company_or_404(profile, db)
+    department_id = _apply_invite_scope(profile, data.role_name, data.department_id)
+
+    results: list[TeamBulkInviteResult] = []
+    seen: set[str] = set()
+    for raw in data.emails:
+        email = raw.strip().lower()
+        if not email or email in seen:
+            continue
+        seen.add(email)
+        if not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", email):
+            results.append(TeamBulkInviteResult(email=email, success=False, error="Enter a valid email address."))
+            continue
+        try:
+            member = _create_team_member(
+                user, profile, company, email, _name_from_email(email), data.role_name,
+                department_id, None, db,
+            )
+            results.append(TeamBulkInviteResult(email=email, success=True, member=member))
+        except (BadRequestException, ForbiddenException, NotFoundException) as e:
+            db.rollback()
+            results.append(TeamBulkInviteResult(email=email, success=False, error=str(e.detail)))
+
+    created = sum(1 for r in results if r.success)
+    return TeamBulkInviteResponse(results=results, created_count=created, failed_count=len(results) - created)
+
+
+def _create_team_member(
+    user: User, profile: EmployerProfile, company: Company, email: str, contact_person: str,
+    role_name: str, department_id: str | None, password: str | None, db: Session,
+) -> TeamMemberEntry:
+    data = SimpleNamespace(
+        email=email, contact_person=contact_person, role_name=role_name,
+        department_id=department_id, password=password,
+    )
     seat_limit = _get_recruiter_seat_limit(company.id, db)
     if seat_limit is not None:
         # The owner isn't a "recruiter seat" — they're the account itself, not
@@ -211,11 +310,16 @@ def invite_team_member(user: User, data: TeamInviteRequest, db: Session) -> Team
         user_id=new_user.id,
         company_name=company.name, industry=company.industry, company_size=company.company_size,
         website=company.website, contact_person=data.contact_person, city=profile.city or "",
-        is_approved=True,   # company already passed admin KYC — seats inherit that
+        is_approved=(company.verification_status == "verified"),   # seats inherit the company's verification
         company_id=company.id, is_owner=False,
         department_id=dept_id,
     )
     db.add(new_profile)
+    db.flush()
+    if data.role_name == "hr_manager" and dept_id:
+        head_dept = db.query(CompanyDepartment).filter(CompanyDepartment.id == dept_id).first()
+        if head_dept and head_dept.head_employer_id is None:
+            head_dept.head_employer_id = new_profile.id
 
     db.add(CompanyInvite(
         company_id=company.id, email=data.email, role_id=role.id,
@@ -228,6 +332,7 @@ def invite_team_member(user: User, data: TeamInviteRequest, db: Session) -> Team
     subject, html = team_invite_email(
         company.name, data.contact_person, data.role_name,
         data.email, plain_password, dept_name,
+        login_url=f"{get_settings().frontend_url.rstrip('/')}/auth/login",
     )
     notify(data.email, subject, html)
 
@@ -244,8 +349,14 @@ def remove_team_member(user: User, employer_profile_id: str, db: Session) -> Mes
     ).first()
     if not target:
         raise NotFoundException("Team member not found.")
+    own_dept = _own_department_id(profile)
+    if own_dept is not None:
+        # A department head can only remove non-head members of their own department.
+        target_user = db.query(User).filter(User.id == target.user_id).first()
+        if str(target.department_id) != str(own_dept) or (target_user and target_user.role_name == "hr_manager"):
+            raise NotFoundException("Team member not found.")
     if target.is_owner:
-        raise BadRequestException("Cannot remove the company owner — transfer ownership first.")
+        raise BadRequestException("Cannot remove the company owner.")
     if target.id == profile.id:
         raise BadRequestException("Cannot remove yourself.")
 
@@ -255,25 +366,6 @@ def remove_team_member(user: User, employer_profile_id: str, db: Session) -> Mes
         target_user.is_active = False
     db.commit()
     return MessageResponse(message="Team member removed.")
-
-
-def transfer_ownership(user: User, new_owner_employer_profile_id: str, db: Session) -> MessageResponse:
-    profile = _get_own_profile(user, db)
-    if not profile.is_owner:
-        raise ForbiddenException("Only the current owner can transfer ownership.")
-
-    new_owner = db.query(EmployerProfile).filter(
-        EmployerProfile.id == new_owner_employer_profile_id, EmployerProfile.company_id == profile.company_id,
-    ).first()
-    if not new_owner:
-        raise NotFoundException("Target team member not found in this company.")
-    if new_owner.id == profile.id:
-        raise BadRequestException("You are already the owner.")
-
-    profile.is_owner = False
-    new_owner.is_owner = True
-    db.commit()
-    return MessageResponse(message=f"Ownership transferred to {new_owner.contact_person}.")
 
 
 # ── Subscriptions ──────────────────────────────────────────────────────────────
@@ -413,6 +505,7 @@ def list_offices(user: User, db: Session) -> list[OfficeOut]:
 
 def create_office(user: User, data: OfficeCreateRequest, db: Session) -> OfficeOut:
     profile = _get_own_profile(user, db)
+    _assert_company_wide(profile)
     company = _get_company_or_404(profile, db)
     row = CompanyOffice(
         company_id=company.id, name=data.name, city=data.city,
@@ -426,6 +519,7 @@ def create_office(user: User, data: OfficeCreateRequest, db: Session) -> OfficeO
 
 def delete_office(user: User, office_id: str, db: Session) -> MessageResponse:
     profile = _get_own_profile(user, db)
+    _assert_company_wide(profile)
     company = _get_company_or_404(profile, db)
     row = db.query(CompanyOffice).filter(CompanyOffice.id == office_id, CompanyOffice.company_id == company.id).first()
     if not row:
@@ -473,15 +567,17 @@ def _dept_to_out(dept: CompanyDepartment, db: Session) -> DepartmentOut:
 def list_departments(user: User, db: Session) -> list[DepartmentOut]:
     profile = _get_own_profile(user, db)
     company = _get_company_or_404(profile, db)
-    rows = db.query(CompanyDepartment).filter(
-        CompanyDepartment.company_id == company.id,
-    ).order_by(CompanyDepartment.name).all()
-    return [_dept_to_out(r, db) for r in rows]
+    query = db.query(CompanyDepartment).filter(CompanyDepartment.company_id == company.id)
+    own_dept = _own_department_id(profile)
+    if own_dept is not None:
+        query = query.filter(CompanyDepartment.id == own_dept)
+    return [_dept_to_out(r, db) for r in query.order_by(CompanyDepartment.name).all()]
 
 
 def get_department(user: User, department_id: str, db: Session) -> DepartmentOut:
     profile = _get_own_profile(user, db)
     company = _get_company_or_404(profile, db)
+    _assert_department_access(profile, department_id)
     dept = db.query(CompanyDepartment).filter(
         CompanyDepartment.id == department_id,
         CompanyDepartment.company_id == company.id,
@@ -493,6 +589,7 @@ def get_department(user: User, department_id: str, db: Session) -> DepartmentOut
 
 def create_department(user: User, data: DepartmentCreateRequest, db: Session) -> DepartmentOut:
     profile = _get_own_profile(user, db)
+    _assert_company_wide(profile)
     company = _get_company_or_404(profile, db)
     if db.query(CompanyDepartment).filter(
         CompanyDepartment.company_id == company.id, CompanyDepartment.name == data.name,
@@ -509,11 +606,31 @@ def create_department(user: User, data: DepartmentCreateRequest, db: Session) ->
             raise BadRequestException("Department head must be a member of this company.")
         head_id = head.id
 
+    if data.head_email and head_id:
+        raise BadRequestException("Choose an existing member or enter a new head's email, not both.")
+    head_email = data.head_email.strip().lower() if data.head_email else None
+    if head_email and not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", head_email):
+        raise BadRequestException("Enter a valid email address for the department head.")
+
     row = CompanyDepartment(
         company_id=company.id, name=data.name,
         description=data.description, head_employer_id=head_id,
     )
     db.add(row)
+    if head_email:
+        # Appoint the head in the same step: the department row is only flushed, so if the
+        # account can't be created (duplicate email, seat limit) nothing is left behind.
+        db.flush()
+        try:
+            _create_team_member(
+                user, profile, company, head_email, _name_from_email(head_email), "hr_manager",
+                str(row.id), None, db,
+            )
+        except Exception:
+            db.rollback()
+            raise
+        db.refresh(row)
+        return _dept_to_out(row, db)
     db.commit()
     db.refresh(row)
     return _dept_to_out(row, db)
@@ -521,7 +638,9 @@ def create_department(user: User, data: DepartmentCreateRequest, db: Session) ->
 
 def update_department(user: User, department_id: str, data: DepartmentUpdateRequest, db: Session) -> DepartmentOut:
     profile = _get_own_profile(user, db)
+    _assert_company_wide(profile)
     company = _get_company_or_404(profile, db)
+    _assert_department_access(profile, department_id)
     dept = db.query(CompanyDepartment).filter(
         CompanyDepartment.id == department_id,
         CompanyDepartment.company_id == company.id,
@@ -561,6 +680,7 @@ def update_department(user: User, department_id: str, data: DepartmentUpdateRequ
 
 def delete_department(user: User, department_id: str, db: Session) -> MessageResponse:
     profile = _get_own_profile(user, db)
+    _assert_company_wide(profile)
     if not profile.is_owner and user.role_name not in ("hr_manager",):
         raise ForbiddenException("Only the company owner or HR manager can delete departments.")
     company = _get_company_or_404(profile, db)
@@ -608,6 +728,7 @@ def get_department_overview(user: User, department_id: str, db: Session):
 
     profile = _get_own_profile(user, db)
     company = _get_company_or_404(profile, db)
+    _assert_department_access(profile, department_id)
     dept = db.query(CompanyDepartment).filter(
         CompanyDepartment.id == department_id,
         CompanyDepartment.company_id == company.id,
@@ -683,6 +804,8 @@ def assign_member_department(
     profile = _get_own_profile(user, db)
     if not profile.is_owner and user.role_name not in ("hr_manager",):
         raise ForbiddenException("Only the company owner or HR manager can reassign departments.")
+    if _own_department_id(profile) is not None:
+        raise ForbiddenException("Only the company owner can move people between departments.")
     company = _get_company_or_404(profile, db)
 
     target = db.query(EmployerProfile).filter(
@@ -718,6 +841,7 @@ def list_department_jobs(user: User, department_id: str, db: Session) -> list[di
 
     profile = _get_own_profile(user, db)
     company = _get_company_or_404(profile, db)
+    _assert_department_access(profile, department_id)
 
     dept = db.query(CompanyDepartment).filter(
         CompanyDepartment.id == department_id,
@@ -772,11 +896,11 @@ def get_team_activity_log(user: User, db: Session, limit: int = 50) -> list[dict
     company = _get_company_or_404(profile, db)
 
     # Collect user_ids for all employer profiles in this company
-    company_profiles = (
-        db.query(EmployerProfile)
-        .filter(EmployerProfile.company_id == company.id)
-        .all()
-    )
+    company_q = db.query(EmployerProfile).filter(EmployerProfile.company_id == company.id)
+    own_dept = _own_department_id(profile)
+    if own_dept is not None:
+        company_q = company_q.filter(EmployerProfile.department_id == own_dept)
+    company_profiles = company_q.all()
     member_user_ids = [p.user_id for p in company_profiles]
 
     rows = (

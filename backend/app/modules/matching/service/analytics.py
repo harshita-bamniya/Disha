@@ -137,12 +137,11 @@ def get_recruiter_performance(user: User, db: Session) -> RecruiterPerformanceRe
         return RecruiterPerformanceResponse(recruiters=[])
     company_employer_ids = core._get_company_employer_ids(employer, db)
 
-    team = (
-        db.query(EmployerProfile.user_id)
-        .filter(EmployerProfile.id.in_(company_employer_ids))
-        .all()
-    )
-    team_user_ids = [t[0] for t in team]
+    team_q = db.query(EmployerProfile.user_id).filter(EmployerProfile.id.in_(company_employer_ids))
+    if not core._is_company_wide(employer, user.role_name):
+        # Department members only see their own department's colleagues, not the whole company.
+        team_q = team_q.filter(EmployerProfile.department_id == employer.department_id)
+    team_user_ids = [t[0] for t in team_q.all()]
     if not team_user_ids:
         return RecruiterPerformanceResponse(recruiters=[])
 

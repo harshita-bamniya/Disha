@@ -60,7 +60,7 @@ class RegisterRequest(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    identifier: str  # phone number OR email address
+    identifier: str  # email address (field name kept for API compatibility)
     password: str
     recaptcha_token: str | None = None
 

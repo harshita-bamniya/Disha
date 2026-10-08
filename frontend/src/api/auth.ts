@@ -23,7 +23,7 @@ export interface AddPhonePayload {
 }
 
 export interface LoginPayload {
-  identifier: string  // phone number OR email address
+  identifier: string  // email address
   password: string
   recaptcha_token?: string
 }

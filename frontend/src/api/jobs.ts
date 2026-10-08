@@ -100,14 +100,20 @@ export const EMPLOYMENT_TYPE_LABELS: Record<EmploymentType, string> = {
   freelance:  'Freelance',
 }
 
-export type VerificationDocType = 'gst_certificate' | 'pan_card' | 'company_registration' | 'business_email'
+export type VerificationDocType =
+  | 'gst_certificate' | 'pan_card' | 'company_registration' | 'business_email' | 'udyam_certificate'
+  | 'shops_establishment' | 'partnership_deed' | 'ngo_registration' | 'tax_exemption_12a'
+  | 'signatory_authorisation' | 'address_proof' | 'other'
+
+export type VerificationEntityType = 'company' | 'proprietorship_partnership' | 'ngo_trust' | 'government' | 'agency'
 
 export interface VerificationDocumentOut {
   id: string
-  doc_type: string
-  file_url: string
+  doc_type: VerificationDocType
+  label: string | null
   original_filename: string | null
-  status: string
+  status: 'pending' | 'verified' | 'rejected'
+  notes: string | null
   uploaded_at: string
 }
 
@@ -119,14 +125,55 @@ export interface VerificationEventOut {
   created_at: string
 }
 
+export interface VerificationDetails {
+  gstin?: string; pan?: string; cin?: string; llpin?: string; udyam?: string; darpan_id?: string
+  registration_number?: string; business_email?: string; website?: string; registered_address?: string
+  signatory_name?: string; signatory_designation?: string
+  declarations?: Record<string, boolean>
+}
+
+export interface VerificationAutoCheck { code: string; level: 'ok' | 'warn' | 'fail'; message: string }
+
+export interface VerificationChecklist {
+  ids_any_of?: { field: string; label: string }[]
+  fields?: { field: string; label: string }[]
+  documents_required?: { doc_type: VerificationDocType; label: string }[]
+  documents_any_of?: { doc_type: VerificationDocType; label: string }[]
+  documents_optional?: { doc_type: VerificationDocType; label: string }[]
+  declarations?: { key: string; label: string }[]
+}
+
 export interface VerificationStatusResponse {
   id: string | null
-  status: 'not_submitted' | 'requested' | 'under_review' | 'approved' | 'rejected'
+  status: 'not_submitted' | 'draft' | 'requested' | 'under_review' | 'needs_info' | 'approved' | 'rejected'
   rejection_reason: string | null
+  reason_code: string | null
+  info_request: string | null
   submitted_at: string | null
   reviewed_at: string | null
+  attempt_no: number
+  entity_type: VerificationEntityType | null
+  entity_label: string | null
+  details: VerificationDetails | null
+  auto_checks: VerificationAutoCheck[]
+  checklist: VerificationChecklist
+  missing: string[]
+  can_edit: boolean
+  can_submit: boolean
+  blocked: boolean
+  email_verified: boolean
+  company_status: string
   documents: VerificationDocumentOut[]
   events: VerificationEventOut[]
+}
+
+export interface VerificationDetailsPayload extends VerificationDetails {
+  entity_type: VerificationEntityType
+}
+
+export interface VerificationRules {
+  entity_types: { value: VerificationEntityType; label: string; checklist: VerificationChecklist }[]
+  reason_codes: Record<string, string>
 }
 
 export interface EmployerPermissionsResponse {
@@ -200,8 +247,14 @@ export const jobsApi = {
   getVerificationStatus: () =>
     apiClient.get<VerificationStatusResponse>('/employer/verification').then((r) => r.data),
 
-  requestVerification: () =>
-    apiClient.post<VerificationStatusResponse>('/employer/verification/request').then((r) => r.data),
+  getVerificationRules: () =>
+    apiClient.get<VerificationRules>('/employer/verification/rules').then((r) => r.data),
+
+  startVerification: () =>
+    apiClient.post<VerificationStatusResponse>('/employer/verification/start').then((r) => r.data),
+
+  saveVerificationDetails: (payload: VerificationDetailsPayload) =>
+    apiClient.put<VerificationStatusResponse>('/employer/verification/details', payload).then((r) => r.data),
 
   uploadVerificationDocument: (docType: VerificationDocType, file: File) => {
     const form = new FormData()
@@ -211,4 +264,10 @@ export const jobsApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     }).then((r) => r.data)
   },
+
+  deleteVerificationDocument: (documentId: string) =>
+    apiClient.delete<VerificationStatusResponse>(`/employer/verification/documents/${documentId}`).then((r) => r.data),
+
+  submitVerification: () =>
+    apiClient.post<VerificationStatusResponse>('/employer/verification/submit').then((r) => r.data),
 }

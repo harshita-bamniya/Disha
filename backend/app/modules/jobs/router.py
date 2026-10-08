@@ -9,7 +9,7 @@ from app.core.rbac import (
 )
 from app.database import get_db
 from app.models.user import User
-from app.modules.jobs import service
+from app.modules.jobs import service, verification
 from app.modules.payments.service import require_active_employer_subscription
 from app.modules.jobs.schemas import (
     BulkImportResponse,
@@ -25,6 +25,7 @@ from app.modules.jobs.schemas import (
     JobTemplateOut,
     SuggestSkillsRequest,
     SuggestSkillsResponse,
+    VerificationDetailsRequest,
     VerificationStatusResponse,
 )
 
@@ -276,16 +277,43 @@ def get_verification_status(
     current_user: User = Depends(_employer),
     db: Session = Depends(get_db),
 ):
-    return service.get_verification_status(current_user, db)
+    try:
+        return verification.get_status(current_user, db)
+    except BadRequestException as e:
+        raise HTTPException(status_code=400, detail=e.detail)
 
 
-@router.post("/verification/request", response_model=VerificationStatusResponse)
+@router.post("/verification/start", response_model=VerificationStatusResponse)
+def start_verification(
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    """Open (or re-open after a rejection) an editable verification draft."""
+    try:
+        return verification.start(current_user, db)
+    except (AuthException, BadRequestException) as e:
+        raise HTTPException(status_code=400, detail=e.detail)
+
+
+@router.post("/verification/request", response_model=VerificationStatusResponse, deprecated=True)
 def request_verification(
     current_user: User = Depends(_employer),
     db: Session = Depends(get_db),
 ):
+    """Legacy alias of /verification/start — no longer enters the review queue by itself."""
+    return start_verification(current_user, db)
+
+
+@router.put("/verification/details", response_model=VerificationStatusResponse)
+def save_verification_details(
+    body: VerificationDetailsRequest,
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
     try:
-        return service.request_verification(current_user, db)
+        return verification.save_details(current_user, body, db)
+    except verification.InvalidDetailsError as e:
+        raise HTTPException(status_code=422, detail={"message": "Some details are not valid.", "errors": e.errors})
     except (AuthException, BadRequestException) as e:
         raise HTTPException(status_code=400, detail=e.detail)
 
@@ -298,9 +326,42 @@ async def upload_verification_document(
     db: Session = Depends(get_db),
 ):
     try:
-        return await service.upload_verification_document(current_user, doc_type, file, db)
+        return await verification.upload_document(current_user, doc_type, file, db)
     except (AuthException, BadRequestException) as e:
         raise HTTPException(status_code=400, detail=e.detail)
+
+
+@router.delete("/verification/documents/{document_id}", response_model=VerificationStatusResponse)
+def delete_verification_document(
+    document_id: str,
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return verification.delete_document(current_user, document_id, db)
+    except (AuthException, BadRequestException) as e:
+        raise HTTPException(status_code=400, detail=e.detail)
+
+
+@router.post("/verification/submit", response_model=VerificationStatusResponse)
+def submit_verification(
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return verification.submit(current_user, db)
+    except (AuthException, BadRequestException) as e:
+        raise HTTPException(status_code=400, detail=e.detail)
+
+
+@router.get("/verification/rules")
+def verification_rules(current_user: User = Depends(_employer)):
+    """Entity types, document labels and declaration texts for the verification form."""
+    from app.core import employer_verification_rules as rules
+    return {
+        "entity_types": [{"value": k, "label": rules.ENTITY_LABELS[k], "checklist": rules.checklist(k)} for k in rules.ENTITY_TYPES],
+        "reason_codes": rules.REASON_CODES,
+    }
 
 
 # ── Hiring Team ────────────────────────────────────────────────────────────────

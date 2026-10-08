@@ -131,9 +131,10 @@ export const STATUS_COLOR_MAP: Record<string, string> = {
 }
 
 export const VERIF_STATUS_COLOR: Record<string, string> = {
-  pending:      'amber',
+  draft:        'gray',
+  requested:    'amber',
   under_review: 'navy',
+  needs_info:   'purple',
   approved:     'green',
   rejected:     'red',
-  resubmitted:  'purple',
 }

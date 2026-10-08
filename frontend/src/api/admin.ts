@@ -311,9 +311,9 @@ export interface AuditLogPage {
 export interface VerificationDocumentEntry {
   id: string
   doc_type: string
-  file_url: string
+  label: string | null
   original_filename: string | null
-  status: string
+  status: 'pending' | 'verified' | 'rejected'
   notes: string | null
   uploaded_at: string
 }
@@ -336,14 +336,38 @@ export interface EmployerVerificationEntry {
   submitted_at: string
   reviewed_at: string | null
   document_count: number
+  entity_type: string | null
+  attempt_no: number
+  reason_code: string | null
+  failed_checks: number
 }
 
 export interface EmployerVerificationDetail extends EmployerVerificationEntry {
   reviewer_notes: string | null
-  contact_email?: string | null
-  contact_phone?: string | null
+  info_request: string | null
+  entity_label: string | null
+  details: Record<string, unknown> | null
+  auto_checks: { code: string; level: 'ok' | 'warn' | 'fail'; message: string }[]
+  checklist: Record<string, unknown>
+  missing: string[]
+  company: { name: string | null; industry: string | null; size: string | null; website: string | null; city: string | null } | null
+  account_email: string | null
+  account_phone: string | null
+  email_verified: boolean
+  company_status: string
+  previous_attempts: number
+  reason_codes: Record<string, string>
   documents: VerificationDocumentEntry[]
   events: VerificationEventEntry[]
+}
+
+export interface VerificationReviewPayload {
+  action: 'under_review' | 'request_info' | 'approve' | 'reject'
+  notes?: string
+  rejection_reason?: string
+  reason_code?: string
+  info_request?: string
+  override_checks?: boolean
 }
 
 export interface EmployerTeamMemberEntry {
@@ -743,8 +767,11 @@ export const adminApi = {
   getEmployerVerification: (verificationId: string) =>
     apiClient.get<EmployerVerificationDetail>(`/admin/employer-verifications/${verificationId}`).then(r => r.data),
 
-  reviewEmployerVerification: (verificationId: string, payload: { action: string; notes?: string; rejection_reason?: string }) =>
+  reviewEmployerVerification: (verificationId: string, payload: VerificationReviewPayload) =>
     apiClient.post<EmployerVerificationDetail>(`/admin/employer-verifications/${verificationId}/review`, payload).then(r => r.data),
+
+  reviewVerificationDocument: (verificationId: string, documentId: string, payload: { status: 'pending' | 'verified' | 'rejected'; notes?: string }) =>
+    apiClient.post<EmployerVerificationDetail>(`/admin/employer-verifications/${verificationId}/documents/${documentId}/review`, payload).then(r => r.data),
 
   downloadVerificationDocument: async (verificationId: string, documentId: string, filename: string) => {
     const res = await apiClient.get(`/admin/employer-verifications/${verificationId}/documents/${documentId}`, {

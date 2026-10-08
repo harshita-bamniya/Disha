@@ -36,6 +36,7 @@ from app.modules.admin.service.employers import (
     list_employer_verifications,
     list_employers,
     review_employer_verification,
+    review_verification_document,
     revoke_employer,
 )
 from app.modules.admin.service.jobs import (
@@ -98,7 +99,7 @@ __all__ = [
     "create_career_track", "delete_career_track", "list_career_tracks_admin", "update_career_track",
     "get_employer_detail", "get_employer_verification_detail", "get_verification_document_path",
     "list_employer_jobs_admin", "list_employer_support_tickets", "list_employer_verifications",
-    "list_employers", "review_employer_verification", "revoke_employer",
+    "list_employers", "review_employer_verification", "review_verification_document", "revoke_employer",
     "delete_admin_job", "get_admin_job_detail", "list_admin_applications",
     "list_admin_jobs", "list_job_applications", "toggle_admin_job",
     "delete_notification", "get_notifications_stats", "get_user_notifications", "list_notifications",

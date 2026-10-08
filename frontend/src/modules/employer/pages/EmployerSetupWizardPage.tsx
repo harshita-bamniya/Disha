@@ -45,7 +45,7 @@ const STEPS = [
   { id: 'details',      label: 'Your details',     icon: User,       hint: 'Name, phone and designation' },
   { id: 'company',      label: 'Company info',      icon: Building2,  hint: 'Industry, size and website' },
   { id: 'branding',     label: 'Branding',          icon: ImageIcon,  hint: 'Logo, banner and description' },
-  { id: 'verification', label: 'Verification',      icon: ShieldCheck,hint: 'Get your verified badge' },
+  { id: 'verification', label: 'Verification',      icon: ShieldCheck,hint: 'Unlock job posting' },
 ]
 
 const LEFT_CONTEXT = [
@@ -63,7 +63,7 @@ const LEFT_CONTEXT = [
   },
   {
     title: 'Build trust instantly',
-    body: 'A verified badge appears on all your job listings and unlocks unlimited posting limits. Verification takes 24–48 hours.',
+    body: 'Verification unlocks job posting. Our team usually responds within 2 working days.',
   },
 ]
 
@@ -340,7 +340,7 @@ export default function EmployerSetupWizardPage() {
                     <ShieldCheck size={16} color={N.navy} /> Verification takes 24–48 hours
                   </div>
                   <p style={{ fontSize: 13, color: N.muted, lineHeight: 1.6 }}>
-                    Request verification to get a verified badge on all job listings and unlock unlimited posting limits.
+                    Complete verification to unlock job posting.
                   </p>
                 </div>
                 <Button variant="primary" size="lg" onClick={() => navigate('/app/employer/verification')} fullWidth>

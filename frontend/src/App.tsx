@@ -1,6 +1,6 @@
 import { lazy, Suspense, Component } from 'react'
 import type { ReactNode, ErrorInfo } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, Link, useParams } from 'react-router-dom'
 import PageLoader from '@/components/PageLoader'
 
 // ── Global Error Boundary ─────────────────────────────────────────────────────
@@ -263,11 +263,35 @@ function RoleRoute({ roles, children }: { roles: string[]; children: React.React
 }
 
 /** Redirects dept-scoped users (recruiter / department_head with a department_id)
- * away from the company-wide Departments list to their own department workspace. */
+ * away from the company-wide dashboard and Departments list to their own
+ * department workspace — it is where they land after logging in. */
 function DeptScopeGuard({ children }: { children: React.ReactNode }) {
   const { data: perms, isLoading } = useEmployerPermissions()
   if (isLoading) return null
   if (perms && !perms.is_company_wide && perms.department_id) {
+    return <Navigate to={`/app/employer/departments/${perms.department_id}`} replace />
+  }
+  return <>{children}</>
+}
+
+/** Company-level pages (company profile, team, billing, KYC verification,
+ * referrals, the cross-department jobs monitor) are for company-wide roles only.
+ * Department-scoped members are sent back to their own department workspace. */
+function CompanyScopeGuard({ children }: { children: React.ReactNode }) {
+  const { data: perms, isLoading } = useEmployerPermissions()
+  if (isLoading) return null
+  if (perms && !perms.is_company_wide) {
+    return <Navigate to={perms.department_id ? `/app/employer/departments/${perms.department_id}` : '/app/employer/dashboard'} replace />
+  }
+  return <>{children}</>
+}
+
+/** A department-scoped member can only open their own department's page. */
+function OwnDeptGuard({ children }: { children: React.ReactNode }) {
+  const { id } = useParams()
+  const { data: perms, isLoading } = useEmployerPermissions()
+  if (isLoading) return null
+  if (perms && !perms.is_company_wide && perms.department_id && perms.department_id !== id) {
     return <Navigate to={`/app/employer/departments/${perms.department_id}`} replace />
   }
   return <>{children}</>
@@ -336,20 +360,20 @@ function App() {
 
           {/* Employer portal — all pages share the sidebar via EmployerLayout */}
           <Route element={<EmployerRoute><EmployerLayout /></EmployerRoute>}>
-            <Route path="/app/employer/dashboard" element={<EmployerDashboardPage />} />
-            <Route path="/app/employer/jobs" element={<Suspense fallback={<PageLoader />}><EmployerJobsPage /></Suspense>} />
-            <Route path="/app/employer/verification" element={<Suspense fallback={<PageLoader />}><EmployerVerificationPage /></Suspense>} />
-            <Route path="/app/employer/company" element={<Suspense fallback={<PageLoader />}><CompanyTeamPage /></Suspense>} />
-            <Route path="/app/employer/profile" element={<Suspense fallback={<PageLoader />}><CompanyProfilePage /></Suspense>} />
+            <Route path="/app/employer/dashboard" element={<DeptScopeGuard><EmployerDashboardPage /></DeptScopeGuard>} />
+            <Route path="/app/employer/jobs" element={<CompanyScopeGuard><Suspense fallback={<PageLoader />}><EmployerJobsPage /></Suspense></CompanyScopeGuard>} />
+            <Route path="/app/employer/verification" element={<CompanyScopeGuard><Suspense fallback={<PageLoader />}><EmployerVerificationPage /></Suspense></CompanyScopeGuard>} />
+            <Route path="/app/employer/company" element={<CompanyScopeGuard><Suspense fallback={<PageLoader />}><CompanyTeamPage /></Suspense></CompanyScopeGuard>} />
+            <Route path="/app/employer/profile" element={<CompanyScopeGuard><Suspense fallback={<PageLoader />}><CompanyProfilePage /></Suspense></CompanyScopeGuard>} />
             {/* Analytics was folded into Dashboard's Insights section — redirect any old links/bookmarks */}
             <Route path="/app/employer/analytics" element={<Navigate to="/app/employer/dashboard#activity" replace />} />
             <Route path="/app/employer/talent-pool" element={<Suspense fallback={<PageLoader />}><TalentPoolPage /></Suspense>} />
             <Route path="/app/employer/calendar" element={<Suspense fallback={<PageLoader />}><EmployerCalendarPage /></Suspense>} />
-            <Route path="/app/employer/subscription" element={<Suspense fallback={<PageLoader />}><SubscriptionPage /></Suspense>} />
-            <Route path="/app/employer/referrals" element={<Suspense fallback={<PageLoader />}><ReferralsPage /></Suspense>} />
+            <Route path="/app/employer/subscription" element={<CompanyScopeGuard><Suspense fallback={<PageLoader />}><SubscriptionPage /></Suspense></CompanyScopeGuard>} />
+            <Route path="/app/employer/referrals" element={<CompanyScopeGuard><Suspense fallback={<PageLoader />}><ReferralsPage /></Suspense></CompanyScopeGuard>} />
             <Route path="/app/employer/templates" element={<Suspense fallback={<PageLoader />}><JobTemplatesPage /></Suspense>} />
             <Route path="/app/employer/departments" element={<DeptScopeGuard><Suspense fallback={<PageLoader />}><DepartmentsPage /></Suspense></DeptScopeGuard>} />
-            <Route path="/app/employer/departments/:id" element={<Suspense fallback={<PageLoader />}><DepartmentDetailPage /></Suspense>} />
+            <Route path="/app/employer/departments/:id" element={<OwnDeptGuard><Suspense fallback={<PageLoader />}><DepartmentDetailPage /></Suspense></OwnDeptGuard>} />
             <Route path="/app/employer/applicants" element={<Suspense fallback={<PageLoader />}><EmployerApplicantsPage /></Suspense>} />
             <Route path="/app/employer/interviews" element={<Suspense fallback={<PageLoader />}><EmployerInterviewsPage /></Suspense>} />
             <Route path="/app/employer/verified-interviews" element={<Suspense fallback={<PageLoader />}><VerifiedInterviewsPage /></Suspense>} />

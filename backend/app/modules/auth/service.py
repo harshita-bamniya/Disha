@@ -382,18 +382,13 @@ def _check_lockout(user: User, db: Session) -> None:
 
 
 def login_user(identifier: str, password: str, db: Session, request: Request | None = None) -> TokenResponse:
-    """Authenticates user by phone number or email and returns a JWT token pair."""
+    """Authenticates user by email and returns a JWT token pair. Phone is profile
+    data only — it is never accepted as a login identifier."""
     import re as _re
-    # Determine if the identifier is an email or a phone number
-    is_email = bool(_re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", identifier.strip()))
-    if is_email:
-        lookup_filter = User.email == identifier.strip().lower()
-    else:
-        # Normalise phone: strip non-digits, strip leading 91 for 12-digit numbers
-        cleaned = _re.sub(r"\D", "", identifier)
-        if cleaned.startswith("91") and len(cleaned) == 12:
-            cleaned = cleaned[2:]
-        lookup_filter = User.phone == cleaned
+    email = identifier.strip().lower()
+    if not _re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", email):
+        raise AuthException("Incorrect email or password.")
+    lookup_filter = User.email == email
 
     any_user = db.query(User).filter(
         lookup_filter,
@@ -433,7 +428,7 @@ def login_user(identifier: str, password: str, db: Session, request: Request | N
         if any_user:
             _record_login(any_user, db, request, success=False, failure_reason="bad_password")
             db.commit()
-        raise AuthException("Incorrect phone/email or password.")
+        raise AuthException("Incorrect email or password.")
 
     user.last_login_at = datetime.now(timezone.utc)
     _audit(db, "user_login", user_id=user.id, resource="auth", request=request)
@@ -690,7 +685,7 @@ async def register_employer(
     logger.info("[EMPLOYER-REGISTER] company=%s email=%s", company_name, email)
 
     return EmployerRegisterResponse(
-        message="Company account created. Please verify your email to log in.",
+        message="Company account created. We've emailed you a code — enter it to confirm your email and continue.",
         user=UserResponse.from_user(user),
         employer_profile=EmployerProfileResponse(
             id=str(profile.id),

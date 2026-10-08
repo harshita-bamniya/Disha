@@ -31,10 +31,11 @@ export default function EmployerSidebar({ collapsed, onToggleCollapse }: { colla
   const activeJobs = kpis?.active_jobs ?? 0
 
   const roleName = perms?.role_name ?? ''
-  const roleLabel = ROLE_LABELS[roleName] ?? 'Member'
   const deptId = perms?.department_id ?? null
   const deptName = perms?.department_name ?? null
   const isWide = perms?.is_company_wide ?? true
+  // hr_manager scoped to one department is that department's head.
+  const roleLabel = roleName === 'hr_manager' && deptId && !isWide ? 'Dept Head' : (ROLE_LABELS[roleName] ?? 'Member')
   const isOwner = roleName === 'employer_owner' || (!roleName && isWide)
   const isHiringManager = roleName === 'hiring_manager'
   const isInterviewer = roleName === 'interviewer'

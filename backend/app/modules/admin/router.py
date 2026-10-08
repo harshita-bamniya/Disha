@@ -57,6 +57,7 @@ from app.modules.admin.schemas import (
     UpdateTicketRequest,
     UserManagementEntry,
     UserStatusUpdateRequest,
+    VerificationDocumentReviewRequest,
     VerificationReviewRequest,
 )
 from app.modules.interview import calibration_service
@@ -557,6 +558,25 @@ def review_employer_verification(
     try:
         return service.review_employer_verification(
             verification_id, body.action, body.notes, body.rejection_reason, str(admin.id), db, request=request,
+            reason_code=body.reason_code, info_request=body.info_request, override_checks=body.override_checks,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+
+@router.post("/employer-verifications/{verification_id}/documents/{document_id}/review",
+             response_model=EmployerVerificationDetail)
+def review_verification_document(
+    request: Request,
+    verification_id: str,
+    document_id: str,
+    body: VerificationDocumentReviewRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_permission("companies", "verify")),
+):
+    try:
+        return service.review_verification_document(
+            verification_id, document_id, body.status, body.notes, str(admin.id), db, request=request,
         )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))

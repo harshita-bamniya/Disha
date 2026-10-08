@@ -6,6 +6,8 @@ Each `*_email` function below returns (subject, html) for one event type.
 """
 from __future__ import annotations
 
+import logging
+
 
 def notify(
     to: str | None, subject: str, html: str,
@@ -15,8 +17,13 @@ def notify(
     accounts only have a phone number, no email)."""
     if not to:
         return
-    from app.tasks.worker import send_notification_email
-    send_notification_email.delay(to, subject, html, ics_content, ics_filename)
+    # Delivery is best-effort: callers have usually committed their DB changes
+    # by now, so a broker/result-store outage must not turn into a 500.
+    try:
+        from app.tasks.worker import send_notification_email
+        send_notification_email.delay(to, subject, html, ics_content, ics_filename)
+    except Exception:
+        logging.getLogger(__name__).exception("Could not queue notification email to %s", to)
 
 
 def _wrap(title: str, body_html: str) -> str:
@@ -128,20 +135,30 @@ def interview_no_show_rebook_email(job_title: str, company_name: str) -> tuple[s
 
 
 def employer_verification_request_email(company_name: str) -> tuple[str, str]:
-    subject = "Thank you for choosing BeginablAI — next steps for verification"
+    """Acknowledgement sent when the employer submits their verification case."""
+    subject = "We've received your verification request"
     html = _wrap(
-        f"Welcome, {company_name}!",
+        f"Thanks, {company_name}",
         """
-        <p>Thank you for choosing <strong>BeginablAI</strong> to find your next hire. We're excited to have you on board!</p>
-        <p>To complete your company verification, please keep the following documents ready — our team will reach out to collect them:</p>
-        <ul style="line-height:1.8;padding-left:20px;">
-          <li><strong>GST Certificate</strong> <em>or</em> <strong>Company Registration Certificate</strong></li>
-          <li><strong>PAN Card</strong> (company / authorised signatory)</li>
-          <li><strong>Business Email Proof</strong> (e.g. a screenshot of your company email inbox)</li>
-        </ul>
-        <p>One of our team members will contact you shortly at the email / phone number on record to guide you through the next steps.</p>
-        <p style="color:#6B7280;font-size:12px;">Questions? Reply to this email and we'll be happy to help.</p>
+        <p>Your verification details and documents are with our review team. We usually respond within
+        <strong>2 working days</strong>.</p>
+        <p>You'll get an email as soon as we approve your company, or if we need anything else from you.
+        You can follow progress any time under <strong>Verification</strong> in your employer dashboard.</p>
+        <p style="color:#6B7280;font-size:12px;">You can keep building your company profile and drafting jobs meanwhile;
+        publishing opens once you are verified.</p>
         """,
+    )
+    return subject, html
+
+
+def employer_verification_needs_info_email(company_name: str, message: str) -> tuple[str, str]:
+    subject = "More information needed to verify your company"
+    html = _wrap(
+        "We need a little more from you",
+        f"<p>Our review team needs the following to verify <strong>{company_name}</strong>:</p>"
+        f"<blockquote style=\"border-left:3px solid #D97706;margin:12px 0;padding:6px 12px;color:#374151;\">{message}</blockquote>"
+        "<p>Open <strong>Verification</strong> in your employer dashboard, update the details or documents and resubmit. "
+        "Your earlier uploads are kept.</p>",
     )
     return subject, html
 
@@ -149,9 +166,16 @@ def employer_verification_request_email(company_name: str) -> tuple[str, str]:
 def team_invite_email(
     company_name: str, contact_person: str, role_name: str,
     login_identifier: str, password: str, department_name: str | None,
+    login_url: str | None = None,
 ) -> tuple[str, str]:
     role_label = role_name.replace("_", " ").title()
     dept_html = f"<p><strong>Department:</strong> {department_name}</p>" if department_name else ""
+    login_html = (
+        f'<p><a href="{login_url}" style="display:inline-block;background:#1E3A5F;color:#fff;'
+        f'padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:bold;">'
+        f'Log in to {department_name or company_name}</a></p>'
+        f'<p style="color:#6B7280;font-size:12px;">Or open: {login_url}</p>'
+    ) if login_url else ""
     subject = f"You've been added to {company_name} on BeginablAI"
     html = _wrap(
         f"Welcome to {company_name}",
@@ -164,6 +188,7 @@ def team_invite_email(
           <li><strong>Login:</strong> {login_identifier}</li>
           <li><strong>Temporary password:</strong> {password}</li>
         </ul>
+        {login_html}
         <p style="color:#6B7280;font-size:12px;">We recommend changing your password after your first sign-in.</p>
         """,
     )
@@ -176,14 +201,15 @@ def employer_verification_email(company_name: str, approved: bool, reason: str |
         html = _wrap(
             "Verification approved",
             f"<p>Congratulations — <strong>{company_name}</strong> has been verified. "
-            f"You can now publish jobs and your listings will show the verified badge.</p>",
+            f"You can now publish jobs and receive applications.</p>",
         )
     else:
-        subject = "Verification update needed"
+        subject = "Your verification was not approved"
         reason_html = f"<p><strong>Reason:</strong> {reason}</p>" if reason else ""
         html = _wrap(
-            "Verification rejected",
-            f"<p>Your verification submission for <strong>{company_name}</strong> "
-            f"was not approved.</p>{reason_html}<p>Please resubmit with updated documents.</p>",
+            "Verification not approved",
+            f"<p>We couldn't verify <strong>{company_name}</strong> with the information provided.</p>{reason_html}"
+            "<p>If this can be fixed, open <strong>Verification</strong> in your employer dashboard, correct the details "
+            "and submit again. If you believe this is a mistake, reply to this email or contact support.</p>",
         )
     return subject, html

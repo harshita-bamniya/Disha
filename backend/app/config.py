@@ -22,6 +22,8 @@ class Settings(BaseSettings):
 
     # CORS — comma-separated list of allowed origins
     allowed_origins: str = "http://localhost:5173,http://localhost:3000"
+    # Public web-app origin used for links inside emails (invites, verification).
+    frontend_url: str = "https://app.beginablai.ai"
 
     # File storage — local disk for now; swap for S3/GCS in production
     upload_dir: str = "uploads"

@@ -24,8 +24,11 @@ def _get_company_employer_ids(profile: EmployerProfile, db: Session) -> list:
     """Shared across the company so any teammate sees/manages the same pool."""
     if not profile.company_id:
         return [profile.id]
-    rows = db.query(EmployerProfile.id).filter(EmployerProfile.company_id == profile.company_id).all()
-    return [r[0] for r in rows]
+    query = db.query(EmployerProfile.id).filter(EmployerProfile.company_id == profile.company_id)
+    if profile.department_id and not profile.is_owner:
+        # Department members share their department's pool, not the whole company's.
+        query = query.filter(EmployerProfile.department_id == profile.department_id)
+    return [r[0] for r in query.all()]
 
 
 def _to_out(row: SavedCandidate, db: Session) -> SavedCandidateOut:

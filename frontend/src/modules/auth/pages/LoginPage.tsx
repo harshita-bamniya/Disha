@@ -35,7 +35,7 @@ export default function LoginPage() {
     login.mutate({ identifier, password, rememberMe, recaptcha_token })
   }
 
-  const serverError = login.error ? getApiError(login.error, 'Incorrect phone/email or password') : null
+  const serverError = login.error ? getApiError(login.error, 'Incorrect email or password') : null
 
   return (
     <AuthLayout

@@ -1326,10 +1326,12 @@ export default function CandidatePipelinePage() {
   const { data: pipelineStages } = usePipelineStages(jobId ?? '')
   const activeStages = pipelineStages && pipelineStages.length > 0 ? pipelineStages : DEFAULT_KANBAN_STAGES
 
-  const {data:pipeline,isLoading,isError,refetch}=useQuery({
+  const {data:pipeline,isLoading,isError,error,refetch}=useQuery({
     queryKey:['pipeline',jobId],
     queryFn:()=>getJobPipeline(jobId!),
     enabled:!!jobId,
+    // A 404 means the job isn't in this user's scope (e.g. another department) — retrying can't help.
+    retry:(count,err)=>(err as {response?:{status?:number}})?.response?.status!==404&&count<2,
   })
 
   const bulkMutation=useMutation({
@@ -1403,6 +1405,9 @@ export default function CandidatePipelinePage() {
     </div>
   )
 
+  if(isError&&(error as {response?:{status?:number}})?.response?.status===404)return(
+    <ErrorState title="Job not found" description="This job doesn't exist or isn't part of your department." />
+  )
   if(isError||!pipeline)return(
     <ErrorState title="Failed to load candidate pipeline" onRetry={refetch} />
   )

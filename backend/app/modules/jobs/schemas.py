@@ -286,9 +286,11 @@ class EmployerPermissionsResponse(BaseModel):
 class VerificationDocumentOut(BaseModel):
     id: str
     doc_type: str
-    file_url: str
+    label: str | None = None
+    file_url: str | None = None          # internal storage path is never returned to clients
     original_filename: str | None = None
-    status: str
+    status: str                          # pending | verified | rejected
+    notes: str | None = None             # reviewer's note on this document (shown on 'rejected')
     uploaded_at: datetime
 
 
@@ -300,11 +302,44 @@ class VerificationEventOut(BaseModel):
     created_at: datetime
 
 
+class VerificationDetailsRequest(BaseModel):
+    """What the employer fills in. IDs are normalised/validated server-side."""
+    entity_type: str
+    gstin: str | None = None
+    pan: str | None = None
+    cin: str | None = None
+    llpin: str | None = None
+    udyam: str | None = None
+    darpan_id: str | None = None
+    registration_number: str | None = None
+    business_email: str | None = None
+    website: str | None = None
+    registered_address: str | None = None
+    signatory_name: str | None = None
+    signatory_designation: str | None = None
+    declarations: dict[str, bool] = {}
+
+
 class VerificationStatusResponse(BaseModel):
     id: str | None = None
-    status: str = "not_submitted"   # not_submitted | pending | under_review | approved | rejected | resubmitted
+    # not_submitted | draft | requested | under_review | needs_info | approved | rejected
+    status: str = "not_submitted"
     rejection_reason: str | None = None
+    reason_code: str | None = None
+    info_request: str | None = None
     submitted_at: datetime | None = None
     reviewed_at: datetime | None = None
+    attempt_no: int = 1
+    entity_type: str | None = None
+    entity_label: str | None = None
+    details: dict | None = None
+    auto_checks: list[dict] = []
+    checklist: dict = {}
+    missing: list[str] = []              # what is still needed before the case can be submitted
+    can_edit: bool = True                # draft / needs_info / (rejected & may retry)
+    can_submit: bool = False
+    blocked: bool = False                # fatal rejection or too many attempts: contact support
+    email_verified: bool = True
+    company_status: str = "unverified"
     documents: list[VerificationDocumentOut] = []
     events: list[VerificationEventOut] = []

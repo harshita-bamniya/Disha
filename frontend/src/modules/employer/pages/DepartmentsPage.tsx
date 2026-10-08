@@ -121,6 +121,7 @@ function DeptModal({
   const [name, setName]               = useState(editing?.name ?? '')
   const [description, setDescription] = useState(editing?.description ?? '')
   const [headId, setHeadId]           = useState(editing?.head_employer_id ?? '')
+  const [headEmail, setHeadEmail]     = useState('')
   const [err, setErr]                 = useState('')
 
   const busy = create.isPending || update.isPending
@@ -131,6 +132,7 @@ function DeptModal({
       name: name.trim(),
       description: description.trim() || undefined,
       head_employer_id: headId || undefined,
+      head_email: !editing && !headId && headEmail.trim() ? headEmail.trim() : undefined,
     }
     if (editing) {
       update.mutate({ id: editing.id, payload }, { onSuccess: onClose, onError: e => setErr(getApiError(e)) })
@@ -177,6 +179,24 @@ function DeptModal({
               style={{ width: '100%', borderRadius: 10, border: `1.5px solid ${colors.border.default}`, padding: '10px 12px', fontSize: 13, outline: 'none', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
             />
           </div>
+
+          {!editing && !headId && (
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 700, color: colors.text.inkSoft, display: 'block', marginBottom: 4 }}>
+                Department head email <span style={{ color: colors.text.muted, fontWeight: 500 }}>(optional)</span>
+              </label>
+              <input
+                type="email"
+                value={headEmail}
+                onChange={e => { setHeadEmail(e.target.value); setErr('') }}
+                placeholder="head@company.com"
+                style={{ width: '100%', height: 40, borderRadius: 10, border: `1.5px solid ${colors.border.default}`, padding: '0 12px', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+              />
+              <p style={{ fontSize: 11, color: colors.text.muted, margin: '4px 0 0' }}>
+                We create their account and email them a password and the login link. They can then add their own team.
+              </p>
+            </div>
+          )}
 
           {teamMembers.length > 0 && (
             <div>

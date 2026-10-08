@@ -337,7 +337,8 @@ class DeviceSessionEntry(BaseModel):
 class VerificationDocumentEntry(BaseModel):
     id: str
     doc_type: str
-    file_url: str
+    label: Optional[str] = None
+    file_url: Optional[str] = None     # internal storage path - never returned; download via the admin endpoint
     original_filename: Optional[str] = None
     status: str
     notes: Optional[str] = None
@@ -362,18 +363,43 @@ class EmployerVerificationEntry(BaseModel):
     submitted_at: datetime
     reviewed_at: Optional[datetime] = None
     document_count: int = 0
+    entity_type: Optional[str] = None
+    attempt_no: int = 1
+    reason_code: Optional[str] = None
+    failed_checks: int = 0
 
 
 class EmployerVerificationDetail(EmployerVerificationEntry):
     reviewer_notes: Optional[str] = None
+    info_request: Optional[str] = None
+    entity_label: Optional[str] = None
+    details: Optional[dict] = None
+    auto_checks: list[dict] = []
+    checklist: dict = {}
+    missing: list[str] = []
+    company: Optional[dict] = None          # name, industry, size, website, city
+    account_email: Optional[str] = None
+    account_phone: Optional[str] = None
+    email_verified: bool = False
+    company_status: str = "unverified"
+    previous_attempts: int = 0
+    reason_codes: dict = {}
     documents: list[VerificationDocumentEntry] = []
     events: list[VerificationEventEntry] = []
 
 
 class VerificationReviewRequest(BaseModel):
-    action: Literal["under_review", "approve", "reject"]
+    action: Literal["under_review", "request_info", "approve", "reject"]
     notes: Optional[str] = Field(None, max_length=1000)
     rejection_reason: Optional[str] = Field(None, max_length=500)
+    reason_code: Optional[str] = Field(None, max_length=40)
+    info_request: Optional[str] = Field(None, max_length=1000)
+    override_checks: bool = False           # approve despite a failed automatic check (needs a note)
+
+
+class VerificationDocumentReviewRequest(BaseModel):
+    status: Literal["pending", "verified", "rejected"]
+    notes: Optional[str] = Field(None, max_length=500)
 
 
 class UserManagementEntry(BaseModel):
