@@ -27,6 +27,15 @@ def language_for(preferred: str | None) -> str:
     return preferred if preferred in LANGUAGE_NAMES else DEFAULT_LANGUAGE
 
 
+def language_from_header(accept_language: str | None) -> str | None:
+    """First supported language in an Accept-Language header, e.g. 'hi-IN,hi;q=0.9,en;q=0.8' -> 'hi'."""
+    for part in (accept_language or "").split(","):
+        code = part.split(";")[0].strip().lower()[:2]
+        if code in LANGUAGE_NAMES:
+            return code
+    return None
+
+
 def is_paid_source(url: str | None) -> bool:
     if not url:
         return False

@@ -7,7 +7,7 @@ import re
 from datetime import datetime, timezone
 
 import sentry_sdk
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -270,6 +270,7 @@ async def skills_to_rate(
 @router.post("/{job_id}/learning-plan", status_code=202)
 async def generate_plan(
     job_id: str,
+    request: Request,
     background_tasks: BackgroundTasks,
     body: GeneratePlanRequest | None = None,
     user: User = Depends(get_current_aspirant),
@@ -322,6 +323,9 @@ async def generate_plan(
         "Preferred learning format": profile.preferred_learning_format if profile else None,
         "Biggest learning challenge": profile.learning_challenge if profile else None,
         "Weekly study hours": profile.weekly_study_hours if profile else None,
+        # Not a fact about the learner: the browser language, used only as a video-language fallback
+        # (engine.build_plan pops it before facts reach any prompt).
+        "_browser_language": request.headers.get("accept-language"),
     }
     burnout = psych.burnout_score if psych else None
 

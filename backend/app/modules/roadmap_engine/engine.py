@@ -150,6 +150,8 @@ async def build_plan(
     self_ratings: dict[str, int] | None = None,
 ) -> dict[str, Any]:
     old_progress = old_progress or {}
+    facts = dict(facts)
+    browser_language = facts.pop("_browser_language", None)
     company = job.employer.company_name if job.employer else "the company"
 
     # 1 ── blueprint ──────────────────────────────────────────────────────────
@@ -209,7 +211,9 @@ async def build_plan(
     counters = {"done": 0}
     rejected = _rejected_video_ids(old_progress)
     sem = asyncio.Semaphore(VIDEO_CONCURRENCY)
-    language = prefs.language_for(profile.preferred_language if profile else None)
+    # The learner's explicit choice wins; the browser's language is only a fallback when none is saved.
+    saved_language = profile.preferred_language if profile else None
+    language = prefs.language_for(saved_language or prefs.language_from_header(browser_language))
     stage = profile.learning_stage if profile else None
     budget = profile.learning_budget if profile else None
     lang_fallback: set[str] = set()

@@ -24,6 +24,9 @@ _YDL_OPTS = {
     "extract_flat": True,
     "skip_download": True,
     "noplaylist": True,
+    # Indian audience: search as if from India, English UI (no account signals exist server-side).
+    "geo_bypass_country": "IN",
+    "extractor_args": {"youtube": {"lang": ["en"]}},
 }
 
 # Educational sweet-spot: long enough to teach a concept, short enough to watch

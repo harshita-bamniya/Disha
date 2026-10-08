@@ -67,7 +67,7 @@ async def _fetch_api(
 ) -> list[dict[str, Any]] | None:
     params: dict[str, Any] = {
         "part": "snippet", "type": "video", "q": query, "maxResults": CANDIDATES,
-        "relevanceLanguage": language, "safeSearch": "strict", "videoEmbeddable": "true", "key": key,
+        "relevanceLanguage": language, "regionCode": "IN", "safeSearch": "strict", "videoEmbeddable": "true", "key": key,
     }
     if require_captions:
         params["videoCaption"] = "closedCaption"
@@ -194,6 +194,8 @@ def hard_filter(
     for c in cands:
         if not c["title"] or _is_shorts(c):
             continue
+        if not _script_ok(f"{c['title']} {c.get('channel') or ''}", language):
+            continue
         if not (min_sec <= c["duration_seconds"] <= MAX_SECONDS):
             continue
         if c["views"] is not None and c["views"] < MIN_VIEWS:
@@ -208,6 +210,25 @@ def hard_filter(
             continue
         keep.append(c)
     return keep
+
+
+# Scripts a title may contain: Latin (English/Hinglish) plus the learner's own language.
+_SCRIPT_RANGES = {
+    "deva": (0x0900, 0x097F), "beng": (0x0980, 0x09FF), "guru": (0x0A00, 0x0A7F), "gujr": (0x0A80, 0x0AFF),
+    "taml": (0x0B80, 0x0BFF), "telu": (0x0C00, 0x0C7F), "knda": (0x0C80, 0x0CFF), "mlym": (0x0D00, 0x0D7F),
+}
+_LANG_SCRIPT = {"hi": "deva", "mr": "deva", "bn": "beng", "pa": "guru", "gu": "gujr", "ta": "taml",
+                "te": "telu", "kn": "knda", "ml": "mlym"}
+
+
+def _script_ok(text: str, language: str) -> bool:
+    """False if the text is mostly in a script the Indian learner didn't ask for (CJK, Cyrillic, Arabic, Thai...)."""
+    letters = [ch for ch in text if ch.isalpha()]
+    if not letters:
+        return True
+    lo, hi = _SCRIPT_RANGES.get(_LANG_SCRIPT.get(language, ""), (0, -1))
+    ok = sum(1 for ch in letters if ord(ch) < 0x250 or lo <= ord(ch) <= hi)
+    return ok / len(letters) >= 0.7
 
 
 def _clamp(x: float) -> float:
@@ -349,7 +370,7 @@ def _core_topic(name: str) -> str:
 
 
 def _cache_key(query: str, language: str, level: str) -> str:
-    return hashlib.sha256(f"{query.lower().strip()}|{language}|{level}".encode()).hexdigest()[:40]
+    return hashlib.sha256(f"v2-in|{query.lower().strip()}|{language}|{level}".encode()).hexdigest()[:40]
 
 
 def _video_record(c: dict[str, Any], rank: int, reason: str) -> dict[str, Any]:
