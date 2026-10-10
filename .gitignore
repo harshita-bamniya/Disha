@@ -48,3 +48,7 @@ user_credentials.md
 
 # Generated eval output — real LLM responses from evals/*.py runs, not source
 backend/evals/output/
+
+# Database dumps and destructive local scripts: never commit these
+backup_*.sql
+backend/cleanup_non_test_accounts.sql
