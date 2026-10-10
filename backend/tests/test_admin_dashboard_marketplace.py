@@ -2,7 +2,7 @@
 
 The test database also holds real development rows, so assertions compare against a baseline taken first.
 """
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 import pytest
 
@@ -15,6 +15,7 @@ from app.models.applications import (
     ApplicationStatusHistory,
 )
 from app.models.user import JobPosting
+from app.modules.admin.command_center.stats import IST
 from app.modules.admin.dashboard import marketplace
 from tests.test_admin_dashboard import NOW, _as, _employer_profile, _user
 
@@ -58,7 +59,7 @@ def test_live_jobs_exclude_drafts_expired_and_inactive(db, employer):
     _job(db, employer, "draft", status="draft")
     _job(db, employer, "expired", expires=date.today() - timedelta(days=1))
     _job(db, employer, "inactive", active=False)
-    _job(db, employer, "closes today", expires=date.today())          # still open on its last day
+    _job(db, employer, "closes today", expires=datetime.now(IST).date())          # still open on its last day (India date)
     assert _tile(marketplace.overview(db, 30, False), "live_jobs")["value"] - before == 2
 
 

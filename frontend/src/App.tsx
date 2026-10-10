@@ -121,6 +121,7 @@ import PrivacyPage from '@/modules/legal/PrivacyPage'
 import ProfilePage from '@/modules/profile/pages/ProfilePage'
 import AspLayout from '@/shared/layouts/AspLayout'
 import EmployerDashboardPage from '@/modules/employer/pages/EmployerDashboardPage'
+import HiringAnalyticsPage from '@/modules/employer/pages/HiringAnalyticsPage'
 import EmployerLayout from '@/modules/employer/components/EmployerLayout'
 const EmployerJobsPage = lazy(() => import('@/modules/employer/pages/EmployerJobsPage'))
 const EmployerVerificationPage = lazy(() => import('@/modules/employer/pages/EmployerVerificationPage'))
@@ -373,6 +374,7 @@ function App() {
           {/* Employer portal — all pages share the sidebar via EmployerLayout */}
           <Route element={<EmployerRoute><EmployerLayout /></EmployerRoute>}>
             <Route path="/app/employer/dashboard" element={<DeptScopeGuard><EmployerDashboardPage /></DeptScopeGuard>} />
+            <Route path="/app/employer/analytics" element={<DeptScopeGuard><HiringAnalyticsPage /></DeptScopeGuard>} />
             <Route path="/app/employer/jobs" element={<CompanyScopeGuard><Suspense fallback={<PageLoader />}><EmployerJobsPage /></Suspense></CompanyScopeGuard>} />
             <Route path="/app/employer/verification" element={<CompanyScopeGuard><Suspense fallback={<PageLoader />}><EmployerVerificationPage /></Suspense></CompanyScopeGuard>} />
             <Route path="/app/employer/company" element={<CompanyScopeGuard><Suspense fallback={<PageLoader />}><CompanyTeamPage /></Suspense></CompanyScopeGuard>} />

@@ -42,6 +42,7 @@ from app.modules.onboarding.router import router as onboarding_router
 from app.modules.payments.router import router as payments_router
 from app.modules.referrals.router import public_router as referrals_public_router, router as referrals_router
 from app.modules.admin.dashboard.router import router as admin_dashboard_router
+from app.modules.employer_home.router import router as employer_home_router
 from app.modules.payments.router import webhook_router as payments_webhook_router
 from app.modules.resume.router import router as resume_router
 from app.modules.resume_match.router import router as resume_match_router
@@ -268,6 +269,7 @@ app.include_router(payments_router, prefix="/api")
 app.include_router(referrals_router, prefix="/api")
 app.include_router(referrals_public_router, prefix="/api")
 app.include_router(admin_dashboard_router, prefix="/api")
+app.include_router(employer_home_router, prefix="/api")
 app.include_router(payments_webhook_router, prefix="/api")
 
 

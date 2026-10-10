@@ -57,6 +57,19 @@ Code: `backend/app/modules/referrals/`, models in `app/models/referrals.py`, UI 
 - Reward amount is a snapshot at hire; payable after `hold_days`; payout is only *recorded* (no money moves).
 - Celery beat `release-referral-rewards` (6:30 IST) needs the worker restarted to be picked up.
 
+## Employer dashboard (`/app/employer/dashboard`)
+Same approach as the admin one. Backend `backend/app/modules/employer_home/` (`/api/employer/home/attention` and `/overview?days&compare`),
+scoped exactly like the rest of the employer views (company-wide vs department, via `core._is_company_wide`); a company awaiting approval
+gets empty results. Frontend: `EmployerHomePage.tsx` for owners, HR managers and recruiters; hiring managers and interviewers still get
+`EmployerDashboardLegacy.tsx` (switch in `EmployerDashboardPage.tsx`). Team activity / job and recruiter performance moved to
+`/app/employer/analytics`. "Waiting for a first look" target is `application_first_look_days` in `platform_settings` (default 3).
+KPI tiles (icons, area sparklines, change pills) and the attention chips are shared with the admin dashboard in
+`frontend/src/shared/components/dashboard/` (accent colours in `palette.ts`). The employer page is a navy hero with the action cards, KPI tiles,
+a trend chart, open jobs with a stage mini-bar, upcoming interviews, a pipeline bar and recent applicants with resume-fit rings
+(`modules/employer/components/home/`). The overview payload also carries `upcoming_interviews` and `recent_applicants`.
+Design work needs data: a demo company can be filled with the throwaway script kept outside the repo; remove it afterwards.
+Tests: `tests/test_employer_home.py` (fresh company per test, exact counts; the interviews-today test pins the clock).
+
 ## Admin dashboard (`/admin/dashboard`)
 Plan and evidence: `docs/admin-dashboard/ADMIN_DASHBOARD_PLAN.md`. Phases 1 and 2 (done): "Needs attention" strip, marketplace tiles, sign-up journey, supply and demand. There is deliberately no activity/audit feed on the dashboard (it lives on the Audit log page). Components are in `frontend/src/modules/admin/components/dashboard/`.
 - Queues are computed in `backend/app/modules/admin/dashboard/service.py`; each row is role-gated by `ROW_ROLES` and rows a role may not see

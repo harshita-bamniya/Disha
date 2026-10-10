@@ -8,7 +8,7 @@ import Tabs from '@/shared/components/navigation/Tabs'
 import Button from '@/shared/components/primitives/Button'
 import { Spinner } from '../shared/adminUI'
 import AttentionStrip from '../components/dashboard/AttentionStrip'
-import KpiTiles from '../components/dashboard/KpiTiles'
+import KpiTiles from '@/shared/components/dashboard/KpiTiles'
 import JourneyCard from '../components/dashboard/JourneyCard'
 import SupplyDemandCard from '../components/dashboard/SupplyDemandCard'
 

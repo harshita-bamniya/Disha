@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Search, ChevronRight, Star, Loader2 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { getAllApplicants } from '@/api/matching'
@@ -88,7 +88,8 @@ function ApplicantRow({ item }: { item: ApplicantListItem }) {
 }
 
 export default function EmployerApplicantsPage() {
-  const [statusFilter, setStatusFilter] = useState('')
+  const [searchParams] = useSearchParams()
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') ?? '')
   const [deptFilter, setDeptFilter]     = useState('')
   const [search, setSearch]             = useState('')
   const [offset, setOffset]             = useState(0)
