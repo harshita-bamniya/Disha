@@ -345,7 +345,7 @@ def _db(session):
 def _session():
     return SimpleNamespace(
         id="s1", status="in_progress", started_at=datetime.now(timezone.utc) - timedelta(minutes=3),
-        total_questions=5, blueprint={"_question_ids": []}, grading_status=None, responses=[],
+        total_questions=5, blueprint={"_question_ids": []}, grading_status=None, responses=[], mode="practice",
     )
 
 
@@ -397,7 +397,7 @@ def _resp(is_followup=False, rid=None):
 
 def _next_env(responses, candidates=(), total=2, ramp="easy to hard", qids=()):
     session = SimpleNamespace(
-        id="s1", status="in_progress", total_questions=total, session_type="practice", job_role="Policy Analyst",
+        id="s1", status="in_progress", total_questions=total, session_type="practice", job_role="Policy Analyst", mode="practice",
         started_at=datetime.now(timezone.utc) - timedelta(minutes=2), responses=responses,
         blueprint={"difficulty_ramp": ramp, "_question_ids": list(qids), "question_breakdown": {}},
     )

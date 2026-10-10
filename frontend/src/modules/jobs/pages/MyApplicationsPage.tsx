@@ -611,7 +611,7 @@ export default function MyApplicationsPage() {
   return (
     <>
       <PageHeader
-        title="Application Pipeline"
+        title="My Applications"
         subtitle="Track every application from submission to offer"
         icon={<FileText size={13} color={NAVY} />}
         actions={

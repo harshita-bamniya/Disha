@@ -78,6 +78,8 @@ export default function InterviewRoomPage() {
   // payload still reports them accurately.
   const [currentQuestionType, setCurrentQuestionType] = useState<string | null>(null)
   const [currentIsFollowUp, setCurrentIsFollowUp] = useState(false)
+  // Verified interviews: the server issues each follow-up an id and answers must cite it.
+  const [currentFollowupId, setCurrentFollowupId] = useState<string | null>(null)
   // A crisis signal in an answer halts the interview; a distress signal only
   // offers a break. Neither answer is ever scored.
   const [safetyHold, setSafetyHold] = useState<{ message: string; helplines: Helpline[] } | null>(null)
@@ -183,6 +185,7 @@ export default function InterviewRoomPage() {
       setCurrentQuestion(nextQData)
       setCurrentPanelist(panelist)
       setCurrentIsFollowUp(isFollowUp)
+      setCurrentFollowupId(isFollowUp ? (next.question.followup_id ?? null) : null)
       if (!isFollowUp) setCurrentQuestionType(nextQData?.question_type ?? null)
       // Follow-ups probe the current question; only planned questions advance the counter.
       if (!isFollowUp) setQuestionIdx(i => i + 1)
@@ -257,6 +260,7 @@ export default function InterviewRoomPage() {
       const elapsed = Math.round((Date.now() - responseStartTime) / 1000)
       return interviewApi.submitResponse(sessionId!, {
         question_id: currentQuestion?.id ?? undefined,
+        followup_id: currentFollowupId ?? undefined,
         question_text: questionText,
         question_type: currentQuestion?.question_type ?? currentQuestionType ?? undefined,
         response_text: answer.trim(),

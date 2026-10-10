@@ -3,7 +3,6 @@ import type { AuthTokens, CompanySize, User } from '@/types'
 
 export interface RegisterPayload {
   email: string
-  phone: string
   password: string
   preferred_language?: string
   recaptcha_token?: string
@@ -117,6 +116,12 @@ export const authApi = {
 
   verifyPhone: (data: VerifyPhonePayload) =>
     apiClient.post<TokenResponse>('/auth/verify-phone', data).then((r) => r.data),
+
+  getInviteInfo: (token: string) =>
+    apiClient.get<import('./company').InviteInfo>('/auth/invite-info', { params: { token } }).then((r) => r.data),
+
+  acceptInvite: (data: import('./company').AcceptInvitePayload) =>
+    apiClient.post<TokenResponse>('/auth/accept-invite', data).then((r) => r.data),
 
   verifyEmailOtp: (data: VerifyEmailOtpPayload) =>
     apiClient.post<TokenResponse>('/auth/verify-email-otp', data).then((r) => r.data),

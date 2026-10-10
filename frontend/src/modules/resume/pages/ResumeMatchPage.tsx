@@ -97,7 +97,7 @@ export default function ResumeMatchPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%', background: colors.surface.bg }}>
       <PageHeader
-        title="Resume match"
+        title="Resume Match"
         subtitle={job ? `${job.title} · ${job.company_name}` : undefined}
         icon={<FileSearch size={16} color={colors.text.inkSoft} />}
         back={(

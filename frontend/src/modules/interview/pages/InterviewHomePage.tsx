@@ -41,7 +41,7 @@ function ScoreTrend({ scores }: { scores: number[] }) {
         {scores.map((s, i) => (
           <div key={i} title={`${s.toFixed(1)}/10`} style={{
             flex: 1, height: `${Math.max(8, (s / 10) * 100)}%`, borderRadius: 4,
-            background: i === scores.length - 1 ? colors.state.info : surface.elevated,
+            background: i === scores.length - 1 ? colors.brand.navy : surface.elevated,
           }} />
         ))}
       </div>
@@ -61,7 +61,7 @@ function Bar({ label, value, max = 10 }: { label: string; value: number; max?: n
         <span style={{ fontSize: 12, fontWeight: 700, color: low ? colors.state.danger : text.ink }}>{value.toFixed(1)}</span>
       </div>
       <div style={{ height: 5, background: surface.elevated, borderRadius: 5 }} role="img" aria-label={`${label}: ${value.toFixed(1)} out of ${max}`}>
-        <div style={{ width: `${(value / max) * 100}%`, height: '100%', background: low ? colors.state.danger : colors.state.info, borderRadius: 5 }} />
+        <div style={{ width: `${(value / max) * 100}%`, height: '100%', background: low ? colors.state.danger : colors.brand.navy, borderRadius: 5 }} />
       </div>
     </div>
   )
@@ -108,7 +108,8 @@ export default function InterviewHomePage() {
   return (
     <>
       <PageHeader
-        title="Interview history"
+        title="Interview History"
+        subtitle="Your practice interviews and their reports"
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
             <Button size="sm" variant="outline" onClick={() => navigate('/app/interview/drill')}>Quick drill</Button>

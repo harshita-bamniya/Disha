@@ -129,9 +129,6 @@ export default function OnboardingLayout({ children, currentStep, title, subtitl
                 }}>
                   {s.label}
                 </span>
-                {done && (
-                  <span style={{ marginLeft: 'auto', fontSize: 11, color: 'rgba(255,255,255,0.3)', fontWeight: 500 }}>Done</span>
-                )}
               </div>
             )
           })}
@@ -209,13 +206,11 @@ export default function OnboardingLayout({ children, currentStep, title, subtitl
               {children}
             </div>
 
-            {/* Back button — below card. Step 1 has no prior onboarding step to
-                return to, but it does have a screen before it in the signup
-                flow (phone entry) — so it still gets a working Back instead
-                of being the one step with no way back at all. */}
+            {/* Back button — step 1 is the first screen after signup, so there is nothing to go back to */}
+            {currentStep > 1 && (
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
               <button
-                onClick={() => navigate(currentStep > 1 ? `/app/onboarding/step/${currentStep - 1}` : '/auth/add-phone')}
+                onClick={() => navigate(`/app/onboarding/step/${currentStep - 1}`)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 5,
                   fontSize: 13, fontWeight: 500, color: '#9CA3AF',
@@ -227,9 +222,10 @@ export default function OnboardingLayout({ children, currentStep, title, subtitl
                 onMouseOut={e => e.currentTarget.style.color = '#9CA3AF'}
               >
                 <ChevronLeft size={14} />
-                {currentStep > 1 ? 'Go back to previous step' : 'Back'}
+                Go back to previous step
               </button>
             </div>
+            )}
           </div>
         </div>
       </div>

@@ -95,7 +95,7 @@ export default function PricingPage() {
       const result = await openRazorpayCheckout({
         keyId: checkout.razorpay_key_id,
         subscriptionId: checkout.razorpay_subscription_id,
-        description: 'DISHA Premium',
+        description: 'BeginablAI Premium',
       })
       await paymentsApi.verify(result)
     },
@@ -118,7 +118,7 @@ export default function PricingPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
       <PageHeader
-        title="DISHA Premium"
+        title="BeginablAI Premium"
         subtitle="Unlock unlimited AI Counsellor, roadmaps, resume builder & mock interviews"
         icon={<Sparkles size={16} color={colors.text.ink} />}
       />
@@ -136,7 +136,7 @@ export default function PricingPage() {
           ) : usage?.is_premium ? (
             <div style={{ background: colors.state.successBg, borderRadius: radius.xl, border: `1px solid #BBF7D0`, padding: 20, display: 'flex', alignItems: 'center', gap: 10 }}>
               <CheckCircle2 size={18} color={colors.state.success} />
-              <span style={{ fontWeight: 700, fontSize: 14, color: '#14532D' }}>You're on DISHA Premium — unlimited access to everything below.</span>
+              <span style={{ fontWeight: 700, fontSize: 14, color: '#14532D' }}>You're on BeginablAI Premium — unlimited access to everything below.</span>
             </div>
           ) : maxedFeature ? (
             /* Contextual lead-in hook: shown when a free-tier limit has actually been hit */
@@ -223,7 +223,7 @@ export default function PricingPage() {
                   }}>
                     Recommended
                   </span>
-                  <p style={{ fontSize: 15, fontWeight: 800, color: colors.text.ink, margin: '6px 0 0' }}>DISHA Premium</p>
+                  <p style={{ fontSize: 15, fontWeight: 800, color: colors.text.ink, margin: '6px 0 0' }}>BeginablAI Premium</p>
                   <p style={{ fontSize: 32, fontWeight: 800, color: colors.brand.navy, margin: '8px 0 0' }}>
                     {formatPrice(premiumPlan.price_monthly)}
                     <span style={{ fontSize: 13, fontWeight: 600, color: colors.text.muted }}>/{interval === 'monthly' ? 'mo' : 'yr'}</span>

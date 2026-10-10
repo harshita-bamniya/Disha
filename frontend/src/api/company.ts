@@ -64,10 +64,38 @@ export interface TeamMemberEntry {
 
 export interface TeamInvitePayload {
   email: string
-  contact_person: string
   role_name: 'hr_manager' | 'recruiter' | 'interviewer' | 'hiring_manager'
   department_id?: string
-  password?: string
+}
+
+/** An invitation that has not been accepted yet. It is not a member: no account exists until the invitee accepts. */
+export interface TeamInviteEntry {
+  id: string
+  email: string
+  role_name: string
+  department_id: string | null
+  department_name: string | null
+  status: 'pending' | 'expired'
+  invited_by_name: string | null
+  created_at: string
+  last_sent_at: string | null
+  expires_at: string | null
+}
+
+export interface InviteInfo {
+  email: string
+  company_name: string
+  role_name: string
+  department_name: string | null
+  invited_by_name: string | null
+  status: 'pending' | 'expired' | 'accepted' | 'revoked'
+  expires_at: string | null
+}
+
+export interface AcceptInvitePayload {
+  token: string
+  full_name: string
+  password: string
 }
 
 export interface TeamBulkInvitePayload {
@@ -80,7 +108,7 @@ export interface TeamBulkInviteResult {
   email: string
   success: boolean
   error: string | null
-  member: TeamMemberEntry | null
+  invite: TeamInviteEntry | null
 }
 
 export interface TeamBulkInviteResponse {
@@ -144,6 +172,7 @@ export interface DepartmentEntry {
   description: string | null
   head_employer_id: string | null
   head_name: string | null
+  head_pending_email: string | null
   member_count: number
   total_job_count: number
   active_job_count: number
@@ -176,7 +205,7 @@ export interface DepartmentCreatePayload {
   name: string
   description?: string
   head_employer_id?: string
-  /** Appoint a new head by email — the account is created and the password emailed. */
+  /** Invite a new head by email. Only an invitation is sent; the account exists once they accept. */
   head_email?: string
 }
 
@@ -216,7 +245,16 @@ export const companyApi = {
     apiClient.get<TeamMemberEntry[]>('/employer/company/team').then(r => r.data),
 
   inviteTeamMember: (payload: TeamInvitePayload) =>
-    apiClient.post<TeamMemberEntry>('/employer/company/team/invite', payload).then(r => r.data),
+    apiClient.post<TeamInviteEntry>('/employer/company/team/invite', payload).then(r => r.data),
+
+  listTeamInvites: () =>
+    apiClient.get<TeamInviteEntry[]>('/employer/company/team/invites').then(r => r.data),
+
+  resendTeamInvite: (id: string) =>
+    apiClient.post<TeamInviteEntry>(`/employer/company/team/invites/${id}/resend`).then(r => r.data),
+
+  revokeTeamInvite: (id: string) =>
+    apiClient.delete<{ message: string }>(`/employer/company/team/invites/${id}`).then(r => r.data),
 
   removeTeamMember: (employerProfileId: string) =>
     apiClient.delete<{ message: string }>(`/employer/company/team/${employerProfileId}`).then(r => r.data),

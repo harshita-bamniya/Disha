@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Lock, Mail, Phone, RotateCcw } from 'lucide-react'
+import { Lock, Mail, RotateCcw } from 'lucide-react'
 import AuthLayout from '@/layouts/AuthLayout'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -16,7 +16,6 @@ const RESEND_COOLDOWN = 30
 
 export default function RegisterPage() {
   const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -49,8 +48,6 @@ export default function RegisterPage() {
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       errors.email = 'Enter a valid email address'
     }
-    if (!phone.trim()) errors.phone = 'Phone number is required'
-    else if (!/^[6-9]\d{9}$/.test(phone.replace(/\D/g, ''))) errors.phone = 'Enter a valid 10-digit Indian mobile number'
     if (PASSWORD_RULES.some(r => !r.test(password))) errors.password = 'Password does not meet all requirements'
     if (!acceptedTerms) errors.terms = 'You must accept the Terms & Conditions to create an account'
     setFieldErrors(errors)
@@ -67,7 +64,7 @@ export default function RegisterPage() {
     if (!validate()) return
     const recaptcha_token = await getRecaptchaToken('register')
     register.mutate(
-      { email: email.trim(), phone: phone.replace(/\D/g, ''), password, recaptcha_token },
+      { email: email.trim(), password, recaptcha_token },
       {
         onSuccess: () => {
           setOtpSent(true)
@@ -146,25 +143,6 @@ export default function RegisterPage() {
             </div>
           )}
         </div>
-
-        {/* Phone */}
-        <Input
-          label="Phone number"
-          type="tel"
-          placeholder="10-digit mobile number"
-          value={phone}
-          onChange={(e) => {
-            const v = e.target.value
-            if (v.replace(/\D/g, '').length > 10) return
-            setPhone(v)
-            if (fieldErrors.phone) setFieldErrors(p => ({ ...p, phone: '' }))
-          }}
-          error={fieldErrors.phone}
-          prefix={<Phone className="w-4 h-4" />}
-          maxLength={10}
-          inputMode="numeric"
-          disabled={otpSent}
-        />
 
         {/* Password */}
         <div className="flex flex-col gap-1">

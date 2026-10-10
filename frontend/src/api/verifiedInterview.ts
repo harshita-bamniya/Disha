@@ -108,6 +108,8 @@ export interface EmployerInvitation {
   result_available: boolean
   fit_band: string | null
   needs_human_review: boolean
+  questions_answered: number | null
+  questions_planned: number | null
   decision: 'shortlist' | 'hold' | 'decline' | null
 }
 
@@ -139,6 +141,8 @@ export interface Scorecard {
   language: string
   fit_band: string | null
   overall_score: number | null
+  questions_answered: number | null
+  questions_planned: number | null
   needs_human_review: boolean
   review_reasons: string[]
   skill_scores: Record<string, number>

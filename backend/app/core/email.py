@@ -102,6 +102,21 @@ async def send_otp_email(to: str, otp: str) -> None:
     await provider.send(to, subject, html)
 
 
+async def send_business_email_otp(to: str, otp: str, company_name: str) -> None:
+    """Code that proves an employer controls the business email they gave for company verification."""
+    provider = get_email_provider()
+    subject = f"Confirm your business email on {settings.email_from_name}"
+    html = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; color: #1E3A5F;">
+      <h2 style="color:#1A2744; margin-bottom: 4px;">Confirm your business email</h2>
+      <p style="font-size:14px; color:#475569;">Enter this code on the verification page to confirm this address for {company_name}. It expires in 10 minutes.</p>
+      <div style="font-size:32px; font-weight:700; letter-spacing:8px; color:#1A2744; background:#F4F5F7; padding:18px 24px; border-radius:12px; text-align:center; margin:24px 0;">{otp}</div>
+      <p style="font-size:12.5px; color:#94A3B8;">If you didn't ask for this, you can ignore this email.</p>
+    </div>
+    """
+    await provider.send(to, subject, html)
+
+
 def get_email_provider() -> EmailProvider:
     # Use Brevo whenever real credentials are configured, regardless of
     # environment — lets you test real sending locally without flipping the

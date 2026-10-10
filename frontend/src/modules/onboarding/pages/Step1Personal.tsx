@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { User, MapPin, GraduationCap, Briefcase, Sparkles } from 'lucide-react'
+import { User, MapPin, Phone, GraduationCap, Briefcase, Sparkles } from 'lucide-react'
 import OnboardingLayout from '@/layouts/OnboardingLayout'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import { useOnboardingSteps, useOnboardingProfile } from '../hooks/useOnboarding'
 import { getApiError } from '@/api/client'
+import { useAuthStore } from '@/stores/authStore'
+import { useUpdatePhone } from '@/modules/auth/hooks/useAuth'
 import type { Gender } from '@/types'
 
 type CurrentStatus = 'student' | 'fresher' | 'experienced'
@@ -35,13 +37,15 @@ const STATES = [
 
 export default function Step1Personal() {
   const [form, setForm] = useState({
-    full_name: '', current_status: '' as CurrentStatus | '', city: '',
+    full_name: '', phone: '', current_status: '' as CurrentStatus | '', city: '',
     date_of_birth: '', gender: '' as Gender | '', state: '',
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [prefilled, setPrefilled] = useState(false)
   const { personal } = useOnboardingSteps()
   const { data: profile } = useOnboardingProfile()
+  const savedPhone = useAuthStore((s) => s.user?.phone) ?? ''
+  const updatePhone = useUpdatePhone()
 
   // Pre-fill from whatever's already saved — this step is reachable even
   // after onboarding is complete (browser back, a stale link), and an empty
@@ -50,6 +54,7 @@ export default function Step1Personal() {
     setPrefilled(true)
     setForm({
       full_name: profile.full_name ?? '',
+      phone: savedPhone,
       current_status: (profile.current_status ?? '') as CurrentStatus | '',
       city: profile.city ?? '',
       date_of_birth: profile.date_of_birth ?? '',
@@ -67,14 +72,25 @@ export default function Step1Personal() {
     const e: Record<string, string> = {}
     if (!form.full_name.trim()) e.full_name = 'Name is required'
     if (!form.current_status) e.current_status = 'Please select your current status'
+    if (!/^[6-9]\d{9}$/.test(form.phone.replace(/\D/g, ''))) e.phone = 'Enter a valid 10-digit Indian mobile number'
     if (!form.city.trim()) e.city = 'City is required'
     setErrors(e)
     return Object.keys(e).length === 0
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!validate()) return
+    // Phone lives on the user record, not the onboarding profile — store it
+    // first so a taken/invalid number stops the step before anything else saves.
+    const phone = form.phone.replace(/\D/g, '')
+    if (phone !== savedPhone) {
+      try {
+        await updatePhone.mutateAsync({ phone })
+      } catch {
+        return
+      }
+    }
     personal.mutate({
       full_name: form.full_name,
       current_status: form.current_status as CurrentStatus,
@@ -85,7 +101,9 @@ export default function Step1Personal() {
     })
   }
 
-  const serverError = personal.error ? getApiError(personal.error) : null
+  const serverError = updatePhone.error
+    ? getApiError(updatePhone.error)
+    : personal.error ? getApiError(personal.error) : null
 
   return (
     <OnboardingLayout currentStep={1} title="Let's get you started" subtitle="Just the basics — you can add the rest later from your dashboard.">
@@ -98,6 +116,22 @@ export default function Step1Personal() {
           onChange={set('full_name')}
           error={errors.full_name}
           prefix={<User className="w-4 h-4" />}
+        />
+
+        <Input
+          label="Phone number"
+          required
+          type="tel"
+          placeholder="10-digit mobile number"
+          value={form.phone}
+          onChange={(e) => {
+            if (e.target.value.replace(/\D/g, '').length > 10) return
+            set('phone')(e)
+          }}
+          error={errors.phone}
+          prefix={<Phone className="w-4 h-4" />}
+          maxLength={10}
+          inputMode="numeric"
         />
 
         <div className="flex flex-col gap-1">
@@ -173,7 +207,7 @@ export default function Step1Personal() {
 
         {serverError && <p className="text-sm text-danger bg-danger/5 border border-danger/20 rounded-xl px-4 py-3">{serverError}</p>}
 
-        <Button type="submit" fullWidth size="lg" loading={personal.isPending} className="mt-2">
+        <Button type="submit" fullWidth size="lg" loading={personal.isPending || updatePhone.isPending} className="mt-2">
           Continue →
         </Button>
       </form>

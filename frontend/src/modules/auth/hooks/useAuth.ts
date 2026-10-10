@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { authApi, type TokenResponse } from '@/api/auth'
 import { useAuthStore } from '@/stores/authStore'
@@ -33,6 +33,35 @@ export function useVerifyPhone() {
       sessionStorage.removeItem('dev_otp')
       // New registrations always need step 1 — go directly to onboarding
       navigate('/app/onboarding/step/1')
+    },
+  })
+}
+
+/** Team invitation, step 1: what the emailed link is for (company, role, department). No login needed. */
+export function useInviteInfo(token: string | null) {
+  return useQuery({
+    queryKey: ['invite-info', token],
+    queryFn: () => authApi.getInviteInfo(token as string),
+    enabled: !!token,
+    retry: false,
+  })
+}
+
+/** Team invitation, step 2: the invitee sets their own name and password; the account is created and
+ * they are signed straight in to the employer workspace. */
+export function useAcceptInvite() {
+  const { setAuth } = useAuthStore()
+  const navigate = useNavigate()
+
+  return useMutation({
+    mutationFn: authApi.acceptInvite,
+    onSuccess: (data) => {
+      setAuth(data.user!, {
+        access_token: data.access_token!,
+        refresh_token: data.refresh_token!,
+        token_type: data.token_type as 'bearer',
+      })
+      navigate('/app/employer/dashboard', { replace: true })
     },
   })
 }
@@ -84,21 +113,8 @@ export function useResendEmailOtp() {
   return useMutation({ mutationFn: authApi.resendEmailOtp })
 }
 
-export function useAddPhone() {
-  const { setUser } = useAuthStore()
-  const navigate = useNavigate()
-
-  return useMutation({
-    mutationFn: authApi.addPhone,
-    onSuccess: (user) => {
-      setUser(user)
-      navigate('/app/onboarding/step/1')
-    },
-  })
-}
-
-/** Same endpoint as useAddPhone, for editing an existing phone number from
- * the profile page — updates the stored user but doesn't navigate anywhere. */
+/** Saves the user's phone number (onboarding step 1, profile page) — updates
+ * the stored user but doesn't navigate anywhere. */
 export function useUpdatePhone() {
   const { setUser } = useAuthStore()
 

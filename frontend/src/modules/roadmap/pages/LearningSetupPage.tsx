@@ -11,7 +11,7 @@ export default function LearningSetupPage() {
 
   return (
     <>
-      <PageHeader title="Learning Setup" icon={<Compass size={15} color="#6366F1" />} />
+      <PageHeader title="Learning Setup" subtitle="Tell us how you like to learn so your roadmap fits you" icon={<Compass size={15} color="#6366F1" />} />
       <main style={{ padding: '32px 36px', maxWidth: 620 }}>
         <LearningSetupForm onDone={() => navigate('/app/roadmap')} />
       </main>

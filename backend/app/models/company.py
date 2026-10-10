@@ -7,6 +7,7 @@ flagged is_owner=True. Team members are additional EmployerProfile rows
 sharing the same company_id with a non-owner role (hr_manager/recruiter/interviewer).
 """
 import uuid
+from datetime import datetime, timezone
 
 from sqlalchemy import (
     Boolean,
@@ -90,9 +91,17 @@ class CompanyDepartment(Base):
     )
 
 
+INVITE_TTL_DAYS = 7
+
+
 class CompanyInvite(Base):
-    """Pending invite record — kept for audit/history even though member
-    creation in this MVP is immediate (no email-token acceptance flow yet)."""
+    """An invitation to join a company's hiring workspace.
+
+    An invite is NOT an account. It becomes one only when the invitee opens the emailed link and
+    sets their own name and password (accept_invite). Until then it is 'pending'; it can be resent
+    (which replaces the link), revoked, or left to expire. Rows created before this flow existed
+    have accepted_at set and no token: they are history for members who already exist.
+    """
     __tablename__ = "company_invites"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -103,7 +112,26 @@ class CompanyInvite(Base):
     accepted_at = Column(DateTime(timezone=True), nullable=True)
     revoked_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    # SHA-256 of the emailed link token (the raw token is never stored). Replaced on resend.
+    token_hash = Column(String(64), nullable=True, unique=True, index=True)
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    last_sent_at = Column(DateTime(timezone=True), nullable=True)
+    # Department the person will join (None = company-wide). An hr_manager invite to a department
+    # makes them its head on acceptance if the department has none yet.
+    department_id = Column(UUID(as_uuid=True), ForeignKey("company_departments.id", ondelete="SET NULL"), nullable=True)
 
     company = relationship("Company")
     role = relationship("Role")
     inviter = relationship("User", foreign_keys=[invited_by])
+    department = relationship("CompanyDepartment", foreign_keys=[department_id])
+
+    @property
+    def status(self) -> str:
+        """accepted | revoked | expired | pending"""
+        if self.accepted_at is not None:
+            return "accepted"
+        if self.revoked_at is not None:
+            return "revoked"
+        if self.expires_at is not None and datetime.now(timezone.utc) > self.expires_at:
+            return "expired"
+        return "pending"

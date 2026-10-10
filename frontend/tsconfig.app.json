@@ -20,6 +20,7 @@
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
+    "ignoreDeprecations": "6.0",   // baseUrl (used for the @/ alias) is deprecated in TS 6; without this tsc aborts before checking anything
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]

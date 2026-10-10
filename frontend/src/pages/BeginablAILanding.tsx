@@ -446,6 +446,8 @@ function CtaBanner() {
 }
 
 // ── Footer ────────────────────────────────────────────────────────────────────
+const LEGAL_LINKS: Record<string, string> = { Privacy: '/privacy', Terms: '/terms' }
+
 function Footer() {
   const isMobile = useIsMobile()
   const columns = [
@@ -506,7 +508,7 @@ function Footer() {
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
                 {col.links.map(l => (
-                  <a key={l} href="#" style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.6)', textDecoration: 'none', transition: 'color 0.2s' }}
+                  <a key={l} href={LEGAL_LINKS[l] ?? '#'} style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.6)', textDecoration: 'none', transition: 'color 0.2s' }}
                     onMouseOver={e => e.currentTarget.style.color = '#fff'}
                     onMouseOut={e => e.currentTarget.style.color = 'rgba(255,255,255,0.6)'}
                   >{l}</a>

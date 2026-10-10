@@ -9,6 +9,7 @@ Model names come from config (app.config) so a vendor rename is an .env change.
 """
 from __future__ import annotations
 
+import array
 import base64
 import io
 import logging
@@ -161,9 +162,74 @@ async def transcribe(
     raise SpeechUnavailable("; ".join(errors) or "No speech-to-text provider is configured.")
 
 
+def _rms(samples) -> float:
+    return (sum(x * x for x in samples) / len(samples)) ** 0.5 if len(samples) else 0.0
+
+
+def clean_pcm(pcm: bytes, sample_rate: int = 24000) -> bytes:
+    """Remove the artefacts Gemini TTS leaves at the edges of a clip.
+
+    Measured on real clips: many end with ~100 ms of near-full-scale noise right
+    after the speech has faded to silence (heard as an old-TV "switch-off" burst),
+    and start with a ~10 ms click. Both are far louder than the speech beside
+    them, so they are cut where the level jumps, then a short fade removes any
+    remaining step at the new edges. Only the first/last few hundred ms are
+    inspected, so this is cheap and safe to run on already-clean audio.
+    """
+    samples = array.array("h")
+    samples.frombytes(pcm[: len(pcm) - (len(pcm) % 2)])
+    n = len(samples)
+    win = max(1, sample_rate // 200)  # 5 ms windows
+    if n < win * 8:
+        return samples.tobytes()
+
+    LOUD, QUIET = 8000, 2500
+
+    # Trailing burst: loud windows running to the very end, right after a quiet one.
+    end = n
+    lo = max(win, n - sample_rate // 2)           # look at most 500 ms back
+    pos = n - win                                  # start of the last whole window
+    while pos >= lo and _rms(samples[pos:pos + win]) > LOUD:
+        pos -= win
+    if pos < n - win and pos >= lo and _rms(samples[pos:pos + win]) < QUIET:
+        end = pos + win                            # keep the quiet window, drop the burst
+
+    # Leading click: a loud opening that dies away within 30 ms. Follow the loud windows until the first
+    # quiet one; if they never settle inside 30 ms it is speech starting abruptly, so leave it alone.
+    start = 0
+    if _rms(samples[:win]) > LOUD / 2:
+        k = 1
+        while k < 6 and _rms(samples[k * win:(k + 1) * win]) >= QUIET:
+            k += 1
+        if k < 6:
+            start = k * win
+
+    samples = samples[start:end]
+    n = len(samples)
+    fade = min(sample_rate // 50, n // 2)         # 20 ms
+    for i in range(fade):
+        g = i / fade
+        samples[i] = int(samples[i] * g)
+        samples[n - 1 - i] = int(samples[n - 1 - i] * g)
+    return samples.tobytes()
+
+
+def clean_wav(wav: bytes) -> bytes:
+    """clean_pcm for a finished 16-bit mono WAV (used on clips already in the cache)."""
+    try:
+        with wave.open(io.BytesIO(wav), "rb") as r:
+            if r.getsampwidth() != 2 or r.getnchannels() != 1:
+                return wav
+            rate, frames = r.getframerate(), r.readframes(r.getnframes())
+    except (wave.Error, EOFError):      # not a real WAV (truncated / corrupt cache file): serve it untouched
+        return wav
+    return pcm_to_wav(frames, rate)
+
+
 def pcm_to_wav(pcm: bytes, sample_rate: int = 24000) -> bytes:
     """Wrap raw 16-bit mono PCM (what Gemini TTS returns) in a WAV container so
-    any browser can play it."""
+    any browser can play it. Edge artefacts are removed first (see clean_pcm)."""
+    pcm = clean_pcm(pcm, sample_rate)
     buf = io.BytesIO()
     with wave.open(buf, "wb") as w:
         w.setnchannels(1)

@@ -5,7 +5,6 @@ import { ChevronDown, ChevronUp, RotateCcw } from 'lucide-react'
 import { interviewApi, OUTCOME_OPTIONS, type JobReadinessReport, type FeedbackItem, type SessionFeedback } from '@/api/interview'
 import { verifiedApi } from '@/api/verifiedInterview'
 import PageHeader from '@/shared/layouts/PageHeader'
-import Breadcrumb from '@/shared/components/navigation/Breadcrumb'
 import Tabs from '@/shared/components/navigation/Tabs'
 import Spinner from '@/shared/components/feedback/Spinner'
 import Button from '@/shared/components/primitives/Button'
@@ -19,7 +18,7 @@ const { state, text, surface } = colors
 
 function scoreColor(s: number) {
   if (s >= 80) return state.success
-  if (s >= 65) return state.info
+  if (s >= 65) return colors.brand.navy
   if (s >= 50) return state.warning
   return state.danger
 }
@@ -38,8 +37,8 @@ function itemScoreColor(s: number | null) {
   return state.danger
 }
 
-const REC_BADGE: Record<string, 'green' | 'blue' | 'amber' | 'red'> = {
-  'Strong Hire': 'green', 'Hire': 'blue', 'Maybe': 'amber', 'No Hire': 'amber',
+const REC_BADGE: Record<string, 'green' | 'navy' | 'amber' | 'red'> = {
+  'Strong Hire': 'green', 'Hire': 'navy', 'Maybe': 'amber', 'No Hire': 'amber',
 }
 
 // Hiring decisions are made by people, so a practice report shows a fit label, never "Hire / No Hire".
@@ -445,7 +444,6 @@ export default function InterviewReportPage() {
             style={{ width: 30, height: 30, borderRadius: '50%', background: surface.elevated, border: 'none', cursor: 'pointer', color: text.inkSoft, fontSize: 16, flexShrink: 0 }}
           >←</button>
         }
-        below={<Breadcrumb items={[{ label: 'AI Interview', href: '/app/interview/history' }, { label: 'Report' }]} />}
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
             <Button variant="outline" size="sm" onClick={() => navigate('/app/interview/history')}>All interviews</Button>
@@ -464,7 +462,7 @@ export default function InterviewReportPage() {
                 </div>
                 <div style={{ fontSize: 13, color: text.muted, margin: '6px 0 10px' }}>Job readiness</div>
                 {verified && report.fit_band
-                  ? <Badge color="blue">{report.fit_band}</Badge>
+                  ? <Badge color="navy">{report.fit_band}</Badge>
                   : <Badge color={REC_BADGE[report.hiring_recommendation] ?? 'gray'}>{fitLabel(report.hiring_recommendation)}</Badge>}
                 {report.confidence_note && <p style={{ ...bodyText, fontSize: 12, marginTop: 10 }}>{report.confidence_note}</p>}
                 {report.needs_human_review && (

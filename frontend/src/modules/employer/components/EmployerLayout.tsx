@@ -74,30 +74,34 @@ export default function EmployerLayout() {
         <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', overflowAnchor: 'none', display: 'flex', flexDirection: 'column' }}>
           {showPaywall ? <PaywallGate /> : <Outlet />}
 
-          {/* Common footer — no `marginTop: auto` here on purpose. Dashboard-
-              style pages load in several async stages (KPIs, charts,
-              departments, the Insights section's own separate queries), each
-              changing this column's content height. An auto margin
-              recalculates on every one of those stages, so the footer would
-              visibly jump — briefly pinned to the viewport bottom while
-              content is still short, then shoved down as more loads in,
-              landing on top of whatever hadn't rendered yet if you were
-              already scrolled. Plain flow order means it only ever appears
-              once, right after everything else, however long that turns
-              out to be. */}
+          {/* Common footer. `marginTop: auto` pins it to the bottom of the column on short pages (empty
+              lists, forms) instead of leaving it floating mid-screen above blank space; on long pages
+              there is no free space to absorb, so it simply follows the content. */}
           <footer style={{
+            marginTop: 'auto',
             borderTop: `1px solid ${colors.border.default}`,
             background: colors.surface.card,
-            padding: '12px 28px',
-            display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between',
+            padding: '14px 28px',
+            display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 8,
             flexShrink: 0,
           }}>
-            <span style={{ fontSize: 11, color: colors.text.muted }}>
-              © {new Date().getFullYear()} BeginablAI · All rights reserved
+            <span style={{ fontSize: 12, color: colors.text.muted }}>
+              © {new Date().getFullYear()} BeginablAI. All rights reserved.
             </span>
-            <span style={{ fontSize: 11, color: colors.text.muted }}>
-              Powered by BeginablAI
-            </span>
+            <nav aria-label="Footer" style={{ display: 'flex', gap: 18, fontSize: 12 }}>
+              {[
+                { label: 'Terms', to: '/terms', external: true },
+                { label: 'Privacy', to: '/privacy', external: true },
+                { label: 'Support', to: '/app/employer/support', external: false },
+              ].map(l => (
+                <Link key={l.label} to={l.to} {...(l.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                  style={{ color: colors.text.muted, textDecoration: 'none' }}
+                  onMouseOver={e => { e.currentTarget.style.color = colors.text.ink }}
+                  onMouseOut={e => { e.currentTarget.style.color = colors.text.muted }}>
+                  {l.label}
+                </Link>
+              ))}
+            </nav>
           </footer>
         </div>
       </div>

@@ -231,6 +231,7 @@ export interface NextQuestionResult {
     id?: string
     text: string
     is_followup: boolean
+    followup_id?: string | null
     question_type?: string
     difficulty?: string
     original_question_id?: string
@@ -311,6 +312,7 @@ export const interviewApi = {
 
   submitResponse: (sessionId: string, data: {
     question_id?: string
+    followup_id?: string
     question_text?: string
     question_type?: string
     response_text: string

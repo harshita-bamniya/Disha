@@ -39,7 +39,7 @@ const STATUS_BADGE: Record<string, 'gray' | 'blue' | 'amber' | 'green' | 'red'> 
   invited: 'blue', started: 'amber', completed: 'green', declined: 'gray', expired: 'gray',
 }
 const BAND_BADGE: Record<string, 'green' | 'blue' | 'amber' | 'gray'> = {
-  'Strong fit': 'green', 'Good fit': 'blue', 'Developing': 'amber', 'Not yet a fit': 'gray', 'Needs human review': 'amber',
+  'Strong fit': 'green', 'Good fit': 'blue', 'Developing': 'amber', 'Not yet a fit': 'gray', 'Needs human review': 'amber', 'Incomplete': 'amber',
 }
 
 // ── Results ───────────────────────────────────────────────────────────────────
@@ -61,6 +61,7 @@ function ResultsTab({ rows, loading }: { rows: EmployerInvitation[]; loading: bo
             </div>
             <Badge color={STATUS_BADGE[r.status] ?? 'gray'}>{r.status}</Badge>
             {r.fit_band && <Badge color={BAND_BADGE[r.fit_band] ?? 'gray'}>{r.fit_band}</Badge>}
+            {r.questions_planned != null && <span style={{ fontSize: 12, color: text.muted }}>{r.questions_answered ?? 0}/{r.questions_planned} answered</span>}
             {r.decision && <Badge color="gray">{r.decision}</Badge>}
             {r.status === 'completed' && !r.result_available && (
               <span style={{ fontSize: 12, color: text.muted }}>Not shared with you</span>
@@ -297,7 +298,7 @@ export default function VerifiedInterviewsPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      <PageHeader title="AI interviews" subtitle="Structured interviews with an evidence-linked scorecard. You decide, the AI never does." />
+      <PageHeader title="AI Interviews" subtitle="Structured interviews with an evidence-linked scorecard. You decide, the AI never does." />
       <div style={{ padding: '0 28px' }}><Tabs tabs={TABS} active={tab} onChange={setTab} /></div>
       <div style={{ padding: '20px 28px 40px', maxWidth: 960 }}>
         {tab === 'results' && <ResultsTab rows={invitationsQ.data ?? []} loading={invitationsQ.isLoading} />}

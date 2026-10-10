@@ -8,12 +8,14 @@ interface DrawerProps {
   title?: string
   /** Non-scrolling content rendered between the title row and the scroll container */
   header?: ReactNode
+  /** Pinned below the scroll area (e.g. a decision bar) so it never scrolls out of view */
+  footer?: ReactNode
   children: ReactNode
   width?: number | string
   side?: 'right' | 'left'
 }
 
-export default function Drawer({ open, onClose, title, header, children, width = 420, side = 'right' }: DrawerProps) {
+export default function Drawer({ open, onClose, title, header, footer, children, width = 420, side = 'right' }: DrawerProps) {
   return (
     <>
       {/* Backdrop */}
@@ -62,6 +64,12 @@ export default function Drawer({ open, onClose, title, header, children, width =
         )}
         {header && <div style={{ flexShrink: 0 }}>{header}</div>}
         <div style={{ flex: 1, overflowY: 'auto' }}>{children}</div>
+        {footer && (
+          <div style={{
+            flexShrink: 0, borderTop: `1px solid ${colors.border.default}`, background: colors.surface.card,
+            maxHeight: '55vh', overflowY: 'auto',
+          }}>{footer}</div>
+        )}
       </div>
     </>
   )

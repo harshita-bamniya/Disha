@@ -224,7 +224,7 @@ function DocumentsTab({ emp }: { emp: any }) {
                 <div className="min-w-0">
                   <p className="text-xs font-semibold capitalize" style={{ color: colors.text.ink }}>{doc.doc_type.replace(/_/g, ' ')}</p>
                   {doc.original_filename && <p className="text-[11px] truncate" style={{ color: colors.text.muted }}>{doc.original_filename}</p>}
-                  <Badge color={doc.status === 'approved' ? 'green' : doc.status === 'rejected' ? 'red' : 'gray'}>
+                  <Badge color={doc.status === 'verified' ? 'green' : doc.status === 'rejected' ? 'red' : 'gray'}>
                     {doc.status}
                   </Badge>
                 </div>

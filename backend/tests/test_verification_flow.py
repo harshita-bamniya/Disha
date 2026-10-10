@@ -13,7 +13,7 @@ import pytest
 
 from app.core import employer_verification_rules as rules
 from app.core.exceptions import BadRequestException
-from app.models.employer_verification import EmployerVerificationDocument
+from app.models.employer_verification import EmployerVerification, EmployerVerificationDocument
 from app.modules.admin.service.employers import (
     list_employer_verifications,
     review_employer_verification,
@@ -55,6 +55,9 @@ def _complete_draft(db, owner_user):
     db.commit()
     resp = verification.save_details(owner_user, _details(), db)
     _add_docs(db, resp.id, "pan_card", "gst_certificate")
+    # submit also requires proof the employer can read the business email (an OTP step in the UI)
+    db.get(EmployerVerification, resp.id).business_email_verified = "hr@uico.test"
+    db.commit()
     return resp
 
 

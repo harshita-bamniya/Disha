@@ -93,6 +93,7 @@ export default function DashboardPage() {
     <>
       <PageHeader
         title="Dashboard"
+        subtitle="Your profile strength, applications and next steps"
         icon={<Sparkles size={15} color={NAVY} />}
         actions={
           <Button size="sm" onClick={() => navigate('/app/profile')}>

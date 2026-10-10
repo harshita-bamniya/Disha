@@ -78,6 +78,46 @@ def _colleague_ids(user: User, db: Session) -> list:
     return [r[0] for r in rows] or [user.id]
 
 
+def _scoped_job_ids(user: User, db: Session) -> list | None:
+    """Job ids this user may see, or None when they are company-wide. Same rule
+    as applications: an owner / admin / user with no department sees all of the
+    company's jobs, a department-scoped user only their department's."""
+    from app.modules.matching.service.core import (
+        _get_company_employer_ids, _get_employer_profile_approved, _get_scoped_job_ids, _is_company_wide,
+    )
+
+    profile = _get_employer_profile_approved(user, db)
+    if _is_company_wide(profile, user.role_name):
+        return None
+    return _get_scoped_job_ids(profile, _get_company_employer_ids(profile, db), user.role_name, db)
+
+
+def _scope_invitations(query, user: User, db: Session):
+    """Restrict an InterviewInvitation query to the caller's company AND, for
+    department-scoped users, to invitations on applications for their own
+    department's jobs (or that they sent themselves)."""
+    from app.models.applications import Application
+
+    query = query.filter(InterviewInvitation.employer_user_id.in_(_colleague_ids(user, db)))
+    job_ids = _scoped_job_ids(user, db)
+    if job_ids is None:
+        return query
+    in_scope = db.query(Application.id).filter(Application.job_id.in_(job_ids)).subquery()
+    return query.filter(
+        (InterviewInvitation.employer_user_id == user.id) | (InterviewInvitation.application_id.in_(in_scope))
+    )
+
+
+def _scope_templates(query, user: User, db: Session):
+    """Same rule for templates: department-scoped users see their own templates
+    and those tied to a job in their department."""
+    query = query.filter(InterviewTemplate.employer_user_id.in_(_colleague_ids(user, db)))
+    job_ids = _scoped_job_ids(user, db)
+    if job_ids is None:
+        return query
+    return query.filter((InterviewTemplate.employer_user_id == user.id) | (InterviewTemplate.job_id.in_(job_ids)))
+
+
 def _company_id(user: User, db: Session):
     profile = db.query(EmployerProfile).filter(EmployerProfile.user_id == user.id).first()
     return profile.company_id if profile else None
@@ -150,8 +190,8 @@ def create_template(user: User, body: TemplateIn, db: Session) -> dict:
 
 def _owned_template(user: User, template_id: str, db: Session) -> InterviewTemplate:
     template = (
-        db.query(InterviewTemplate)
-        .filter(InterviewTemplate.id == template_id, InterviewTemplate.employer_user_id.in_(_colleague_ids(user, db)))
+        _scope_templates(db.query(InterviewTemplate), user, db)
+        .filter(InterviewTemplate.id == template_id)
         .first()
     )
     if not template:
@@ -181,8 +221,8 @@ def archive_template(user: User, template_id: str, db: Session) -> None:
 
 def list_templates(user: User, db: Session) -> list[dict]:
     rows = (
-        db.query(InterviewTemplate)
-        .filter(InterviewTemplate.employer_user_id.in_(_colleague_ids(user, db)), InterviewTemplate.status == "active")
+        _scope_templates(db.query(InterviewTemplate), user, db)
+        .filter(InterviewTemplate.status == "active")
         .order_by(InterviewTemplate.created_at.desc())
         .all()
     )
@@ -241,6 +281,7 @@ def _invitation_for_employer_out(inv: InterviewInvitation, template: InterviewTe
         "status": effective_status(inv), "expires_at": inv.expires_at.isoformat(),
         "completed_at": inv.completed_at.isoformat() if inv.completed_at else None,
         "result_available": False, "fit_band": None, "needs_human_review": False, "decision": None,
+        "questions_answered": None, "questions_planned": None,
     }
     if inv.session_id and inv.status == "completed":
         grant = _active_grant(inv.session_id, inv.employer_user_id, db)
@@ -250,6 +291,7 @@ def _invitation_for_employer_out(inv: InterviewInvitation, template: InterviewTe
             out.update({
                 "result_available": True, "fit_band": report.get("fit_band"),
                 "needs_human_review": bool(report.get("needs_human_review")),
+                "questions_answered": report.get("questions_answered"), "questions_planned": report.get("questions_planned"),
             })
             decision = db.query(EmployerDecision).filter(EmployerDecision.session_id == inv.session_id).first()
             out["decision"] = decision.decision if decision else None
@@ -258,9 +300,8 @@ def _invitation_for_employer_out(inv: InterviewInvitation, template: InterviewTe
 
 def list_invitations_for_employer(user: User, db: Session) -> list[dict]:
     rows = (
-        db.query(InterviewInvitation, InterviewTemplate)
+        _scope_invitations(db.query(InterviewInvitation, InterviewTemplate), user, db)
         .join(InterviewTemplate, InterviewInvitation.template_id == InterviewTemplate.id)
-        .filter(InterviewInvitation.employer_user_id.in_(_colleague_ids(user, db)))
         .order_by(InterviewInvitation.created_at.desc())
         .limit(200)
         .all()
@@ -492,8 +533,8 @@ def _integrity_out(session_id, db: Session) -> list[dict]:
 def get_result(user: User, invitation_id: str, db: Session) -> dict:
     """The employer's scorecard. Requires a live share grant."""
     inv = (
-        db.query(InterviewInvitation)
-        .filter(InterviewInvitation.id == invitation_id, InterviewInvitation.employer_user_id.in_(_colleague_ids(user, db)))
+        _scope_invitations(db.query(InterviewInvitation), user, db)
+        .filter(InterviewInvitation.id == invitation_id)
         .first()
     )
     if not inv:
@@ -519,6 +560,7 @@ def get_result(user: User, invitation_id: str, db: Session) -> dict:
         "role": template.role if template else session.job_role, "completed_at": inv.completed_at.isoformat() if inv.completed_at else None,
         "language": session.language,
         "fit_band": report.get("fit_band"), "overall_score": report.get("overall_readiness_score"),
+        "questions_answered": report.get("questions_answered"), "questions_planned": report.get("questions_planned"),
         "needs_human_review": bool(report.get("needs_human_review")), "review_reasons": report.get("review_reasons") or [],
         "skill_scores": report.get("skill_scores") or {}, "competencies": report.get("competencies") or [],
         "summary": report.get("candidate_summary"), "strengths": report.get("strengths") or [],
@@ -542,8 +584,8 @@ def employer_audio(user: User, invitation_id: str, name: str | None, db: Session
     from app.modules.interview import audio_store
 
     inv = (
-        db.query(InterviewInvitation)
-        .filter(InterviewInvitation.id == invitation_id, InterviewInvitation.employer_user_id.in_(_colleague_ids(user, db)))
+        _scope_invitations(db.query(InterviewInvitation), user, db)
+        .filter(InterviewInvitation.id == invitation_id)
         .first()
     )
     if not inv or not inv.session_id or not _active_grant(inv.session_id, inv.employer_user_id, db):
@@ -560,8 +602,8 @@ def decide(user: User, invitation_id: str, body: DecisionIn, db: Session) -> dic
     """Record the employer's (human) decision. Needs a live grant, because
     deciding on a result you can no longer see isn't meaningful."""
     inv = (
-        db.query(InterviewInvitation)
-        .filter(InterviewInvitation.id == invitation_id, InterviewInvitation.employer_user_id.in_(_colleague_ids(user, db)))
+        _scope_invitations(db.query(InterviewInvitation), user, db)
+        .filter(InterviewInvitation.id == invitation_id)
         .first()
     )
     if not inv or not inv.session_id:

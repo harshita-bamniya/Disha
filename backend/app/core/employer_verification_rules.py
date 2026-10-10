@@ -93,7 +93,7 @@ def normalise(value: str | None) -> str | None:
 def validate_gstin(v: str) -> str | None:
     m = _GSTIN_RE.match(v)
     if not m:
-        return "GSTIN must be 15 characters, e.g. 07AABCT1234A1Z5."
+        return "GSTIN must be 15 characters, e.g. 07AABCT1234A1Z2."
     if int(m.group(1)) not in _GST_STATE_CODES:
         return "GSTIN starts with an invalid state code."
     if not _gstin_checksum_ok(v):
@@ -217,8 +217,12 @@ def checklist(entity_type: str | None) -> dict:
     }
 
 
-def missing_items(entity_type: str | None, details: dict, uploaded_doc_types: set[str]) -> list[str]:
-    """Human-readable list of what is still missing before submission."""
+def missing_items(entity_type: str | None, details: dict, uploaded_doc_types: set[str],
+                  business_email_proven: bool | None = None) -> list[str]:
+    """Human-readable list of what is still missing before submission.
+
+    business_email_proven is None when the caller doesn't track it (e.g. the reviewer's approve
+    check), True/False when the employer-side submit gate should insist on it."""
     req = REQUIREMENTS.get(entity_type or "")
     if not req:
         return ["Choose what kind of organisation you are."]
@@ -234,6 +238,8 @@ def missing_items(entity_type: str | None, details: dict, uploaded_doc_types: se
             out.append(f"Upload: {DOC_LABELS[t]}.")
     if req.docs_any_of and not (set(req.docs_any_of) & uploaded_doc_types):
         out.append("Upload at least one of: " + " / ".join(DOC_LABELS[t] for t in req.docs_any_of) + ".")
+    if d.get("business_email") and business_email_proven is False:
+        out.append("Confirm your business email: we send a code to it, enter it under the email field.")
     decl = d.get("declarations") or {}
     for k, label in DECLARATIONS.items():
         if not decl.get(k):
@@ -247,8 +253,52 @@ def missing_items(entity_type: str | None, details: dict, uploaded_doc_types: se
 
 # ── Automatic checks (shown to reviewers and, softly, to the employer) ───────
 
+# Documents with a distinctive, machine-readable format: only these get a "is this the right kind of
+# file" check. Free-form ones (authorisation letters, address proofs) only get a legibility check.
+STRICT_DOC_TYPES = ("pan_card", "gst_certificate", "company_registration", "udyam_certificate")
+# document -> the detail field(s) whose value should be printed on it
+DOC_ID_FIELDS = {
+    "pan_card": ("pan",), "gst_certificate": ("gstin",),
+    "company_registration": ("cin", "llpin"), "udyam_certificate": ("udyam",),
+}
+
+
+def doc_checks(details: dict, docs: list[tuple[str, dict | None]]) -> list[dict]:
+    """Advisory checks from what the AI reader saw in each uploaded file. Only ever 'ok' or 'warn':
+    a scan can be blurry and a model can misread, so a mismatch asks a human to look, never blocks."""
+    out: list[dict] = []
+    d = details or {}
+    for doc_type, ai in docs:
+        if not ai or ai.get("status") != "ok":
+            continue
+        label = DOC_LABELS.get(doc_type, doc_type)
+        if not ai.get("legible", True):
+            out.append({"code": f"doc_{doc_type}_legible", "level": "warn",
+                        "message": f"“{label}” is hard to read; ask for a clearer copy."})
+            continue
+        if doc_type in STRICT_DOC_TYPES:
+            detected = ai.get("detected_type")
+            if detected == doc_type:
+                out.append({"code": f"doc_{doc_type}_type", "level": "ok", "message": f"“{label}” looks like the right kind of document."})
+            else:
+                what = DOC_LABELS.get(detected or "", None) or ("a bank statement" if detected == "bank_statement" else "something else")
+                out.append({"code": f"doc_{doc_type}_type", "level": "warn",
+                            "message": f"The file uploaded as “{label}” looks like: {what}."})
+                continue
+        fields = ai.get("fields") or {}
+        for field in DOC_ID_FIELDS.get(doc_type, ()):
+            on_doc, entered = fields.get(field), d.get(field)
+            if on_doc and entered:
+                same = on_doc == entered
+                out.append({"code": f"doc_{doc_type}_{field}", "level": "ok" if same else "warn",
+                            "message": (f"{FIELD_LABELS[field]} on “{label}” matches the one entered." if same else
+                                        f"{FIELD_LABELS[field]} on “{label}” ({on_doc}) does not match the one entered ({entered}).")})
+    return out
+
+
 def auto_checks(entity_type: str | None, details: dict, *, account_email: str | None, email_verified: bool,
-                duplicates: dict[str, int]) -> list[dict]:
+                duplicates: dict[str, int], docs: list[tuple[str, dict | None]] | None = None,
+                business_email_proven: bool | None = None, business_email_source: str | None = None) -> list[dict]:
     d = details or {}
     checks: list[dict] = []
 
@@ -269,7 +319,8 @@ def auto_checks(entity_type: str | None, details: dict, *, account_email: str | 
             same = gstin[2:12] == pan
             add("gstin_pan_match", "ok" if same else "fail",
                 "PAN embedded in the GSTIN matches the PAN entered." if same else
-                "The PAN inside the GSTIN does not match the PAN entered.")
+                f"The GSTIN {gstin} contains the PAN {gstin[2:12]} (characters 3 to 12 of a GSTIN), "
+                f"but the PAN entered is {pan}. Correct the GSTIN or the PAN.")
         else:
             add("gstin_pan_match", "warn", "Company PAN not entered, so it could not be matched with the GSTIN.")
     if pan and not validate_pan(pan):
@@ -296,11 +347,25 @@ def auto_checks(entity_type: str | None, details: dict, *, account_email: str | 
         if account_email and email_domain(account_email) != dom:
             add("account_vs_business_email", "warn", "Business email differs from the login email; confirm they are the same person.")
 
+    if d.get("business_email") and business_email_proven is not None:
+        if not business_email_proven:
+            add("business_email_proof", "warn", "Business email has not been confirmed with a code.")
+        elif business_email_source == "login":
+            add("business_email_proof", "ok", "Business email is the verified login email.")
+        else:
+            add("business_email_proof", "ok", "Employer confirmed the business email by entering the code we sent to it.")
+
+    checks.extend(doc_checks(d, docs or []))
+
     for field, count in duplicates.items():
         if count:
             add(f"duplicate_{field}", "fail", f"{FIELD_LABELS.get(field, field)} is already used by {count} other company account(s).")
     return checks
 
 
-def has_blocking_failure(checks: list[dict]) -> bool:
-    return any(c["level"] == "fail" for c in checks)
+def blocking_failures(checks: list[dict]) -> list[str]:
+    """Failed checks the employer can fix themselves right now, so submission waits for them: an invalid
+    ID, or a PAN that contradicts the PAN inside the GSTIN. Everything else that fails (e.g. an ID already
+    used by another company) is a judgement call and goes to the reviewer with the case instead."""
+    return [c["message"] for c in checks
+            if c["level"] == "fail" and (c["code"] == "gstin_pan_match" or c["code"].endswith("_format"))]

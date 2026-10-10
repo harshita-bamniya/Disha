@@ -12,7 +12,7 @@ interface OtpInputProps {
 export default function OtpInput({ value, onChange, length = 6, error, disabled }: OtpInputProps) {
   const refs = useRef<(HTMLInputElement | null)[]>([])
 
-  const digits = value.padEnd(length, '').slice(0, length).split('')
+  const digits = Array.from({ length }, (_, i) => value[i] ?? '')
 
   const handleChange = (index: number, char: string) => {
     if (!/^\d*$/.test(char)) return

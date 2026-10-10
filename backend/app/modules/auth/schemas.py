@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field, field_validator
 
 class RegisterRequest(BaseModel):
     email: str
-    phone: str
     password: str
     preferred_language: str = "hi"
     recaptcha_token: str | None = None
@@ -20,16 +19,6 @@ class RegisterRequest(BaseModel):
         if not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", v):
             raise ValueError("Enter a valid email address")
         return v
-
-    @field_validator("phone")
-    @classmethod
-    def validate_phone(cls, v: str) -> str:
-        cleaned = re.sub(r"\D", "", v)
-        if cleaned.startswith("91") and len(cleaned) == 12:
-            cleaned = cleaned[2:]
-        if not re.match(r"^[6-9]\d{9}$", cleaned):
-            raise ValueError("Enter a valid 10-digit Indian mobile number")
-        return cleaned
 
     @field_validator("password")
     @classmethod

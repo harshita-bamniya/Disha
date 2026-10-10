@@ -101,7 +101,8 @@ jobs:
         run: npm ci
 
       - name: Type check
-        run: npx tsc --noEmit
+        # Not `npx tsc --noEmit`: the root tsconfig has no files, so that checks nothing and always passes.
+        run: npm run typecheck
 
       - name: Lint (ESLint)
         run: npm run lint

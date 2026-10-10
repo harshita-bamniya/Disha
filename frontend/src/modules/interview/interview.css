@@ -95,10 +95,10 @@ textarea.iv-field { min-height: 110px; resize: vertical; line-height: 1.5; }
   min-width: 220px; height: 48px; padding: 0 28px;
   border-radius: 8px; border: 1px solid transparent;
   font-size: 16px; font-weight: 600; font-family: inherit; cursor: pointer;
-  background: var(--iv-accent); color: #fff;
+  background: var(--iv-accent); color: #1A2744;
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
 }
-.iv-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.iv-btn:hover:not(:disabled) { filter: brightness(0.9); }
 .iv-btn:disabled { background: var(--iv-disabled); color: var(--iv-text-dim); cursor: not-allowed; }
 .iv-btn-quiet {
   background: transparent; color: var(--iv-text);
@@ -181,7 +181,7 @@ textarea.iv-field { min-height: 110px; resize: vertical; line-height: 1.5; }
   background: transparent; color: var(--iv-text); border: 1px solid var(--iv-border-strong);
   display: inline-flex; align-items: center; justify-content: center;
 }
-.iv-icon-btn[aria-pressed='true'] { background: var(--iv-accent); border-color: var(--iv-accent); color: #fff; }
+.iv-icon-btn[aria-pressed='true'] { background: var(--iv-accent); border-color: var(--iv-accent); color: #1A2744; }
 .iv-icon-btn:disabled { opacity: .45; cursor: not-allowed; }
 .iv-spacer { flex: 1; }
 .iv-banner {

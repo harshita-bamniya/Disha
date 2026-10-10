@@ -60,7 +60,6 @@ async def register(body: RegisterRequest, request: Request, db: Session = Depend
         raise HTTPException(status_code=400, detail=str(e))
     dev_otp = await service.register_user(
         email=body.email,
-        phone=body.phone,
         password=body.password,
         preferred_language=body.preferred_language,
         db=db,

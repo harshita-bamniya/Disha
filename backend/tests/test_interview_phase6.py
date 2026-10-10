@@ -124,6 +124,14 @@ class TestReconcilePasses:
         assert first["overall_score"] == 6
 
 
+@pytest.fixture(autouse=True)
+def _company_wide_scope():
+    """These tests use mocked DB sessions; department scoping has its own real-DB
+    tests in test_verified_scoping.py."""
+    with patch.object(verified, "_scoped_job_ids", return_value=None):
+        yield
+
+
 class TestFitBand:
     @pytest.mark.parametrize("score,band", [
         (95, "Strong fit"), (80, "Strong fit"), (79.9, "Good fit"), (65, "Good fit"),
@@ -696,3 +704,41 @@ class TestGradingWiring:
         import inspect
 
         assert "verified.on_graded(session_id, db)" in inspect.getsource(feedback_service.run_grading)
+
+
+class TestCompletenessBand:
+    """Audit B1: the band must reflect the final, post-cap result."""
+
+    def _report(self, score=90):
+        return {"overall_readiness_score": score, "hiring_recommendation": "Strong Hire",
+                "needs_human_review": False, "review_reasons": [], "fit_band": "Strong fit"}
+
+    def test_two_of_seven_answered_is_incomplete_not_strong_fit(self):
+        from app.ai.dynamic_interview_engine import _enforce_completeness_cap
+        report = _enforce_completeness_cap(self._report(90), round(2 / 7 * 100))
+        scoring.apply_completeness(report, 2, 7)
+        assert report["fit_band"] == "Incomplete"
+        assert report["needs_human_review"] is True
+        assert (report["questions_answered"], report["questions_planned"]) == (2, 7)
+        assert any("2 of 7" in r for r in report["review_reasons"])
+
+    def test_complete_interview_keeps_a_firm_band(self):
+        report = scoring.apply_completeness(self._report(85), 7, 7)
+        assert report["fit_band"] == "Strong fit"
+        assert report["completion_pct"] == 100
+
+    def test_band_is_recomputed_from_the_final_score(self):
+        report = self._report(70)
+        report["fit_band"] = "Strong fit"  # stale value from before a score change
+        scoring.apply_completeness(report, 7, 7)
+        assert report["fit_band"] == "Good fit"
+
+    def test_extra_answers_do_not_exceed_planned(self):
+        report = scoring.apply_completeness(self._report(85), 9, 7)
+        assert report["questions_planned"] == 9 and report["completion_pct"] == 100
+
+    def test_uncertain_complete_interview_stays_needs_review(self):
+        report = self._report(85)
+        report["needs_human_review"] = True
+        scoring.apply_completeness(report, 7, 7)
+        assert report["fit_band"] == "Needs human review"

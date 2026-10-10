@@ -6,7 +6,13 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"],
       "port": 8000,
-      "cwd": "backend"
+      "cwd": "backend",
+      "env": {
+        "DATABASE_URL": "postgresql://disha:change_me_in_production@localhost:5432/disha_db",
+        "ALLOWED_ORIGINS": "http://localhost:5173,http://localhost:3000,http://localhost:5181",
+        "FRONTEND_URL": "http://localhost:5181",
+        "REDIS_URL": "redis://localhost:6379/0"
+      }
     },
     {
       "name": "BeginablAI Frontend Local",

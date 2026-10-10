@@ -125,7 +125,9 @@ async def speak(session_id: str, user: User, text: str, db: Session) -> bytes:
     language = normalize(session.language)
     cache_file = _tts_cache_path(text, language)
     if cache_file.is_file():
-        return cache_file.read_bytes()
+        # Clips cached before the edge-noise cleanup still carry the burst; cleaning
+        # is idempotent, so just run every cached clip through it.
+        return speech.clean_wav(cache_file.read_bytes())
 
     used = (
         db.query(func.count(ModelRun.id))

@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import (
@@ -11,8 +13,10 @@ from app.core.rbac import require_employer, require_permission
 from app.core.storage import save_upload
 from app.database import get_db
 from app.models.user import User
-from app.modules.companies import service
+from app.modules.companies import invites, service
+from app.modules.auth.schemas import TokenResponse
 from app.modules.companies.schemas import (
+    AcceptInviteRequest,
     AssignDepartmentRequest,
     CompanyAssetUploadResponse,
     CompanyProfileResponse,
@@ -24,6 +28,7 @@ from app.modules.companies.schemas import (
     DepartmentUpdateRequest,
     EmployerProfileSelfResponse,
     EmployerProfileUpdateRequest,
+    InviteInfo,
     MessageResponse,
     OfficeCreateRequest,
     OfficeOut,
@@ -32,6 +37,7 @@ from app.modules.companies.schemas import (
     SubscriptionUsageResponse,
     TeamBulkInviteRequest,
     TeamBulkInviteResponse,
+    TeamInviteEntry,
     TeamInviteRequest,
     TeamMemberEntry,
 )
@@ -39,6 +45,11 @@ from app.modules.companies.schemas import (
 router = APIRouter(prefix="/employer/company", tags=["Employer Company"])
 
 _company_errors = (AuthException, NotFoundException, BadRequestException, ForbiddenException)
+
+
+def _detail(e: Exception) -> str:
+    """The message without the "404: " status prefix that str() of these exceptions adds."""
+    return getattr(e, "detail", None) or str(e)
 
 
 def _status_for(e: Exception) -> int:
@@ -137,7 +148,7 @@ def list_team(
         raise HTTPException(status_code=_status_for(e), detail=str(e))
 
 
-@router.post("/team/invite", response_model=TeamMemberEntry, status_code=201)
+@router.post("/team/invite", response_model=TeamInviteEntry, status_code=201)
 def invite_team_member(
     body: TeamInviteRequest,
     current_user: User = Depends(require_permission("team", "invite")),
@@ -146,7 +157,7 @@ def invite_team_member(
     try:
         return service.invite_team_member(current_user, body, db)
     except _company_errors as e:
-        raise HTTPException(status_code=_status_for(e), detail=str(e))
+        raise HTTPException(status_code=_status_for(e), detail=_detail(e))
 
 
 @router.post("/team/invite-bulk", response_model=TeamBulkInviteResponse, status_code=201)
@@ -158,7 +169,44 @@ def invite_team_members_bulk(
     try:
         return service.invite_team_members_bulk(current_user, body, db)
     except _company_errors as e:
-        raise HTTPException(status_code=_status_for(e), detail=str(e))
+        raise HTTPException(status_code=_status_for(e), detail=_detail(e))
+
+
+@router.get("/team/invites", response_model=list[TeamInviteEntry])
+def list_team_invites(
+    current_user: User = Depends(require_permission("team", "invite")),
+    db: Session = Depends(get_db),
+):
+    """Invitations that have not been accepted yet (pending or expired). They are not members."""
+    try:
+        return service.list_team_invites(current_user, db)
+    except _company_errors as e:
+        raise HTTPException(status_code=_status_for(e), detail=_detail(e))
+
+
+@router.post("/team/invites/{invite_id}/resend", response_model=TeamInviteEntry)
+def resend_team_invite(
+    invite_id: str,
+    current_user: User = Depends(require_permission("team", "invite")),
+    db: Session = Depends(get_db),
+):
+    """New link (the old one stops working) and a fresh 7-day expiry."""
+    try:
+        return service.resend_team_invite(current_user, invite_id, db)
+    except _company_errors as e:
+        raise HTTPException(status_code=_status_for(e), detail=_detail(e))
+
+
+@router.delete("/team/invites/{invite_id}", response_model=MessageResponse)
+def revoke_team_invite(
+    invite_id: str,
+    current_user: User = Depends(require_permission("team", "invite")),
+    db: Session = Depends(get_db),
+):
+    try:
+        return service.revoke_team_invite(current_user, invite_id, db)
+    except _company_errors as e:
+        raise HTTPException(status_code=_status_for(e), detail=_detail(e))
 
 
 @router.delete("/team/{employer_profile_id}", response_model=MessageResponse)
@@ -369,3 +417,28 @@ def list_subscription_plans(
     db: Session = Depends(get_db),
 ):
     return service.list_subscription_plans(db)
+
+
+# ── Public: accepting a team invitation (the invitee has no account yet) ──────────────────────────
+
+public_router = APIRouter(prefix="/auth", tags=["Team Invitations"])
+_limiter = Limiter(key_func=get_remote_address)
+
+
+@public_router.get("/invite-info", response_model=InviteInfo)
+@_limiter.limit("30/minute")
+def invite_info(request: Request, token: str = Query(..., min_length=20, max_length=200), db: Session = Depends(get_db)):
+    try:
+        return invites.get_invite_info(token, db)
+    except _company_errors as e:
+        raise HTTPException(status_code=_status_for(e), detail=_detail(e))
+
+
+@public_router.post("/accept-invite", response_model=TokenResponse)
+@_limiter.limit("10/minute;30/hour")
+def accept_invite(request: Request, body: AcceptInviteRequest, db: Session = Depends(get_db)):
+    """Sets the invitee's name and password, creates their account and signs them in."""
+    try:
+        return invites.accept_invite(body, db, request)
+    except _company_errors as e:
+        raise HTTPException(status_code=_status_for(e), detail=_detail(e))

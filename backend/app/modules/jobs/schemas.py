@@ -1,3 +1,4 @@
+import re
 from datetime import date, datetime
 from typing import Literal, Optional
 
@@ -302,6 +303,18 @@ class VerificationEventOut(BaseModel):
     created_at: datetime
 
 
+class BusinessEmailCodeRequest(BaseModel):
+    otp: str
+
+    @field_validator("otp")
+    @classmethod
+    def _six_digits(cls, v: str) -> str:
+        v = v.strip()
+        if not re.fullmatch(r"\d{6}", v):
+            raise ValueError("Enter the 6-digit code.")
+        return v
+
+
 class VerificationDetailsRequest(BaseModel):
     """What the employer fills in. IDs are normalised/validated server-side."""
     entity_type: str
@@ -340,6 +353,7 @@ class VerificationStatusResponse(BaseModel):
     can_submit: bool = False
     blocked: bool = False                # fatal rejection or too many attempts: contact support
     email_verified: bool = True
+    business_email_proven: bool = False  # the business email is the verified login email, or its code was entered
     company_status: str = "unverified"
     documents: list[VerificationDocumentOut] = []
     events: list[VerificationEventOut] = []

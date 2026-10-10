@@ -3,7 +3,6 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { Compass, MapPin, IndianRupee, Search, X, AlertCircle, ArrowUpRight, Building2 } from 'lucide-react'
 import PageHeader from '@/shared/layouts/PageHeader'
-import Breadcrumb from '@/shared/components/navigation/Breadcrumb'
 import Pagination from '@/shared/components/navigation/Pagination'
 import Button from '@/shared/components/primitives/Button'
 import { SkeletonCard } from '@/shared/components/feedback/Skeleton'
@@ -103,10 +102,9 @@ export default function ReferenceRolesPage() {
   return (
     <>
       <PageHeader
-        title="Roles hiring UPSC aspirants"
+        title="Roles Hiring UPSC"
         subtitle="Research on what organisations hire for — not open vacancies"
         icon={<Compass size={13} color={NAVY} />}
-        below={<Breadcrumb items={[{ label: 'Dashboard', href: '/app/dashboard' }, { label: 'Roles hiring UPSC aspirants' }]} />}
       />
       <main style={{ padding: isMobile ? '16px 16px 40px' : '20px 28px 40px', display: 'flex', flexDirection: 'column', gap: 16 }}>
         <ReferenceNotice />

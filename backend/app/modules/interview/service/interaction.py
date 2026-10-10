@@ -92,6 +92,14 @@ def submit_response(
         .first()
     )
 
+    # Verified interviews: the question being answered is decided by the server,
+    # never by the client. The first id-less answer is the fixed opening question;
+    # every later id-less answer must answer a follow-up this server issued.
+    # (Practice sessions keep the old behaviour.)
+    server_question: tuple[str, str | None] | None = None
+    if session.mode == "verified" and not question_id:
+        server_question = _resolve_verified_question(session, body, is_first=last is None)
+
     if last is not None:
         same_question = (str(last.question_id) if last.question_id else None) == question_id
         recent = last.submitted_at is not None and (now - last.submitted_at).total_seconds() < DUPLICATE_WINDOW_SEC
@@ -141,8 +149,8 @@ def submit_response(
         response_text=body.response_text,
         response_time_sec=clamp_response_time(body.response_time_sec, elapsed),
         sequence_num=seq,
-        dynamic_question_text=body.question_text if not question_id else None,
-        dynamic_question_type=body.question_type if not question_id else None,
+        dynamic_question_text=(server_question[0] if server_question else body.question_text) if not question_id else None,
+        dynamic_question_type=(server_question[1] if server_question else body.question_type) if not question_id else None,
         is_followup=is_followup,
     )
     db.add(resp)
@@ -157,8 +165,46 @@ def submit_response(
         session.blueprint = blueprint
         result.update({"distress": True, "message": DISTRESS_MESSAGE})
 
+    if server_question and body.followup_id:
+        blueprint = dict(session.blueprint or {})
+        blueprint["_issued_followups"] = [
+            {**f, "answered": True} if f.get("id") == body.followup_id else f
+            for f in blueprint.get("_issued_followups") or []
+        ]
+        session.blueprint = blueprint
+
     db.commit()
     return result
+
+
+def _resolve_verified_question(session: InterviewSession, body: SubmitResponseRequest, is_first: bool) -> tuple[str, str | None]:
+    """Server-authoritative (text, type) for an id-less answer in a verified interview."""
+    blueprint = session.blueprint or {}
+    if is_first and not body.followup_id:
+        opening = (blueprint.get("_transition_question") or blueprint.get("ice_breaker_question") or "").strip()
+        if not opening:
+            raise ValueError("This interview has no opening question.")
+        return opening, None
+    issued = {f.get("id"): f for f in blueprint.get("_issued_followups") or []}
+    followup = issued.get(body.followup_id) if body.followup_id else None
+    if followup is None:
+        raise ValueError("That follow-up question was not issued in this interview.")
+    if followup.get("answered"):
+        raise ValueError("That follow-up has already been answered.")
+    return followup["text"], followup.get("type")
+
+
+def _remember_decision(session: InterviewSession, response_id: str, followup: dict | None, db: Session) -> None:
+    """Persist what the server decided after an answer, so asking again (page
+    refresh, retry, re-roll) returns the same thing instead of a new LLM call."""
+    blueprint = dict(session.blueprint or {})
+    decisions = dict(blueprint.get("_next_decisions") or {})
+    decisions[response_id] = followup["id"] if followup else None
+    blueprint["_next_decisions"] = decisions
+    if followup:
+        blueprint["_issued_followups"] = [*(blueprint.get("_issued_followups") or []), followup]
+    session.blueprint = blueprint
+    db.commit()
 
 
 async def get_next_question(
@@ -190,6 +236,27 @@ async def get_next_question(
         raise ValueError("Response not found.")
 
     question_id = str(resp.question_id) if resp.question_id else None
+
+    verified = session.mode == "verified"
+    already_decided = False
+    no_probe_replay = False
+    if verified:
+        decided = (session.blueprint or {}).get("_next_decisions") or {}
+        if response_id in decided:
+            already_decided = True
+            fid = decided[response_id]
+            no_probe_replay = fid is None
+            issued = next((f for f in (session.blueprint or {}).get("_issued_followups") or [] if f.get("id") == fid), None)
+            if issued and not no_probe_replay:
+                return {
+                    "action": "follow_up",
+                    "question": {
+                        "text": issued["text"], "is_followup": True, "followup_id": issued["id"],
+                        "original_question_id": issued.get("original_question_id"),
+                        "panelist_name": issued.get("panelist_name"), "panelist_role": issued.get("panelist_role"),
+                    },
+                    "provisional_score": 5, "coaching_note": "", "session_complete": False,
+                }
     # Bug fix (2026-08-24): this used to count responses sharing question_id —
     # but a follow-up's own response always has question_id=None (it isn't a
     # question_banks row), so that count could never exceed 1 once the chain
@@ -220,7 +287,8 @@ async def get_next_question(
     # Otherwise the answer is already decided by the rules below, so skip the
     # LLM call entirely (this was a paid call on every answer before).
     probe_possible = (
-        not already_probed
+        not no_probe_replay
+        and not already_probed
         and followups_so_far < followup_cap
         and (elapsed is None or hard_limit - elapsed >= policy.MIN_SECONDS_FOR_FOLLOWUP)
     )
@@ -257,6 +325,9 @@ async def get_next_question(
     logger.info("[INTERVIEW] session=%s action=%s reason=%s main_remaining=%s followups=%s/%s",
                 session_id, verdict.action, verdict.reason, main_remaining, followups_so_far, followup_cap)
 
+    if verified and not already_decided and verdict.action not in ("follow_up", "challenge"):
+        _remember_decision(session, response_id, None, db)
+
     if verdict.action == "close":
         return {
             "action": "next_question",
@@ -277,11 +348,20 @@ async def get_next_question(
         followup_panelist = panelist_for_question_type(resp.dynamic_question_type, is_technical_role) or {"name": None, "role": None}
 
     if verdict.action in ("follow_up", "challenge"):
+        issued_followup = None
+        if verified:
+            issued_followup = {
+                "id": str(uuid.uuid4()), "response_id": response_id, "text": follow_up_q, "type": skill_topic,
+                "original_question_id": question_id, "panelist_name": followup_panelist["name"],
+                "panelist_role": followup_panelist["role"], "answered": False,
+            }
+            _remember_decision(session, response_id, issued_followup, db)
         return {
             "action": verdict.action,
             "question": {
                 "text": follow_up_q,
                 "is_followup": True,
+                "followup_id": issued_followup["id"] if issued_followup else None,
                 "original_question_id": question_id,
                 "panelist_name": followup_panelist["name"],
                 "panelist_role": followup_panelist["role"],

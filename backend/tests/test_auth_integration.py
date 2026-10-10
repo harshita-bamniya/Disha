@@ -44,13 +44,15 @@ def _register(client: TestClient, phone: str = PHONE, name: str = "Test User") -
 # ── tests ─────────────────────────────────────────────────────────────────────
 
 class TestSendOtp:
-    def test_send_otp_returns_200_for_existing_account(self, client):
-        """send-otp resends OTP to an existing account — register first."""
-        phone = "+919900000002"
+    def test_send_otp_returns_200_for_existing_account(self, client, db):
+        """send-otp resends OTP to an existing account. Signup no longer takes a phone, so give the
+        account one the way the product does (after signup) before asking for an OTP by phone."""
+        from app.models.user import User
+        phone = "9900000002"
         with patch("app.modules.auth.service.send_otp_email", new_callable=AsyncMock):
-            r = client.post("/api/auth/register", json={
-                "phone": phone, "email": "otp-resend-test@example.com", "password": "SecurePass@123",
-            })
+            client.post("/api/auth/register", json={"email": "otp-resend-test@example.com", "password": "SecurePass@123"})
+        db.query(User).filter(User.email == "otp-resend-test@example.com").update({"phone": phone})
+        db.commit()
         # send-otp resend for the now-registered phone
         with patch("app.modules.auth.service.send_otp_email", new_callable=AsyncMock):
             r = client.post("/api/auth/send-otp", json={"phone": phone, "purpose": "register"})

@@ -123,6 +123,9 @@ class DrillRequest(BaseModel):
 
 class SubmitResponseRequest(BaseModel):
     question_id: Optional[str] = None
+    # Verified interviews: the id of the follow-up the SERVER issued. The server
+    # looks the question text up itself and ignores question_text/question_type.
+    followup_id: Optional[str] = None
     question_text: Optional[str] = Field(default=None, max_length=2000)
     question_type: Optional[str] = Field(default=None, max_length=50)
     response_text: str = Field(max_length=MAX_ANSWER_CHARS)
@@ -131,7 +134,7 @@ class SubmitResponseRequest(BaseModel):
     # ignores whatever the client sends (see service.interaction.submit_response).
     is_followup: bool = False
 
-    _check_question = field_validator("question_id")(_valid_uuid)
+    _check_question = field_validator("question_id", "followup_id")(_valid_uuid)
 
     @field_validator("response_text")
     @classmethod

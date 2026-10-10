@@ -332,7 +332,7 @@ export default function CounsellorPage() {
   return (
     <>
       <PageHeader
-        title="BeginablAI Counsellor"
+        title="AI Counsellor"
         subtitle="Your career guide — here whenever you need to talk"
         icon={<span style={{ fontSize: 12, fontWeight: 800, color: '#6366F1' }}>D</span>}
         actions={

@@ -20,7 +20,7 @@ export default function PrepListPage() {
   return (
     <>
       <PageHeader
-        title="Your Prep List"
+        title="Prep List"
         subtitle="Jobs you've saved to come back to — apply, focus your roadmap, or remove them here."
         icon={<Bookmark size={14} color={NAVY} />}
       />

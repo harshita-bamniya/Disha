@@ -152,6 +152,7 @@ async def _generate_and_store_readiness_report(
             main_answered = sum(1 for e in transcript_for_report if not e.get("is_followup"))
             planned = session.total_questions or main_answered or 1
             _enforce_completeness_cap(raw_report, round(main_answered / planned * 100))
+            scoring.apply_completeness(raw_report, main_answered, planned)
 
         session.job_readiness_report = raw_report
         db.commit()

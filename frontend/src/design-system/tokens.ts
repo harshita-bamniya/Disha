@@ -47,8 +47,8 @@ export const colors = {
     text:          '#F5F5F5',
     textMuted:     '#B3B3B3',
     textDim:       '#8A8A8A',
-    accent:        '#1AA3E8',
-    accentSoft:    'rgba(26,163,232,0.12)',
+    accent:        '#FFFFFF',   // white, not blue: matches the navy/white site palette
+    accentSoft:    'rgba(255,255,255,0.08)',
     success:       '#22C55E',
     warning:       '#F59E0B',
     danger:        '#F87171',

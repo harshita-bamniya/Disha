@@ -51,6 +51,9 @@ class EmployerVerification(Base):
     reason_code = Column(String(40), nullable=True)
     info_request = Column(Text, nullable=True)    # what a reviewer needs when status == needs_info
     attempt_no = Column(Integer, nullable=False, default=1)
+    # The business email address the employer proved they can read (OTP). Only counts while it still
+    # equals details["business_email"], so editing the address withdraws the proof.
+    business_email_verified = Column(String(150), nullable=True)
 
     employer = relationship("EmployerProfile")
     reviewer = relationship("User", foreign_keys=[reviewer_id])
@@ -73,6 +76,8 @@ class EmployerVerificationDocument(Base):
     original_filename = Column(String(255), nullable=True)
     status = Column(String(20), nullable=False, default="pending")
     notes = Column(Text, nullable=True)
+    # What the AI reader saw in the file: {status, detected_type, legible, fields{...}}. Advisory only.
+    ai_check = Column(JSONB, nullable=True)
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
 
     verification = relationship("EmployerVerification", back_populates="documents")

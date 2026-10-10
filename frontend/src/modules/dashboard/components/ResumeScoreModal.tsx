@@ -5,6 +5,7 @@ import { AlertCircle, FileText, ShieldCheck, Sparkles, X } from 'lucide-react'
 import type { LiveJob } from '@/api/krs'
 import { getApiError } from '@/api/client'
 import { resumeMatchApi, type ScanOut } from '@/api/resumeMatch'
+import { resumeApi } from '@/api/resume'
 import ScoreRing from '@/shared/components/data-display/ScoreRing'
 import { bandColor } from '@/modules/resume/components/match/matchTheme'
 import Button from '@/shared/components/primitives/Button'
@@ -23,6 +24,7 @@ export default function ResumeScoreModal({ job, onClose }: { job: LiveJob; onClo
   const [dragOver, setDragOver] = useState(false)
   const [fileError, setFileError] = useState<string | null>(null)
   const [fileName, setFileName] = useState<string | null>(null)
+  const [file, setFile] = useState<File | null>(null)
 
   const consent = useQuery({ queryKey: ['resume-match', 'consent'], queryFn: resumeMatchApi.consent })
   const giveConsent = useMutation({
@@ -34,12 +36,25 @@ export default function ResumeScoreModal({ job, onClose }: { job: LiveJob; onClo
     onSuccess: () => qc.invalidateQueries({ queryKey: ['resume-match'] }),
   })
 
+  // Turn the scored file into an editable builder resume and open it, so the user doesn't re-upload.
+  const enhance = useMutation({
+    mutationFn: async (f: File) => {
+      const parsed = await resumeApi.parseResumeFile(f)
+      return resumeApi.importParsedResume({ title: f.name.replace(/\.(pdf|docx)$/i, '') || 'Imported Resume', parsed_data: parsed })
+    },
+    onSuccess: resume => {
+      qc.invalidateQueries({ queryKey: ['resumes'] })
+      navigate(`/app/resume/${resume.id}`)
+    },
+  })
+
   function handleFile(file: File) {
     const ext = file.name.split('.').pop()?.toLowerCase()
     if (ext !== 'pdf' && ext !== 'docx') { setFileError('Only PDF and DOCX files are supported.'); return }
     if (file.size > MAX_BYTES) { setFileError('File exceeds the 5 MB limit.'); return }
     setFileError(null)
     setFileName(file.name)
+    setFile(file)
     scan.mutate(file)
   }
 
@@ -80,10 +95,20 @@ export default function ResumeScoreModal({ job, onClose }: { job: LiveJob; onClo
               </div>
               <div style={{ display: 'flex', gap: 10, marginTop: 22 }}>
                 <Button variant="outline" onClick={onClose} style={{ flex: 1 }}>Close</Button>
-                <Button onClick={() => navigate('/app/resume')} style={{ flex: 2 }}>
-                  <Sparkles size={14} style={{ marginRight: 6 }} /> Enhance with BeginablAI
+                <Button
+                  onClick={() => (file ? enhance.mutate(file) : navigate('/app/resume'))}
+                  disabled={enhance.isPending}
+                  style={{ flex: 2 }}
+                >
+                  <Sparkles size={14} style={{ marginRight: 6 }} />
+                  {enhance.isPending ? 'Opening your resume…' : 'Enhance with BeginablAI'}
                 </Button>
               </div>
+              {enhance.isError && (
+                <p role="alert" style={{ margin: '10px 0 0', fontSize: 12, color: '#DC2626' }}>
+                  {getApiError(enhance.error, 'Could not open your resume in the builder. Please try again.')}
+                </p>
+              )}
             </>
           )}
 

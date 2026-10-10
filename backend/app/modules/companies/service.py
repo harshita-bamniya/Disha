@@ -1,18 +1,19 @@
 import re
+import secrets
 from datetime import datetime, timedelta, timezone
-from types import SimpleNamespace
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.core.security import hash_token
 from app.core.exceptions import (
     AuthException,
     BadRequestException,
     ForbiddenException,
     NotFoundException,
 )
-from app.models.company import Company, CompanyDepartment, CompanyInvite, CompanyOffice
+from app.models.company import INVITE_TTL_DAYS, Company, CompanyDepartment, CompanyInvite, CompanyOffice
 from app.models.subscription import CompanySubscription, SubscriptionPlan
 from app.models.user import EmployerProfile, JobPosting, Role, User
 from app.modules.companies.schemas import (
@@ -33,6 +34,7 @@ from app.modules.companies.schemas import (
     TeamBulkInviteRequest,
     TeamBulkInviteResponse,
     TeamBulkInviteResult,
+    TeamInviteEntry,
     TeamInviteRequest,
     TeamMemberEntry,
 )
@@ -198,145 +200,215 @@ def _member_to_entry(profile: EmployerProfile, user: User | None = None) -> Team
     )
 
 
-def _name_from_email(email: str) -> str:
-    """Placeholder display name for invitees (they are asked for email only);
-    they can edit it from their own profile afterwards."""
-    local = email.split("@", 1)[0]
-    words = re.sub(r"[._\-+\d]+", " ", local).split()
-    return " ".join(w.capitalize() for w in words)[:150] or local[:150]
+_EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 
-def invite_team_member(user: User, data: TeamInviteRequest, db: Session) -> TeamMemberEntry:
-    """Creates a single teammate's account immediately and emails the credentials."""
-    profile = _get_own_profile(user, db)
-    if not profile.is_owner and user.role_name != "hr_manager":
-        raise ForbiddenException("Only the company owner or HR manager can invite team members.")
-    company = _get_company_or_404(profile, db)
-    department_id = _apply_invite_scope(profile, data.role_name, data.department_id)
-    return _create_team_member(
-        user, profile, company, data.email, data.contact_person, data.role_name,
-        department_id, data.password, db,
+# ── Invitations ───────────────────────────────────────────────────────────────
+# An invite is not an account. The invitee gets a one-time emailed link, sets their own name and
+# password on it, and only then does a User + EmployerProfile exist (see invites.accept_invite).
+
+def _new_invite_token() -> tuple[str, str]:
+    """(raw token to email, SHA-256 hash to store). The raw token is never persisted."""
+    raw = secrets.token_urlsafe(32)
+    return raw, hash_token(raw)
+
+
+def _live_invites_query(company_id, db: Session):
+    """Invites that still occupy a seat: not accepted, not revoked, and not past their expiry."""
+    return db.query(CompanyInvite).filter(
+        CompanyInvite.company_id == company_id,
+        CompanyInvite.accepted_at == None,  # noqa: E711
+        CompanyInvite.revoked_at == None,   # noqa: E711
+        CompanyInvite.token_hash != None,   # noqa: E711
+        CompanyInvite.expires_at > datetime.now(timezone.utc),
     )
 
 
-def invite_team_members_bulk(user: User, data: TeamBulkInviteRequest, db: Session) -> TeamBulkInviteResponse:
-    """Invites many people by email. Each gets a system-generated password and
-    an email with the login link; one bad address never blocks the others."""
-    profile = _get_own_profile(user, db)
+def _seats_in_use(company_id, db: Session) -> int:
+    """Members (the owner is the account itself, not a seat) plus invitations still waiting."""
+    members = db.query(EmployerProfile).filter(
+        EmployerProfile.company_id == company_id, EmployerProfile.is_owner == False,  # noqa: E712
+    ).count()
+    return members + _live_invites_query(company_id, db).count()
+
+
+def _invite_to_entry(inv: CompanyInvite, db: Session) -> TeamInviteEntry:
+    inviter = inv.inviter
+    inviter_profile = db.query(EmployerProfile).filter(EmployerProfile.user_id == inv.invited_by).first() if inv.invited_by else None
+    return TeamInviteEntry(
+        id=str(inv.id), email=inv.email, role_name=inv.role.name if inv.role else "",
+        department_id=str(inv.department_id) if inv.department_id else None,
+        department_name=inv.department.name if inv.department else None,
+        status="expired" if inv.status == "expired" else "pending",
+        invited_by_name=(inviter_profile.contact_person if inviter_profile else None) or (inviter.email if inviter else None),
+        created_at=inv.created_at, last_sent_at=inv.last_sent_at, expires_at=inv.expires_at,
+    )
+
+
+def _stage_invite(
+    user: User, company: Company, email: str, role_name: str, department_id: str | None, db: Session,
+) -> tuple[CompanyInvite, str]:
+    """Validates and stages (flushes, does not commit) an invitation. Returns it with the raw token to
+    email. Inviting someone who already has a waiting invitation re-issues it instead of duplicating."""
+    email = (email or "").strip().lower()
+    if not _EMAIL_RE.match(email):
+        raise BadRequestException("Enter a valid email address.")
+    if db.query(User).filter(User.email == email).first():
+        raise BadRequestException(f"{email} already has a BeginablAI account. Ask them to sign in instead.")
+
+    role = db.query(Role).filter(Role.name == role_name).first()
+    if not role:
+        raise BadRequestException(f"Role '{role_name}' not seeded in database.")
+
+    dept_id = None
+    if department_id:
+        dept = db.query(CompanyDepartment).filter(
+            CompanyDepartment.id == department_id, CompanyDepartment.company_id == company.id,
+        ).first()
+        if not dept:
+            raise BadRequestException("Department not found in this company.")
+        dept_id = dept.id
+
+    existing = db.query(CompanyInvite).filter(
+        CompanyInvite.company_id == company.id, CompanyInvite.email == email,
+        CompanyInvite.accepted_at == None, CompanyInvite.revoked_at == None,  # noqa: E711
+        CompanyInvite.token_hash != None,                                       # noqa: E711
+    ).first()
+
+    seat_limit = _get_recruiter_seat_limit(company.id, db)
+    if seat_limit is not None and not (existing and existing.status == "pending"):
+        if _seats_in_use(company.id, db) >= seat_limit:
+            raise BadRequestException(
+                f"Your plan allows {seat_limit} recruiter seat(s), counting people who haven't accepted yet. "
+                "Revoke an unused invitation or upgrade your subscription to add more."
+            )
+
+    raw, token_hash = _new_invite_token()
+    now = datetime.now(timezone.utc)
+    if existing:
+        inv = existing
+        inv.role_id, inv.department_id, inv.invited_by = role.id, dept_id, user.id
+    else:
+        inv = CompanyInvite(company_id=company.id, email=email, role_id=role.id, department_id=dept_id, invited_by=user.id)
+        db.add(inv)
+    inv.token_hash, inv.expires_at, inv.last_sent_at = token_hash, now + timedelta(days=INVITE_TTL_DAYS), now
+    db.flush()
+    return inv, raw
+
+
+def _dispatch_invite(inv: CompanyInvite, raw_token: str, company: Company, inviter: User, db: Session) -> None:
+    """Email the link. Called after the commit so a failed send can't undo the invitation (it can be resent)."""
+    from app.core.notifications import notify, team_invite_email
+
+    accept_url = f"{get_settings().frontend_url.rstrip('/')}/auth/accept-invite?token={raw_token}"
+    inviter_profile = db.query(EmployerProfile).filter(EmployerProfile.user_id == inviter.id).first()
+    subject, html = team_invite_email(
+        company.name, inv.role.name if inv.role else "recruiter",
+        inv.department.name if inv.department else None, accept_url,
+        invited_by=(inviter_profile.contact_person if inviter_profile else None) or inviter.email,
+        expires_in_days=INVITE_TTL_DAYS,
+    )
+    notify(inv.email, subject, html)
+
+
+def _assert_can_invite(profile: EmployerProfile, user: User, action: str = "invite") -> None:
     if not profile.is_owner and user.role_name != "hr_manager":
-        raise ForbiddenException("Only the company owner or HR manager can invite team members.")
+        raise ForbiddenException(f"Only the company owner or HR manager can {action} team members.")
+
+
+def invite_team_member(user: User, data: TeamInviteRequest, db: Session) -> TeamInviteEntry:
+    """Sends one invitation. No account is created until the invitee accepts."""
+    profile = _get_own_profile(user, db)
+    _assert_can_invite(profile, user)
+    company = _get_company_or_404(profile, db)
+    department_id = _apply_invite_scope(profile, data.role_name, data.department_id)
+    inv, raw = _stage_invite(user, company, data.email, data.role_name, department_id, db)
+    db.commit()
+    db.refresh(inv)
+    _dispatch_invite(inv, raw, company, user, db)
+    return _invite_to_entry(inv, db)
+
+
+def invite_team_members_bulk(user: User, data: TeamBulkInviteRequest, db: Session) -> TeamBulkInviteResponse:
+    """Invites many people by email. Each gets their own secure link; one bad address never blocks the others."""
+    profile = _get_own_profile(user, db)
+    _assert_can_invite(profile, user)
     company = _get_company_or_404(profile, db)
     department_id = _apply_invite_scope(profile, data.role_name, data.department_id)
 
     results: list[TeamBulkInviteResult] = []
     seen: set[str] = set()
-    for raw in data.emails:
-        email = raw.strip().lower()
+    for raw_email in data.emails:
+        email = raw_email.strip().lower()
         if not email or email in seen:
             continue
         seen.add(email)
-        if not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", email):
-            results.append(TeamBulkInviteResult(email=email, success=False, error="Enter a valid email address."))
-            continue
         try:
-            member = _create_team_member(
-                user, profile, company, email, _name_from_email(email), data.role_name,
-                department_id, None, db,
-            )
-            results.append(TeamBulkInviteResult(email=email, success=True, member=member))
+            inv, raw = _stage_invite(user, company, email, data.role_name, department_id, db)
+            db.commit()
+            db.refresh(inv)
+            _dispatch_invite(inv, raw, company, user, db)
+            results.append(TeamBulkInviteResult(email=email, success=True, invite=_invite_to_entry(inv, db)))
         except (BadRequestException, ForbiddenException, NotFoundException) as e:
-            db.rollback()
+            # Validation fails before anything is staged, so there is nothing to undo (and earlier
+            # addresses in this batch are already committed and must stay).
             results.append(TeamBulkInviteResult(email=email, success=False, error=str(e.detail)))
 
     created = sum(1 for r in results if r.success)
     return TeamBulkInviteResponse(results=results, created_count=created, failed_count=len(results) - created)
 
 
-def _create_team_member(
-    user: User, profile: EmployerProfile, company: Company, email: str, contact_person: str,
-    role_name: str, department_id: str | None, password: str | None, db: Session,
-) -> TeamMemberEntry:
-    data = SimpleNamespace(
-        email=email, contact_person=contact_person, role_name=role_name,
-        department_id=department_id, password=password,
+def _visible_invites(profile: EmployerProfile, db: Session):
+    q = db.query(CompanyInvite).filter(
+        CompanyInvite.company_id == profile.company_id,
+        CompanyInvite.accepted_at == None, CompanyInvite.revoked_at == None,  # noqa: E711
+        CompanyInvite.token_hash != None,                                       # noqa: E711
     )
-    seat_limit = _get_recruiter_seat_limit(company.id, db)
-    if seat_limit is not None:
-        # The owner isn't a "recruiter seat" — they're the account itself, not
-        # part of the hired/invited team the plan's seat limit is metering.
-        current_seats = db.query(EmployerProfile).filter(
-            EmployerProfile.company_id == company.id, EmployerProfile.is_owner == False,  # noqa: E712
-        ).count()
-        if current_seats >= seat_limit:
-            raise BadRequestException(
-                f"Your plan allows {seat_limit} recruiter seat(s). Upgrade your subscription to add more."
-            )
+    own_dept = _own_department_id(profile)
+    if own_dept is not None:
+        q = q.filter(CompanyInvite.department_id == own_dept)     # a department head sees only their own
+    return q
 
-    existing = db.query(User).filter(User.email == data.email).first()
-    if existing:
-        raise BadRequestException(f"A user with email '{data.email}' already exists.")
 
-    role = db.query(Role).filter(Role.name == data.role_name).first()
-    if not role:
-        raise BadRequestException(f"Role '{data.role_name}' not seeded in database.")
+def list_team_invites(user: User, db: Session) -> list[TeamInviteEntry]:
+    profile = _get_own_profile(user, db)
+    _assert_can_invite(profile, user, "see invitations for")
+    rows = _visible_invites(profile, db).order_by(CompanyInvite.created_at.desc()).all()
+    return [_invite_to_entry(i, db) for i in rows]
 
-    import secrets
 
-    from app.core.security import hash_password
-    # Password reset is phone-OTP based and invited teammates have no phone
-    # on file, so an omitted password would leave the account permanently
-    # unable to sign in. Always generate one and email it.
-    plain_password = data.password or secrets.token_urlsafe(9)
-    new_user = User(
-        email=data.email, role_id=role.id, email_verified=True, is_active=True,
-        password_hash=hash_password(plain_password),
-    )
-    db.add(new_user)
-    db.flush()
+def _get_visible_invite(profile: EmployerProfile, invite_id: str, db: Session) -> CompanyInvite:
+    inv = _visible_invites(profile, db).filter(CompanyInvite.id == invite_id).first()
+    if not inv:
+        raise NotFoundException("Invitation not found, or it has already been accepted or cancelled.")
+    return inv
 
-    dept_id = None
-    dept_name = None
-    if data.department_id:
-        dept = db.query(CompanyDepartment).filter(
-            CompanyDepartment.id == data.department_id,
-            CompanyDepartment.company_id == company.id,
-        ).first()
-        if not dept:
-            raise BadRequestException("Department not found in this company.")
-        dept_id = dept.id
-        dept_name = dept.name
 
-    new_profile = EmployerProfile(
-        user_id=new_user.id,
-        company_name=company.name, industry=company.industry, company_size=company.company_size,
-        website=company.website, contact_person=data.contact_person, city=profile.city or "",
-        is_approved=(company.verification_status == "verified"),   # seats inherit the company's verification
-        company_id=company.id, is_owner=False,
-        department_id=dept_id,
-    )
-    db.add(new_profile)
-    db.flush()
-    if data.role_name == "hr_manager" and dept_id:
-        head_dept = db.query(CompanyDepartment).filter(CompanyDepartment.id == dept_id).first()
-        if head_dept and head_dept.head_employer_id is None:
-            head_dept.head_employer_id = new_profile.id
-
-    db.add(CompanyInvite(
-        company_id=company.id, email=data.email, role_id=role.id,
-        invited_by=user.id, accepted_at=datetime.now(timezone.utc),
-    ))
+def resend_team_invite(user: User, invite_id: str, db: Session) -> TeamInviteEntry:
+    """Issues a fresh link (the old one stops working) and restarts the 7-day clock."""
+    profile = _get_own_profile(user, db)
+    _assert_can_invite(profile, user)
+    company = _get_company_or_404(profile, db)
+    inv = _get_visible_invite(profile, invite_id, db)
+    if db.query(User).filter(User.email == inv.email).first():
+        raise BadRequestException(f"{inv.email} already has a BeginablAI account.")
+    raw, token_hash = _new_invite_token()
+    now = datetime.now(timezone.utc)
+    inv.token_hash, inv.expires_at, inv.last_sent_at, inv.invited_by = token_hash, now + timedelta(days=INVITE_TTL_DAYS), now, user.id
     db.commit()
-    db.refresh(new_profile)
+    db.refresh(inv)
+    _dispatch_invite(inv, raw, company, user, db)
+    return _invite_to_entry(inv, db)
 
-    from app.core.notifications import notify, team_invite_email
-    subject, html = team_invite_email(
-        company.name, data.contact_person, data.role_name,
-        data.email, plain_password, dept_name,
-        login_url=f"{get_settings().frontend_url.rstrip('/')}/auth/login",
-    )
-    notify(data.email, subject, html)
 
-    return _member_to_entry(new_profile, new_user)
+def revoke_team_invite(user: User, invite_id: str, db: Session) -> MessageResponse:
+    profile = _get_own_profile(user, db)
+    _assert_can_invite(profile, user)
+    inv = _get_visible_invite(profile, invite_id, db)
+    inv.revoked_at = datetime.now(timezone.utc)
+    inv.token_hash = None            # the emailed link stops working immediately
+    db.commit()
+    return MessageResponse(message="Invitation cancelled.")
 
 
 def remove_team_member(user: User, employer_profile_id: str, db: Session) -> MessageResponse:
@@ -552,11 +624,18 @@ def _dept_to_out(dept: CompanyDepartment, db: Session) -> DepartmentOut:
         ).count()
 
     head_name = dept.head.contact_person if dept.head else None
+    head_pending = None
+    if not dept.head_employer_id:
+        waiting = _live_invites_query(dept.company_id, db).filter(
+            CompanyInvite.department_id == dept.id,
+            CompanyInvite.role_id == db.query(Role.id).filter(Role.name == "hr_manager").scalar_subquery(),
+        ).order_by(CompanyInvite.created_at.desc()).first()
+        head_pending = waiting.email if waiting else None
 
     return DepartmentOut(
         id=str(dept.id), name=dept.name, description=dept.description,
         head_employer_id=str(dept.head_employer_id) if dept.head_employer_id else None,
-        head_name=head_name,
+        head_name=head_name, head_pending_email=head_pending,
         member_count=member_count, total_job_count=total_job_count,
         active_job_count=active_job_count,
         total_applicant_count=total_applicant_count,
@@ -609,7 +688,7 @@ def create_department(user: User, data: DepartmentCreateRequest, db: Session) ->
     if data.head_email and head_id:
         raise BadRequestException("Choose an existing member or enter a new head's email, not both.")
     head_email = data.head_email.strip().lower() if data.head_email else None
-    if head_email and not re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", head_email):
+    if head_email and not _EMAIL_RE.match(head_email):
         raise BadRequestException("Enter a valid email address for the department head.")
 
     row = CompanyDepartment(
@@ -618,18 +697,20 @@ def create_department(user: User, data: DepartmentCreateRequest, db: Session) ->
     )
     db.add(row)
     if head_email:
-        # Appoint the head in the same step: the department row is only flushed, so if the
-        # account can't be created (duplicate email, seat limit) nothing is left behind.
+        # Invite the head in the same step. It is only an invitation (no account until they accept), and the
+        # department row is merely flushed, so if the invitation can't be created (existing account, seat
+        # limit) nothing is left behind.
         db.flush()
         try:
-            _create_team_member(
-                user, profile, company, head_email, _name_from_email(head_email), "hr_manager",
-                str(row.id), None, db,
-            )
+            inv, raw = _stage_invite(user, company, head_email, "hr_manager", str(row.id), db)
         except Exception:
-            db.rollback()
+            db.delete(row)           # drop the department we just flushed; nothing else was staged
+            db.flush()
             raise
+        db.commit()
         db.refresh(row)
+        db.refresh(inv)
+        _dispatch_invite(inv, raw, company, user, db)
         return _dept_to_out(row, db)
     db.commit()
     db.refresh(row)

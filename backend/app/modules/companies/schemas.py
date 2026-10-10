@@ -1,7 +1,8 @@
+import re
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class CompanyProfileResponse(BaseModel):
@@ -76,20 +77,30 @@ class TeamMemberEntry(BaseModel):
 
 
 class TeamInviteRequest(BaseModel):
+    """Invite one person. Only the email is needed: the invitee chooses their own name and password
+    when they accept (anything else a client sends, e.g. the old `password`, is ignored)."""
     email: str
-    contact_person: str = Field(..., min_length=1, max_length=150)
     role_name: str = Field(..., pattern="^(hr_manager|recruiter|interviewer|hiring_manager)$")
-    # Optional: assign the new member directly to a department at invite time.
-    # Company-wide roles (hr_manager) should leave this null.
+    # Optional: the department the person joins. Company-wide roles leave this null.
     department_id: Optional[str] = None
-    # If provided, set as the user's login password immediately so they can sign in
-    # without going through the forgot-password flow.
-    password: Optional[str] = Field(None, min_length=6, max_length=128)
+
+
+class TeamInviteEntry(BaseModel):
+    """A pending/expired invitation as the team page lists it. It is not a member yet."""
+    id: str
+    email: str
+    role_name: str
+    department_id: Optional[str] = None
+    department_name: Optional[str] = None
+    status: str                                  # pending | expired
+    invited_by_name: Optional[str] = None
+    created_at: datetime
+    last_sent_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
 
 
 class TeamBulkInviteRequest(BaseModel):
-    """Invite several people at once by email. The system generates each
-    person's password and emails it together with the login link."""
+    """Invite several people at once by email. Each gets their own secure link."""
     emails: list[str] = Field(..., min_length=1, max_length=25)
     role_name: str = Field(..., pattern="^(hr_manager|recruiter|interviewer|hiring_manager)$")
     department_id: Optional[str] = None
@@ -99,13 +110,58 @@ class TeamBulkInviteResult(BaseModel):
     email: str
     success: bool
     error: Optional[str] = None
-    member: Optional[TeamMemberEntry] = None
+    invite: Optional[TeamInviteEntry] = None
 
 
 class TeamBulkInviteResponse(BaseModel):
     results: list[TeamBulkInviteResult]
     created_count: int
     failed_count: int
+
+
+class InviteInfo(BaseModel):
+    """What the accept-invitation page shows before the invitee commits to anything."""
+    email: str
+    company_name: str
+    role_name: str
+    department_name: Optional[str] = None
+    invited_by_name: Optional[str] = None
+    status: str                                  # pending | expired | accepted | revoked
+    expires_at: Optional[datetime] = None
+
+
+class AcceptInviteRequest(BaseModel):
+    token: str = Field(..., min_length=20, max_length=200)
+    full_name: str = Field(..., min_length=1, max_length=150)
+    password: str
+
+    @field_validator("full_name")
+    @classmethod
+    def _name(cls, v: str) -> str:
+        v = re.sub(r"\s+", " ", v).strip()
+        if not v:
+            raise ValueError("Enter your name")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def _password(cls, v: str) -> str:
+        errors = []
+        if len(v) < 8:
+            errors.append("at least 8 characters")
+        if len(v) > 128:
+            raise ValueError("Password must not exceed 128 characters")
+        if not re.search(r"[A-Z]", v):
+            errors.append("one uppercase letter")
+        if not re.search(r"[a-z]", v):
+            errors.append("one lowercase letter")
+        if not re.search(r"\d", v):
+            errors.append("one number")
+        if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", v):
+            errors.append("one special character (!@#$%^&*...)")
+        if errors:
+            raise ValueError("Password must contain: " + ", ".join(errors))
+        return v
 
 
 class AssignDepartmentRequest(BaseModel):
@@ -171,7 +227,8 @@ class DepartmentCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=150)
     description: Optional[str] = None
     head_employer_id: Optional[str] = None  # EmployerProfile.id of the dept head
-    # Or: appoint a brand-new head by email — the system creates the account and emails the password.
+    # Or: invite someone new to head it. This only sends an invitation (no account exists until they
+    # accept); they become the head on acceptance.
     head_email: Optional[str] = None
 
 
@@ -187,6 +244,7 @@ class DepartmentOut(BaseModel):
     description: Optional[str] = None
     head_employer_id: Optional[str] = None
     head_name: Optional[str] = None         # contact_person of the head EmployerProfile
+    head_pending_email: Optional[str] = None  # a head invited but not yet accepted
     # Computed stats — populated by the service layer
     member_count: int = 0                   # recruiters/HMs assigned to this dept
     total_job_count: int = 0                # all jobs (draft + published + closed)

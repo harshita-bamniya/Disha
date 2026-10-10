@@ -14,7 +14,7 @@ import { colors } from '@/design-system/tokens'
 const { text, surface, state, border } = colors
 
 const BAND_BADGE: Record<string, 'green' | 'blue' | 'amber' | 'gray'> = {
-  'Strong fit': 'green', 'Good fit': 'blue', 'Developing': 'amber', 'Not yet a fit': 'gray', 'Needs human review': 'amber',
+  'Strong fit': 'green', 'Good fit': 'blue', 'Developing': 'amber', 'Not yet a fit': 'gray', 'Needs human review': 'amber', 'Incomplete': 'amber',
 }
 
 const body: React.CSSProperties = { fontSize: 13, color: text.inkSoft, lineHeight: 1.6, margin: 0 }
@@ -160,6 +160,9 @@ export default function VerifiedInterviewResultPage() {
               <div style={{ fontSize: 12, color: text.muted, marginTop: 4 }}>Overall, computed from the individual answers</div>
             </div>
             {data.fit_band && <Badge color={BAND_BADGE[data.fit_band] ?? 'gray'}>{data.fit_band}</Badge>}
+            {data.questions_planned != null && (
+              <span style={{ fontSize: 12, color: text.muted }}>Answered {data.questions_answered ?? 0} of {data.questions_planned} planned questions</span>
+            )}
           </div>
           {data.needs_human_review && (
             <p style={{ ...body, background: colors.state.warningBg, borderRadius: 8, padding: '10px 12px', marginBottom: 12 }}>

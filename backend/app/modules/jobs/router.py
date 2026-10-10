@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import AuthException, BadRequestException
@@ -12,6 +14,7 @@ from app.models.user import User
 from app.modules.jobs import service, verification
 from app.modules.payments.service import require_active_employer_subscription
 from app.modules.jobs.schemas import (
+    BusinessEmailCodeRequest,
     BulkImportResponse,
     EmployerDashboardResponse,
     EmployerPermissionsResponse,
@@ -327,6 +330,37 @@ async def upload_verification_document(
 ):
     try:
         return await verification.upload_document(current_user, doc_type, file, db)
+    except (AuthException, BadRequestException) as e:
+        raise HTTPException(status_code=400, detail=e.detail)
+
+
+_limiter = Limiter(key_func=get_remote_address)
+
+
+@router.post("/verification/business-email/send", response_model=VerificationStatusResponse)
+@_limiter.limit("5/minute;15/hour")
+async def send_business_email_code(
+    request: Request,
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    """Email a code to the business email on the case, to prove the employer controls it."""
+    try:
+        return await verification.send_business_email_code(current_user, db)
+    except (AuthException, BadRequestException) as e:
+        raise HTTPException(status_code=400, detail=e.detail)
+
+
+@router.post("/verification/business-email/verify", response_model=VerificationStatusResponse)
+@_limiter.limit("10/hour")
+def verify_business_email_code(
+    request: Request,
+    body: BusinessEmailCodeRequest,
+    current_user: User = Depends(_employer),
+    db: Session = Depends(get_db),
+):
+    try:
+        return verification.verify_business_email_code(current_user, body.otp, db)
     except (AuthException, BadRequestException) as e:
         raise HTTPException(status_code=400, detail=e.detail)
 

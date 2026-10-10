@@ -162,6 +162,7 @@ export interface VerificationStatusResponse {
   can_submit: boolean
   blocked: boolean
   email_verified: boolean
+  business_email_proven: boolean
   company_status: string
   documents: VerificationDocumentOut[]
   events: VerificationEventOut[]
@@ -267,6 +268,12 @@ export const jobsApi = {
 
   deleteVerificationDocument: (documentId: string) =>
     apiClient.delete<VerificationStatusResponse>(`/employer/verification/documents/${documentId}`).then((r) => r.data),
+
+  sendBusinessEmailCode: () =>
+    apiClient.post<VerificationStatusResponse>('/employer/verification/business-email/send').then((r) => r.data),
+
+  verifyBusinessEmailCode: (otp: string) =>
+    apiClient.post<VerificationStatusResponse>('/employer/verification/business-email/verify', { otp }).then((r) => r.data),
 
   submitVerification: () =>
     apiClient.post<VerificationStatusResponse>('/employer/verification/submit').then((r) => r.data),

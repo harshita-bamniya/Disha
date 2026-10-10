@@ -885,7 +885,7 @@ export default function FormBuilderPage() {
           </Button>
         }
         below={
-          <span style={{ fontSize: 11, fontWeight: 600, borderRadius: 99, padding: '2px 8px', background: badge.bg, color: badge.color, display: 'inline-block', marginTop: 6 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, borderRadius: 99, padding: '2px 8px', background: badge.bg, color: badge.color, display: 'inline-block' }}>
             {badge.label}
           </span>
         }

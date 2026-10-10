@@ -46,7 +46,8 @@ export default function RoadmapHistoryPage() {
   return (
     <>
       <PageHeader
-        title="My Roadmaps"
+        title="Roadmap History"
+        subtitle="Every roadmap you have generated"
         icon={<Map size={14} color="#6366F1" />}
       />
 

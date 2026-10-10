@@ -17,7 +17,8 @@ const selectStyle: React.CSSProperties = { padding: '6px 10px', border: `1px sol
 // ── Job row — read-only. Creating/editing/publishing a job happens inside
 // that job's own department workspace now, not here; this page exists so a
 // company-wide viewer can see everything at a glance across departments. ──
-const COLS = '1fr 96px 120px 68px 96px 88px 100px'
+// Candidates is 104px: its uppercase, letter-spaced header is ~90px wide and used to spill into Salary
+const COLS = '1fr 96px 120px 104px 96px 88px 100px'
 
 function JobRow({ job }: { job: JobPosting }) {
   const navigate = useNavigate()

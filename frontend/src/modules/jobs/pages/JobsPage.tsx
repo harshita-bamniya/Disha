@@ -8,7 +8,6 @@ import {
 import Pagination from '@/shared/components/navigation/Pagination'
 import PageHeader from '@/shared/layouts/PageHeader'
 import Button from '@/shared/components/primitives/Button'
-import Breadcrumb from '@/shared/components/navigation/Breadcrumb'
 import { SkeletonCard } from '@/shared/components/feedback/Skeleton'
 import SharedEmptyState from '@/shared/components/feedback/EmptyState'
 import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors, shadows } from '@/design-system/tokens'
@@ -284,10 +283,9 @@ export default function JobsPage() {
   return (
     <>
       <PageHeader
-        title="Job Opportunities"
-        subtitle="Ranked by your BeginAI profile match score"
+        title="Jobs"
+        subtitle="Ranked by how well each role matches your profile"
         icon={<Briefcase size={13} color={NAVY} />}
-        below={<Breadcrumb items={[{ label: 'Dashboard', href: '/app/dashboard' }, { label: 'Jobs' }]} />}
       />
 
         {/* ── body: sidebar + feed ──

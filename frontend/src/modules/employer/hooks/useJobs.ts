@@ -232,6 +232,14 @@ export function useDeleteVerificationDocument() {
   return useVerificationMutation((documentId: string) => jobsApi.deleteVerificationDocument(documentId))
 }
 
+export function useSendBusinessEmailCode() {
+  return useVerificationMutation<void>(() => jobsApi.sendBusinessEmailCode())
+}
+
+export function useVerifyBusinessEmailCode() {
+  return useVerificationMutation((otp: string) => jobsApi.verifyBusinessEmailCode(otp))
+}
+
 export function useSubmitVerification() {
   return useVerificationMutation<void>(() => jobsApi.submitVerification())
 }
@@ -280,6 +288,7 @@ export function useTeamMembers() {
 }
 
 const TEAM_ACTIVITY_KEY = ['employer', 'company', 'team', 'activity']
+const TEAM_INVITES_KEY = ['employer', 'company', 'team', 'invites']
 
 export function useTeamActivity() {
   return useQuery({ queryKey: TEAM_ACTIVITY_KEY, queryFn: () => companyApi.getTeamActivity(50) })
@@ -289,7 +298,31 @@ export function useInviteTeamMember() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (payload: TeamInvitePayload) => companyApi.inviteTeamMember(payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: TEAM_KEY }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: TEAM_INVITES_KEY }),
+  })
+}
+
+/** Invitations that haven't been accepted yet (pending or expired). Not members. */
+export function useTeamInvites(enabled = true) {
+  return useQuery({ queryKey: TEAM_INVITES_KEY, queryFn: companyApi.listTeamInvites, enabled })
+}
+
+export function useResendTeamInvite() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => companyApi.resendTeamInvite(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: TEAM_INVITES_KEY }),
+  })
+}
+
+export function useRevokeTeamInvite() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => companyApi.revokeTeamInvite(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: TEAM_INVITES_KEY })
+      qc.invalidateQueries({ queryKey: DEPARTMENTS_KEY })
+    },
   })
 }
 
@@ -307,6 +340,7 @@ export function useInviteTeamMembersBulk() {
     mutationFn: (payload: TeamBulkInvitePayload) => companyApi.inviteTeamMembersBulk(payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: TEAM_KEY })
+      qc.invalidateQueries({ queryKey: TEAM_INVITES_KEY })
       qc.invalidateQueries({ queryKey: DEPARTMENTS_KEY })
     },
   })
@@ -364,7 +398,10 @@ export function useCreateDepartment() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (payload: DepartmentCreatePayload) => companyApi.createDepartment(payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: DEPARTMENTS_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: DEPARTMENTS_KEY })
+      qc.invalidateQueries({ queryKey: TEAM_INVITES_KEY })      // naming a head by email sends an invitation
+    },
   })
 }
 

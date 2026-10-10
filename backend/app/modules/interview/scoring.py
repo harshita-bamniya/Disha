@@ -237,6 +237,39 @@ def apply_code_scoring(
     return report
 
 
+# Below this share of planned questions answered, no fit band is shown at all.
+# Matches the lower tier of dynamic_interview_engine._enforce_completeness_cap.
+INCOMPLETE_BELOW_PCT = 70
+
+
+def apply_completeness(report: dict, answered: int, planned: int) -> dict:
+    """Record how much of the interview was actually answered and re-derive the
+    employer-facing band from the FINAL (post-cap) score.
+
+    The band used to be computed before the completeness cap lowered the score,
+    so a candidate who answered 2 of 7 questions could read "Strong fit". An
+    interview that is mostly unanswered is "Incomplete", never a fit band.
+    """
+    planned = max(int(planned or 0), int(answered or 0), 1)
+    answered = max(int(answered or 0), 0)
+    pct = round(answered / planned * 100)
+    report["questions_answered"] = answered
+    report["questions_planned"] = planned
+    report["completion_pct"] = pct
+
+    reasons = list(report.get("review_reasons") or [])
+    if pct < INCOMPLETE_BELOW_PCT:
+        note = f"Only {answered} of {planned} planned questions were answered, so this is not a reliable assessment."
+        if note not in reasons:
+            reasons.append(note)
+        report["review_reasons"] = reasons
+        report["needs_human_review"] = True
+        report["fit_band"] = "Incomplete"
+    else:
+        report["fit_band"] = fit_band(report.get("overall_readiness_score"), bool(report.get("needs_human_review")))
+    return report
+
+
 # ── Verified interviews ───────────────────────────────────────────────────────
 
 PASS_DISAGREEMENT = 2          # per-answer overall scores further apart than this need a human

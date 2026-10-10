@@ -164,32 +164,26 @@ def employer_verification_needs_info_email(company_name: str, message: str) -> t
 
 
 def team_invite_email(
-    company_name: str, contact_person: str, role_name: str,
-    login_identifier: str, password: str, department_name: str | None,
-    login_url: str | None = None,
+    company_name: str, role_name: str, department_name: str | None, accept_url: str,
+    invited_by: str | None = None, expires_in_days: int = 7,
 ) -> tuple[str, str]:
+    """Invitation to join a company's hiring workspace. Carries a one-time link where the invitee
+    sets their own name and password. Never contains a password."""
     role_label = role_name.replace("_", " ").title()
-    dept_html = f"<p><strong>Department:</strong> {department_name}</p>" if department_name else ""
-    login_html = (
-        f'<p><a href="{login_url}" style="display:inline-block;background:#1E3A5F;color:#fff;'
-        f'padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:bold;">'
-        f'Log in to {department_name or company_name}</a></p>'
-        f'<p style="color:#6B7280;font-size:12px;">Or open: {login_url}</p>'
-    ) if login_url else ""
-    subject = f"You've been added to {company_name} on BeginablAI"
+    where = f" in the <strong>{department_name}</strong> department" if department_name else ""
+    by = f"{invited_by} has invited you" if invited_by else "You have been invited"
+    subject = f"You're invited to join {company_name} on BeginablAI"
     html = _wrap(
-        f"Welcome to {company_name}",
+        f"Join {company_name}",
         f"""
-        <p>Hi {contact_person or ''}, you've been added as a <strong>{role_label}</strong>
-        on <strong>{company_name}</strong>'s BeginablAI hiring workspace.</p>
-        {dept_html}
-        <p>Sign in with these credentials:</p>
-        <ul style="line-height:1.8;padding-left:20px;">
-          <li><strong>Login:</strong> {login_identifier}</li>
-          <li><strong>Temporary password:</strong> {password}</li>
-        </ul>
-        {login_html}
-        <p style="color:#6B7280;font-size:12px;">We recommend changing your password after your first sign-in.</p>
+        <p>{by} to join <strong>{company_name}</strong>'s BeginablAI hiring workspace as a
+        <strong>{role_label}</strong>{where}.</p>
+        <p><a href="{accept_url}" style="display:inline-block;background:#1A2744;color:#fff;
+        padding:11px 22px;border-radius:8px;text-decoration:none;font-weight:bold;">Accept invitation</a></p>
+        <p style="color:#6B7280;font-size:12px;">You'll choose your own password on the next page.
+        This link works once and expires in {expires_in_days} days. If the button doesn't work, copy this address into your browser:<br>
+        <span style="word-break:break-all;">{accept_url}</span></p>
+        <p style="color:#6B7280;font-size:12px;">If you weren't expecting this, you can ignore this email; no account is created unless you accept.</p>
         """,
     )
     return subject, html

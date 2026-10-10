@@ -11,7 +11,7 @@ import {
   useDepartment, useDepartmentJobs, useDepartmentOverview, useTeamMembers,
   useHasPermission, useRemoveTeamMember, useEmployerPermissions, useEmployerDashboard,
   useCreateJob, useUpdateJob, useDeleteJob, usePublishJob, usePauseJob,
-  useCloseJob, useReopenJob, useDuplicateJob,
+  useCloseJob, useReopenJob, useDuplicateJob, useTeamInvites,
 } from '../hooks/useJobs'
 import { getApiError } from '@/api/client'
 import type { DepartmentJobEntry } from '@/api/company'
@@ -27,6 +27,7 @@ import Tabs, { type TabItem } from '@/shared/components/navigation/Tabs'
 import Spinner from '@/shared/components/feedback/Spinner'
 import ErrorState from '@/shared/components/feedback/ErrorState'
 import BulkInviteModal from '../components/BulkInviteModal'
+import { DepartmentHeadCard, DepartmentInvites } from '../components/DepartmentPeople'
 
 const C = { ink1: colors.text.ink, ink2: colors.text.inkSoft, ink3: colors.text.muted, border: colors.border.default, borderLight: colors.border.default, accent: colors.state.info, green: colors.state.success, red: colors.state.danger }
 
@@ -399,6 +400,8 @@ export default function DepartmentDetailPage() {
   // separate departments:* permission (which doesn't exist in the system) —
   // check the same one the API actually enforces.
   const canInvite    = useHasPermission('team:invite')
+  const canManageDept = useHasPermission('companies:edit')
+  const { data: allInvites } = useTeamInvites(canInvite)
   const canRemoveMember = useHasPermission('team:remove')
   const removeMember = useRemoveTeamMember()
   const canCreateJob = useHasPermission('jobs:create')
@@ -482,8 +485,8 @@ export default function DepartmentDetailPage() {
 
         <PageHeader
           title={dept.name}
-          subtitle={dept.head_name ? `Head: ${dept.head_name}` : 'Department overview'}
-          below={<div style={{ paddingBottom: 8 }}><Breadcrumb items={[{ label: 'Departments', href: '/app/employer/departments' }, { label: dept.name }]} /></div>}
+          subtitle={dept.head_name ? `Head: ${dept.head_name}` : dept.head_pending_email ? `Head invited: ${dept.head_pending_email} (not accepted yet)` : 'Department overview'}
+          below={<Breadcrumb items={[{ label: 'Departments', href: '/app/employer/departments' }, { label: dept.name }]} />}
           actions={
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {canInvite && (
@@ -612,6 +615,8 @@ export default function DepartmentDetailPage() {
 
           {activeTab === 'team' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <DepartmentHeadCard dept={dept} members={deptTeam} canAssign={canManageDept && isCompanyWide} />
+              <DepartmentInvites invites={(allInvites ?? []).filter(i => i.department_id === id)} />
               <div style={{ background: '#fff', borderRadius: 16, border: `1px solid ${colors.border.default}`, boxShadow: '0 1px 4px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
                 <div style={{ padding: '14px 20px', borderBottom: '1px solid #F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <p style={{ fontSize: 14, fontWeight: 700, color: colors.text.ink, margin: 0 }}>

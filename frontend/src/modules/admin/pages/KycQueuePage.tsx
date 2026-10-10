@@ -1,7 +1,7 @@
 ﻿import { useState, useMemo } from 'react'
 import { Shield, Clock, AlertTriangle } from 'lucide-react'
 import { useEmployerVerifications, useEmployerVerificationDetail, useReviewEmployerVerification, useReviewVerificationDocument } from '../hooks/useAdmin'
-import { Spinner, Badge, SectionHeading, VERIF_STATUS_COLOR } from '../shared/adminUI'
+import { Spinner, Badge, VERIF_STATUS_COLOR } from '../shared/adminUI'
 import { getApiError } from '@/api/client'
 import { cn } from '@/lib/utils'
 import { colors } from '@/design-system/tokens'
@@ -34,11 +34,57 @@ const ENTITY_FIELD_LABELS: Record<string, string> = {
   registration_number: 'Registration no.', business_email: 'Business email', website: 'Website',
   registered_address: 'Registered address', signatory_name: 'Authorised person', signatory_designation: 'Designation',
 }
+// Registry IDs are shown in monospace; the rest read as normal text. Long values take the full row.
+const MONO_FIELDS = new Set(['gstin', 'pan', 'cin', 'llpin', 'udyam', 'darpan_id', 'registration_number'])
+const WIDE_FIELDS = new Set(['registered_address', 'website', 'business_email'])
+const FIELD_ORDER = ['cin', 'llpin', 'gstin', 'pan', 'udyam', 'darpan_id', 'registration_number', 'business_email', 'website',
+  'signatory_name', 'signatory_designation', 'registered_address']
+const DECLARATION_LABELS: Record<string, string> = {
+  info_accurate: 'Information is accurate', authorised: 'Authorised to represent the organisation', no_candidate_fee: 'Never charges candidates',
+}
 
 const CHECK_STYLE = {
   ok:   { fg: '#15803D', bg: '#F0FDF4', icon: '✓' },
   warn: { fg: '#B45309', bg: '#FFFBEB', icon: '!' },
   fail: { fg: '#B91C1C', bg: '#FEF2F2', icon: '✕' },
+}
+type CheckLevel = keyof typeof CHECK_STYLE
+type AutoCheck = { code: string; level: CheckLevel; message: string }
+
+const fmtDate = (iso: string, withYear = true) =>
+  new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', ...(withYear ? { year: 'numeric' } : {}), hour: '2-digit', minute: '2-digit' })
+
+function Panel({ title, aside, children }: { title: string; aside?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section style={{ border: `1px solid ${colors.border.default}`, borderRadius: 12, background: '#fff', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '10px 16px', background: colors.surface.bg, borderBottom: `1px solid ${colors.border.default}` }}>
+        <h3 style={{ margin: 0, fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: colors.text.inkSoft }}>{title}</h3>
+        {aside}
+      </div>
+      <div style={{ padding: 16 }}>{children}</div>
+    </section>
+  )
+}
+
+function Field({ label, children, wide, mono }: { label: string; children: React.ReactNode; wide?: boolean; mono?: boolean }) {
+  return (
+    <div style={{ gridColumn: wide ? '1 / -1' : undefined, minWidth: 0 }}>
+      <p style={{ margin: 0, fontSize: 11, color: colors.text.muted }}>{label}</p>
+      <p className={mono ? 'font-mono' : undefined} style={{ margin: '2px 0 0', fontSize: 13, color: colors.text.ink, overflowWrap: 'anywhere' }}>{children}</p>
+    </div>
+  )
+}
+
+const FIELD_GRID: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '14px 20px' }
+
+function CheckRow({ c }: { c: AutoCheck }) {
+  const st = CHECK_STYLE[c.level]
+  return (
+    <li style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '8px 10px', borderRadius: 8, background: st.bg, color: st.fg, fontSize: 12.5, lineHeight: 1.45, listStyle: 'none' }}>
+      <strong style={{ width: 14, flexShrink: 0, textAlign: 'center' }}>{st.icon}</strong>
+      <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{c.message}</span>
+    </li>
+  )
 }
 
 function VerificationDetailDrawer({ id, onClose }: { id: string; onClose: () => void }) {
@@ -54,195 +100,250 @@ function VerificationDetailDrawer({ id, onClose }: { id: string; onClose: () => 
   const [docNote, setDocNote] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
 
-  const inputStyle = { border: '1px solid rgba(0,0,0,0.08)', borderRadius: 8, background: '#fff', color: colors.text.ink }
+  const inputStyle = { border: `1px solid ${colors.border.medium}`, borderRadius: 8, background: '#fff', color: colors.text.ink }
   const canAct = !!v && ['requested', 'under_review', 'needs_info'].includes(v.status)
   const inReview = !!v && ['requested', 'under_review'].includes(v.status)
-  const failed = (v?.auto_checks ?? []).filter(c => c.level === 'fail')
+  const checks = (v?.auto_checks ?? []) as AutoCheck[]
+  const failed = checks.filter(c => c.level === 'fail')
 
   const run = (payload: Omit<VerificationReviewPayload, never>, after?: () => void) => {
     setError(null)
     review.mutate({ id, ...payload }, { onSuccess: () => { after?.(); setMode(null); setNotes('') }, onError: e => setError(getApiError(e)) })
   }
 
-  const detailRows = v?.details
-    ? Object.entries(v.details).filter(([k, val]) => k !== 'declarations' && val)
-    : []
-  const decl = (v?.details?.declarations ?? {}) as Record<string, boolean>
+  const details = (v?.details ?? {}) as Record<string, unknown>
+  const detailRows = Object.keys(details)
+    .filter(k => k !== 'declarations' && details[k])
+    .sort((x, y) => (FIELD_ORDER.indexOf(x) + 1 || 99) - (FIELD_ORDER.indexOf(y) + 1 || 99))
+  const decl = (details.declarations ?? {}) as Record<string, boolean>
+
+  // Checks about a specific upload sit on that document's card; the rest form the summary list.
+  const docTypes = (v?.documents ?? []).map(d => d.doc_type)
+  const checksForDoc = (type: string) => checks.filter(c => c.code.startsWith(`doc_${type}_`))
+  const generalChecks = checks.filter(c => !docTypes.some(t => c.code.startsWith(`doc_${t}_`)))
+  const order: Record<CheckLevel, number> = { fail: 0, warn: 1, ok: 2 }
+  const sortedGeneral = [...generalChecks].sort((x, y) => order[x.level] - order[y.level])
+  const attention = sortedGeneral.filter(c => c.level !== 'ok')
+  const passed = sortedGeneral.filter(c => c.level === 'ok')
+  const warnCount = checks.filter(c => c.level === 'warn').length
+  const passedCount = checks.length - failed.length - warnCount
+
+  const actionBtn = (bg: string, fg: string, border: string): React.CSSProperties =>
+    ({ flex: '1 1 0', minWidth: 110, height: 38, fontSize: 13, fontWeight: 600, background: bg, color: fg, border: `1px solid ${border}`, borderRadius: 8, cursor: 'pointer' })
+
+  const footer = v && canAct ? (
+    <div style={{ padding: '14px 24px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
+        placeholder="Internal notes (required to approve over a failed check)…"
+        className="w-full px-3 py-2 outline-none resize-none" style={{ ...inputStyle, fontSize: 13 }} />
+      {failed.length > 0 && inReview && (
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 12.5, color: '#B91C1C' }}>
+          <input type="checkbox" checked={override} onChange={e => setOverride(e.target.checked)} style={{ marginTop: 3 }} />
+          Approve despite {failed.length} failed automatic check{failed.length > 1 ? 's' : ''} (I have verified manually; the note above explains why)
+        </label>
+      )}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {(v.status === 'requested' || v.status === 'needs_info') && (
+          <button onClick={() => run({ action: 'under_review', notes: notes.trim() || undefined })} disabled={review.isPending}
+            className="disabled:opacity-50" style={actionBtn(colors.surface.bg, colors.brand.navy, colors.border.strong)}>Mark under review</button>
+        )}
+        {inReview && (
+          <>
+            <button onClick={() => run({ action: 'approve', notes: notes.trim() || undefined, override_checks: override })} disabled={review.isPending}
+              className="disabled:opacity-50" style={actionBtn('#16A34A', '#fff', '#16A34A')}>Approve</button>
+            <button onClick={() => setMode(mode === 'info' ? null : 'info')} disabled={review.isPending}
+              className="disabled:opacity-50" style={actionBtn('#FFFBEB', '#B45309', '#FDE68A')}>Request info</button>
+          </>
+        )}
+        <button onClick={() => setMode(mode === 'reject' ? null : 'reject')} disabled={review.isPending}
+          className="disabled:opacity-50" style={actionBtn('#FEF2F2', '#B91C1C', '#FECACA')}>Reject</button>
+      </div>
+
+      {mode === 'info' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <textarea value={infoText} onChange={e => setInfoText(e.target.value)} rows={3}
+            placeholder="Exactly what the employer must provide or fix (emailed to them)…"
+            className="w-full px-3 py-2 outline-none resize-none" style={{ border: '1px solid #FDE68A', borderRadius: 8, background: '#FFFBEB', color: colors.text.ink, fontSize: 13 }} />
+          <button onClick={() => infoText.trim() && run({ action: 'request_info', info_request: infoText.trim(), notes: notes.trim() || undefined }, () => setInfoText(''))}
+            disabled={!infoText.trim() || review.isPending} className="disabled:opacity-40"
+            style={{ height: 38, fontSize: 13, fontWeight: 600, background: '#D97706', color: '#fff', borderRadius: 8, border: 'none' }}>Send request</button>
+        </div>
+      )}
+      {mode === 'reject' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <select value={reasonCode} onChange={e => setReasonCode(e.target.value)} className="px-2 outline-none"
+            style={{ height: 38, fontSize: 13, border: '1px solid #FECACA', borderRadius: 8, background: '#fff', color: colors.text.ink }}>
+            <option value="">Select a reason code…</option>
+            {Object.entries(v.reason_codes).map(([code, text]) => <option key={code} value={code}>{code} — {text}</option>)}
+          </select>
+          <textarea value={rejectText} onChange={e => setRejectText(e.target.value)} rows={2}
+            placeholder="Message to the employer (optional — defaults to the reason text)…"
+            className="w-full px-3 py-2 outline-none resize-none" style={{ border: '1px solid #FECACA', borderRadius: 8, background: '#FEF2F2', color: colors.text.ink, fontSize: 13 }} />
+          <button onClick={() => reasonCode && run({ action: 'reject', reason_code: reasonCode, rejection_reason: rejectText.trim() || undefined, notes: notes.trim() || undefined }, () => setRejectText(''))}
+            disabled={!reasonCode || review.isPending} className="disabled:opacity-40"
+            style={{ height: 38, fontSize: 13, fontWeight: 600, background: '#DC2626', color: '#fff', borderRadius: 8, border: 'none' }}>Confirm rejection</button>
+        </div>
+      )}
+      {(error || review.isError) && <p style={{ margin: 0, fontSize: 12.5, color: '#DC2626' }}>{error ?? getApiError(review.error)}</p>}
+    </div>
+  ) : undefined
 
   return (
     <Drawer
       open
       onClose={onClose}
+      width={720}
       title={isLoading ? 'Loading…' : v?.company_name}
+      footer={footer}
       header={
         v && (
-          <div className="flex items-center gap-2 px-5 pb-4 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap" style={{ padding: '10px 24px 14px', borderBottom: `1px solid ${colors.border.default}` }}>
             <Badge color={VERIF_STATUS_COLOR[v.status] ?? 'gray'}>{v.status.replace(/_/g, ' ')}</Badge>
             <SlaBadge submittedAt={v.submitted_at} status={v.status} />
-            {v.entity_label && <span className="text-[11px]" style={{ color: colors.text.muted }}>{v.entity_label}</span>}
+            {v.entity_label && <span style={{ fontSize: 12, color: colors.text.inkSoft }}>{v.entity_label}</span>}
             {v.attempt_no > 1 && <Badge color="purple">attempt {v.attempt_no}</Badge>}
           </div>
         )
       }
     >
-      <div className="px-5 py-4">
+      <div style={{ padding: 24 }}>
         {isLoading ? <Spinner /> : !v ? (
           <p className="text-sm text-center py-10" style={{ color: colors.text.muted }}>Could not load verification.</p>
         ) : (
-          <div className="flex flex-col gap-1">
-            <SectionHeading>Account</SectionHeading>
-            <div className="px-3 py-3 mb-3 text-xs flex flex-col gap-1" style={{ background: colors.surface.bg, borderRadius: 8 }}>
-              <p style={{ color: colors.text.ink }}><span style={{ color: colors.text.muted }}>Company:</span> <strong>{v.company?.name ?? v.company_name}</strong>{v.company?.industry ? ` · ${v.company.industry}` : ''}{v.company?.size ? ` · ${v.company.size}` : ''}</p>
-              <p style={{ color: colors.text.ink }}><span style={{ color: colors.text.muted }}>Login email:</span> {v.account_email ?? '—'} {v.email_verified ? '(verified)' : '(NOT verified)'}</p>
-              {v.account_phone && <p style={{ color: colors.text.ink }}><span style={{ color: colors.text.muted }}>Phone:</span> {v.account_phone}</p>}
-              {v.company?.website && <p style={{ color: colors.text.ink }}><span style={{ color: colors.text.muted }}>Website:</span> {v.company.website}</p>}
-              <p style={{ color: colors.text.ink }}><span style={{ color: colors.text.muted }}>Submitted:</span> {new Date(v.submitted_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: '2-digit', hour: '2-digit', minute: '2-digit' })}{v.previous_attempts > 0 ? ` · ${v.previous_attempts} earlier rejected attempt(s)` : ''}</p>
-            </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <Panel title="Account">
+              <div style={FIELD_GRID}>
+                <Field label="Company">{v.company?.name ?? v.company_name}{v.company?.industry ? ` · ${v.company.industry}` : ''}{v.company?.size ? ` · ${v.company.size}` : ''}</Field>
+                <Field label="Submitted">{fmtDate(v.submitted_at)}{v.previous_attempts > 0 ? ` · ${v.previous_attempts} earlier rejected attempt(s)` : ''}</Field>
+                <Field label="Login email">
+                  {v.account_email ?? '—'}{' '}
+                  <span style={{ color: v.email_verified ? '#15803D' : '#B91C1C', fontWeight: 600, fontSize: 12 }}>{v.email_verified ? 'verified' : 'NOT verified'}</span>
+                </Field>
+                {v.account_phone && <Field label="Phone">{v.account_phone}</Field>}
+                {v.company?.website && <Field label="Company website" wide>{v.company.website}</Field>}
+              </div>
+            </Panel>
 
-            <SectionHeading>Submitted details</SectionHeading>
-            <div className="px-3 py-3 mb-3 text-xs flex flex-col gap-1" style={{ background: colors.surface.bg, borderRadius: 8 }}>
-              {detailRows.length === 0 && <p style={{ color: colors.text.muted }}>No structured details (case predates the guided form).</p>}
-              {detailRows.map(([k, val]) => (
-                <p key={k} style={{ color: colors.text.ink }}><span style={{ color: colors.text.muted }}>{ENTITY_FIELD_LABELS[k] ?? k}:</span> <span className="font-mono">{String(val)}</span></p>
-              ))}
-              {Object.keys(decl).length > 0 && (
-                <p style={{ color: colors.text.muted }}>Declarations: {Object.entries(decl).map(([k, val]) => `${k.replace(/_/g, ' ')} ${val ? '✓' : '✕'}`).join(' · ')}</p>
-              )}
-            </div>
-
-            <SectionHeading>Automatic checks</SectionHeading>
-            <div className="flex flex-col gap-1 mb-3">
-              {v.auto_checks.length === 0 && <p className="text-xs" style={{ color: colors.text.muted }}>None recorded.</p>}
-              {v.auto_checks.map(c => (
-                <p key={c.code} className="text-xs px-2 py-1.5" style={{ color: CHECK_STYLE[c.level].fg, background: CHECK_STYLE[c.level].bg, borderRadius: 6 }}>
-                  <strong>{CHECK_STYLE[c.level].icon}</strong> {c.message}
-                </p>
-              ))}
-              <p className="text-[11px] mt-1" style={{ color: colors.text.muted }}>
-                Format checks only. Also confirm the entity on the GST portal / MCA / NGO Darpan before approving.
-              </p>
-            </div>
-
-            <SectionHeading>Documents ({v.documents.length})</SectionHeading>
-            <div className="flex flex-col gap-2 mb-3">
-              {v.documents.length === 0 && <p className="text-xs" style={{ color: '#B91C1C' }}>No documents uploaded.</p>}
-              {v.documents.map(d => (
-                <div key={d.id} className="px-3 py-2 text-xs" style={{ background: colors.surface.bg, borderRadius: 8 }}>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="font-semibold truncate" style={{ color: colors.text.ink }}>{d.label ?? d.doc_type}</p>
-                      <p className="truncate" style={{ color: colors.text.muted }}>{d.original_filename}</p>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Badge color={d.status === 'verified' ? 'green' : d.status === 'rejected' ? 'red' : 'gray'}>{d.status}</Badge>
-                      <button onClick={() => adminApi.downloadVerificationDocument(v.id, d.id, d.original_filename ?? 'document')}
-                        className="font-semibold underline" style={{ color: '#1D4ED8' }}>Open</button>
-                    </div>
-                  </div>
-                  {d.notes && <p className="mt-1" style={{ color: '#B91C1C' }}>Note: {d.notes}</p>}
-                  {inReview && (
-                    <div className="flex items-center gap-2 mt-2">
-                      <input value={docNote[d.id] ?? ''} onChange={e => setDocNote(n => ({ ...n, [d.id]: e.target.value }))}
-                        placeholder="Note (required to reject)" className="flex-1 h-7 px-2 text-xs outline-none" style={inputStyle} />
-                      <button disabled={docReview.isPending} onClick={() => docReview.mutate({ id, documentId: d.id, status: 'verified', notes: docNote[d.id]?.trim() || undefined }, { onError: e => setError(getApiError(e)) })}
-                        className="h-7 px-2 font-semibold" style={{ background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', borderRadius: 6 }}>Accept</button>
-                      <button disabled={docReview.isPending} onClick={() => docReview.mutate({ id, documentId: d.id, status: 'rejected', notes: docNote[d.id]?.trim() }, { onError: e => setError(getApiError(e)) })}
-                        className="h-7 px-2 font-semibold" style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA', borderRadius: 6 }}>Reject</button>
-                    </div>
-                  )}
+            <Panel title="Submitted details">
+              {detailRows.length === 0 ? (
+                <p style={{ margin: 0, fontSize: 13, color: colors.text.muted }}>No structured details (case predates the guided form).</p>
+              ) : (
+                <div style={FIELD_GRID}>
+                  {detailRows.map(k => (
+                    <Field key={k} label={ENTITY_FIELD_LABELS[k] ?? k} mono={MONO_FIELDS.has(k)} wide={WIDE_FIELDS.has(k)}>{String(details[k])}</Field>
+                  ))}
                 </div>
-              ))}
-              {v.missing.length > 0 && (
-                <p className="text-xs" style={{ color: '#B45309' }}>Missing for this organisation type: {v.missing.join(' ')}</p>
               )}
-            </div>
+              {Object.keys(decl).length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 16, paddingTop: 14, borderTop: `1px solid ${colors.border.default}` }}>
+                  {Object.entries(decl).map(([k, val]) => (
+                    <span key={k} style={{ fontSize: 12, padding: '3px 10px', borderRadius: 999, color: val ? '#15803D' : '#B91C1C', background: val ? '#F0FDF4' : '#FEF2F2' }}>
+                      {val ? '✓' : '✕'} {DECLARATION_LABELS[k] ?? k.replace(/_/g, ' ')}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </Panel>
+
+            <Panel
+              title="Automatic checks"
+              aside={checks.length > 0 && (
+                <span style={{ fontSize: 12, color: colors.text.inkSoft }}>
+                  {[
+                    failed.length > 0 && <strong key="f" style={{ color: '#B91C1C' }}>{failed.length} failed</strong>,
+                    warnCount > 0 && <strong key="w" style={{ color: '#B45309' }}>{warnCount} to review</strong>,
+                    passedCount > 0 && <span key="p">{passedCount} passed</span>,
+                  ].filter(Boolean).reduce<React.ReactNode[]>((acc, el, i) => (i === 0 ? [el] : [...acc, ' · ', el]), [])}
+                </span>
+              )}
+            >
+              {checks.length === 0 && <p style={{ margin: 0, fontSize: 13, color: colors.text.muted }}>None recorded.</p>}
+              {attention.length > 0 && (
+                <ul style={{ margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {attention.map(c => <CheckRow key={c.code} c={c} />)}
+                </ul>
+              )}
+              {passed.length > 0 && (
+                <details style={{ marginTop: attention.length > 0 ? 12 : 0 }}>
+                  <summary style={{ cursor: 'pointer', fontSize: 12.5, color: colors.text.inkSoft }}>{passed.length} check{passed.length > 1 ? 's' : ''} passed</summary>
+                  <ul style={{ margin: '8px 0 0', padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {passed.map(c => <CheckRow key={c.code} c={c} />)}
+                  </ul>
+                </details>
+              )}
+              <p style={{ margin: '12px 0 0', fontSize: 12, color: colors.text.muted }}>
+                Automatic checks cover format and consistency only. Confirm the entity on the GST portal / MCA / NGO Darpan before approving.
+              </p>
+            </Panel>
+
+            <Panel title={`Documents (${v.documents.length})`}>
+              {v.documents.length === 0 && <p style={{ margin: 0, fontSize: 13, color: '#B91C1C' }}>No documents uploaded.</p>}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {v.documents.map(d => (
+                  <div key={d.id} style={{ border: `1px solid ${colors.border.default}`, borderRadius: 10, padding: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: colors.text.ink }}>{d.label ?? d.doc_type}</p>
+                        <p style={{ margin: '2px 0 0', fontSize: 12, color: colors.text.muted, overflowWrap: 'anywhere' }}>{d.original_filename}</p>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                        <Badge color={d.status === 'verified' ? 'green' : d.status === 'rejected' ? 'red' : 'gray'}>{d.status}</Badge>
+                        <button onClick={() => adminApi.downloadVerificationDocument(v.id, d.id, d.original_filename ?? 'document')}
+                          style={{ fontSize: 13, fontWeight: 600, color: colors.brand.navy, textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Open</button>
+                      </div>
+                    </div>
+                    {checksForDoc(d.doc_type).length > 0 && (
+                      <ul style={{ margin: '10px 0 0', padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {checksForDoc(d.doc_type).map(c => <CheckRow key={c.code} c={c} />)}
+                      </ul>
+                    )}
+                    {d.notes && <p style={{ margin: '8px 0 0', fontSize: 12.5, color: '#B91C1C' }}>Note: {d.notes}</p>}
+                    {inReview && (
+                      <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+                        <input value={docNote[d.id] ?? ''} onChange={e => setDocNote(n => ({ ...n, [d.id]: e.target.value }))}
+                          placeholder="Note (required to reject)" className="px-3 outline-none"
+                          style={{ ...inputStyle, flex: '1 1 220px', minWidth: 0, height: 34, fontSize: 13 }} />
+                        <button disabled={docReview.isPending} onClick={() => docReview.mutate({ id, documentId: d.id, status: 'verified', notes: docNote[d.id]?.trim() || undefined }, { onError: e => setError(getApiError(e)) })}
+                          style={{ height: 34, padding: '0 14px', fontSize: 13, fontWeight: 600, background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', borderRadius: 8, cursor: 'pointer' }}>Accept</button>
+                        <button disabled={docReview.isPending} onClick={() => docReview.mutate({ id, documentId: d.id, status: 'rejected', notes: docNote[d.id]?.trim() }, { onError: e => setError(getApiError(e)) })}
+                          style={{ height: 34, padding: '0 14px', fontSize: 13, fontWeight: 600, background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA', borderRadius: 8, cursor: 'pointer' }}>Reject</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {v.missing.length > 0 && (
+                <p style={{ margin: '12px 0 0', fontSize: 12.5, color: '#B45309' }}>Missing for this organisation type: {v.missing.join(' ')}</p>
+              )}
+            </Panel>
 
             {v.info_request && v.status === 'needs_info' && (
-              <>
-                <SectionHeading>Waiting on the employer</SectionHeading>
-                <p className="text-xs mb-3 px-3 py-2" style={{ background: '#FFFBEB', borderRadius: 8, color: '#92400E' }}>{v.info_request}</p>
-              </>
+              <Panel title="Waiting on the employer">
+                <p style={{ margin: 0, fontSize: 13, color: '#92400E' }}>{v.info_request}</p>
+              </Panel>
             )}
             {v.status === 'rejected' && (
-              <>
-                <SectionHeading>Rejected</SectionHeading>
-                <p className="text-xs mb-3 px-3 py-2" style={{ background: '#FEF2F2', borderRadius: 8, color: '#991B1B' }}>
-                  {v.reason_code ? `[${v.reason_code}] ` : ''}{v.rejection_reason}
-                </p>
-              </>
+              <Panel title="Rejected">
+                <p style={{ margin: 0, fontSize: 13, color: '#991B1B' }}>{v.reason_code ? `[${v.reason_code}] ` : ''}{v.rejection_reason}</p>
+              </Panel>
             )}
 
-            <SectionHeading>Timeline</SectionHeading>
-            <div className="flex flex-col gap-2 mb-3">
-              {v.events.map(e => (
-                <div key={e.id} className="text-xs">
-                  <p className="font-semibold" style={{ color: colors.text.ink }}>{e.from_status ? `${e.from_status.replace(/_/g, ' ')} → ` : ''}{e.to_status.replace(/_/g, ' ')}</p>
-                  <p style={{ color: colors.text.muted }}>{e.actor_name ?? 'System'} · {new Date(e.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
-                  {e.note && <p className="mt-0.5" style={{ color: '#475569' }}>{e.note}</p>}
-                </div>
-              ))}
-            </div>
-
-            {canAct && (
-              <>
-                <SectionHeading>Decision</SectionHeading>
-                <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
-                  placeholder="Internal notes (required to approve over a failed check)…"
-                  className="w-full px-3 py-2 text-xs outline-none resize-none mb-2" style={inputStyle} />
-                {failed.length > 0 && inReview && (
-                  <label className="flex items-start gap-2 text-xs mb-2" style={{ color: '#B91C1C' }}>
-                    <input type="checkbox" checked={override} onChange={e => setOverride(e.target.checked)} className="mt-0.5" />
-                    Approve despite {failed.length} failed automatic check{failed.length > 1 ? 's' : ''} (I have verified manually; note above explains why)
-                  </label>
-                )}
-                <div className="flex gap-2 flex-wrap">
-                  {(v.status === 'requested' || v.status === 'needs_info') && (
-                    <button onClick={() => run({ action: 'under_review', notes: notes.trim() || undefined })} disabled={review.isPending}
-                      className="flex-1 h-9 text-xs font-semibold disabled:opacity-50"
-                      style={{ background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE', borderRadius: 8 }}>Mark Under Review</button>
-                  )}
-                  {inReview && (
-                    <>
-                      <button onClick={() => run({ action: 'approve', notes: notes.trim() || undefined, override_checks: override })} disabled={review.isPending}
-                        className="flex-1 h-9 text-xs font-semibold disabled:opacity-50"
-                        style={{ background: '#F0FDF4', color: '#15803D', border: '1px solid #BBF7D0', borderRadius: 8 }}>Approve</button>
-                      <button onClick={() => setMode(mode === 'info' ? null : 'info')} disabled={review.isPending}
-                        className="flex-1 h-9 text-xs font-semibold disabled:opacity-50"
-                        style={{ background: '#FFFBEB', color: '#B45309', border: '1px solid #FDE68A', borderRadius: 8 }}>Request info</button>
-                    </>
-                  )}
-                  <button onClick={() => setMode(mode === 'reject' ? null : 'reject')} disabled={review.isPending}
-                    className="flex-1 h-9 text-xs font-semibold disabled:opacity-50"
-                    style={{ background: '#FEF2F2', color: '#B91C1C', border: '1px solid #FECACA', borderRadius: 8 }}>Reject</button>
-                </div>
-
-                {mode === 'info' && (
-                  <div className="mt-2 flex flex-col gap-2">
-                    <textarea value={infoText} onChange={e => setInfoText(e.target.value)} rows={3}
-                      placeholder="Exactly what the employer must provide or fix (emailed to them)…"
-                      className="w-full px-3 py-2 text-xs outline-none resize-none" style={{ border: '1px solid #FDE68A', borderRadius: 8, background: '#FFFBEB', color: colors.text.ink }} />
-                    <button onClick={() => infoText.trim() && run({ action: 'request_info', info_request: infoText.trim(), notes: notes.trim() || undefined }, () => setInfoText(''))}
-                      disabled={!infoText.trim() || review.isPending} className="h-9 text-xs font-semibold disabled:opacity-40"
-                      style={{ background: '#D97706', color: '#fff', borderRadius: 8, border: 'none' }}>Send request</button>
-                  </div>
-                )}
-                {mode === 'reject' && (
-                  <div className="mt-2 flex flex-col gap-2">
-                    <select value={reasonCode} onChange={e => setReasonCode(e.target.value)} className="h-9 px-2 text-xs outline-none" style={{ border: '1px solid #FECACA', borderRadius: 8, background: '#fff', color: colors.text.ink }}>
-                      <option value="">Select a reason code…</option>
-                      {Object.entries(v.reason_codes).map(([code, text]) => <option key={code} value={code}>{code} — {text}</option>)}
-                    </select>
-                    <textarea value={rejectText} onChange={e => setRejectText(e.target.value)} rows={2}
-                      placeholder="Message to the employer (optional — defaults to the reason text)…"
-                      className="w-full px-3 py-2 text-xs outline-none resize-none" style={{ border: '1px solid #FECACA', borderRadius: 8, background: '#FEF2F2', color: colors.text.ink }} />
-                    <button onClick={() => reasonCode && run({ action: 'reject', reason_code: reasonCode, rejection_reason: rejectText.trim() || undefined, notes: notes.trim() || undefined }, () => setRejectText(''))}
-                      disabled={!reasonCode || review.isPending} className="h-9 text-xs font-semibold disabled:opacity-40"
-                      style={{ background: '#EF4444', color: '#fff', borderRadius: 8, border: 'none' }}>Confirm rejection</button>
-                  </div>
-                )}
-                {(error || review.isError) && <p className="text-xs text-red-500 mt-2">{error ?? getApiError(review.error)}</p>}
-              </>
-            )}
+            <Panel title="Timeline">
+              <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {v.events.map(e => (
+                  <li key={e.id} style={{ display: 'flex', gap: 12 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: colors.brand.navy, marginTop: 6, flexShrink: 0 }} />
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: colors.text.ink }}>
+                        {e.from_status ? `${e.from_status.replace(/_/g, ' ')} → ` : ''}{e.to_status.replace(/_/g, ' ')}
+                      </p>
+                      <p style={{ margin: '1px 0 0', fontSize: 12, color: colors.text.muted }}>{e.actor_name ?? 'System'} · {fmtDate(e.created_at, false)}</p>
+                      {e.note && <p style={{ margin: '3px 0 0', fontSize: 12.5, color: colors.text.inkSoft, overflowWrap: 'anywhere' }}>{e.note}</p>}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </Panel>
           </div>
         )}
       </div>
