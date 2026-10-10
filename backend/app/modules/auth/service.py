@@ -136,6 +136,9 @@ def _issue_token_pair(user: User, db: Session, request: Request | None = None) -
         device_label=_device_label(ua), ip_address=ip,
     ))
     _record_login(user, db, request, success=True)
+    # Every session start/renewal (login or token refresh) counts the user as active today.
+    from app.core.activity import record_activity
+    record_activity(db, user.id)
     db.commit()
 
     return TokenResponse(
@@ -169,28 +172,45 @@ def _audit(db: Session, action: str, user_id=None, resource: str | None = None,
 # ── Public service functions ──────────────────────────────────────────────────
 
 async def register_user(
-    email: str, phone: str, password: str, preferred_language: str, db: Session,
+    email: str, password: str, preferred_language: str, db: Session,
     request: Request | None = None
 ) -> str:
     """Creates a new aspirant account and sends a verification OTP by email.
-    Phone is collected right here too, but not SMS-verified — phone_verified
-    stays false, same as add_phone. Returns dev_otp in local env."""
-    email_taken = db.query(User).filter(User.email == email, User.deleted_at == None).first()
-    if email_taken:
-        raise ConflictException("An account with this email address already exists.")
-    phone_taken = db.query(User).filter(User.phone == phone, User.deleted_at == None).first()
-    if phone_taken:
-        raise ConflictException("An account with this phone number already exists.")
-
+    The phone number is collected after email verification (see add_phone).
+    Returns dev_otp in local env."""
     role = _get_aspirant_role(db)
-    user = User(
-        email=email,
-        phone=phone,
-        password_hash=hash_password(password),
-        preferred_language=preferred_language,
-        role_id=role.id,
-    )
-    db.add(user)
+    existing = db.query(User).filter(User.email == email, User.deleted_at == None).first()
+
+    if existing and not (
+        # Signup that never finished email verification (user closed the tab, hit
+        # "Edit details", etc.) must not lock the real owner out of their own
+        # address. Only an untouched, unverified aspirant row may be restarted;
+        # a verified account — or anything else — keeps the conflict.
+        not existing.email_verified
+        and existing.role_id == role.id
+        and existing.is_active
+        and existing.status not in ("suspended", "banned")
+    ):
+        raise ConflictException("An account with this email address already exists.")
+
+    if existing:
+        user = existing
+        user.password_hash = hash_password(password)
+        user.preferred_language = preferred_language
+        # Older codes for the abandoned attempt must stop working.
+        db.query(OtpVerification).filter(
+            OtpVerification.user_id == user.id,
+            OtpVerification.purpose == "register",
+            OtpVerification.used_at == None,
+        ).update({"used_at": datetime.now(timezone.utc)}, synchronize_session=False)
+    else:
+        user = User(
+            email=email,
+            password_hash=hash_password(password),
+            preferred_language=preferred_language,
+            role_id=role.id,
+        )
+        db.add(user)
     db.flush()
 
     otp = generate_otp()

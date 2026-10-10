@@ -110,9 +110,9 @@ export function buildEmployerNav(ctx: EmployerNavContext): NavSection[] {
   if (isDeptScoped && deptId) {
     const deptBase = `/app/employer/departments/${deptId}`
     return [
-      { label: 'Overview', items: [
+      // No section header: the dashboard is the home page, so it stays one click away at the top.
+      { items: [
         { label: 'My Dashboard', path: '/app/employer/dashboard', icon: LayoutDashboard },
-        { label: 'Calendar', path: '/app/employer/calendar', icon: CalendarDays, exact: false },
       ] },
       { label: 'Hiring', items: [
         // Job creation/editing/publishing lives inside the department's own
@@ -124,6 +124,7 @@ export function buildEmployerNav(ctx: EmployerNavContext): NavSection[] {
       { label: 'Candidates', items: [
         { label: 'Applicants', path: '/app/employer/applicants', icon: Users, exact: false },
         { label: 'Interviews', path: '/app/employer/interviews', icon: CalendarCheck2, exact: false },
+        { label: 'Calendar', path: '/app/employer/calendar', icon: CalendarDays, exact: false },
         { label: 'AI Interviews', path: '/app/employer/verified-interviews', icon: ScanSearch, exact: false },
         { label: 'Offers', path: '/app/employer/offers', icon: FileText, exact: false },
         { label: 'Talent Pool', path: '/app/employer/talent-pool', icon: Star, exact: false },
@@ -136,9 +137,9 @@ export function buildEmployerNav(ctx: EmployerNavContext): NavSection[] {
   }
 
   return [
-    { label: 'Overview', items: [
+    // No section header: the dashboard is the home page, so it stays one click away at the top.
+    { items: [
       { label: 'Dashboard', path: '/app/employer/dashboard', icon: LayoutDashboard },
-      { label: 'Calendar', path: '/app/employer/calendar', icon: CalendarDays, exact: false },
     ] },
     { label: 'Hiring', items: [
       // Company-wide roles never create/edit jobs — that happens inside each
@@ -150,6 +151,7 @@ export function buildEmployerNav(ctx: EmployerNavContext): NavSection[] {
     { label: 'Candidates', items: [
       { label: 'Applicants', path: '/app/employer/applicants', icon: Users, exact: false },
       { label: 'Interviews', path: '/app/employer/interviews', icon: CalendarCheck2, exact: false },
+      { label: 'Calendar', path: '/app/employer/calendar', icon: CalendarDays, exact: false },
       { label: 'AI Interviews', path: '/app/employer/verified-interviews', icon: ScanSearch, exact: false },
       { label: 'Offers', path: '/app/employer/offers', icon: FileText, exact: false },
       { label: 'Talent Pool', path: '/app/employer/talent-pool', icon: Star, exact: false },

@@ -1,5 +1,5 @@
 # Import all models so Alembic can detect them for migrations
-from app.models.analytics import UserEvent  # noqa: F401
+from app.models.analytics import UserActivityDaily, UserEvent  # noqa: F401
 from app.models.applications import (  # noqa: F401
     Application,
     ApplicationStatusHistory,
@@ -122,4 +122,12 @@ from app.models.xp import UserXP, XPTransaction  # noqa: F401
 from app.models.market_role import MarketRole  # noqa: F401
 from app.models.reference_data import (  # noqa: F401
     CandidateSegment, IndustryAnalysis, SalaryBenchmark, UpscEcosystemEntry, UpscSkillFramework,
+)
+from app.models.referrals import (  # noqa: F401
+    Referral,
+    ReferralEvent,
+    ReferralJobConfig,
+    ReferralProgram,
+    ReferralReward,
+    Referrer,
 )

@@ -99,7 +99,6 @@ import LoginPage from '@/modules/auth/pages/LoginPage'
 import RegisterPage from '@/modules/auth/pages/RegisterPage'
 import VerifyOtpPage from '@/modules/auth/pages/VerifyOtpPage'
 import VerifyEmailPage from '@/modules/auth/pages/VerifyEmailPage'
-import AddPhonePage from '@/modules/auth/pages/AddPhonePage'
 import EmployerRegisterPage from '@/modules/auth/pages/EmployerRegisterPage'
 import EmployerVerifyOtpPage from '@/modules/auth/pages/EmployerVerifyOtpPage'
 import EmployerPendingPage from '@/modules/auth/pages/EmployerPendingPage'
@@ -116,6 +115,9 @@ import Step6Preferences from '@/modules/onboarding/pages/Step6Preferences'
 import { useOnboardingStatus } from '@/modules/onboarding/hooks/useOnboarding'
 import DashboardPage from '@/modules/dashboard/pages/DashboardPage'
 import BeginablAILanding from '@/pages/BeginablAILanding'
+import AcceptInvitePage from '@/modules/auth/pages/AcceptInvitePage'
+import TermsPage from '@/modules/legal/TermsPage'
+import PrivacyPage from '@/modules/legal/PrivacyPage'
 import ProfilePage from '@/modules/profile/pages/ProfilePage'
 import AspLayout from '@/shared/layouts/AspLayout'
 import EmployerDashboardPage from '@/modules/employer/pages/EmployerDashboardPage'
@@ -132,6 +134,8 @@ const DepartmentsPage = lazy(() => import('@/modules/employer/pages/DepartmentsP
 const DepartmentDetailPage = lazy(() => import('@/modules/employer/pages/DepartmentDetailPage'))
 const JobTemplatesPage = lazy(() => import('@/modules/employer/pages/JobTemplatesPage'))
 const ReferralsPage = lazy(() => import('@/modules/employer/pages/ReferralsPage'))
+const ReferralLandingPage = lazy(() => import('@/modules/referrals/pages/ReferralLandingPage'))
+const ReferrerPortalPage = lazy(() => import('@/modules/referrals/pages/ReferrerPortalPage'))
 const EmployerApplicantsPage = lazy(() => import('@/modules/employer/pages/EmployerApplicantsPage'))
 const EmployerSupportPage = lazy(() => import('@/modules/employer/pages/SupportPage'))
 const CandidateSupportPage = lazy(() => import('@/modules/aspirant/pages/SupportPage'))
@@ -213,14 +217,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return isAuthenticated ? <>{children}</> : <Navigate to="/auth/login" replace />
 }
 
-/** Like ProtectedRoute, but also blocks aspirants who haven't added a phone
- * number yet (collected right after email verification, not at registration).
- * Employers always have one from their own registration flow. */
+/** Onboarding steps are only reachable when signed in. The phone number is
+ * collected inside step 1 (with name and city), so there is no separate gate. */
 function RequirePhone({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
-  const user = useAuthStore((s) => s.user)
   if (!isAuthenticated) return <Navigate to="/auth/login" replace />
-  if (user?.role !== 'employer' && !user?.phone) return <Navigate to="/auth/add-phone" replace />
   return <>{children}</>
 }
 
@@ -308,9 +309,8 @@ function OnboardingGate({ children }: { children: React.ReactNode }) {
   if (!isAuthenticated) return <Navigate to="/auth/login" replace />
   // Employers skip onboarding — they land on a pending/different page
   if (user?.role === 'employer') return <>{children}</>
-  // Phone is collected right after email verification, not at registration —
-  // block everything else until it's on file.
-  if (!user?.phone) return <Navigate to="/auth/add-phone" replace />
+  // Phone is collected in onboarding step 1 — send anyone without one back there.
+  if (!user?.phone) return <Navigate to="/app/onboarding/step/1" replace />
   if (isLoading) return null
   if (status && status.current_step < 2) {
     return <Navigate to="/app/onboarding/step/1" replace />
@@ -334,12 +334,24 @@ function App() {
             }
           />
 
+          {/* Public legal pages — reachable signed in or out */}
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+
+          {/* Team invitation link from email — public, and deliberately NOT guest-only so it still works if
+              someone else is signed in on this browser */}
+          <Route path="/auth/accept-invite" element={<AcceptInvitePage />} />
+
+          {/* Employee referrals: a share link (works signed in or out) and an invited employee's private page */}
+          <Route path="/r/:code/:jobId" element={<Suspense fallback={<PageLoader />}><ReferralLandingPage /></Suspense>} />
+          <Route path="/referrer/:token" element={<Suspense fallback={<PageLoader />}><ReferrerPortalPage /></Suspense>} />
+
           {/* Auth routes — guest only */}
           <Route path="/auth/register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
           <Route path="/auth/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
           <Route path="/auth/verify" element={<VerifyOtpPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
-          <Route path="/auth/add-phone" element={<ProtectedRoute><AddPhonePage /></ProtectedRoute>} />
+          <Route path="/auth/add-phone" element={<Navigate to="/app/onboarding/step/1" replace />} />
           <Route path="/auth/forgot-password" element={<GuestRoute><ForgotPasswordPage /></GuestRoute>} />
           <Route path="/auth/2fa-challenge" element={<TwoFactorChallengePage />} />
 

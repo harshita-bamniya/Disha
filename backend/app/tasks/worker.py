@@ -14,8 +14,13 @@ celery_app = Celery(
     "beginablai_worker",
     broker=settings.redis_url,
     backend=settings.redis_url,
-    include=["app.tasks.roadmap_tasks", "app.tasks.announcements", "app.tasks.application_tasks", "app.tasks.roadmap_engine_tasks", "app.tasks.privacy_tasks"],
+    include=["app.tasks.roadmap_tasks", "app.tasks.announcements", "app.tasks.application_tasks", "app.tasks.roadmap_engine_tasks", "app.tasks.privacy_tasks", "app.tasks.referral_tasks"],
 )
+
+# Tasks here change application statuses too (auto-shortlist), so referrals must follow in this process as well.
+from app.modules.referrals import hooks as _referral_hooks  # noqa: E402
+
+_referral_hooks.install()
 
 celery_app.conf.update(
     task_serializer="json",
@@ -40,6 +45,11 @@ celery_app.conf.update(
         "purge-resume-scans": {
             "task": "app.tasks.privacy_tasks.purge_resume_scans",
             "schedule": crontab(hour=2, minute=30),
+        },
+        # Referral bonuses whose retention period has ended become payable; tell the owner. Daily 6:30am IST.
+        "release-referral-rewards": {
+            "task": "app.tasks.referral_tasks.release_referral_rewards",
+            "schedule": crontab(hour=6, minute=30),
         },
         # Revoke expired refresh tokens weekly
         "revoke-expired-tokens": {

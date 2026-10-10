@@ -58,6 +58,8 @@ class SubmitApplicationRequest(BaseModel):
     selected_resume_id: Optional[str] = None
     answers: list[AnswerIn] = []
     cover_note: Optional[str] = Field(None, max_length=2000)
+    # Code from an employee referral link. Optional and best-effort: a bad/expired code never blocks applying.
+    referral_code: Optional[str] = Field(None, max_length=16)
 
 
 class ApplicationOut(BaseModel):

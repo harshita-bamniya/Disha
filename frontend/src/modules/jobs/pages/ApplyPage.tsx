@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { NAVY, INK, INK_SFT, MUTED, CREAM, BORDER, colors, shadows } from '@/design-system/tokens'
 import { applicationsApi, type AnswerIn, type FormSectionOut, type QuestionOut } from '@/api/applications'
+import { referralCode } from '@/api/referrals'
 import { resumeLibraryApi, type ResumeFile } from '@/api/resumeLibrary'
 import ScoreRing from '@/shared/components/data-display/ScoreRing'
 import { useAuthStore } from '@/stores/authStore'
@@ -858,9 +859,11 @@ export default function ApplyPage() {
         selected_resume_id: selectedResumeId,
         answers: answerList,
         cover_note: coverNote.trim() || null,
+        referral_code: referralCode.get(jobId!),
       })
     },
     onSuccess: data => {
+      referralCode.forget(data.job_id)
       qc.invalidateQueries({ queryKey: ['my-applications'] })
       qc.invalidateQueries({ queryKey: ['eligibility', jobId] })
       setSubmitted({

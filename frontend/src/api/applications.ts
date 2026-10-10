@@ -98,6 +98,8 @@ export interface SubmitRequest {
   selected_resume_id?: string | null
   answers: AnswerIn[]
   cover_note?: string | null
+  /** From an employee referral link; the server ignores it if it isn't valid. */
+  referral_code?: string | null
 }
 
 export interface ApplicationOut {

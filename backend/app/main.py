@@ -26,6 +26,7 @@ from app.modules.applications.router import router as applications_router
 from app.modules.auth.router import router as auth_router
 from app.modules.calendar.router import router as calendar_router
 from app.modules.careers.router import router as careers_router
+from app.modules.companies.router import public_router as team_invites_public_router
 from app.modules.companies.router import router as companies_router
 from app.modules.companies.router import subscription_router
 from app.modules.companion.router import router as companion_router
@@ -39,6 +40,8 @@ from app.modules.krs.router import router as krs_router
 from app.modules.matching.router import router as matching_router
 from app.modules.onboarding.router import router as onboarding_router
 from app.modules.payments.router import router as payments_router
+from app.modules.referrals.router import public_router as referrals_public_router, router as referrals_router
+from app.modules.admin.dashboard.router import router as admin_dashboard_router
 from app.modules.payments.router import webhook_router as payments_webhook_router
 from app.modules.resume.router import router as resume_router
 from app.modules.resume_match.router import router as resume_match_router
@@ -234,6 +237,7 @@ app.include_router(onboarding_router, prefix="/api")
 app.include_router(krs_router, prefix="/api")
 app.include_router(jobs_router, prefix="/api")
 app.include_router(companies_router, prefix="/api")
+app.include_router(team_invites_public_router, prefix="/api")
 app.include_router(subscription_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(roadmap_blueprint_admin_router, prefix="/api")
@@ -261,6 +265,9 @@ app.include_router(resume_library_router, prefix="/api")
 app.include_router(application_forms_router, prefix="/api")
 app.include_router(applications_router, prefix="/api")
 app.include_router(payments_router, prefix="/api")
+app.include_router(referrals_router, prefix="/api")
+app.include_router(referrals_public_router, prefix="/api")
+app.include_router(admin_dashboard_router, prefix="/api")
 app.include_router(payments_webhook_router, prefix="/api")
 
 

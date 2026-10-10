@@ -1,7 +1,7 @@
 """SQLAlchemy ORM model for the behavioral event stream."""
 import uuid
 
-from sqlalchemy import Column, DateTime, ForeignKey, Index, String, Text
+from sqlalchemy import Column, Date, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.sql import func
 
@@ -29,4 +29,21 @@ class UserEvent(Base):
 
     __table_args__ = (
         Index("ix_user_events_created_at", "created_at"),
+    )
+
+
+class UserActivityDaily(Base):
+    """One row per user per (India-time) day on which they used the product.
+
+    Written when a session is created or renewed (login, token refresh). Access tokens last 15 minutes but a
+    session lasts 30 days, so a person using the app every day creates no new login row for weeks;
+    login_history therefore cannot measure active users. DAU/WAU/MAU are distinct counts over this table.
+    """
+    __tablename__ = "user_activity_daily"
+
+    user_id       = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    activity_date = Column(Date, primary_key=True)
+
+    __table_args__ = (
+        Index("ix_user_activity_daily_date", "activity_date"),
     )

@@ -12,6 +12,13 @@ const N12 = colors.border.medium
 const N40 = 'rgba(26,39,68,0.40)'
 const N60 = 'rgba(26,39,68,0.60)'
 
+/** The menu list scrolls only when the window is too short for it. When it does, show a thin bar on hover
+ * instead of a permanent classic scrollbar with arrow buttons. */
+const SCROLL_CSS = `
+.sb-scroll { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+.sb-scroll:hover { scrollbar-color: rgba(26,39,68,0.28) transparent; }
+`
+
 /** Segment-boundary-aware prefix match — avoids "/app/resume" matching "/app/resume-library". */
 function isUnderPath(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`)
@@ -23,6 +30,23 @@ function isLeafActive(item: NavLeaf, pathname: string, search: string): boolean 
   if (item.matchPrefix) return isUnderPath(pathname, item.matchPrefix)
   if (item.exact === false) return isUnderPath(pathname, p)
   return pathname === p
+}
+
+function itemHasActive(item: NavItem, pathname: string, search: string): boolean {
+  return isNavGroup(item)
+    ? isUnderPath(pathname, item.basePath)
+    : isLeafActive(item, pathname, search)
+}
+
+const sectionHasActive = (section: NavSection, pathname: string, search: string) =>
+  section.items.some(item => itemHasActive(item, pathname, search))
+
+/** The open/closed choices a person made, remembered per sidebar. Failure to read or write is harmless. */
+function loadChoices(key: string): Record<string, boolean> {
+  try { return JSON.parse(localStorage.getItem(`sidebar.sections.${key}`) ?? '{}') as Record<string, boolean> } catch { return {} }
+}
+function saveChoices(key: string, choices: Record<string, boolean>) {
+  try { localStorage.setItem(`sidebar.sections.${key}`, JSON.stringify(choices)) } catch { /* private mode */ }
 }
 
 const NavLeafRow = memo(function NavLeafRow({ item, isActive, collapsed, indent, onClick }: {
@@ -37,7 +61,7 @@ const NavLeafRow = memo(function NavLeafRow({ item, isActive, collapsed, indent,
       style={{
         width: '100%', display: 'flex', alignItems: 'center',
         gap: 10, justifyContent: collapsed ? 'center' : 'flex-start',
-        padding: indent ? '7px 10px' : '9px 12px',
+        padding: indent ? '6px 10px' : '8px 12px',
         borderRadius: 10,
         marginBottom: 2,
         background: isActive ? N08 : 'transparent',
@@ -92,7 +116,7 @@ function NavGroupRow({ group, pathname, search, collapsed, onNavigate }: {
         onClick={() => setExpanded(o => !o)}
         style={{
           width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-          padding: '9px 12px', borderRadius: 10, marginBottom: 2, border: 'none', cursor: 'pointer',
+          padding: '8px 12px', borderRadius: 10, marginBottom: 2, border: 'none', cursor: 'pointer',
           background: isActive && !expanded ? N08 : 'transparent',
           color: isActive && !expanded ? NAVY : N60,
           fontSize: 13, fontWeight: isActive && !expanded ? 700 : 500, transition: 'all 0.18s',
@@ -148,14 +172,41 @@ export interface SidebarProps {
   onLogout: () => void
   collapsed?: boolean
   onToggleCollapse?: () => void
+  /** Labelled sections get a chevron and can be folded away. Off by default so other sidebars are unchanged. */
+  collapsibleSections?: boolean
+  /** Where the open/closed choices are remembered (one key per sidebar). */
+  sectionStorageKey?: string
 }
 
 export default function Sidebar({
   brand = 'BeginablAI', brandBadge, identity, sections, pathname, search = '',
   onNavigate, onLogout, collapsed = false, onToggleCollapse,
+  collapsibleSections = false, sectionStorageKey = 'default',
 }: SidebarProps) {
   const isMobile = useIsMobile()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [choices, setChoices] = useState<Record<string, boolean>>(() => (collapsibleSections ? loadChoices(sectionStorageKey) : {}))
+
+  // With nothing chosen yet, show only the section you are in. On a page that belongs to no section
+  // (the dashboard), open the first two so day-to-day items are still visible.
+  const labelled = sections.filter(sec => sec.label)
+  const activeLabel = labelled.find(sec => sectionHasActive(sec, pathname, search))?.label
+  const defaultOpen = (label: string) =>
+    activeLabel ? label === activeLabel : labelled.slice(0, 2).some(sec => sec.label === label)
+  const isOpen = (label: string) => choices[label] ?? defaultOpen(label)
+
+  const toggleSection = (label: string) => setChoices(prev => {
+    const next = { ...prev, [label]: !(prev[label] ?? defaultOpen(label)) }
+    saveChoices(sectionStorageKey, next)
+    return next
+  })
+
+  // Navigating into a folded section (command bar, a link in a page) unfolds it, without overriding other choices.
+  useEffect(() => {
+    if (collapsibleSections && activeLabel) {
+      setChoices(prev => (prev[activeLabel] === false ? { ...prev, [activeLabel]: true } : prev))
+    }
+  }, [collapsibleSections, activeLabel, pathname])
 
   const go = useCallback((path: string) => {
     onNavigate(path)
@@ -167,7 +218,7 @@ export default function Sidebar({
   const railCollapsed = collapsed && !isMobile
 
   const body = (
-    <aside style={{
+    <aside className="sb-scroll" style={{
       width: isMobile ? 260 : (railCollapsed ? 64 : 260),
       background: '#FFFFFF',
       display: 'flex', flexDirection: 'column',
@@ -177,6 +228,7 @@ export default function Sidebar({
       flexShrink: 0,
       transition: 'width 0.2s',
     }}>
+      <style>{SCROLL_CSS}</style>
       {/* Logo row */}
       <div style={{ padding: railCollapsed ? '20px 12px' : '20px 20px', borderBottom: `1px solid ${N08}`, display: 'flex', alignItems: 'center', justifyContent: railCollapsed ? 'center' : 'space-between', gap: 8 }}>
         {railCollapsed ? (
@@ -210,18 +262,37 @@ export default function Sidebar({
       )}
 
       {/* Nav */}
-      <nav style={{ padding: railCollapsed ? '12px 8px' : '12px 12px', flex: 1, overflowY: 'auto' }}>
-        {sections.map((section, si) => (
-          <div key={si}>
-            {section.label && !railCollapsed && (
-              <p style={{ fontSize: 10, fontWeight: 700, color: N40, textTransform: 'uppercase', letterSpacing: '0.8px', padding: si === 0 ? '0 8px' : '12px 8px 6px', marginTop: si === 0 ? 0 : 4, marginBottom: 6, borderTop: si === 0 ? 'none' : `1px solid ${N08}` }}>
-                {section.label}
-              </p>
-            )}
-            {!section.label && si > 0 && <div style={{ height: 1, background: N08, margin: '8px 0' }} />}
-            {section.items.map(item => renderItem(item, pathname, search, railCollapsed, go))}
-          </div>
-        ))}
+      <nav className="sb-scroll" style={{ padding: railCollapsed ? '12px 8px' : '12px 12px', flex: 1, overflowY: 'auto' }}>
+        {sections.map((section, si) => {
+          const foldable = collapsibleSections && !!section.label && !railCollapsed
+          const open = !foldable || isOpen(section.label!)
+          const headerStyle = { fontSize: 10, fontWeight: 700, color: N40, textTransform: 'uppercase' as const, letterSpacing: '0.8px', padding: si === 0 ? '0 8px' : '12px 8px 6px', marginTop: si === 0 ? 0 : 4, marginBottom: 6, borderTop: si === 0 ? 'none' : `1px solid ${N08}` }
+          return (
+            <div key={si}>
+              {section.label && !railCollapsed && (foldable ? (
+                <button
+                  onClick={() => toggleSection(section.label!)}
+                  aria-expanded={open}
+                  aria-controls={`nav-section-${si}`}
+                  style={{ ...headerStyle, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'transparent', borderLeft: 'none', borderRight: 'none', borderBottom: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: 'inherit' }}
+                  onMouseOver={e => { e.currentTarget.style.color = INK }}
+                  onMouseOut={e => { e.currentTarget.style.color = N40 }}
+                >
+                  <span>{section.label}</span>
+                  {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                </button>
+              ) : (
+                <p style={headerStyle}>{section.label}</p>
+              ))}
+              {!section.label && si > 0 && <div style={{ height: 1, background: N08, margin: '8px 0' }} />}
+              {open && (
+                <div id={`nav-section-${si}`}>
+                  {section.items.map(item => renderItem(item, pathname, search, railCollapsed, go))}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </nav>
 
       {/* Footer */}

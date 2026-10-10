@@ -5,7 +5,6 @@ import { useEmployerDashboard, useDashboardKpis, useEmployerPermissions } from '
 import { colors } from '@/design-system/tokens'
 import Sidebar from '@/shared/layouts/Sidebar'
 import { buildEmployerNav } from '@/shared/config/navigation'
-import { CommandBar } from './CommandBar'
 import NotificationBell from '@/components/NotificationBell'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -79,23 +78,6 @@ export default function EmployerSidebar({ collapsed, onToggleCollapse }: { colla
             )}
           </div>
         </div>
-      </div>
-
-      {/* Search + notifications — this is the app's only header-level chrome
-          now that each page's own PageHeader is the sole top heading; they
-          live here instead of a separate top bar so there's never a second
-          header stacked above the page title. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <CommandBar onPostJob={() => navigate(
-            // Job authoring lives inside a department's own workspace now —
-            // a dept-scoped user's "Post a Job" goes straight there. A
-            // company-wide owner can't post at all (only a department-
-            // scoped team member can), so send them to Departments instead,
-            // where they'd invite/open one.
-            isDeptScoped && deptId ? `/app/employer/departments/${deptId}` : '/app/employer/departments'
-          )} />
-        </div>
         <NotificationBell />
       </div>
     </div>
@@ -111,6 +93,8 @@ export default function EmployerSidebar({ collapsed, onToggleCollapse }: { colla
       onLogout={() => logout.mutate()}
       collapsed={collapsed}
       onToggleCollapse={onToggleCollapse}
+      collapsibleSections
+      sectionStorageKey="employer"
     />
   )
 }

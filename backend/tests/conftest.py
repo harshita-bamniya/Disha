@@ -90,7 +90,11 @@ def client(db):
     # app.state.limiter, so every one of them has to be switched off.
     from app.modules.admin import router as admin_router
     from app.modules.auth import router as auth_router
-    limiters = [app.state.limiter, auth_router.limiter, admin_router.limiter]
+    from app.modules.jobs import router as jobs_router
+    from app.modules.companies import router as companies_router
+    from app.modules.referrals import router as referrals_router
+    limiters = [app.state.limiter, auth_router.limiter, admin_router.limiter, jobs_router._limiter, companies_router._limiter,
+                referrals_router._limiter]
     originals = [lim.enabled for lim in limiters]
     for lim in limiters:
         lim.enabled = False

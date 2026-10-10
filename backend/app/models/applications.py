@@ -36,6 +36,15 @@ APPLICATION_STATUSES = (
 )
 
 
+# Where an application counts as having "reached an interview". One definition, used by the admin funnel and the
+# marketplace tiles so they can never disagree. Offers and hires are included: whoever got an offer or was hired went
+# at least as far as an interview stage.
+INTERVIEW_STAGE_STATUSES = (
+    "hr_interview", "technical_interview", "manager_interview", "interview_scheduled", "interview_completed",
+)
+REACHED_INTERVIEW_STATUSES = INTERVIEW_STAGE_STATUSES + ("offer_sent", "offer_declined", "hired")
+
+
 class Application(Base):
     """An aspirant applies to a specific job posting."""
     __tablename__ = "applications"

@@ -344,6 +344,10 @@ def submit_application(job_id: str, body: SubmitApplicationRequest, user: User, 
             is_automated=True,
         ))
 
+    # Employee referral: attribute this application to the referrer, in the same transaction.
+    from app.modules.referrals.service import attribute_application
+    attribute_application(db, application, job, user, body.referral_code)
+
     # Mark resume last_used_at
     if resume_id:
         resume_row = db.query(CandidateResumeFile).filter(CandidateResumeFile.id == resume_id).first()

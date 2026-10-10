@@ -11,7 +11,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.models.applications import Application, ApplicationStatusHistory
+from app.models.applications import REACHED_INTERVIEW_STATUSES, Application, ApplicationStatusHistory
 from app.models.employer_verification import EmployerVerification, EmployerVerificationDocument
 from app.models.interview import InterviewSession
 from app.models.job_plan import JobLearningPlan
@@ -24,7 +24,7 @@ from app.models.user import (
 )
 from app.modules.admin.command_center.stats import LOW_SAMPLE_N, previous_range, wilson
 
-INTERVIEW_STATUSES = ("interview_scheduled", "interviewed", "offered", "hired")
+INTERVIEW_STATUSES = REACHED_INTERVIEW_STATUSES   # shared with the dashboard tiles (see models/applications.py)
 
 ASPIRANT_STEPS = [
     ("signed_up", "Signed up"), ("onboarding", "Onboarding done"), ("kscore", "K-score built"),

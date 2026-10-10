@@ -42,6 +42,9 @@ NOTIFICATION_TYPES = (
     "interview_outcome_request",
     # Verified Interview: an employer invited a candidate; the candidate finished
     "verified_interview_invite", "verified_interview_done",
+    # Employee referrals: told to the referrer when their candidate moves, and to the owner when bonuses mature
+    "referral_applied", "referral_hired", "referral_reward_ready",
+    "referral_reward_approved", "referral_reward_paid", "referral_reward_declined",
 )
 
 
